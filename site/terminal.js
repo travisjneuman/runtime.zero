@@ -21,30 +21,13 @@ const scenes = [
   {
     badge: "REAL",
     lines: [
-      "$ rz0 doctor",
-      "status: phase-1 bootstrap",
-      "command: rz0",
-      "version: 0.1.0",
-      "os: windows | macos | linux",
-      "arch: x86_64 | aarch64",
-      "safety: report-first / dry-run-first / quarantine-first",
-      "mutation_capability: disabled",
-      "cloudflare_automation: not configured",
-      "github_actions: not configured"
-    ]
-  },
-  {
-    badge: "REAL",
-    lines: [
       "$ rz0 modules",
-      "core.brand         active    centralized build-time name and metadata",
-      "core.cli           active    safe command parser and Phase 1 help surface",
-      "core.doctor        active    read-only local runtime diagnostics",
-      "core.scan-plan     stub      dry-run-only scan placeholder",
-      "platform.windows   planned   Windows adapter for packages, registry, services, tasks, and AppData",
-      "modules.update     planned   installed-only update orchestration",
-      "modules.uninstall  planned   manager-native uninstall orchestration",
-      "modules.leftovers  planned   report-first leftover classification and quarantine planning"
+      "core.cli          active    safe command parser and output surface",
+      "core.doctor       active    read-only local runtime diagnostics",
+      "core.scan-plan    stub      dry-run-only scan placeholder",
+      "platform.windows  planned   Windows adapter for local inventory evidence",
+      "modules.update    planned   installed-only update planning",
+      "modules.leftovers planned   report-first classification and quarantine planning"
     ]
   },
   {
@@ -99,6 +82,7 @@ const scenes = [
 ];
 
 const terminal = document.querySelector("#terminal-output");
+const state = document.querySelector("#scene-state");
 const sceneCards = Array.from(document.querySelectorAll(".scene"));
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let activeScene = -1;
@@ -115,6 +99,10 @@ function renderScene(index) {
   const scene = scenes[index];
   const text = `${scene.lines.join("\n")}\n`;
   terminal.dataset.badge = scene.badge;
+  if (state) {
+    state.textContent = scene.badge;
+    state.dataset.state = scene.badge.toLowerCase();
+  }
 
   if (reduceMotion || index === 0) {
     terminal.textContent = text;
@@ -125,12 +113,12 @@ function renderScene(index) {
   let cursor = 0;
   typingTimer = window.setInterval(() => {
     terminal.textContent = text.slice(0, cursor);
-    cursor += 3;
+    cursor += 4;
     if (cursor > text.length) {
       terminal.textContent = text;
       window.clearInterval(typingTimer);
     }
-  }, 8);
+  }, 7);
 }
 
 const observer = new IntersectionObserver(
@@ -147,7 +135,7 @@ const observer = new IntersectionObserver(
     sceneCards.forEach((card) => card.classList.toggle("is-active", card === visible.target));
     renderScene(sceneIndex);
   },
-  { rootMargin: "-35% 0px -35% 0px", threshold: [0.2, 0.45, 0.7] }
+  { rootMargin: "-42% 0px -38% 0px", threshold: [0.25, 0.55, 0.8] }
 );
 
 sceneCards.forEach((card) => observer.observe(card));

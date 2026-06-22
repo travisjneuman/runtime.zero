@@ -2,7 +2,7 @@
 
 Static site source for the live runtime.zero landing page at [`https://rz0.neuman.dev`](https://rz0.neuman.dev).
 
-This slice is dependency-free: no npm install, package manifest, framework, or Cloudflare config file is required. The first live version is functional, but the final visual/vibe direction is still being iterated.
+This slice is dependency-free: no npm install, package manifest, framework, or Cloudflare config file is required. The current direction is a dark-only single-terminal-artifact command surface with a restrained boot-sequence opening.
 
 ## Cloudflare Worker build settings
 
