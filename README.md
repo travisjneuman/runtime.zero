@@ -94,18 +94,30 @@ See [`docs/architecture.md`](docs/architecture.md),
 [`docs/module-system.md`](docs/module-system.md), and
 [`docs/manifest-validation.md`](docs/manifest-validation.md).
 
+## Brand system
+
+The canonical public brand guide is [`BRAND.md`](BRAND.md).
+
+Current direction: **Dossier Navy / Burnished Brass** — blackened navy,
+graphite panels, bone-white type, burnished-brass operational accents, muted
+blue-gray metadata, and red only for danger/error/destructive states.
+
+Owner-provided candidate assets live under [`assets/brand/`](assets/brand/).
+They are candidates, not final locked identity assets.
+
 ## Repository hygiene
 
 The project root is intentionally kept small and conventional. Source belongs in
-`src/`, product docs in `docs/`, site material in `site/`, and future tests,
-scripts, fixtures, or assets should live in clearly named subfolders. Durable
-planning and session artifacts belong in `_meta.notes`, not as loose root files.
+`src/`, product docs in `docs/`, site material in `site/`, brand assets in
+`assets/brand/`, and future tests, scripts, fixtures, or other assets should
+live in clearly named subfolders. Durable planning and session artifacts belong
+in `_meta.notes`, not as loose root files.
 
 ## Website
 
 The first static landing page is live at [`https://rz0.neuman.dev`](https://rz0.neuman.dev) and its source lives in [`site/`](site/). It is deployed through the connected Cloudflare Worker project `runtime-zero` using `site/` as the static output directory.
 
-This first version is dependency-free and public-safe, but the visual direction is still provisional. The next website pass should refine the terminal-noir / Mr. Robot-inspired feel while keeping claims honest, avoiding unsafe direct-run commands, and preserving the static deployment unless a framework migration is separately approved.
+This first version is dependency-free and public-safe, but the visual direction is still provisional. Website visual editing is currently paused until stronger reference examples are reviewed. Future site work should align to [`BRAND.md`](BRAND.md), avoid red as a brand accent, keep claims honest, avoid unsafe direct-run commands, and preserve the static deployment unless a framework migration is separately approved.
 
 ## License
 

@@ -20,6 +20,7 @@ limited to items that belong at the top of a public Rust CLI repository:
 - `SAFETY.md`
 - `SECURITY.md`
 - `CONTRIBUTING.md`
+- `BRAND.md`
 - `AGENTS.md`
 - Rust manifests/locks such as `Cargo.toml` and `Cargo.lock`
 - root config files that tooling genuinely requires
@@ -32,10 +33,21 @@ Place everything else in the narrowest appropriate folder:
 - tests in `tests/` when integration tests are added
 - scripts/helpers in `scripts/` when needed
 - fixtures/examples/assets in clearly named subfolders
+- brand source/candidate assets in `assets/brand/`
 
 Do not add loose root-level planning notes, scratch files, screenshots, logs,
 exports, prompts, reports, or temporary artifacts. Durable planning and session
 artifacts belong in `E:/Web Development/_meta.notes/Projects/runtime.zero/`.
+
+## Brand rules
+
+`BRAND.md` is the canonical public brand reference. Keep the default visual
+direction aligned to Dossier Navy / Burnished Brass: blackened navy, graphite,
+bone-white text, burnished brass accents, muted blue-gray metadata, and red only
+for danger/error/destructive states. Do not use red, rust, oxblood, crimson, or
+copper-red as brand accents. Keep original owner-generated visual assets outside
+the repo untouched; copy selected candidates into `assets/brand/` before any
+repo/site/README/TUI use.
 
 ## Safety rules
 

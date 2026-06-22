@@ -1,0 +1,105 @@
+{
+  "generated": "2026-06-22",
+  "project": "runtime.zero",
+  "brand_direction": "Dossier Navy / Burnished Brass",
+  "note": "Original image files remain outside the repository. These repository copies are candidates, not final locked brand assets.",
+  "duplicate_sources_not_copied": [
+    {
+      "sha256": "0575ccaf1740721d5a183c7dd3b992ea45df2b15d39abf274038ede63c4a5cbb",
+      "original_name": "ChatGPT Image Jun 22, 2026, 12_20_37 AM (1).png",
+      "duplicate_of": "runtime-zero-banner-01.png"
+    }
+  ],
+  "assets": [
+    {
+      "file": "runtime-zero-banner-01.png",
+      "original_name": "banner1.png",
+      "role": "primary banner candidate with rz0 badge",
+      "status": "candidate",
+      "width": 2172,
+      "height": 724,
+      "bytes": 1109851,
+      "sha256": "0575ccaf1740721d5a183c7dd3b992ea45df2b15d39abf274038ede63c4a5cbb"
+    },
+    {
+      "file": "runtime-zero-banner-02.png",
+      "original_name": "banner2.png",
+      "role": "minimal primary wordmark/banner candidate",
+      "status": "preferred clean banner candidate",
+      "width": 2172,
+      "height": 724,
+      "bytes": 837201,
+      "sha256": "3071d0271449827e4a6256a12160f315c4acfaed73613151fe667131ba0f745a"
+    },
+    {
+      "file": "runtime-zero-banner-03.png",
+      "original_name": "banner3.png",
+      "role": "dossier panel banner candidate",
+      "status": "candidate",
+      "width": 2172,
+      "height": 724,
+      "bytes": 1162427,
+      "sha256": "4f30a425319a23d97229e7e1ae84fb5794a2662934275a3f8bd23371af34b68d"
+    },
+    {
+      "file": "runtime-zero-hero-01.png",
+      "original_name": "graphic1.png",
+      "role": "README/social hero candidate: systems under control",
+      "status": "candidate",
+      "width": 1672,
+      "height": 941,
+      "bytes": 1426624,
+      "sha256": "b3a3fce0304ebbe9bb2b471b265c0400c8edcb5771b389d8c24e9c41ce2f68fc"
+    },
+    {
+      "file": "runtime-zero-hero-02.png",
+      "original_name": "graphic2.png",
+      "role": "README/social hero candidate: safe system management foundation",
+      "status": "preferred README/social candidate",
+      "width": 1672,
+      "height": 941,
+      "bytes": 1429636,
+      "sha256": "a1a21b898aa2c2d3c417f5944ab6333ceef491d6122380569e2e5f3ccfc5580f"
+    },
+    {
+      "file": "runtime-zero-hero-03.png",
+      "original_name": "graphic3.png",
+      "role": "CLI splash / README hero candidate: report first",
+      "status": "preferred CLI/TUI splash candidate",
+      "width": 1672,
+      "height": 941,
+      "bytes": 1738279,
+      "sha256": "b2effba2eeee88d64358e67a0fd8152e1e07c288456cc4a03042aca53f1a85a5"
+    },
+    {
+      "file": "rz0-icon-01.png",
+      "original_name": "icon1.png",
+      "role": "app/icon candidate with rz0 lettering",
+      "status": "candidate",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1681194,
+      "sha256": "64418b38489b1c8cdf60bc02ec924d7deb5c285af7ed373607a04f657a8b76c0"
+    },
+    {
+      "file": "rz0-icon-02.png",
+      "original_name": "icon2.png",
+      "role": "favicon/app-icon candidate: simple zero mark",
+      "status": "preferred favicon/app icon candidate",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1553315,
+      "sha256": "86f38f4faa36c600862b52fff5b90ec1a8766d7e7b894687aa07ea7f36e9e4ec"
+    },
+    {
+      "file": "rz0-icon-03.png",
+      "original_name": "icon3.png",
+      "role": "terminal prompt/icon candidate",
+      "status": "candidate",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1879405,
+      "sha256": "867498a3d8c5797b6784bbd33aaa6734397e886bfc34828cea2c84edf2aa81b2"
+    }
+  ]
+}
