@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use crossterm::execute;
 use crossterm::style::Print;
 use crossterm::terminal::{
@@ -31,13 +31,13 @@ fn run_event_loop<W: Write>(
     loop {
         let input = match event::read()? {
             Event::Key(key) => input_from_key(key),
-            Event::Resize(_, _) => TuiInput::Resize,
-            _ => TuiInput::Other,
+            Event::Resize(_, _) => Some(TuiInput::Resize),
+            _ => None,
         };
-        if state.apply(input) == TuiAction::Quit {
-            break;
-        }
-        if input != TuiInput::Other {
+        if let Some(input) = input {
+            if state.apply(input) == TuiAction::Quit {
+                break;
+            }
             render(output, &dashboard, &state, launch_context, color)?;
         }
     }
@@ -48,27 +48,26 @@ fn render<W: Write>(
     output: &mut W,
     dashboard: &tui_dashboard::TuiDashboard,
     state: &TuiState,
-    launch_context: &LaunchRoutingReport,
+    _launch_context: &LaunchRoutingReport,
     color: bool,
 ) -> io::Result<()> {
     let (width, height) = size().unwrap_or((80, 24));
-    let mut frame = render_dashboard_with_state(dashboard, color, width, height, state);
-    frame.push_str(&format!(
-        "launch_mode: {:?} | {}\n",
-        launch_context.launch_mode, launch_context.reason
-    ));
+    let frame = render_dashboard_with_state(dashboard, color, width, height, state);
     execute!(output, MoveTo(0, 0), Clear(ClearType::All), Print(frame))?;
     output.flush()
 }
 
-fn input_from_key(key: KeyEvent) -> TuiInput {
-    match key.code {
+fn input_from_key(key: KeyEvent) -> Option<TuiInput> {
+    if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
+        return None;
+    }
+    Some(match key.code {
         KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => TuiInput::Quit,
         KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?') => TuiInput::ToggleHelp,
         KeyCode::Tab | KeyCode::Down | KeyCode::Right => TuiInput::NextSection,
         KeyCode::BackTab | KeyCode::Up | KeyCode::Left => TuiInput::PreviousSection,
         _ => TuiInput::Other,
-    }
+    })
 }
 
 struct TerminalGuard;
@@ -99,27 +98,38 @@ fn color_enabled() -> bool {
 mod tests {
     use super::*;
     use crate::launch_routing::{LaunchEnvironment, resolve_launch_mode};
+    use crossterm::event::KeyModifiers;
 
     #[test]
     fn q_key_maps_to_quit_without_printable_output() {
         let input = input_from_key(KeyEvent::from(KeyCode::Char('q')));
-        assert_eq!(input, TuiInput::Quit);
+        assert_eq!(input, Some(TuiInput::Quit));
     }
 
     #[test]
     fn help_and_navigation_keys_are_supported() {
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Char('?'))),
-            TuiInput::ToggleHelp
+            Some(TuiInput::ToggleHelp)
         );
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Tab)),
-            TuiInput::NextSection
+            Some(TuiInput::NextSection)
         );
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Up)),
-            TuiInput::PreviousSection
+            Some(TuiInput::PreviousSection)
         );
+    }
+
+    #[test]
+    fn key_release_events_do_not_move_selection_twice() {
+        let release =
+            KeyEvent::new_with_kind(KeyCode::Down, KeyModifiers::NONE, KeyEventKind::Release);
+        let repeat =
+            KeyEvent::new_with_kind(KeyCode::Down, KeyModifiers::NONE, KeyEventKind::Repeat);
+        assert_eq!(input_from_key(release), None);
+        assert_eq!(input_from_key(repeat), Some(TuiInput::NextSection));
     }
 
     #[test]

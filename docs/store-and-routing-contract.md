@@ -305,7 +305,9 @@ The TUI key contract is:
 - `h` or `?` toggles help;
 - Tab/down/right moves to the next section;
 - up/left moves to the previous section;
-- terminal resize events re-render the dashboard without changing state.
+- terminal resize events re-render the dashboard without changing state;
+- key release events are ignored, while press and repeat events remain
+  intentional input so Windows terminals do not double-advance navigation.
 
 The terminal guard must restore raw mode, cursor visibility, and the normal
 screen on exit or panic unwinding.

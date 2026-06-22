@@ -40,11 +40,12 @@ rz0 store init --yes
 rz0 scan --dry-run
 ```
 
-Bare `rz0` opens the read-only TUI dashboard in an interactive terminal. It
-uses raw key handling, so `q`/Esc exits without echoing typed input. Use
-`rz0 --no-tui` for the scriptable text dashboard, or `rz0 --json` for a
-machine-readable foundation dashboard. `rz0 <subcommand>` remains scriptable
-and never opens the TUI.
+Bare `rz0` opens the read-only TUI dashboard shell in an interactive terminal.
+It uses raw key handling, so `q`/Esc exits without echoing typed input, and it
+filters terminal key events so Windows key-release events do not double-advance
+selection. Use `rz0 --no-tui` for the scriptable text dashboard, or `rz0
+--json` for a machine-readable foundation dashboard. `rz0 <subcommand>`
+remains scriptable and never opens the TUI.
 
 Current commands are read-only, dry-run, or explicit user-local store
 scaffolding. They exist to prove the binary, brand metadata, test harness,
@@ -187,8 +188,9 @@ The project is intentionally modular:
 - Rust CLI core for command parsing, action planning, policy, logs, JSON output, and quarantine/restore.
 - Platform adapters for Windows, macOS, and Linux.
 - Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
-- Read-only foundation TUI shell for local review; subcommands remain the stable
-  automation/script surface.
+- Read-only foundation TUI shell for local review, with navigation rail,
+  selected-section panel, foundation status cards, and command rail; subcommands
+  remain the stable automation/script surface.
 
 See [`docs/architecture.md`](docs/architecture.md),
 [`docs/module-system.md`](docs/module-system.md), and

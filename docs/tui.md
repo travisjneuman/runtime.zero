@@ -26,6 +26,8 @@ Runtime behavior:
 - restores raw mode, cursor visibility, and the normal screen on exit or panic
   unwinding through the TUI guard;
 - re-renders on terminal resize events;
+- treats key press and repeat events as intentional input;
+- ignores key release events so Windows terminals do not double-advance navigation;
 - clamps layout width/height so narrow terminals do not panic.
 
 Minimum keys:
@@ -52,6 +54,41 @@ The dashboard must not claim planned modules are installed or active, must not
 run module code, and must not trigger installs, updates, cleanup, remote
 fetches, or destructive actions.
 
+
+## Current shell layout
+
+The TUI is intentionally more than a command transcript. The current shell
+renders:
+
+- a header with product/version and foundation mode;
+- a navigation rail for foundation, local store, modules, and safety gates;
+- a selected-section panel with focused rows;
+- foundation state cards for store, registry, receipt, and installed-module
+  posture;
+- a command rail that points back to scriptable CLI commands;
+- a persistent safety footer and optional help text.
+
+The text dashboard shown by `rz0 --no-tui` uses the same data/rendering model
+without raw-mode terminal control. That keeps the CLI path scriptable while
+letting the interactive TUI feel like a product shell instead of a line-oriented
+report.
+
+## Verification expectations
+
+Automated tests should cover launch routing, key-event filtering, reducer
+state, no ANSI in plain text output, selected-section rendering, narrow terminal
+rendering, and help output. A manual smoke check is still required after local
+install refresh because full-screen raw terminal behavior depends on the host
+terminal emulator.
+
+Manual check after refreshing the installed binary:
+
+1. Run `rz0` in a new interactive PowerShell terminal.
+2. Press down arrow once; selection should advance exactly one section.
+3. Hold down arrow; repeat navigation should continue predictably.
+4. Press `h` or `?`; help should toggle without typed input echo.
+5. Press `q` or Esc; the TUI should exit and restore the normal prompt.
+
 ## Brand and maintainability
 
 TUI visual tokens are centralized in `src/tui_theme.rs` and use the
@@ -62,7 +99,8 @@ terminals, and with color disabled through `NO_COLOR`.
 Rendering, app state, input handling, and data shaping are deliberately split:
 
 - `src/tui_dashboard.rs` builds the read-only data model;
-- `src/tui_render.rs` renders a resize-safe text frame;
+- `src/tui_canvas.rs` owns frame, padding, truncation, and line helpers;
+- `src/tui_render.rs` renders a resize-safe dashboard shell;
 - `src/tui_state.rs` owns navigation/help state transitions;
 - `src/tui_app.rs` owns terminal raw-mode lifecycle and event handling;
 - `src/tui_theme.rs` owns tokens/status label constants.

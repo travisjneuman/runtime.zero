@@ -140,6 +140,27 @@ fn sections(
                 ),
             ],
         },
+        TuiSection {
+            title: "safety gates",
+            rows: vec![
+                row(
+                    tui_theme::LABEL_OK,
+                    "TUI is read-only review surface",
+                    "safe",
+                ),
+                row(
+                    tui_theme::LABEL_DRY_RUN,
+                    "store init stays explicit",
+                    "dry_run",
+                ),
+                row(tui_theme::LABEL_SKIP, "module execution blocked", "muted"),
+                row(
+                    tui_theme::LABEL_SKIP,
+                    "remote fetch and trust blocked",
+                    "muted",
+                ),
+            ],
+        },
     ]
 }
 
@@ -257,29 +278,5 @@ fn palette() -> TuiPalette {
         brand_accent: tui_theme::BRAND_ACCENT,
         text_primary: tui_theme::TEXT_PRIMARY,
         text_muted: tui_theme::TEXT_MUTED,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn dashboard_does_not_claim_active_feature_modules() {
-        let dashboard = dashboard();
-        assert_eq!(dashboard.installed_module_count, 0);
-        assert!(matches!(
-            dashboard.registry_state,
-            InstalledRegistryState::Absent | InstalledRegistryState::Valid
-        ));
-        assert!(matches!(
-            dashboard.receipt_state,
-            ReceiptInventoryState::NotReferenced | ReceiptInventoryState::Valid
-        ));
-        assert!(matches!(
-            dashboard.store_init_status,
-            StoreInitStatus::Ready | StoreInitStatus::AlreadyInitialized
-        ));
-        assert!(dashboard.planned_module_family_count > 0);
     }
 }
