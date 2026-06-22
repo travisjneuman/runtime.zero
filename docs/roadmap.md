@@ -6,7 +6,7 @@
 - Rust CLI command `rz0`.
 - Centralized brand metadata.
 - Safety, security, contribution, architecture, module, and roadmap docs.
-- Minimal static site source.
+- Minimal static site source and first live Cloudflare Worker deployment at `https://rz0.neuman.dev`.
 - Read-only `doctor`, `modules`, and dry-run `scan` stubs.
 
 ## Phase 2 — foundation contracts and inventory primitives
@@ -42,8 +42,9 @@
 ## Phase 6 — interactive UX and site
 
 - Terminal review flow.
-- Static docs/site polish.
-- Optional deployment after explicit approval.
+- Static docs/site polish and stronger terminal-noir visual direction.
+- CLI/site aesthetic alignment after the foundation command surface is ready for manual review.
+- Optional framework migration or deployment automation only after explicit approval.
 
 ## Phase 7 — macOS/Linux adapters
 

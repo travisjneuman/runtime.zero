@@ -99,7 +99,9 @@ planning and session artifacts belong in `_meta.notes`, not as loose root files.
 
 ## Website
 
-A minimal static site lives in [`site/`](site/). It is prepared for a future `rz0.neuman.dev` or `runtimezero.neuman.dev` deployment. No Cloudflare or GitHub Actions deployment automation is configured in Phase 1.
+The first static landing page is live at [`https://rz0.neuman.dev`](https://rz0.neuman.dev) and its source lives in [`site/`](site/). It is deployed through the connected Cloudflare Worker project `runtime-zero` using `site/` as the static output directory.
+
+This first version is dependency-free and public-safe, but the visual direction is still provisional. The next website pass should refine the terminal-noir / Mr. Robot-inspired feel while keeping claims honest, avoiding unsafe direct-run commands, and preserving the static deployment unless a framework migration is separately approved.
 
 ## License
 
