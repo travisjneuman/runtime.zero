@@ -287,6 +287,8 @@ The future routing contract is deterministic:
   dashboard;
 - bare `rz0` falls back to safe CLI dashboard/status text while non-interactive
   or automated;
+- `rz0 --tui` explicitly requests the TUI and returns a clear usage error when
+  non-interactive or automated;
 - `rz0 <subcommand>` always runs the scriptable CLI path;
 - `rz0 --json` and `rz0 --format json` never launch a full-screen TUI;
 - pipes, redirected output, non-interactive contexts, and automation contexts

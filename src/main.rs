@@ -26,6 +26,11 @@ fn main() {
         process::exit(runtime_zero::ExitCode::Ok.as_i32());
     }
 
+    if launch_context.launch_mode == runtime_zero::launch_routing::LaunchMode::TuiUnavailable {
+        eprintln!("TUI requested but unavailable: {}", launch_context.reason);
+        process::exit(runtime_zero::ExitCode::Usage.as_i32());
+    }
+
     let (code, stdout, stderr) = if dashboard_json_requested(&launch_context) {
         runtime_zero::dashboard_cli::dashboard_json()
     } else if dashboard_text_requested(&args, &launch_context) {
@@ -76,6 +81,5 @@ fn dashboard_text_requested(
         || matches!(
             launch_context.launch_mode,
             runtime_zero::launch_routing::LaunchMode::CliDashboardText
-                | runtime_zero::launch_routing::LaunchMode::TuiUnavailable
         )
 }

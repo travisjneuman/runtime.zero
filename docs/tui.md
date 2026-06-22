@@ -1,9 +1,11 @@
 # Terminal UI Foundation
 
 Bare `rz0` opens the terminal UI when both stdin and stdout are interactive and
-automation is not detected. Explicit subcommands, `--json`, `--format json`,
-`--no-tui`, non-interactive pipes/redirects, and automation contexts remain on
-the scriptable CLI path.
+automation is not detected. `rz0 --tui` explicitly requests that same
+full-screen dashboard and returns a clear usage error if the terminal is not
+interactive. Explicit subcommands, `--json`, `--format json`, `--no-tui`,
+non-interactive pipes/redirects, and automation contexts remain on the
+scriptable CLI path.
 
 The TUI is a safe review dashboard. It is part of the foundation, not an
 optional feature module, but it does not replace the CLI contracts. Every

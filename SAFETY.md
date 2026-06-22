@@ -102,6 +102,10 @@ system. `rz0 <subcommand>`, JSON output, redirected/piped output,
 non-interactive contexts, and `rz0 --no-tui` must stay scriptable and must not
 launch the full-screen dashboard.
 
+`rz0 --tui` is an explicit request for the interactive dashboard. It must fail
+clearly instead of silently falling back when the terminal is non-interactive or
+automation is detected.
+
 The TUI uses raw key handling so quit/help/navigation keys do not echo in the
 terminal. It treats key press/repeat events as intentional input and ignores key
 release events so Windows terminals do not double-advance navigation. Its

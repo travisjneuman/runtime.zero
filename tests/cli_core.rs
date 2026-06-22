@@ -41,6 +41,7 @@ fn root_help_mentions_store_root_override() {
     assert!(err.is_empty());
     assert!(out.contains("store status [--store-root <path>]"));
     assert!(out.contains("--color auto|always|never"));
+    assert!(out.contains("rz0 --tui"));
 }
 
 #[test]

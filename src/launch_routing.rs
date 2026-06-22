@@ -71,6 +71,12 @@ pub fn resolve_launch_mode(args: &[String], env: LaunchEnvironment) -> LaunchRou
         )
     } else if no_tui_requested {
         (LaunchMode::CliDashboardText, "--no-tui bypass requested")
+    } else if tui_requested && (!env.stdin_is_tty || !env.stdout_is_tty || env.automation_detected)
+    {
+        (
+            LaunchMode::TuiUnavailable,
+            "TUI explicitly requested but terminal is non-interactive or automated",
+        )
     } else if !env.stdin_is_tty || !env.stdout_is_tty || env.automation_detected {
         (
             LaunchMode::CliDashboardText,
@@ -174,6 +180,21 @@ mod tests {
     fn no_tui_bypasses_tui() {
         let report = resolve_launch_mode(&["--no-tui".to_string()], interactive(true));
         assert_eq!(report.launch_mode, LaunchMode::CliDashboardText);
+    }
+
+    #[test]
+    fn explicit_tui_errors_when_non_interactive() {
+        let report = resolve_launch_mode(
+            &["--tui".to_string()],
+            LaunchEnvironment {
+                stdin_is_tty: true,
+                stdout_is_tty: false,
+                tui_available: true,
+                automation_detected: false,
+            },
+        );
+        assert_eq!(report.launch_mode, LaunchMode::TuiUnavailable);
+        assert_eq!(report.interface, InterfaceMode::Cli);
     }
 
     #[test]

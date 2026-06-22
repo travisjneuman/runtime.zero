@@ -23,6 +23,7 @@ Command: `rz0`
 
 ```bash
 rz0 --version
+rz0 --tui
 rz0 --no-tui
 rz0 --color auto|always|never
 rz0 doctor
@@ -49,6 +50,9 @@ rail, Home/End jumps, arrow/Tab navigation, and `j`/`k` keyboard shortcuts for
 operator-style terminal use. Use `rz0 --no-tui` for the scriptable text
 dashboard, or `rz0 --json` for a machine-readable foundation dashboard.
 `rz0 <subcommand>` remains scriptable and never opens the TUI.
+`rz0 --tui` explicitly requests the full-screen TUI and fails clearly if the
+terminal is non-interactive or automation is detected; plain `rz0` falls back
+to the safe text dashboard in those contexts.
 
 Color is explicit and accessible: `--color=auto` is the default,
 `--color=never` disables ANSI even in the interactive TUI, and
