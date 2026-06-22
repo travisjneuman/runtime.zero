@@ -61,6 +61,13 @@ The project is intentionally modular:
 
 See [`docs/architecture.md`](docs/architecture.md) and [`docs/module-system.md`](docs/module-system.md).
 
+## Repository hygiene
+
+The project root is intentionally kept small and conventional. Source belongs in
+`src/`, product docs in `docs/`, site material in `site/`, and future tests,
+scripts, fixtures, or assets should live in clearly named subfolders. Durable
+planning and session artifacts belong in `_meta.notes`, not as loose root files.
+
 ## Website
 
 A minimal static site lives in [`site/`](site/). It is prepared for a future `rz0.neuman.dev` or `runtimezero.neuman.dev` deployment. No Cloudflare or GitHub Actions deployment automation is configured in Phase 1.
