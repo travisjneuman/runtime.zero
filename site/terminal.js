@@ -125,6 +125,8 @@ const footer = document.querySelector("[data-footer-links]");
 const navItems = Array.from(document.querySelectorAll("[data-nav-item]"));
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const narrowViewport = window.matchMedia("(max-width: 780px)").matches;
+const layoutEnd = 0.3;
+const sceneStart = 0.34;
 
 let activeScene = -1;
 let typingTimer = 0;
@@ -141,16 +143,20 @@ function progressForStage() {
   return clamp(-rect.top / distance, 0, 1);
 }
 
-function setVars(progress) {
-  const reveal = clamp((progress - 0.12) / 0.16, 0, 1);
-  const footerReveal = clamp((progress - 0.84) / 0.12, 0, 1);
-  root.style.setProperty("--title-scale", String(1 - progress * 0.48));
-  root.style.setProperty("--title-y", `${-progress * 84}px`);
+function setVars(layoutProgress, scrollProgress) {
+  const reveal = clamp((layoutProgress - 0.12) / 0.16, 0, 1);
+  const footerReveal = clamp((scrollProgress - 0.84) / 0.12, 0, 1);
+  root.style.setProperty("--title-scale", String(1 - layoutProgress * 0.55));
+  root.style.setProperty("--title-y", `${-layoutProgress * 118}px`);
   root.style.setProperty("--terminal-opacity", String(reveal));
   root.style.setProperty("--terminal-y", `${34 - reveal * 34}px`);
   root.style.setProperty("--terminal-scale", String(0.94 + reveal * 0.06));
   root.style.setProperty("--footer-opacity", String(footerReveal));
-  root.style.setProperty("--scene-progress", String(progress));
+  root.style.setProperty("--scene-progress", String(scrollProgress));
+}
+
+function sceneProgressFor(scrollProgress) {
+  return clamp((scrollProgress - sceneStart) / (1 - sceneStart), 0, 1);
 }
 
 function sceneIndexFor(progress) {
@@ -194,10 +200,36 @@ function renderScene(index) {
   typeLines(`${scene.lines.join("\n")}\n`);
 }
 
+function renderDormant() {
+  if (activeScene === -2) return;
+  activeScene = -2;
+  window.clearInterval(typingTimer);
+  if (title) title.textContent = "";
+  if (label) label.textContent = "";
+  if (counter) counter.textContent = "00 / 06";
+  if (statusLeft) statusLeft.textContent = "";
+  if (statusMid) statusMid.textContent = "";
+  if (output) output.textContent = "";
+  navItems.forEach((item) => item.classList.remove("is-active"));
+}
+
 function update() {
-  const progress = reduceMotion || narrowViewport ? 0 : progressForStage();
-  setVars(progress);
-  renderScene(sceneIndexFor(progress));
+  if (reduceMotion || narrowViewport) {
+    setVars(1, 1);
+    renderScene(0);
+    return;
+  }
+
+  const scrollProgress = progressForStage();
+  const layoutProgress = clamp(scrollProgress / layoutEnd, 0, 1);
+  setVars(layoutProgress, scrollProgress);
+
+  if (scrollProgress < sceneStart) {
+    renderDormant();
+    return;
+  }
+
+  renderScene(sceneIndexFor(sceneProgressFor(scrollProgress)));
 }
 
 function syncFooterFocus() {
