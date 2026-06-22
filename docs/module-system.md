@@ -47,7 +47,8 @@ rz0 store init --dry-run
 Bare `rz0` opens a minimal read-only TUI dashboard in interactive terminals.
 That dashboard may show module posture and future module slots, but it must not
 claim planned module families are installed or executable. Explicit subcommands
-remain the scriptable CLI surface.
+remain the scriptable CLI surface. See [`tui.md`](tui.md) for the raw-key TUI
+contract and maintenance boundaries.
 
 The JSON output uses schema version `1` and separates:
 

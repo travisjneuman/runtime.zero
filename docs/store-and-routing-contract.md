@@ -293,10 +293,22 @@ The future routing contract is deterministic:
   never launch a full-screen TUI;
 - `rz0 --no-tui` bypasses the TUI and prints the scriptable text dashboard.
 
-The current TUI shell is intentionally small and dependency-free. It uses
-standard-library terminal detection, centralized theme tokens, a dashboard data
-model, a renderer, and a minimal input loop. It does not add an installer, PATH
-setup, release binary, or bootstrap command.
+The current TUI shell is intentionally small and dependency-light. It uses
+standard-library terminal detection, `crossterm` raw key handling, centralized
+theme tokens, a dashboard data model, a resize-safe renderer, and a guarded
+event loop. It does not add an installer, PATH setup, release binary, or
+bootstrap command.
+
+The TUI key contract is:
+
+- `q` or Esc exits safely without echoing typed input;
+- `h` or `?` toggles help;
+- Tab/down/right moves to the next section;
+- up/left moves to the previous section;
+- terminal resize events re-render the dashboard without changing state.
+
+The terminal guard must restore raw mode, cursor visibility, and the normal
+screen on exit or panic unwinding.
 
 The TUI may show only foundation state: doctor/status posture, store
 plan/status summaries, module validation/dry-run posture, safety model, and

@@ -102,6 +102,11 @@ system. `rz0 <subcommand>`, JSON output, redirected/piped output,
 non-interactive contexts, and `rz0 --no-tui` must stay scriptable and must not
 launch the full-screen dashboard.
 
+The TUI uses raw key handling so quit/help/navigation keys do not echo in the
+terminal. Its terminal guard must restore raw mode, cursor visibility, and the
+normal screen on exit or panic unwinding. If restoration fails, that is a TUI
+runtime bug, not permission to mutate system state.
+
 ## Local development install boundary
 
 The repository may provide local-only scripts under `scripts/` so Travis can

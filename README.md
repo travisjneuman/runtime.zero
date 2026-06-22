@@ -40,10 +40,11 @@ rz0 store init --yes
 rz0 scan --dry-run
 ```
 
-Bare `rz0` opens a minimal read-only TUI dashboard in an interactive terminal.
-Use `rz0 --no-tui` for the scriptable text dashboard, or `rz0 --json` for a
-machine-readable foundation dashboard. `rz0 <subcommand>` remains scriptable and
-never opens the TUI.
+Bare `rz0` opens the read-only TUI dashboard in an interactive terminal. It
+uses raw key handling, so `q`/Esc exits without echoing typed input. Use
+`rz0 --no-tui` for the scriptable text dashboard, or `rz0 --json` for a
+machine-readable foundation dashboard. `rz0 <subcommand>` remains scriptable
+and never opens the TUI.
 
 Current commands are read-only, dry-run, or explicit user-local store
 scaffolding. They exist to prove the binary, brand metadata, test harness,
@@ -195,6 +196,9 @@ See [`docs/architecture.md`](docs/architecture.md),
 [`docs/store-and-routing-contract.md`](docs/store-and-routing-contract.md) for
 the local module store, store initialization, and CLI/TUI launch-routing
 contract.
+
+[`docs/tui.md`](docs/tui.md) for the read-only terminal UI foundation,
+keyboard behavior, rendering boundaries, and brand/theme structure.
 
 ## Brand system
 

@@ -1,0 +1,72 @@
+# Terminal UI Foundation
+
+Bare `rz0` opens the terminal UI when both stdin and stdout are interactive and
+automation is not detected. Explicit subcommands, `--json`, `--format json`,
+`--no-tui`, non-interactive pipes/redirects, and automation contexts remain on
+the scriptable CLI path.
+
+The TUI is a safe review dashboard. It is part of the foundation, not an
+optional feature module, but it does not replace the CLI contracts. Every
+capability shown in the TUI must remain available through stable text or JSON
+commands.
+
+## Terminal behavior
+
+The current TUI uses [`crossterm`](https://crates.io/crates/crossterm) for raw
+key handling and terminal restoration. `crossterm` was chosen because it is a
+mainstream Rust terminal crate, keeps the dependency surface smaller than a full
+widget framework, and directly solves the foundation requirement that keys such
+as `q` must not echo in the terminal.
+
+Runtime behavior:
+
+- enters raw mode so single-key actions do not require Enter and do not echo;
+- uses an alternate screen for the dashboard;
+- hides the cursor while active;
+- restores raw mode, cursor visibility, and the normal screen on exit or panic
+  unwinding through the TUI guard;
+- re-renders on terminal resize events;
+- clamps layout width/height so narrow terminals do not panic.
+
+Minimum keys:
+
+- `q` or `Esc`: quit safely;
+- `h` or `?`: toggle keyboard/safety help;
+- `Tab`, down arrow, or right arrow: next dashboard section;
+- up arrow or left arrow: previous dashboard section.
+
+## Dashboard content
+
+The dashboard is read-only and may show only foundation state:
+
+- foundation safety posture;
+- store initialization readiness or initialized state;
+- store path/status summary;
+- installed-module registry validity;
+- receipt validation state;
+- installed module count;
+- planned first-party module family count;
+- dry-run-only module install posture.
+
+The dashboard must not claim planned modules are installed or active, must not
+run module code, and must not trigger installs, updates, cleanup, remote
+fetches, or destructive actions.
+
+## Brand and maintainability
+
+TUI visual tokens are centralized in `src/tui_theme.rs` and use the
+`BRAND.md` Dossier Navy / Burnished Brass direction. Labels and colors are
+secondary to clear text so the dashboard remains usable over SSH, in restricted
+terminals, and with color disabled through `NO_COLOR`.
+
+Rendering, app state, input handling, and data shaping are deliberately split:
+
+- `src/tui_dashboard.rs` builds the read-only data model;
+- `src/tui_render.rs` renders a resize-safe text frame;
+- `src/tui_state.rs` owns navigation/help state transitions;
+- `src/tui_app.rs` owns terminal raw-mode lifecycle and event handling;
+- `src/tui_theme.rs` owns tokens/status label constants.
+
+Future TUI polish should preserve this separation so the website reference and
+real terminal UI can evolve together without making terminal usability depend
+on a web layout.
