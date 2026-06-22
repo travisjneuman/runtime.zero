@@ -38,6 +38,8 @@ rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
 rz0 store plan
 rz0 store plan --format json
+rz0 store status
+rz0 store status --format json
 ```
 
 The JSON output uses schema version `1` and separates:
@@ -81,8 +83,8 @@ and launches no TUI.
 See [`manifest-validation.md`](manifest-validation.md) for the validation
 contract and current trust boundaries. See
 [`store-and-routing-contract.md`](store-and-routing-contract.md) for the local
-store and CLI/TUI routing contract, including `rz0 store plan` for read-only
-inspection without module install planning.
+store and CLI/TUI routing contract, including `rz0 store plan` and
+`rz0 store status` for read-only inspection without module install planning.
 
 ## Planned module families
 

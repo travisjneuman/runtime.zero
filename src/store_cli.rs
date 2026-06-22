@@ -8,6 +8,8 @@ use crate::launch_routing::{
 use crate::module_store::{
     ForbiddenPathClass, ModuleStorePlan, STORE_SCHEMA_VERSION, module_store_plan,
 };
+use crate::store_status::store_status_report;
+use crate::store_status_text::store_status_text;
 use crate::{ExitCode, brand};
 
 const EXAMPLE_MODULE_ID: &str = "first-party.example";
@@ -32,19 +34,34 @@ enum OutputFormat {
     Json,
 }
 
+enum StoreAction {
+    Plan(OutputFormat),
+    Status(OutputFormat),
+}
+
 pub fn store_command(args: &[String]) -> (ExitCode, String, String) {
     match parse_store_args(args) {
-        Ok(format) => render_store_plan(format, args),
+        Ok(StoreAction::Plan(format)) => render_store_plan(format, args),
+        Ok(StoreAction::Status(format)) => render_store_status(format, args),
         Err(err) => (ExitCode::Usage, String::new(), err),
     }
 }
 
-fn parse_store_args(args: &[String]) -> Result<OutputFormat, String> {
+fn parse_store_args(args: &[String]) -> Result<StoreAction, String> {
     match args {
-        [cmd] if cmd == "plan" => Ok(OutputFormat::Text),
-        [cmd, flag] if cmd == "plan" && flag == "--json" => Ok(OutputFormat::Json),
+        [cmd] if cmd == "plan" => Ok(StoreAction::Plan(OutputFormat::Text)),
+        [cmd, flag] if cmd == "plan" && flag == "--json" => {
+            Ok(StoreAction::Plan(OutputFormat::Json))
+        }
         [cmd, fmt, value] if cmd == "plan" && fmt == "--format" && value == "json" => {
-            Ok(OutputFormat::Json)
+            Ok(StoreAction::Plan(OutputFormat::Json))
+        }
+        [cmd] if cmd == "status" => Ok(StoreAction::Status(OutputFormat::Text)),
+        [cmd, flag] if cmd == "status" && flag == "--json" => {
+            Ok(StoreAction::Status(OutputFormat::Json))
+        }
+        [cmd, fmt, value] if cmd == "status" && fmt == "--format" && value == "json" => {
+            Ok(StoreAction::Status(OutputFormat::Json))
         }
         _ => Err(usage_error(args)),
     }
@@ -54,6 +71,17 @@ fn render_store_plan(format: OutputFormat, args: &[String]) -> (ExitCode, String
     let report = store_plan_report(args);
     match format {
         OutputFormat::Text => (ExitCode::Ok, store_plan_text(&report), String::new()),
+        OutputFormat::Json => match serde_json::to_string_pretty(&report) {
+            Ok(json) => (ExitCode::Ok, format!("{json}\n"), String::new()),
+            Err(err) => (ExitCode::Usage, String::new(), err.to_string()),
+        },
+    }
+}
+
+fn render_store_status(format: OutputFormat, args: &[String]) -> (ExitCode, String, String) {
+    let report = store_status_report(args);
+    match format {
+        OutputFormat::Text => (ExitCode::Ok, store_status_text(&report), String::new()),
         OutputFormat::Json => match serde_json::to_string_pretty(&report) {
             Ok(json) => (ExitCode::Ok, format!("{json}\n"), String::new()),
             Err(err) => (ExitCode::Usage, String::new(), err.to_string()),
@@ -165,8 +193,9 @@ fn interface_label(mode: InterfaceMode) -> &'static str {
 
 fn usage_error(args: &[String]) -> String {
     format!(
-        "unsupported store option(s): {}\n\nUsage: {} store plan [--format json]\n",
+        "unsupported store option(s): {}\n\nUsage: {} store plan [--format json]\n       {} store status [--format json]\n",
         args.join(", "),
+        brand::COMMAND,
         brand::COMMAND
     )
 }
@@ -205,5 +234,36 @@ mod tests {
         assert!(out.contains("\"forbidden_path_classes\""));
         assert!(out.contains("\"launch_mode\": \"cli_subcommand\""));
         assert!(out.contains("\"json_requested\": true"));
+    }
+
+    #[test]
+    fn store_status_text_reports_read_only_inventory() {
+        let args = vec!["status".to_string()];
+        let (code, out, err) = store_command(&args);
+        assert_eq!(code, ExitCode::Ok);
+        assert!(err.is_empty());
+        assert!(out.contains("mode: read-only"));
+        assert!(out.contains("writes_attempted: no"));
+        assert!(out.contains("overall_state:"));
+        assert!(out.contains("registry_path:"));
+        assert!(out.contains("launch_mode: cli_subcommand"));
+    }
+
+    #[test]
+    fn store_status_json_reports_stable_inventory_shape() {
+        let args = vec![
+            "status".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ];
+        let (code, out, err) = store_command(&args);
+        assert_eq!(code, ExitCode::Ok);
+        assert!(err.is_empty());
+        assert!(out.contains("\"command\": \"store status\""));
+        assert!(out.contains("\"writes_attempted\": false"));
+        assert!(out.contains("\"overall_state\""));
+        assert!(out.contains("\"registry_path\""));
+        assert!(out.contains("\"transactions_dir\""));
+        assert!(out.contains("\"receipts_dir\""));
     }
 }

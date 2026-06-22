@@ -33,6 +33,8 @@ quarantine records, or module directories.
 ```bash
 rz0 store plan
 rz0 store plan --format json
+rz0 store status
+rz0 store status --format json
 ```
 
 `rz0 store plan` reports the current platform-specific store contract without
@@ -50,6 +52,21 @@ the dry-run install planner and reports:
 The command is read-only. It does not create the roots, registry, receipts,
 transactions, rollback plans, quarantine records, staging directories, module
 directories, or TUI state.
+
+`rz0 store status` inspects the planned paths without initializing them. It
+checks data, state, cache, log, quarantine, modules, registry, transactions, and
+receipts paths and classifies each path as:
+
+- `absent`;
+- `empty`;
+- `present`;
+- `invalid`.
+
+The overall state is `not_initialized`, `empty`, `present`, or `invalid`.
+Type mismatches, metadata errors, and symlinks are reported as invalid state.
+This command must remain safe when no store exists yet; an absent store is a
+normal result before any write-capable install/store initialization behavior is
+approved.
 
 ## Dry-run install metadata
 
@@ -95,3 +112,11 @@ Future CLI/TUI output should follow [`BRAND.md`](../BRAND.md):
 - red is only for danger/error/destructive states;
 - `[PLAN]`, `[DRY-RUN]`, `[OK]`, `[WARN]`, `[BLOCKED]`, `[ERROR]`, and
   `[QUARANTINE]` remain the preferred status grammar.
+
+When the real TUI is implemented, it should visually align with the website's
+TUI reference as closely as practical by sharing concepts and future design
+tokens derived from `BRAND.md`. The website is a visual reference, not a rigid
+contract: the TUI must remain easy to customize and refactor, and terminal
+usability, accessibility, and safe information hierarchy should win. If the
+real TUI evolves into the better source of truth, the website should be updated
+afterward to match it.

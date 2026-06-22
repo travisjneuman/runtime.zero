@@ -10,6 +10,8 @@ pub mod module_store;
 pub mod module_validation;
 pub mod package_integrity;
 pub mod store_cli;
+pub mod store_status;
+pub mod store_status_text;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitCode {
@@ -62,7 +64,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
@@ -280,6 +282,27 @@ mod tests {
         assert!(out.contains("\"store_schema_version\": 1"));
         assert!(out.contains("\"writes_attempted\": false"));
         assert!(out.contains("\"launch_mode\": \"cli_subcommand\""));
+    }
+
+    #[test]
+    fn store_status_reports_read_only_inventory() {
+        let (code, out, err) = run(["store", "status"]);
+        assert_eq!(code, ExitCode::Ok);
+        assert!(err.is_empty());
+        assert!(out.contains("writes_attempted: no"));
+        assert!(out.contains("overall_state:"));
+        assert!(out.contains("registry_path:"));
+    }
+
+    #[test]
+    fn store_status_json_reports_inventory_shape() {
+        let (code, out, err) = run(["store", "status", "--format", "json"]);
+        assert_eq!(code, ExitCode::Ok);
+        assert!(err.is_empty());
+        assert!(out.contains("\"command\": \"store status\""));
+        assert!(out.contains("\"writes_attempted\": false"));
+        assert!(out.contains("\"overall_state\""));
+        assert!(out.contains("\"transactions_dir\""));
     }
 
     #[test]

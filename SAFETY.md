@@ -69,6 +69,10 @@ inspection. It is path planning only: no directories, registry files, receipts,
 transactions, rollback plans, quarantine records, staging files, module files,
 or TUI surfaces are created.
 
+`rz0 store status` is also read-only. It checks whether the future store paths
+already exist and reports absent, empty, present, or invalid states. It must not
+create, repair, migrate, delete, initialize, or write store files.
+
 ## Cleanup risk categories
 
 Future cleanup modules must classify findings before action:

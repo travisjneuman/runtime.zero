@@ -31,6 +31,8 @@ rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
 rz0 store plan
 rz0 store plan --format json
+rz0 store status
+rz0 store status --format json
 rz0 scan --dry-run
 ```
 
@@ -70,12 +72,16 @@ install planning:
 ```bash
 rz0 store plan
 rz0 store plan --format json
+rz0 store status
+rz0 store status --format json
 ```
 
-This command is read-only. It reports the platform-specific user-local store
-roots, registry and transaction paths, example receipt/quarantine/rollback
-paths, forbidden path classes, and current CLI/TUI launch-routing interpretation
-without creating directories or writing state.
+These commands are read-only. `store plan` reports the platform-specific
+user-local store roots, registry and transaction paths, example
+receipt/quarantine/rollback paths, forbidden path classes, and current CLI/TUI
+launch-routing interpretation. `store status` checks whether those future paths
+already exist and reports absent, empty, present, or invalid state without
+creating directories, writing state, or repairing anything.
 
 ## Platform target
 
@@ -100,6 +106,8 @@ cargo run -- modules validate path/to/rz0-module.json
 cargo run -- modules install --dry-run path/to/module-package
 cargo run -- store plan
 cargo run -- store plan --format json
+cargo run -- store status
+cargo run -- store status --format json
 cargo run -- scan --dry-run
 ```
 
