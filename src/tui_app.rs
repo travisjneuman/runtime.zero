@@ -1,33 +1,35 @@
 use std::io::{self, Write};
 
-use crossterm::cursor::{Hide, MoveTo, Show};
+use crossterm::cursor::{Hide, Show};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use crossterm::execute;
-use crossterm::style::Print;
 use crossterm::terminal::{
-    Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
-    enable_raw_mode, size,
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
+use ratatui::Terminal;
+use ratatui::backend::{Backend, CrosstermBackend};
 
 use crate::launch_routing::LaunchRoutingReport;
 use crate::tui_dashboard;
-use crate::tui_render::render_dashboard_with_state;
+use crate::tui_ratatui::draw_dashboard;
 use crate::tui_state::{TuiAction, TuiInput, TuiState};
 
 pub fn run_interactive_tui(launch_context: &LaunchRoutingReport, color: bool) -> io::Result<()> {
     let mut stdout = io::stdout();
     let _terminal = TerminalGuard::enter(&mut stdout)?;
-    run_event_loop(&mut stdout, launch_context, color)
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+    run_event_loop(&mut terminal, launch_context, color)
 }
 
-fn run_event_loop<W: Write>(
-    output: &mut W,
+fn run_event_loop<B: Backend<Error = io::Error>>(
+    terminal: &mut Terminal<B>,
     launch_context: &LaunchRoutingReport,
     color: bool,
 ) -> io::Result<()> {
     let dashboard = tui_dashboard::dashboard();
     let mut state = TuiState::new(dashboard.sections.len());
-    render(output, &dashboard, &state, launch_context, color)?;
+    render(terminal, &dashboard, &state, launch_context, color)?;
     loop {
         let input = match event::read()? {
             Event::Key(key) => input_from_key(key),
@@ -38,23 +40,20 @@ fn run_event_loop<W: Write>(
             if state.apply(input) == TuiAction::Quit {
                 break;
             }
-            render(output, &dashboard, &state, launch_context, color)?;
+            render(terminal, &dashboard, &state, launch_context, color)?;
         }
     }
     Ok(())
 }
 
-fn render<W: Write>(
-    output: &mut W,
+fn render<B: Backend<Error = io::Error>>(
+    terminal: &mut Terminal<B>,
     dashboard: &tui_dashboard::TuiDashboard,
     state: &TuiState,
     _launch_context: &LaunchRoutingReport,
     color: bool,
 ) -> io::Result<()> {
-    let (width, height) = size().unwrap_or((80, 24));
-    let frame = render_dashboard_with_state(dashboard, color, width, height, state);
-    execute!(output, MoveTo(0, 0), Clear(ClearType::All), Print(frame))?;
-    output.flush()
+    draw_dashboard(terminal, dashboard, state, color)
 }
 
 fn input_from_key(key: KeyEvent) -> Option<TuiInput> {
@@ -98,6 +97,7 @@ impl Drop for TerminalGuard {
 mod tests {
     use super::*;
     use crate::launch_routing::{LaunchEnvironment, resolve_launch_mode};
+    use crate::tui_render::render_dashboard_with_state;
     use crossterm::event::KeyModifiers;
 
     #[test]

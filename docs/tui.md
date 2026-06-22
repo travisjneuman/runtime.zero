@@ -17,11 +17,20 @@ commands.
 
 ## Terminal behavior
 
-The current TUI uses [`crossterm`](https://crates.io/crates/crossterm) for raw
-key handling and terminal restoration. `crossterm` was chosen because it is a
-mainstream Rust terminal crate, keeps the dependency surface smaller than a full
-widget framework, and directly solves the foundation requirement that keys such
-as `q` must not echo in the terminal.
+The interactive TUI uses [`crossterm`](https://crates.io/crates/crossterm) for
+raw key handling and terminal restoration, with
+[`ratatui`](https://crates.io/crates/ratatui) as the widget/layout renderer for
+the full-screen dashboard. `crossterm` remains the terminal-control layer
+because it directly solves the foundation requirement that keys such as `q`
+must not echo in the terminal. Ratatui was added as a bounded foundation spike
+after the custom string renderer proved safe but not product-like enough for
+the default bare-`rz0` experience.
+
+The dependency stack is intentionally single-backend: runtime.zero uses
+`crossterm 0.29` directly and enables Ratatui's `crossterm_0_29` feature so the
+interactive renderer does not pull a second, incompatible terminal stack. The
+custom renderer remains in the codebase for scriptable text output and fallback
+comparison.
 
 Runtime behavior:
 
@@ -64,18 +73,18 @@ fetches, or destructive actions.
 
 ## Current shell layout
 
-The TUI is intentionally more than a command transcript. The current shell
-renders:
+The TUI is intentionally more than a command transcript. The interactive shell
+now renders the existing dashboard data model through Ratatui widgets:
 
-- a header with product/version and foundation mode;
-- a navigation rail for numbered dossier sections: foundation, local store,
-  modules, and safety gates;
+- a bounded header panel with product/version and foundation mode;
+- a navigation rail/index for numbered dossier sections: foundation, local
+  store, modules, and safety gates;
 - a selected-section panel with dossier code, summary, current position, and
   focused rows;
 - foundation state cards for store, registry, receipt, and installed-module
   posture;
 - a command rail that points back to scriptable CLI commands;
-- a persistent safety footer and optional help text.
+- a persistent safety footer and optional help panel.
 
 Interactive rendering applies Dossier Navy / Burnished Brass status tones to
 headers, selected navigation, status labels, and blocked/dry-run rows. Text
@@ -90,10 +99,10 @@ Color control is global:
 - `--color=always` forces color for supported human-readable surfaces;
 - JSON output must stay ANSI-free regardless of color mode.
 
-The text dashboard shown by `rz0 --no-tui` uses the same data/rendering model
-without raw-mode terminal control. That keeps the CLI path scriptable while
-letting the interactive TUI feel like a product shell instead of a line-oriented
-report.
+The text dashboard shown by `rz0 --no-tui` uses the same data model but keeps
+the custom text renderer without raw-mode terminal control. That keeps the CLI
+path scriptable while letting the interactive TUI use a stronger widget/layout
+layer.
 
 ## Verification expectations
 
@@ -102,9 +111,11 @@ state, no ANSI in plain text output, selected-section rendering, narrow terminal
 rendering, help output, and visible-width invariants across compact, normal,
 wide, colorized, and non-colorized frames. Renderer tests should also exercise
 every dashboard section across help and non-help states so future visual polish
-does not accidentally hide the text labels that make color optional. A manual
-smoke check is still required after local install refresh because full-screen
-raw terminal behavior depends on the host terminal emulator.
+does not accidentally hide the text labels that make color optional. Ratatui
+buffer tests should prove labels remain visible with and without color and that
+compact/normal/wide frames stay within terminal boundaries. A manual smoke
+check is still required after local install refresh because full-screen raw
+terminal behavior depends on the host terminal emulator.
 
 Manual check after refreshing the installed binary:
 
@@ -126,8 +137,10 @@ Rendering, app state, input handling, and data shaping are deliberately split:
 
 - `src/tui_dashboard.rs` builds the read-only data model;
 - `src/tui_canvas.rs` owns frame, padding, truncation, and line helpers;
-- `src/tui_render.rs` renders a resize-safe dashboard shell;
+- `src/tui_render.rs` renders the resize-safe scriptable text dashboard shell;
 - `src/tui_render_support.rs` owns render-only text helpers and tone mapping;
+- `src/tui_ratatui.rs` renders the interactive widget dashboard;
+- `src/tui_ratatui_support.rs` owns Ratatui style/layout helper primitives;
 - `src/tui_state.rs` owns navigation/help state transitions;
 - `src/tui_app.rs` owns terminal raw-mode lifecycle and event handling;
 - `src/tui_theme.rs` owns tokens/status label constants.

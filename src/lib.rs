@@ -26,6 +26,8 @@ pub mod store_status_text;
 pub mod tui_app;
 pub mod tui_canvas;
 pub mod tui_dashboard;
+pub mod tui_ratatui;
+mod tui_ratatui_support;
 pub mod tui_render;
 mod tui_render_support;
 pub mod tui_state;
