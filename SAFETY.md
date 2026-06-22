@@ -39,9 +39,17 @@ listing. That loader is intentionally narrow:
 - no install/update/uninstall side effects;
 - no recursive drive scans;
 - bounded manifest file size;
+- bounded local package file integrity checks;
 - third-party manifests rejected until the trust model exists.
 
 Validation failure must be reported as data, not repaired automatically.
+
+For installed manifests, the loader also verifies explicitly listed files under
+the manifest directory with SHA-256. It rejects absolute paths, traversal,
+URL-like paths, symlinks, reparse points, files over 64 MiB, and manifests with
+more than 128 listed files. This is not an installer, updater, downloader, or
+trust decision; it is a local fail-closed check before future install behavior
+exists.
 
 ## Cleanup risk categories
 

@@ -6,12 +6,14 @@ use std::path::Path;
 use crate::module_manifest::{
     MAX_MANIFEST_BYTES, MODULE_SCHEMA_VERSION, ModuleKind, ModuleManifest, ModuleStatus, RiskLevel,
 };
+use crate::package_integrity::{PackageIntegrityReport, verify_package_integrity};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ManifestValidationReport {
     pub path: String,
     pub valid: bool,
     pub manifest: Option<ModuleManifest>,
+    pub integrity: Option<PackageIntegrityReport>,
     pub errors: Vec<String>,
     pub warnings: Vec<String>,
 }
@@ -22,6 +24,7 @@ impl ManifestValidationReport {
             path: path.display().to_string(),
             valid: false,
             manifest: None,
+            integrity: None,
             errors: vec![error],
             warnings: Vec::new(),
         }
@@ -57,10 +60,24 @@ pub fn validate_manifest(path: &Path, manifest: ModuleManifest) -> ManifestValid
     validate_lists(&manifest, &mut errors, &mut warnings);
     validate_trust(&manifest, &mut errors, &mut warnings);
     validate_safety(&manifest, &mut errors);
+    let integrity = verify_package_integrity(path, &manifest);
+    errors.extend(
+        integrity
+            .errors
+            .iter()
+            .map(|error| format!("package_integrity: {error}")),
+    );
+    warnings.extend(
+        integrity
+            .warnings
+            .iter()
+            .map(|warning| format!("package_integrity: {warning}")),
+    );
     ManifestValidationReport {
         path: path.display().to_string(),
         valid: errors.is_empty(),
         manifest: Some(manifest),
+        integrity: Some(integrity),
         errors,
         warnings,
     }
@@ -180,7 +197,7 @@ mod tests {
             "0.1.0",
             "runtime.zero",
             ModuleKind::FirstPartyModule,
-            ModuleStatus::Installed,
+            ModuleStatus::Planned,
             "Read-only inventory.",
             &["inventory"],
             &["windows"],

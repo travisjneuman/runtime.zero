@@ -5,6 +5,7 @@ pub mod module_cli;
 pub mod module_manifest;
 pub mod module_registry;
 pub mod module_validation;
+pub mod package_integrity;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitCode {
@@ -189,6 +190,30 @@ mod tests {
         assert_eq!(code, ExitCode::Usage);
         assert!(err.is_empty());
         assert!(out.contains("status: invalid"));
+    }
+
+    #[test]
+    fn modules_validate_accepts_fixture_package_integrity() {
+        let (code, out, err) = run([
+            "modules",
+            "validate",
+            "tests/fixtures/module-packages/valid-inventory/rz0-module.json",
+        ]);
+        assert_eq!(code, ExitCode::Ok);
+        assert!(err.is_empty());
+        assert!(out.contains("status: valid"));
+    }
+
+    #[test]
+    fn modules_validate_rejects_fixture_hash_mismatch() {
+        let (code, out, err) = run([
+            "modules",
+            "validate",
+            "tests/fixtures/module-packages/hash-mismatch/rz0-module.json",
+        ]);
+        assert_eq!(code, ExitCode::Usage);
+        assert!(err.is_empty());
+        assert!(out.contains("hash mismatch"));
     }
 
     #[test]

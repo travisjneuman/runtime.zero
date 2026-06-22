@@ -44,7 +44,8 @@ The installed `rz0` foundation is not meant to contain every feature. It should 
 First-party feature modules are planned as separate install/use choices. A full bundle may exist later as a convenience distribution, but it should not redefine the core. Third-party modules require a hardened trust model before support is added.
 
 The foundation can validate local module manifests without executing module
-code:
+code. Installed manifests must also pass local SHA-256 integrity checks for
+explicitly listed package files:
 
 ```bash
 rz0 modules validate path/to/rz0-module.json

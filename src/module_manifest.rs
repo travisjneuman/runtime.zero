@@ -76,6 +76,8 @@ pub struct ModuleManifest {
     pub supported_platforms: Vec<String>,
     pub risk_level: RiskLevel,
     pub safety: ModuleSafety,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub integrity: Option<PackageIntegrity>,
 }
 
 impl ModuleManifest {
@@ -106,8 +108,88 @@ impl ModuleManifest {
             supported_platforms: to_strings(supported_platforms),
             risk_level,
             safety,
+            integrity: None,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageIntegrity {
+    pub package_format: PackageFormat,
+    pub root_policy: IntegrityRootPolicy,
+    pub hash_algorithm: HashAlgorithm,
+    pub files: Vec<PackageFileIntegrity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<SignatureMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<ProvenanceMetadata>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PackageFormat {
+    Directory,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegrityRootPolicy {
+    ManifestDirectory,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HashAlgorithm {
+    Sha256,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageFileIntegrity {
+    pub path: String,
+    pub sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size_bytes: Option<u64>,
+    #[serde(default)]
+    pub role: PackageFileRole,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PackageFileRole {
+    Manifest,
+    Payload,
+    Docs,
+    License,
+    Config,
+    Data,
+    TestFixture,
+}
+
+impl Default for PackageFileRole {
+    fn default() -> Self {
+        Self::Payload
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignatureMetadata {
+    pub scheme: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProvenanceMetadata {
+    pub source: String,
+    pub publisher: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
 }
 
 fn to_strings(values: &[&str]) -> Vec<String> {

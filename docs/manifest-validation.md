@@ -31,7 +31,8 @@ Schema version `1` currently expects:
 - `capabilities`;
 - `supported_platforms`;
 - `risk_level`;
-- `safety`.
+- `safety`;
+- optional `integrity`.
 
 The `safety` object declares:
 
@@ -44,6 +45,42 @@ The `safety` object declares:
 Unknown fields are rejected so module authors cannot rely on undeclared
 behavior.
 
+## Package integrity metadata
+
+Installed manifests must include local package integrity metadata. Planned
+manifests may omit it, but validation emits a warning because the package has
+not been verified. Only SHA-256 directory packages rooted at the manifest
+directory are supported in this slice.
+
+```json
+{
+  "integrity": {
+    "package_format": "directory",
+    "root_policy": "manifest_directory",
+    "hash_algorithm": "sha256",
+    "files": [
+      {
+        "path": "payload.txt",
+        "sha256": "1520b869efef13352d18285a6e072ab1e7f7f771ece09f5f84d603c5310c2621",
+        "size_bytes": 29,
+        "role": "payload"
+      }
+    ],
+    "provenance": {
+      "source": "local_fixture",
+      "publisher": "runtime.zero",
+      "release_id": "fixture"
+    }
+  }
+}
+```
+
+Integrity validation is local and read-only. It opens only explicitly listed
+files under the manifest directory, hashes them with SHA-256, and compares the
+result to manifest metadata. It never fetches remote packages, runs package
+code, loads dynamic libraries, runs scripts or hooks, repairs files, installs
+modules, updates modules, or removes modules.
+
 ## Current validation rules
 
 - Manifest files must be regular files and at most 64 KiB.
@@ -55,6 +92,15 @@ behavior.
 - `remote_execution_allowed` must be `false`.
 - Mutating modules must require confirmation and dry-run support.
 - Destructive-gated modules must support quarantine or rollback.
+- Installed manifests must include integrity metadata.
+- Planned manifests without integrity metadata remain valid with a warning.
+- Integrity metadata may list at most 128 files.
+- Each listed file must be at most 64 MiB.
+- Listed paths must be relative manifest-directory paths.
+- Absolute paths, `..` traversal, URL-like paths, backslash paths, duplicate
+  paths, malformed SHA-256 values, missing files, size mismatches, hash
+  mismatches, symlinks, reparse points, and non-file paths are rejected.
+- SHA-256 is the only supported hash algorithm.
 
 Directory loading is intentionally shallow: `rz0 modules --from <directory>`
 loads JSON files directly in that directory only. Valid manifests are listed as
@@ -64,6 +110,6 @@ to choose between competing manifests silently.
 
 ## Safety non-goals
 
-This validation layer does not yet provide signing, checksums, sandboxing,
-revocation, module installation, remote distribution, update orchestration, or
+This validation layer does not yet provide signature verification, revocation,
+module installation, remote distribution, update orchestration, sandboxing, or
 third-party trust. Those require separate approval and threat modeling.

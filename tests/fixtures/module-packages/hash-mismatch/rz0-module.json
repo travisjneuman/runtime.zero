@@ -1,0 +1,33 @@
+{
+  "manifest_version": 1,
+  "id": "first-party.inventory-fixture-bad-hash",
+  "display_name": "Inventory Fixture Bad Hash",
+  "version": "0.1.0",
+  "publisher": "runtime.zero",
+  "kind": "first_party_module",
+  "status": "installed",
+  "summary": "Read-only fixture module with an intentionally wrong hash.",
+  "capabilities": ["inventory"],
+  "supported_platforms": ["windows"],
+  "risk_level": "read_only",
+  "safety": {
+    "mutates_system": false,
+    "requires_confirmation": true,
+    "dry_run_required": true,
+    "quarantine_supported": false,
+    "remote_execution_allowed": false
+  },
+  "integrity": {
+    "package_format": "directory",
+    "root_policy": "manifest_directory",
+    "hash_algorithm": "sha256",
+    "files": [
+      {
+        "path": "payload.txt",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "size_bytes": 29,
+        "role": "test_fixture"
+      }
+    ]
+  }
+}

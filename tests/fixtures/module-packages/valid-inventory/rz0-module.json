@@ -1,0 +1,38 @@
+{
+  "manifest_version": 1,
+  "id": "first-party.inventory-fixture",
+  "display_name": "Inventory Fixture",
+  "version": "0.1.0",
+  "publisher": "runtime.zero",
+  "kind": "first_party_module",
+  "status": "installed",
+  "summary": "Read-only fixture module for local package integrity validation.",
+  "capabilities": ["inventory"],
+  "supported_platforms": ["windows"],
+  "risk_level": "read_only",
+  "safety": {
+    "mutates_system": false,
+    "requires_confirmation": true,
+    "dry_run_required": true,
+    "quarantine_supported": false,
+    "remote_execution_allowed": false
+  },
+  "integrity": {
+    "package_format": "directory",
+    "root_policy": "manifest_directory",
+    "hash_algorithm": "sha256",
+    "files": [
+      {
+        "path": "payload.txt",
+        "sha256": "1520b869efef13352d18285a6e072ab1e7f7f771ece09f5f84d603c5310c2621",
+        "size_bytes": 29,
+        "role": "test_fixture"
+      }
+    ],
+    "provenance": {
+      "source": "local_fixture",
+      "publisher": "runtime.zero",
+      "release_id": "fixture"
+    }
+  }
+}

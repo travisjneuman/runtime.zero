@@ -17,6 +17,7 @@ A module manifest declares:
 - dry-run requirements;
 - quarantine/rollback support;
 - remote execution policy;
+- optional local package integrity metadata;
 - test fixtures.
 
 ## Design rule
@@ -49,6 +50,14 @@ passes the foundation contract. `rz0 modules --from <directory>` reads JSON
 manifests directly inside that directory and includes only valid manifests in
 `installed_modules`. Neither command executes code or fetches remote content.
 
+Installed manifests are valid only when their explicitly listed package files
+pass local SHA-256 integrity checks. Planned manifests may omit integrity
+metadata, but the validator reports that they are not package-verified yet.
+The first integrity slice supports only local directory packages rooted at the
+manifest directory; it rejects absolute paths, traversal, URLs, symlinks,
+reparse points, files over 64 MiB, and manifests with more than 128 listed
+files.
+
 See [`manifest-validation.md`](manifest-validation.md) for the validation
 contract and current trust boundaries.
 
@@ -65,4 +74,9 @@ contract and current trust boundaries.
 
 ## Trust model
 
-The initial implementation does not execute optional modules. First-party modules should later be signed/checksummed and explicitly installed or enabled. Third-party modules are expected eventually, but only after a hardened trust model covering signing, provenance, sandboxing, permissions, revocation, and abuse cases.
+The initial implementation does not execute optional modules. First-party
+modules should later be signed and explicitly installed or enabled. This
+foundation slice only verifies local SHA-256 checksums; it does not make a
+network trust decision. Third-party modules are expected eventually, but only
+after a hardened trust model covering signing, provenance, sandboxing,
+permissions, revocation, and abuse cases.
