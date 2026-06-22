@@ -15,6 +15,7 @@ enum OutputFormat {
 }
 
 enum StoreAction {
+    Help,
     Plan(OutputFormat),
     Status(StoreStatusOptions),
     Init(StoreInitCliOptions),
@@ -32,6 +33,7 @@ struct StoreInitCliOptions {
 
 pub fn store_command(args: &[String]) -> (ExitCode, String, String) {
     match parse_store_args(args) {
+        Ok(StoreAction::Help) => (ExitCode::Ok, store_usage(), String::new()),
         Ok(StoreAction::Plan(format)) => render_store_plan(format, args),
         Ok(StoreAction::Status(options)) => render_store_status(options, args),
         Ok(StoreAction::Init(options)) => render_store_init(options, args),
@@ -41,6 +43,7 @@ pub fn store_command(args: &[String]) -> (ExitCode, String, String) {
 
 fn parse_store_args(args: &[String]) -> Result<StoreAction, String> {
     match args {
+        [flag] if matches!(flag.as_str(), "--help" | "-h" | "help") => Ok(StoreAction::Help),
         [cmd] if cmd == "plan" => Ok(StoreAction::Plan(OutputFormat::Text)),
         [cmd, flag] if cmd == "plan" && flag == "--json" => {
             Ok(StoreAction::Plan(OutputFormat::Json))
@@ -186,8 +189,15 @@ fn looks_url_like(value: &str) -> bool {
 
 fn usage_error(args: &[String]) -> String {
     format!(
-        "unsupported store option(s): {}\n\nUsage: {} store plan [--format json]\n       {} store status [--store-root <path>] [--format json]\n       {} store init --dry-run [--format json]\n       {} store init --yes [--format json]\n",
+        "unsupported store option(s): {}\n\n{}",
         args.join(", "),
+        store_usage()
+    )
+}
+
+fn store_usage() -> String {
+    format!(
+        "Usage: {} store plan [--format json]\n       {} store status [--store-root <path>] [--format json]\n       {} store init --dry-run [--format json]\n       {} store init --yes [--format json]\n\nSafety: store status and plan are read-only; store init writes only with explicit --yes.\n",
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,

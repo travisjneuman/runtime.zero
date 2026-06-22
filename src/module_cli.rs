@@ -12,6 +12,7 @@ enum OutputFormat {
 }
 
 enum ModulesAction {
+    Help,
     List {
         format: OutputFormat,
         from: Option<String>,
@@ -28,6 +29,7 @@ enum ModulesAction {
 
 pub fn modules_command(args: &[String]) -> (ExitCode, String, String) {
     match parse_modules_args(args) {
+        Ok(ModulesAction::Help) => (ExitCode::Ok, modules_usage(), String::new()),
         Ok(ModulesAction::List { format, from }) => render_modules(format, from.as_deref()),
         Ok(ModulesAction::Validate { path, format }) => render_validation(format, &path),
         Ok(ModulesAction::InstallDryRun { path, format }) => render_install_plan(format, &path),
@@ -45,6 +47,7 @@ pub fn modules_json() -> Result<String, String> {
 
 fn parse_modules_args(args: &[String]) -> Result<ModulesAction, String> {
     match args {
+        [flag] if matches!(flag.as_str(), "--help" | "-h" | "help") => Ok(ModulesAction::Help),
         [] => Ok(list_action(OutputFormat::Text, None)),
         [flag] if flag == "--json" => Ok(list_action(OutputFormat::Json, None)),
         [flag, value] if flag == "--format" && value == "json" => {
@@ -274,8 +277,15 @@ fn install_action_label(action: module_install_plan::PlannedInstallActionKind) -
 
 fn usage_error(args: &[String]) -> String {
     format!(
-        "unsupported modules option(s): {}\n\nUsage: {} modules [--from <dir>] [--format json]\n       {} modules validate <manifest.json> [--format json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format json]\n",
+        "unsupported modules option(s): {}\n\n{}",
         args.join(", "),
+        modules_usage()
+    )
+}
+
+fn modules_usage() -> String {
+    format!(
+        "Usage: {} modules [--from <dir>] [--format json]\n       {} modules validate <manifest.json> [--format json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format json]\n\nSafety: module install planning is dry-run only; modules are not executed or fetched.\n",
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND

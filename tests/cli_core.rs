@@ -20,6 +20,28 @@ fn doctor_is_read_only_bootstrap_diagnostic() {
 }
 
 #[test]
+fn subcommand_help_is_scriptable_and_successful() {
+    let (code, out, err) = run(["modules", "--help"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("rz0 modules install --dry-run"));
+    assert!(out.contains("modules are not executed or fetched"));
+
+    let (code, out, err) = run(["store", "--help"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("rz0 store status [--store-root <path>]"));
+    assert!(out.contains("store status and plan are read-only"));
+}
+
+#[test]
+fn root_help_mentions_store_root_override() {
+    let (code, out, err) = run(["--help"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("store status [--store-root <path>]"));
+}
+#[test]
 fn modules_show_planned_leftover_scanner() {
     let (code, out, err) = run(["modules"]);
     assert_eq!(code, ExitCode::Ok);
