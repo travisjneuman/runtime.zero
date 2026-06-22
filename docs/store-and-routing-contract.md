@@ -292,6 +292,8 @@ The future routing contract is deterministic:
 - pipes, redirected output, non-interactive contexts, and automation contexts
   never launch a full-screen TUI;
 - `rz0 --no-tui` bypasses the TUI and prints the scriptable text dashboard.
+- `--color=auto|always|never` is a global presentation flag, not a command; it
+  must not change routing, safety, write behavior, or JSON output.
 
 The current TUI shell is intentionally small and dependency-light. It uses
 standard-library terminal detection, `crossterm` raw key handling, centralized
@@ -324,6 +326,7 @@ Future CLI/TUI output should follow [`BRAND.md`](../BRAND.md):
 
 - plain labels first, color as reinforcement only;
 - JSON output never includes ANSI escape sequences;
+- `--color=auto|always|never` and `NO_COLOR` control human-readable ANSI use;
 - red is only for danger/error/destructive states;
 - `[PLAN]`, `[DRY-RUN]`, `[OK]`, `[WARN]`, `[BLOCKED]`, `[ERROR]`, and
   `[QUARANTINE]` remain the preferred status grammar.

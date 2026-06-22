@@ -110,6 +110,10 @@ the safety boundary. Its terminal guard must restore raw mode, cursor
 visibility, and the normal screen on exit or panic unwinding. If restoration
 fails, that is a TUI runtime bug, not permission to mutate system state.
 
+Color is never required for understanding state. Human-readable output accepts
+the global `--color=auto|always|never` flag, respects `NO_COLOR` in auto mode,
+and keeps JSON ANSI-free. Status labels remain the authority.
+
 ## Local development install boundary
 
 The repository may provide local-only scripts under `scripts/` so Travis can

@@ -14,10 +14,10 @@ use crate::tui_dashboard;
 use crate::tui_render::render_dashboard_with_state;
 use crate::tui_state::{TuiAction, TuiInput, TuiState};
 
-pub fn run_interactive_tui(launch_context: &LaunchRoutingReport) -> io::Result<()> {
+pub fn run_interactive_tui(launch_context: &LaunchRoutingReport, color: bool) -> io::Result<()> {
     let mut stdout = io::stdout();
     let _terminal = TerminalGuard::enter(&mut stdout)?;
-    run_event_loop(&mut stdout, launch_context, color_enabled())
+    run_event_loop(&mut stdout, launch_context, color)
 }
 
 fn run_event_loop<W: Write>(
@@ -92,10 +92,6 @@ impl Drop for TerminalGuard {
         let _ = disable_raw_mode();
         let _ = execute!(io::stdout(), Show, LeaveAlternateScreen);
     }
-}
-
-fn color_enabled() -> bool {
-    std::env::var_os("NO_COLOR").is_none()
 }
 
 #[cfg(test)]

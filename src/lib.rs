@@ -1,6 +1,7 @@
 use std::env;
 
 pub mod brand;
+pub mod color_mode;
 pub mod dashboard_cli;
 pub mod install_receipt;
 mod install_receipt_schema;
@@ -47,6 +48,10 @@ where
     S: Into<String>,
 {
     let args: Vec<String> = args.into_iter().map(Into::into).collect();
+    let args = match color_mode::parse_global_args(&args) {
+        Ok(parsed) => parsed.args,
+        Err((code, message)) => return (code, String::new(), message),
+    };
 
     match args.first().map(String::as_str) {
         None => (ExitCode::Ok, help_text(), String::new()),
@@ -72,7 +77,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,

@@ -40,6 +40,28 @@ fn root_help_mentions_store_root_override() {
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
     assert!(out.contains("store status [--store-root <path>]"));
+    assert!(out.contains("--color auto|always|never"));
+}
+
+#[test]
+fn global_color_flag_is_accepted_without_changing_subcommand_contract() {
+    let (code, out, err) = run(["store", "status", "--color=never"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("mode: read-only"));
+
+    let (code, out, err) = run(["--color", "always", "modules", "--help"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("modules are not executed or fetched"));
+}
+
+#[test]
+fn invalid_global_color_flag_fails_before_actions() {
+    let (code, out, err) = run(["--color=neon"]);
+    assert_eq!(code, ExitCode::Usage);
+    assert!(out.is_empty());
+    assert!(err.contains("unsupported --color value"));
 }
 #[test]
 fn modules_show_planned_leftover_scanner() {

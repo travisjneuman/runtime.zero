@@ -24,6 +24,7 @@ Command: `rz0`
 ```bash
 rz0 --version
 rz0 --no-tui
+rz0 --color auto|always|never
 rz0 doctor
 rz0 modules
 rz0 modules --format json
@@ -48,6 +49,11 @@ rail, Home/End jumps, arrow/Tab navigation, and `j`/`k` keyboard shortcuts for
 operator-style terminal use. Use `rz0 --no-tui` for the scriptable text
 dashboard, or `rz0 --json` for a machine-readable foundation dashboard.
 `rz0 <subcommand>` remains scriptable and never opens the TUI.
+
+Color is explicit and accessible: `--color=auto` is the default,
+`--color=never` disables ANSI even in the interactive TUI, and
+`--color=always` forces color for supported human-readable surfaces. JSON
+output never includes ANSI.
 
 Current commands are read-only, dry-run, or explicit user-local store
 scaffolding. They exist to prove the binary, brand metadata, test harness,

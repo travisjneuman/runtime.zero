@@ -4,11 +4,22 @@ use std::process;
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
+    let parsed = match runtime_zero::color_mode::parse_global_args(&args) {
+        Ok(parsed) => parsed,
+        Err((code, message)) => {
+            eprint!("{message}");
+            process::exit(code.as_i32());
+        }
+    };
+    let args = parsed.args;
     let launch_context =
         runtime_zero::launch_routing::resolve_launch_mode(&args, launch_environment());
 
     if launch_context.launch_mode == runtime_zero::launch_routing::LaunchMode::TuiDashboard {
-        if let Err(err) = runtime_zero::tui_app::run_interactive_tui(&launch_context) {
+        let color = parsed
+            .color_mode
+            .enabled_for_tui(launch_context.stdout_is_tty);
+        if let Err(err) = runtime_zero::tui_app::run_interactive_tui(&launch_context, color) {
             eprintln!("failed to render TUI: {err}");
             process::exit(runtime_zero::ExitCode::Usage.as_i32());
         }
@@ -18,7 +29,9 @@ fn main() {
     let (code, stdout, stderr) = if dashboard_json_requested(&launch_context) {
         runtime_zero::dashboard_cli::dashboard_json()
     } else if dashboard_text_requested(&args, &launch_context) {
-        runtime_zero::dashboard_cli::dashboard_text()
+        runtime_zero::dashboard_cli::dashboard_text_with_color(
+            parsed.color_mode.enabled_for_scriptable_text(),
+        )
     } else {
         runtime_zero::run(args)
     };

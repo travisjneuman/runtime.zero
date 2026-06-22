@@ -78,6 +78,13 @@ labels remain the source of truth: `[OK]`, `[INFO]`, `[PLAN]`, `[DRY-RUN]`,
 `[BLOCKED]`, and `[SKIP]` must still explain the state when color is disabled
 or unavailable.
 
+Color control is global:
+
+- `--color=auto` is the default and respects `NO_COLOR`;
+- `--color=never` disables ANSI, including in the interactive TUI;
+- `--color=always` forces color for supported human-readable surfaces;
+- JSON output must stay ANSI-free regardless of color mode.
+
 The text dashboard shown by `rz0 --no-tui` uses the same data/rendering model
 without raw-mode terminal control. That keeps the CLI path scriptable while
 letting the interactive TUI feel like a product shell instead of a line-oriented
