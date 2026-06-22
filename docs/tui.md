@@ -100,9 +100,11 @@ report.
 Automated tests should cover launch routing, key-event filtering, reducer
 state, no ANSI in plain text output, selected-section rendering, narrow terminal
 rendering, help output, and visible-width invariants across compact, normal,
-wide, colorized, and non-colorized frames. A manual smoke check is still
-required after local install refresh because full-screen raw terminal behavior
-depends on the host terminal emulator.
+wide, colorized, and non-colorized frames. Renderer tests should also exercise
+every dashboard section across help and non-help states so future visual polish
+does not accidentally hide the text labels that make color optional. A manual
+smoke check is still required after local install refresh because full-screen
+raw terminal behavior depends on the host terminal emulator.
 
 Manual check after refreshing the installed binary:
 

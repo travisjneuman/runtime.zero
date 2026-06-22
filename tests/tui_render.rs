@@ -20,6 +20,24 @@ fn visible_line_width(value: &str) -> usize {
     width
 }
 
+fn strip_ansi(value: &str) -> String {
+    let mut output = String::new();
+    let mut chars = value.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\u{1b}' && chars.peek() == Some(&'[') {
+            chars.next();
+            for code in chars.by_ref() {
+                if code.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else {
+            output.push(ch);
+        }
+    }
+    output
+}
+
 #[test]
 fn render_plain_dashboard_without_ansi() {
     let rendered = render_dashboard(&tui_dashboard::dashboard(), false);
@@ -104,4 +122,79 @@ fn rendered_frames_keep_visible_width_within_terminal_bounds() {
             );
         }
     }
+}
+
+#[test]
+fn all_sections_render_with_accessible_labels_across_terminal_sizes() {
+    let dashboard = tui_dashboard::dashboard();
+    let sizes = [(58, 16), (80, 20), (118, 30), (160, 50)];
+
+    for selected_section in 0..dashboard.sections.len() {
+        for show_help in [false, true] {
+            for (requested_width, requested_height) in sizes {
+                for color in [false, true] {
+                    let mut state = TuiState::new(dashboard.sections.len());
+                    state.selected_section = selected_section;
+                    state.show_help = show_help;
+                    let rendered = render_dashboard_with_state(
+                        &dashboard,
+                        color,
+                        requested_width,
+                        requested_height,
+                        &state,
+                    );
+                    let plain = strip_ansi(&rendered);
+                    let frame_width = usize::from(requested_width).clamp(58, 132);
+                    let frame_height = usize::from(requested_height).max(16);
+                    let section = &dashboard.sections[selected_section];
+
+                    assert!(
+                        rendered.lines().count() <= frame_height,
+                        "rendered too many lines for section {} at {requested_width}x{requested_height}",
+                        section.code
+                    );
+                    for line in rendered.lines() {
+                        assert!(
+                            visible_line_width(line) <= frame_width,
+                            "line exceeded visible frame width {frame_width}: {line:?}"
+                        );
+                    }
+                    assert!(plain.contains("NAVIGATION"));
+                    assert!(plain.contains("read-only"));
+                    if requested_height >= 20 {
+                        assert!(plain.contains("[INFO]"));
+                        assert!(plain.contains("[") && plain.contains("]"));
+                    }
+                    if !show_help || requested_height >= 24 {
+                        assert!(
+                            plain.contains(section.title)
+                                || plain.contains(&section.title.to_uppercase())
+                        );
+                    }
+                    if show_help {
+                        assert!(plain.contains("q/Esc quit"));
+                        assert!(plain.contains("automation: subcommands"));
+                    } else {
+                        assert!(plain.contains("keys: q quit"));
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn colorized_frames_preserve_plain_text_contract() {
+    let dashboard = tui_dashboard::dashboard();
+    let mut state = TuiState::new(dashboard.sections.len());
+    state.selected_section = 3;
+    state.show_help = true;
+
+    let plain = render_dashboard_with_state(&dashboard, false, 118, 30, &state);
+    let colorized = render_dashboard_with_state(&dashboard, true, 118, 30, &state);
+
+    assert!(colorized.contains("\x1b["));
+    assert_eq!(strip_ansi(&colorized), plain);
+    assert!(plain.contains("[BLOCKED]"));
+    assert!(plain.contains("[DRY-RUN]"));
 }
