@@ -6,6 +6,10 @@ use crate::installed_registry::InstalledRegistryState;
 use crate::module_registry::ModuleRegistryReport;
 use crate::store_init::{StoreInitMode, StoreInitOptions, StoreInitStatus, store_init_report};
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
+use crate::tui_dashboard_labels::{
+    init_label, init_status_label, init_tone, receipt_label, receipt_state_label, receipt_tone,
+    registry_label, registry_state_label, registry_tone, row, row_count, store_state_label,
+};
 use crate::tui_theme;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -180,113 +184,6 @@ fn sections(
             ],
         },
     ]
-}
-
-fn row(label: &'static str, value: &str, tone: &'static str) -> TuiRow {
-    TuiRow {
-        label,
-        value: value.to_string(),
-        tone,
-    }
-}
-
-fn row_count(label: &'static str, count: usize, suffix: &str, tone: &'static str) -> TuiRow {
-    row(label, &format!("{count} {suffix}"), tone)
-}
-
-fn store_state_label(state: StoreOverallState) -> &'static str {
-    match state {
-        StoreOverallState::NotInitialized => "store not initialized",
-        StoreOverallState::Empty => "store paths exist but are empty",
-        StoreOverallState::Present => "store paths present",
-        StoreOverallState::Invalid => "store path mismatch detected",
-    }
-}
-
-fn init_status_label(status: StoreInitStatus) -> &'static str {
-    match status {
-        StoreInitStatus::Ready => "store init dry-run ready",
-        StoreInitStatus::AlreadyInitialized => "store scaffolding initialized",
-        StoreInitStatus::Applied => "store init applied",
-        StoreInitStatus::Blocked => "store init blocked",
-    }
-}
-
-fn init_label(status: StoreInitStatus) -> &'static str {
-    match status {
-        StoreInitStatus::Blocked => tui_theme::LABEL_WARN,
-        StoreInitStatus::AlreadyInitialized | StoreInitStatus::Applied => tui_theme::LABEL_OK,
-        StoreInitStatus::Ready => tui_theme::LABEL_DRY_RUN,
-    }
-}
-
-fn init_tone(status: StoreInitStatus) -> &'static str {
-    match status {
-        StoreInitStatus::Blocked => "warn",
-        StoreInitStatus::AlreadyInitialized | StoreInitStatus::Applied => "safe",
-        StoreInitStatus::Ready => "dry_run",
-    }
-}
-
-fn registry_state_label(state: InstalledRegistryState) -> &'static str {
-    match state {
-        InstalledRegistryState::Absent => "registry absent",
-        InstalledRegistryState::Empty => "registry file empty",
-        InstalledRegistryState::Valid => "registry valid",
-        InstalledRegistryState::Invalid => "registry invalid",
-        InstalledRegistryState::Unreadable => "registry unreadable",
-    }
-}
-
-fn registry_label(state: InstalledRegistryState) -> &'static str {
-    match state {
-        InstalledRegistryState::Invalid | InstalledRegistryState::Unreadable => {
-            tui_theme::LABEL_WARN
-        }
-        InstalledRegistryState::Valid => tui_theme::LABEL_OK,
-        InstalledRegistryState::Absent | InstalledRegistryState::Empty => tui_theme::LABEL_INFO,
-    }
-}
-
-fn registry_tone(state: InstalledRegistryState) -> &'static str {
-    match state {
-        InstalledRegistryState::Invalid | InstalledRegistryState::Unreadable => "warn",
-        InstalledRegistryState::Valid => "safe",
-        InstalledRegistryState::Absent | InstalledRegistryState::Empty => "info",
-    }
-}
-
-fn receipt_state_label(state: ReceiptInventoryState) -> &'static str {
-    match state {
-        ReceiptInventoryState::NotReferenced => "receipts not referenced",
-        ReceiptInventoryState::Absent => "receipt missing",
-        ReceiptInventoryState::Valid => "receipts valid",
-        ReceiptInventoryState::Invalid => "receipt invalid",
-        ReceiptInventoryState::Unreadable => "receipt unreadable",
-        ReceiptInventoryState::UnsupportedSchema => "receipt unsupported schema",
-    }
-}
-
-fn receipt_label(state: ReceiptInventoryState) -> &'static str {
-    match state {
-        ReceiptInventoryState::Invalid
-        | ReceiptInventoryState::Unreadable
-        | ReceiptInventoryState::UnsupportedSchema
-        | ReceiptInventoryState::Absent => tui_theme::LABEL_WARN,
-        ReceiptInventoryState::Valid => tui_theme::LABEL_OK,
-        ReceiptInventoryState::NotReferenced => tui_theme::LABEL_INFO,
-    }
-}
-
-fn receipt_tone(state: ReceiptInventoryState) -> &'static str {
-    match state {
-        ReceiptInventoryState::Invalid
-        | ReceiptInventoryState::Unreadable
-        | ReceiptInventoryState::UnsupportedSchema
-        | ReceiptInventoryState::Absent => "warn",
-        ReceiptInventoryState::Valid => "safe",
-        ReceiptInventoryState::NotReferenced => "info",
-    }
 }
 
 fn palette() -> TuiPalette {
