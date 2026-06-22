@@ -26,6 +26,8 @@ fn render_plain_dashboard_without_ansi() {
     assert!(rendered.contains("runtime.zero rz0"));
     assert!(rendered.contains("SCRIPTABLE CLI RAIL"));
     assert!(rendered.contains("rz0 store status"));
+    assert!(rendered.contains("read-only · no installs/cleanup/module execution/store writes"));
+    assert!(!rendered.contains('…'));
     assert!(!rendered.contains("\x1b["));
 }
 

@@ -125,6 +125,7 @@ Rendering, app state, input handling, and data shaping are deliberately split:
 - `src/tui_dashboard.rs` builds the read-only data model;
 - `src/tui_canvas.rs` owns frame, padding, truncation, and line helpers;
 - `src/tui_render.rs` renders a resize-safe dashboard shell;
+- `src/tui_render_support.rs` owns render-only text helpers and tone mapping;
 - `src/tui_state.rs` owns navigation/help state transitions;
 - `src/tui_app.rs` owns terminal raw-mode lifecycle and event handling;
 - `src/tui_theme.rs` owns tokens/status label constants.

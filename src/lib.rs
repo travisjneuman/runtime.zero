@@ -27,6 +27,7 @@ pub mod tui_app;
 pub mod tui_canvas;
 pub mod tui_dashboard;
 pub mod tui_render;
+mod tui_render_support;
 pub mod tui_state;
 pub mod tui_theme;
 
