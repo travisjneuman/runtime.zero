@@ -37,6 +37,7 @@ listing. That loader is intentionally narrow:
 - no executable module code loading;
 - no scripts or hooks;
 - no install/update/uninstall side effects;
+- install planning is dry-run only;
 - no recursive drive scans;
 - bounded manifest file size;
 - bounded local package file integrity checks;
@@ -50,6 +51,12 @@ URL-like paths, symlinks, reparse points, files over 64 MiB, and manifests with
 more than 128 listed files. This is not an installer, updater, downloader, or
 trust decision; it is a local fail-closed check before future install behavior
 exists.
+
+`rz0 modules install --dry-run` is not an installer. It validates a local
+package directory or manifest, then reports what a future installer would
+propose to create, copy, or record. It has no non-dry-run form and must leave
+files, PATH, registry, services, scheduled tasks, persistence, and module code
+untouched.
 
 ## Cleanup risk categories
 
@@ -68,4 +75,4 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 
 ## Current status
 
-The current CLI does not include update, uninstall, cleanup, install, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, dry-run placeholders, and module registry contracts.
+The current CLI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, dry-run placeholders, dry-run module install planning, and module registry contracts.

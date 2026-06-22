@@ -35,6 +35,7 @@ rz0 modules
 rz0 modules --format json
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
+rz0 modules install --dry-run <package-dir-or-manifest>
 ```
 
 The JSON output uses schema version `1` and separates:
@@ -57,6 +58,15 @@ The first integrity slice supports only local directory packages rooted at the
 manifest directory; it rejects absolute paths, traversal, URLs, symlinks,
 reparse points, files over 64 MiB, and manifests with more than 128 listed
 files.
+
+`rz0 modules install --dry-run <package-dir-or-manifest>` is a planner only.
+It accepts a local package directory containing `rz0-module.json`, or a direct
+local manifest path, then reuses manifest and package integrity validation. If
+the package is valid, it reports proposed install state such as the module
+directory, verified files that would be copied later, and the manifest metadata
+that would be recorded later. Every planned action has `would_write: false` in
+JSON output. The command performs no writes and intentionally has no non-dry-run
+form.
 
 See [`manifest-validation.md`](manifest-validation.md) for the validation
 contract and current trust boundaries.

@@ -2,6 +2,7 @@ use std::env;
 
 pub mod brand;
 pub mod module_cli;
+pub mod module_install_plan;
 pub mod module_manifest;
 pub mod module_registry;
 pub mod module_validation;
@@ -57,7 +58,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
@@ -214,6 +215,47 @@ mod tests {
         assert_eq!(code, ExitCode::Usage);
         assert!(err.is_empty());
         assert!(out.contains("hash mismatch"));
+    }
+
+    #[test]
+    fn modules_install_dry_run_plans_valid_fixture_without_writes() {
+        let (code, out, err) = run([
+            "modules",
+            "install",
+            "--dry-run",
+            "tests/fixtures/module-packages/valid-inventory",
+        ]);
+        assert_eq!(code, ExitCode::Ok);
+        assert!(err.is_empty());
+        assert!(out.contains("status: valid"));
+        assert!(out.contains("writes_attempted: no"));
+        assert!(out.contains("copy_package_file"));
+    }
+
+    #[test]
+    fn modules_install_dry_run_rejects_bad_fixture() {
+        let (code, out, err) = run([
+            "modules",
+            "install",
+            "--dry-run",
+            "tests/fixtures/module-packages/hash-mismatch",
+        ]);
+        assert_eq!(code, ExitCode::Usage);
+        assert!(err.is_empty());
+        assert!(out.contains("status: invalid"));
+        assert!(out.contains("hash mismatch"));
+    }
+
+    #[test]
+    fn modules_install_requires_dry_run() {
+        let (code, out, err) = run([
+            "modules",
+            "install",
+            "tests/fixtures/module-packages/valid-inventory",
+        ]);
+        assert_eq!(code, ExitCode::Usage);
+        assert!(out.is_empty());
+        assert!(err.contains("dry-run only"));
     }
 
     #[test]

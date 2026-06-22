@@ -10,11 +10,13 @@ rz0 modules validate <manifest.json>
 rz0 modules validate <manifest.json> --format json
 rz0 modules --from <directory>
 rz0 modules --from <directory> --format json
+rz0 modules install --dry-run <package-dir-or-manifest>
+rz0 modules install --dry-run <package-dir-or-manifest> --format json
 ```
 
 The loader is read-only. It reads JSON metadata from the local filesystem and
-returns validation results. It does not fetch remote content, install modules,
-enable modules, run module code, or repair invalid manifests.
+returns validation results and dry-run plans. It does not fetch remote content,
+install modules, enable modules, run module code, or repair invalid manifests.
 
 ## Manifest shape
 
@@ -107,6 +109,28 @@ loads JSON files directly in that directory only. Valid manifests are listed as
 installed modules; invalid manifests remain validation reports. Duplicate
 installed module IDs are treated as validation errors so the registry never has
 to choose between competing manifests silently.
+
+## Dry-run install planner
+
+`rz0 modules install --dry-run <package-dir-or-manifest>` is the first
+planner-only install surface. It accepts either:
+
+- a local package directory containing `rz0-module.json`; or
+- a direct local manifest path.
+
+The planner first runs the same manifest and package integrity checks described
+above. Valid package plans report:
+
+- the manifest path;
+- the local package root;
+- the proposed module install root;
+- the proposed module directory;
+- planned actions for directory creation, verified file copy, and manifest
+  recording.
+
+These actions are descriptions only. Text output says `writes_attempted: no`,
+and JSON output sets every action to `would_write: false`. Invalid manifests or
+integrity failures return a nonzero exit code and no planned actions.
 
 ## Safety non-goals
 

@@ -28,6 +28,7 @@ rz0 modules
 rz0 modules --format json
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
+rz0 modules install --dry-run <package-dir-or-manifest>
 rz0 scan --dry-run
 ```
 
@@ -50,10 +51,12 @@ explicitly listed package files:
 ```bash
 rz0 modules validate path/to/rz0-module.json
 rz0 modules --from path/to/installed-modules --format json
+rz0 modules install --dry-run path/to/module-package
 ```
 
-This is local, read-only validation only. It does not install, update, fetch,
-trust, enable, or run modules.
+This is local, read-only validation and planning only. The install planner
+reports proposed locations and state changes, but it does not write files,
+install, update, fetch, trust, enable, or run modules.
 
 ## Platform target
 
@@ -75,6 +78,7 @@ cargo run -- doctor
 cargo run -- modules
 cargo run -- modules --format json
 cargo run -- modules validate path/to/rz0-module.json
+cargo run -- modules install --dry-run path/to/module-package
 cargo run -- scan --dry-run
 ```
 
