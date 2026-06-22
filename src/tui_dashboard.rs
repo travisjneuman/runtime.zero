@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use crate::brand;
+use crate::install_receipt::ReceiptInventoryState;
 use crate::installed_registry::InstalledRegistryState;
 use crate::module_registry::ModuleRegistryReport;
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
@@ -15,6 +16,7 @@ pub struct TuiDashboard {
     pub safety_posture: &'static str,
     pub store_state: StoreOverallState,
     pub registry_state: InstalledRegistryState,
+    pub receipt_state: ReceiptInventoryState,
     pub installed_module_count: usize,
     pub planned_module_family_count: usize,
     pub sections: Vec<TuiSection>,
@@ -58,6 +60,7 @@ fn build_dashboard(store: &StoreStatusReport, modules: &ModuleRegistryReport) ->
         safety_posture: brand::SAFETY_POSTURE,
         store_state: store.overall_state,
         registry_state: store.registry.status,
+        receipt_state: store.receipts.overall_state,
         installed_module_count: store.registry.installed_module_count,
         planned_module_family_count: modules.summary.planned_family_count,
         sections: sections(store, modules),
@@ -96,6 +99,11 @@ fn sections(store: &StoreStatusReport, modules: &ModuleRegistryReport) -> Vec<Tu
                     registry_label(store.registry.status),
                     registry_state_label(store.registry.status),
                     registry_tone(store.registry.status),
+                ),
+                row(
+                    receipt_label(store.receipts.overall_state),
+                    receipt_state_label(store.receipts.overall_state),
+                    receipt_tone(store.receipts.overall_state),
                 ),
             ],
         },
@@ -173,6 +181,39 @@ fn registry_tone(state: InstalledRegistryState) -> &'static str {
     }
 }
 
+fn receipt_state_label(state: ReceiptInventoryState) -> &'static str {
+    match state {
+        ReceiptInventoryState::NotReferenced => "receipts not referenced",
+        ReceiptInventoryState::Absent => "receipt missing",
+        ReceiptInventoryState::Valid => "receipts valid",
+        ReceiptInventoryState::Invalid => "receipt invalid",
+        ReceiptInventoryState::Unreadable => "receipt unreadable",
+        ReceiptInventoryState::UnsupportedSchema => "receipt unsupported schema",
+    }
+}
+
+fn receipt_label(state: ReceiptInventoryState) -> &'static str {
+    match state {
+        ReceiptInventoryState::Invalid
+        | ReceiptInventoryState::Unreadable
+        | ReceiptInventoryState::UnsupportedSchema
+        | ReceiptInventoryState::Absent => tui_theme::LABEL_WARN,
+        ReceiptInventoryState::Valid => tui_theme::LABEL_OK,
+        ReceiptInventoryState::NotReferenced => tui_theme::LABEL_INFO,
+    }
+}
+
+fn receipt_tone(state: ReceiptInventoryState) -> &'static str {
+    match state {
+        ReceiptInventoryState::Invalid
+        | ReceiptInventoryState::Unreadable
+        | ReceiptInventoryState::UnsupportedSchema
+        | ReceiptInventoryState::Absent => "warn",
+        ReceiptInventoryState::Valid => "safe",
+        ReceiptInventoryState::NotReferenced => "info",
+    }
+}
+
 fn palette() -> TuiPalette {
     TuiPalette {
         surface_bg: tui_theme::SURFACE_BG,
@@ -192,6 +233,10 @@ mod tests {
         let dashboard = dashboard();
         assert_eq!(dashboard.installed_module_count, 0);
         assert_eq!(dashboard.registry_state, InstalledRegistryState::Absent);
+        assert_eq!(
+            dashboard.receipt_state,
+            ReceiptInventoryState::NotReferenced
+        );
         assert!(dashboard.planned_module_family_count > 0);
     }
 }

@@ -7,7 +7,7 @@ pub(crate) fn validate_registry_path(
     expected_suffix: Option<&str>,
     errors: &mut Vec<String>,
 ) {
-    if let Err(err) = validate_relative_path(value) {
+    if let Err(err) = validate_store_relative_path(value) {
         errors.push(format!("{field} path is unsafe: {err}"));
     }
     if !value.starts_with(expected_prefix) {
@@ -21,7 +21,7 @@ pub(crate) fn validate_registry_path(
     }
 }
 
-fn validate_relative_path(path: &str) -> Result<(), &'static str> {
+pub(crate) fn validate_store_relative_path(path: &str) -> Result<(), &'static str> {
     if path.trim().is_empty() {
         return Err("path must not be empty");
     }

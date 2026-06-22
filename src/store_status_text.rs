@@ -1,6 +1,7 @@
 use std::fmt::Write as FmtWrite;
 
 use crate::brand;
+use crate::install_receipt::ReceiptInventoryState;
 use crate::installed_registry::InstalledRegistryState;
 use crate::launch_routing::LaunchMode;
 use crate::store_status::{
@@ -68,6 +69,31 @@ pub fn store_status_text(report: &StoreStatusReport) -> String {
         "  unsafe_path_count: {}",
         report.registry.unsafe_path_count
     );
+    let _ = writeln!(out, "receipts:");
+    let _ = writeln!(
+        out,
+        "  status: {}",
+        receipt_state_label(report.receipts.overall_state)
+    );
+    let _ = writeln!(out, "  checked_count: {}", report.receipts.checked_count);
+    let _ = writeln!(out, "  absent_count: {}", report.receipts.absent_count);
+    let _ = writeln!(out, "  valid_count: {}", report.receipts.valid_count);
+    let _ = writeln!(out, "  invalid_count: {}", report.receipts.invalid_count);
+    let _ = writeln!(
+        out,
+        "  unsupported_schema_count: {}",
+        report.receipts.unsupported_schema_count
+    );
+    let _ = writeln!(
+        out,
+        "  module_mismatch_count: {}",
+        report.receipts.module_mismatch_count
+    );
+    let _ = writeln!(
+        out,
+        "  unsafe_path_count: {}",
+        report.receipts.unsafe_path_count
+    );
     let _ = writeln!(
         out,
         "launch_mode: {}",
@@ -128,6 +154,17 @@ fn registry_state_label(state: InstalledRegistryState) -> &'static str {
         InstalledRegistryState::Valid => "valid",
         InstalledRegistryState::Invalid => "invalid",
         InstalledRegistryState::Unreadable => "unreadable",
+    }
+}
+
+fn receipt_state_label(state: ReceiptInventoryState) -> &'static str {
+    match state {
+        ReceiptInventoryState::NotReferenced => "not_referenced",
+        ReceiptInventoryState::Absent => "absent",
+        ReceiptInventoryState::Valid => "valid",
+        ReceiptInventoryState::Invalid => "invalid",
+        ReceiptInventoryState::Unreadable => "unreadable",
+        ReceiptInventoryState::UnsupportedSchema => "unsupported_schema",
     }
 }
 

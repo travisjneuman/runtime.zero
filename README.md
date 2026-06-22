@@ -91,8 +91,11 @@ launch-routing interpretation. `store status` checks whether those future paths
 already exist and also parses an existing `installed-modules.json` registry if
 present. It reports absent, empty, valid, invalid, or unreadable registry state,
 schema version, installed module count, duplicate IDs, malformed records, and
-unsafe path references without creating directories, writing state, repairing
-anything, or implying modules are active.
+unsafe path references. When a valid registry record references an existing
+receipt, `store status` validates that receipt shape and cross-checks module
+ID/version and store-relative paths. It still does not create directories,
+write state, repair anything, trust modules, execute code, or imply modules are
+active.
 
 ## Platform target
 

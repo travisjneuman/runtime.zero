@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "module": {
+    "id": "first-party.inventory",
+    "version": "0.1.0"
+  },
+  "source": {
+    "source_type": "local_package"
+  },
+  "target": {
+    "module_dir": "../outside",
+    "manifest_path": "https://example.invalid/rz0-module.json"
+  },
+  "integrity": {
+    "manifest_sha256": "not-a-hash"
+  },
+  "write_set": [
+    {
+      "path": "C:/Users/tjn/outside",
+      "kind": "file",
+      "size_bytes": 999999999
+    }
+  ],
+  "rollback": {
+    "supported": true,
+    "plan_path": "../rollback.json"
+  },
+  "quarantine": {
+    "supported": true,
+    "record_path": "file://quarantine.json"
+  }
+}

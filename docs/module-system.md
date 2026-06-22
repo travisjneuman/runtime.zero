@@ -64,7 +64,9 @@ The future installed-module registry lives at the store contract's
 `installed-modules.json` path. `rz0 store status` can now parse that file if it
 already exists and report whether it is absent, empty, valid, invalid, or
 unreadable. Registry parsing is read-only and does not make a trust or
-activation decision.
+activation decision. If a valid registry record references an existing receipt
+file, `store status` also validates that receipt and checks that receipt
+module/version metadata matches the registry record.
 
 Installed manifests are valid only when their explicitly listed package files
 pass local SHA-256 integrity checks. Planned manifests may omit integrity

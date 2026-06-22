@@ -2,6 +2,8 @@ use std::env;
 
 pub mod brand;
 pub mod dashboard_cli;
+pub mod install_receipt;
+mod install_receipt_schema;
 pub mod installed_registry;
 mod installed_registry_path;
 pub mod launch_routing;

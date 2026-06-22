@@ -248,6 +248,8 @@ mod tests {
         assert!(out.contains("registry_path:"));
         assert!(out.contains("registry:"));
         assert!(out.contains("installed_module_count:"));
+        assert!(out.contains("receipts:"));
+        assert!(out.contains("checked_count:"));
         assert!(out.contains("launch_mode: cli_subcommand"));
     }
 
@@ -267,6 +269,8 @@ mod tests {
         assert!(out.contains("\"registry_path\""));
         assert!(out.contains("\"registry\""));
         assert!(out.contains("\"installed_module_count\""));
+        assert!(out.contains("\"receipts\""));
+        assert!(out.contains("\"checked_count\""));
         assert!(out.contains("\"transactions_dir\""));
         assert!(out.contains("\"receipts_dir\""));
     }

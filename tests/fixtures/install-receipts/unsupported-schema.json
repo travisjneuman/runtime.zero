@@ -1,0 +1,22 @@
+{
+  "schema_version": 99,
+  "module": {
+    "id": "first-party.inventory",
+    "version": "0.1.0"
+  },
+  "source": {
+    "source_type": "local_package"
+  },
+  "target": {
+    "module_dir": "modules/first-party.inventory/0.1.0",
+    "manifest_path": "modules/first-party.inventory/0.1.0/rz0-module.json"
+  },
+  "integrity": {},
+  "write_set": [],
+  "rollback": {
+    "supported": false
+  },
+  "quarantine": {
+    "supported": false
+  }
+}

@@ -1,20 +1,19 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-
-use serde::Serialize;
-
+use crate::install_receipt::{
+    ReceiptInventoryReport, ReceiptInventoryState, receipt_inventory_report,
+};
 use crate::installed_registry::{
     InstalledRegistryReport, InstalledRegistryState, installed_registry_report,
 };
 use crate::launch_routing::{LaunchEnvironment, LaunchRoutingReport, resolve_launch_mode};
 use crate::module_store::{ModuleStorePlan, STORE_SCHEMA_VERSION, module_store_plan};
-
+use serde::Serialize;
+use std::fs;
+use std::path::{Path, PathBuf};
 const STATUS_SEED: &str = "store status";
 const EXAMPLE_MODULE_ID: &str = "first-party.example";
 const EXAMPLE_MODULE_VERSION: &str = "0.0.0";
 const SAFETY_NOTE: &str =
     "Read-only store inventory; no directories or state files were created or repaired.";
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct StoreStatusReport {
     pub command: &'static str,
@@ -25,10 +24,10 @@ pub struct StoreStatusReport {
     pub store: ModuleStorePlan,
     pub paths: Vec<StorePathStatus>,
     pub registry: InstalledRegistryReport,
+    pub receipts: ReceiptInventoryReport,
     pub launch_context: LaunchRoutingReport,
     pub safety_note: &'static str,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StoreOverallState {
@@ -37,7 +36,6 @@ pub enum StoreOverallState {
     Present,
     Invalid,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct StorePathStatus {
     pub role: StorePathRole,
@@ -46,7 +44,6 @@ pub struct StorePathStatus {
     pub state: StorePathState,
     pub detail: String,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StorePathRole {
@@ -60,7 +57,6 @@ pub enum StorePathRole {
     TransactionsDir,
     ReceiptsDir,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StorePathKind {
@@ -85,7 +81,8 @@ pub fn store_status_report(args: &[String]) -> StoreStatusReport {
     );
     let paths = inspect_store_paths(&store);
     let registry = installed_registry_report(Path::new(&store.registry_path));
-    let overall_state = overall_state(&paths, registry.status);
+    let receipts = receipt_inventory_report(Path::new(&store.state_root), &registry.records);
+    let overall_state = overall_state(&paths, registry.status, receipts.overall_state);
     StoreStatusReport {
         command: "store status",
         read_only: true,
@@ -95,6 +92,7 @@ pub fn store_status_report(args: &[String]) -> StoreStatusReport {
         store,
         paths,
         registry,
+        receipts,
         launch_context: resolve_launch_mode(args, LaunchEnvironment::cli_subcommand()),
         safety_note: SAFETY_NOTE,
     }
@@ -199,10 +197,17 @@ fn classify_directory_entries(mut entries: fs::ReadDir) -> (StorePathState, Stri
 fn overall_state(
     paths: &[StorePathStatus],
     registry_state: InstalledRegistryState,
+    receipt_state: ReceiptInventoryState,
 ) -> StoreOverallState {
     if matches!(
         registry_state,
         InstalledRegistryState::Invalid | InstalledRegistryState::Unreadable
+    ) || matches!(
+        receipt_state,
+        ReceiptInventoryState::Invalid
+            | ReceiptInventoryState::Unreadable
+            | ReceiptInventoryState::UnsupportedSchema
+            | ReceiptInventoryState::Absent
     ) {
         return StoreOverallState::Invalid;
     }
@@ -249,7 +254,11 @@ mod tests {
                 .all(|path| path.state == StorePathState::Absent)
         );
         assert_eq!(
-            overall_state(&paths, InstalledRegistryState::Absent),
+            overall_state(
+                &paths,
+                InstalledRegistryState::Absent,
+                ReceiptInventoryState::NotReferenced
+            ),
             StoreOverallState::NotInitialized
         );
     }
@@ -267,6 +276,8 @@ mod tests {
         assert!(json.contains("\"registry_path\""));
         assert!(json.contains("\"registry\""));
         assert!(json.contains("\"installed_module_count\""));
+        assert!(json.contains("\"receipts\""));
+        assert!(json.contains("\"checked_count\""));
         assert!(json.contains("\"transactions_dir\""));
         assert!(json.contains("\"receipts_dir\""));
         assert!(json.contains("\"launch_mode\":\"cli_subcommand\""));

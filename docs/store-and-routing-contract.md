@@ -116,6 +116,84 @@ malformed record count, unsafe path count, record validation errors, and parser
 errors. This is inventory only: a valid registry does not execute, trust,
 activate, repair, migrate, install, update, or uninstall any module.
 
+### Install receipt schema
+
+Future install receipts are stored under:
+
+```text
+<state_root>/receipts/<receipt-id>.json
+```
+
+Registry records reference receipts with a store-relative `receipt_path`, such
+as `receipts/rz0plan_inventory.json`. `rz0 store status` only checks receipt
+files that are referenced by valid registry records. It does not create missing
+receipts or scan unreferenced receipt files.
+
+Schema version `1` expects:
+
+```json
+{
+  "schema_version": 1,
+  "module": {
+    "id": "first-party.inventory",
+    "version": "0.1.0"
+  },
+  "source": {
+    "source_type": "local_package",
+    "package_reference": "fixture-package"
+  },
+  "target": {
+    "module_dir": "modules/first-party.inventory/0.1.0",
+    "manifest_path": "modules/first-party.inventory/0.1.0/rz0-module.json"
+  },
+  "integrity": {
+    "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "package_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "write_set": [
+    {
+      "path": "modules/first-party.inventory/0.1.0/rz0-module.json",
+      "kind": "manifest",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 1024
+    }
+  ],
+  "rollback": {
+    "supported": true,
+    "plan_path": "receipts/rz0plan_inventory.rollback.json"
+  },
+  "quarantine": {
+    "supported": true,
+    "record_path": "quarantine/modules/rz0plan_inventory/quarantine.json"
+  }
+}
+```
+
+Receipt status is reported as:
+
+- `absent`;
+- `valid`;
+- `invalid`;
+- `unreadable`;
+- `unsupported_schema`.
+
+The aggregate receipt state may also be `not_referenced` when no valid registry
+records reference receipts. Missing referenced receipts are surfaced as absent
+receipt state. Malformed receipts, unsupported receipt schemas, module
+ID/version mismatches, unsafe path references, malformed SHA-256 values, and
+oversized write-set entries are reported as read-only validation findings.
+
+Receipt paths are references to future runtime.zero-owned state only. Allowed
+references are intentionally narrow:
+
+- module target and write-set paths under `modules/`;
+- receipt and rollback paths under `receipts/`;
+- quarantine records under `quarantine/`.
+
+Absolute paths, backslashes, URL-like values, and `..` traversal are rejected.
+Receipt validation is not a trust decision and does not execute, trust,
+activate, repair, migrate, install, update, or uninstall any module.
+
 ## Dry-run install metadata
 
 `rz0 modules install --dry-run <package-dir-or-manifest> --format json` includes

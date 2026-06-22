@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "module": {
+    "id": "first-party.inventory",
+    "version": "0.1.0"
+  },
+  "source": {
+    "source_type": "local_package",
+    "package_reference": "fixture-package"
+  },
+  "target": {
+    "module_dir": "modules/first-party.inventory/0.1.0",
+    "manifest_path": "modules/first-party.inventory/0.1.0/rz0-module.json"
+  },
+  "integrity": {
+    "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "package_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "write_set": [
+    {
+      "path": "modules/first-party.inventory/0.1.0",
+      "kind": "directory"
+    },
+    {
+      "path": "modules/first-party.inventory/0.1.0/rz0-module.json",
+      "kind": "manifest",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 1024
+    },
+    {
+      "path": "receipts/rz0plan_inventory.json",
+      "kind": "receipt",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "size_bytes": 2048
+    }
+  ],
+  "rollback": {
+    "supported": true,
+    "plan_path": "receipts/rz0plan_inventory.rollback.json"
+  },
+  "quarantine": {
+    "supported": true,
+    "record_path": "quarantine/modules/rz0plan_inventory/quarantine.json"
+  }
+}
