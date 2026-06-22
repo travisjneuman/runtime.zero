@@ -102,7 +102,7 @@ fn wide_body_lines(
     interactive: bool,
     color: bool,
 ) -> Vec<String> {
-    let right_width = width.saturating_sub(NAV_WIDTH + 5);
+    let right_width = width.saturating_sub(NAV_WIDTH + 7);
     let mut left = navigation_lines(dashboard, state, interactive);
     let mut right = selected_panel_lines(dashboard, state, right_width);
     right.extend(status_card_lines(dashboard, right_width));

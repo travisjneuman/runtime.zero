@@ -2,6 +2,24 @@ use runtime_zero::tui_dashboard;
 use runtime_zero::tui_render::{render_dashboard, render_dashboard_with_state};
 use runtime_zero::tui_state::TuiState;
 
+fn visible_line_width(value: &str) -> usize {
+    let mut width = 0;
+    let mut chars = value.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\u{1b}' && chars.peek() == Some(&'[') {
+            chars.next();
+            for code in chars.by_ref() {
+                if code.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else {
+            width += 1;
+        }
+    }
+    width
+}
+
 #[test]
 fn render_plain_dashboard_without_ansi() {
     let rendered = render_dashboard(&tui_dashboard::dashboard(), false);
@@ -45,4 +63,43 @@ fn render_handles_narrow_terminal_and_help() {
     assert!(rendered.contains("q/Esc quit"));
     assert!(rendered.contains("NAVIGATION"));
     assert!(!rendered.contains("\x1b["));
+}
+
+#[test]
+fn rendered_frames_keep_visible_width_within_terminal_bounds() {
+    let dashboard = tui_dashboard::dashboard();
+    let mut state = TuiState::new(dashboard.sections.len());
+    state.selected_section = 2;
+    state.show_help = true;
+    let cases = [
+        (40, 12, false),
+        (58, 16, false),
+        (58, 16, true),
+        (80, 20, true),
+        (118, 30, true),
+        (160, 50, true),
+    ];
+
+    for (requested_width, requested_height, color) in cases {
+        let rendered = render_dashboard_with_state(
+            &dashboard,
+            color,
+            requested_width,
+            requested_height,
+            &state,
+        );
+        let frame_width = usize::from(requested_width).clamp(58, 132);
+        let frame_height = usize::from(requested_height).max(16);
+
+        assert!(
+            rendered.lines().count() <= frame_height,
+            "rendered too many lines for {requested_width}x{requested_height}"
+        );
+        for line in rendered.lines() {
+            assert!(
+                visible_line_width(line) <= frame_width,
+                "line exceeded visible frame width {frame_width}: {line:?}"
+            );
+        }
+    }
 }

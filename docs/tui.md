@@ -6,6 +6,9 @@ full-screen dashboard and returns a clear usage error if the terminal is not
 interactive. Explicit subcommands, `--json`, `--format json`, `--no-tui`,
 non-interactive pipes/redirects, and automation contexts remain on the
 scriptable CLI path.
+Scriptable output is written through guarded stdout/stderr handling so common
+pipe consumers can stop reading without turning a closed pipe into a user-facing
+panic.
 
 The TUI is a safe review dashboard. It is part of the foundation, not an
 optional feature module, but it does not replace the CLI contracts. Every
@@ -96,9 +99,10 @@ report.
 
 Automated tests should cover launch routing, key-event filtering, reducer
 state, no ANSI in plain text output, selected-section rendering, narrow terminal
-rendering, and help output. A manual smoke check is still required after local
-install refresh because full-screen raw terminal behavior depends on the host
-terminal emulator.
+rendering, help output, and visible-width invariants across compact, normal,
+wide, colorized, and non-colorized frames. A manual smoke check is still
+required after local install refresh because full-screen raw terminal behavior
+depends on the host terminal emulator.
 
 Manual check after refreshing the installed binary:
 

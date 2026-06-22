@@ -1,5 +1,5 @@
 use std::env;
-use std::io::{self, IsTerminal};
+use std::io::{self, ErrorKind, IsTerminal, Write};
 use std::process;
 
 fn main() {
@@ -7,7 +7,7 @@ fn main() {
     let parsed = match runtime_zero::color_mode::parse_global_args(&args) {
         Ok(parsed) => parsed,
         Err((code, message)) => {
-            eprint!("{message}");
+            write_output_or_exit(OutputStream::Stderr, &message);
             process::exit(code.as_i32());
         }
     };
@@ -20,14 +20,20 @@ fn main() {
             .color_mode
             .enabled_for_tui(launch_context.stdout_is_tty);
         if let Err(err) = runtime_zero::tui_app::run_interactive_tui(&launch_context, color) {
-            eprintln!("failed to render TUI: {err}");
+            write_output_or_exit(
+                OutputStream::Stderr,
+                &format!("failed to render TUI: {err}\n"),
+            );
             process::exit(runtime_zero::ExitCode::Usage.as_i32());
         }
         process::exit(runtime_zero::ExitCode::Ok.as_i32());
     }
 
     if launch_context.launch_mode == runtime_zero::launch_routing::LaunchMode::TuiUnavailable {
-        eprintln!("TUI requested but unavailable: {}", launch_context.reason);
+        write_output_or_exit(
+            OutputStream::Stderr,
+            &format!("TUI requested but unavailable: {}\n", launch_context.reason),
+        );
         process::exit(runtime_zero::ExitCode::Usage.as_i32());
     }
 
@@ -42,14 +48,33 @@ fn main() {
     };
 
     if !stdout.is_empty() {
-        print!("{stdout}");
+        write_output_or_exit(OutputStream::Stdout, &stdout);
     }
 
     if !stderr.is_empty() {
-        eprint!("{stderr}");
+        write_output_or_exit(OutputStream::Stderr, &stderr);
     }
 
     process::exit(code.as_i32());
+}
+
+enum OutputStream {
+    Stdout,
+    Stderr,
+}
+
+fn write_output_or_exit(stream: OutputStream, content: &str) {
+    let result = match stream {
+        OutputStream::Stdout => io::stdout().lock().write_all(content.as_bytes()),
+        OutputStream::Stderr => io::stderr().lock().write_all(content.as_bytes()),
+    };
+    if let Err(err) = result {
+        if err.kind() == ErrorKind::BrokenPipe {
+            process::exit(runtime_zero::ExitCode::Ok.as_i32());
+        }
+        let _ = writeln!(io::stderr().lock(), "failed to write output: {err}");
+        process::exit(runtime_zero::ExitCode::Usage.as_i32());
+    }
 }
 
 fn launch_environment() -> runtime_zero::launch_routing::LaunchEnvironment {
