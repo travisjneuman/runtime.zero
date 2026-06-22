@@ -64,6 +64,11 @@ plans, but it must not create those directories or write registry, receipt,
 transaction, rollback, quarantine, or staging files until a separate
 write-capable install gate is explicitly approved.
 
+`rz0 store plan` exposes that same store/routing contract directly for manual
+inspection. It is path planning only: no directories, registry files, receipts,
+transactions, rollback plans, quarantine records, staging files, module files,
+or TUI surfaces are created.
+
 ## Cleanup risk categories
 
 Future cleanup modules must classify findings before action:

@@ -29,6 +29,8 @@ rz0 modules --format json
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
+rz0 store plan
+rz0 store plan --format json
 rz0 scan --dry-run
 ```
 
@@ -62,6 +64,19 @@ The dry-run planner also reports future local store and CLI/TUI routing
 contract metadata in JSON output. These fields describe where future state would
 live and why explicit subcommands remain scriptable; they do not create files.
 
+The same future store/routing contract can be inspected independently of module
+install planning:
+
+```bash
+rz0 store plan
+rz0 store plan --format json
+```
+
+This command is read-only. It reports the platform-specific user-local store
+roots, registry and transaction paths, example receipt/quarantine/rollback
+paths, forbidden path classes, and current CLI/TUI launch-routing interpretation
+without creating directories or writing state.
+
 ## Platform target
 
 The initial support target is modern Windows, macOS, and mainstream Linux distributions.
@@ -83,6 +98,8 @@ cargo run -- modules
 cargo run -- modules --format json
 cargo run -- modules validate path/to/rz0-module.json
 cargo run -- modules install --dry-run path/to/module-package
+cargo run -- store plan
+cargo run -- store plan --format json
 cargo run -- scan --dry-run
 ```
 

@@ -28,6 +28,29 @@ Current code only computes and reports these paths in dry-run output. It does
 not create the roots, registry, receipts, transactions, rollback plans,
 quarantine records, or module directories.
 
+## Read-only store inspection command
+
+```bash
+rz0 store plan
+rz0 store plan --format json
+```
+
+`rz0 store plan` reports the current platform-specific store contract without
+requiring a module package. It reuses the same path-planning primitives used by
+the dry-run install planner and reports:
+
+- `store_schema_version`;
+- data, state, cache, log, quarantine, and modules roots;
+- registry and transaction paths;
+- example module, receipt, rollback-plan, and quarantine-record paths;
+- rollback and quarantine support flags;
+- forbidden path classes;
+- CLI/TUI launch-routing interpretation for the current invocation.
+
+The command is read-only. It does not create the roots, registry, receipts,
+transactions, rollback plans, quarantine records, staging directories, module
+directories, or TUI state.
+
 ## Dry-run install metadata
 
 `rz0 modules install --dry-run <package-dir-or-manifest> --format json` includes
