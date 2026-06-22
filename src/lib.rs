@@ -2,6 +2,7 @@ use std::env;
 use std::fmt::Write as FmtWrite;
 
 pub mod brand;
+pub mod module_registry;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitCode {
@@ -27,7 +28,7 @@ where
         Some("--help" | "-h" | "help") => (ExitCode::Ok, help_text(), String::new()),
         Some("--version" | "-V" | "version") => (ExitCode::Ok, version_text(), String::new()),
         Some("doctor") => (ExitCode::Ok, doctor_text(), String::new()),
-        Some("modules") => (ExitCode::Ok, modules_text(), String::new()),
+        Some("modules") => modules_command(&args[1..]),
         Some("scan") => scan_command(&args[1..]),
         Some(command) => (
             ExitCode::Usage,
@@ -52,7 +53,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules\n  {cmd} scan --dry-run\n\nPhase 1 safety posture:\n  {safety}\n\nNo update, uninstall, cleanup, install, persistence, or account-action modules are active in this bootstrap build.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core lists contracts and installed modules. Substantial feature modules are not bundled or executed by default.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
@@ -77,61 +78,63 @@ pub fn doctor_text() -> String {
     )
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OutputFormat {
+    Text,
+    Json,
+}
+
+fn modules_command(args: &[String]) -> (ExitCode, String, String) {
+    match parse_format_args(args) {
+        Ok(OutputFormat::Text) => (ExitCode::Ok, modules_text(), String::new()),
+        Ok(OutputFormat::Json) => match modules_json() {
+            Ok(json) => (ExitCode::Ok, json, String::new()),
+            Err(err) => (ExitCode::Usage, String::new(), err),
+        },
+        Err(err) => (ExitCode::Usage, String::new(), err),
+    }
+}
+
+fn parse_format_args(args: &[String]) -> Result<OutputFormat, String> {
+    match args {
+        [] => Ok(OutputFormat::Text),
+        [flag, value] if flag == "--format" && value == "json" => Ok(OutputFormat::Json),
+        [flag] if flag == "--json" => Ok(OutputFormat::Json),
+        _ => Err(format!(
+            "unsupported modules option(s): {}\n\nUsage: {} modules [--format json]\n",
+            args.join(", "),
+            brand::COMMAND
+        )),
+    }
+}
+
 pub fn modules_text() -> String {
-    let modules = [
-        (
-            "core.brand",
-            "active",
-            "centralized build-time name and metadata",
-        ),
-        (
-            "core.cli",
-            "active",
-            "safe command parser and Phase 1 help surface",
-        ),
-        (
-            "core.doctor",
-            "active",
-            "read-only local runtime diagnostics",
-        ),
-        ("core.scan-plan", "stub", "dry-run-only scan placeholder"),
-        (
-            "platform.windows",
-            "planned",
-            "Windows adapter for packages, registry, services, tasks, and AppData",
-        ),
-        (
-            "platform.macos",
-            "planned",
-            "macOS adapter for Homebrew, launch agents, app bundles, and Library paths",
-        ),
-        (
-            "platform.linux",
-            "planned",
-            "Linux adapter for package managers, systemd, and XDG paths",
-        ),
-        (
-            "modules.update",
-            "planned",
-            "installed-only update orchestration",
-        ),
-        (
-            "modules.uninstall",
-            "planned",
-            "manager-native uninstall orchestration",
-        ),
-        (
-            "modules.leftovers",
-            "planned",
-            "report-first leftover classification and quarantine planning",
-        ),
-    ];
+    let report = module_registry::ModuleRegistryReport::empty_installed();
 
     let mut out = format!("{} modules\n\n", brand::TITLE);
-    for (name, status, description) in modules {
-        let _ = writeln!(out, "{name:<18} {status:<8} {description}");
+    let _ = writeln!(out, "core foundation:");
+    for module in report.core {
+        let _ = writeln!(out, "  {:<16} active   {}", module.id, module.summary);
     }
+    let _ = writeln!(out, "\ninstalled modules:");
+    if report.installed_modules.is_empty() {
+        let _ = writeln!(out, "  none");
+    }
+    let _ = writeln!(out, "\nplanned first-party module families:");
+    for module in report.planned_module_families {
+        let _ = writeln!(out, "  {:<22} planned  {}", module.id, module.summary);
+    }
+    let _ = writeln!(
+        out,
+        "\nsafety: optional modules are not bundled, installed, or executed by default"
+    );
     out
+}
+
+pub fn modules_json() -> Result<String, String> {
+    serde_json::to_string_pretty(&module_registry::ModuleRegistryReport::empty_installed())
+        .map(|json| format!("{json}\n"))
+        .map_err(|err| format!("failed to render module registry JSON: {err}\n"))
 }
 
 fn scan_command(args: &[String]) -> (ExitCode, String, String) {
@@ -202,8 +205,27 @@ mod tests {
         let (code, out, err) = run(["modules"]);
         assert_eq!(code, ExitCode::Ok);
         assert!(err.is_empty());
-        assert!(out.contains("modules.leftovers"));
+        assert!(out.contains("installed modules:\n  none"));
+        assert!(out.contains("first-party.leftovers"));
         assert!(out.contains("planned"));
+    }
+
+    #[test]
+    fn modules_json_shows_empty_installed_registry() {
+        let (code, out, err) = run(["modules", "--format", "json"]);
+        assert_eq!(code, ExitCode::Ok);
+        assert!(err.is_empty());
+        assert!(out.contains("\"schema_version\": 1"));
+        assert!(out.contains("\"installed_modules\": []"));
+        assert!(out.contains("\"remote_execution_allowed\": false"));
+    }
+
+    #[test]
+    fn modules_reject_unknown_options() {
+        let (code, out, err) = run(["modules", "--install"]);
+        assert_eq!(code, ExitCode::Usage);
+        assert!(out.is_empty());
+        assert!(err.contains("unsupported modules option"));
     }
 
     #[test]

@@ -11,6 +11,22 @@
 - Never surprise-install missing tools.
 - Never automatically remove credentials, OAuth sessions, browser profiles, project workspaces, backups, or unknown user data.
 - Require explicit confirmation before any mutating action.
+- Keep substantial capabilities outside the core unless a user explicitly installs or enables the relevant module.
+- Never execute remote module code or publish direct-run bootstrap commands before checksum/signing/release safety is designed.
+
+## Module safety metadata
+
+Every module manifest must declare:
+
+- capability class;
+- risk level;
+- whether it mutates the system;
+- whether dry-run is required;
+- whether explicit confirmation is required;
+- whether quarantine/rollback is supported;
+- whether remote execution is allowed.
+
+Current core metadata sets remote execution to `false`. Optional modules are not bundled, installed, or executed by default.
 
 ## Cleanup risk categories
 
@@ -27,6 +43,6 @@ Future cleanup modules must classify findings before action:
 
 Only low-risk categories may become eligible for guided quarantine. Credentials/session data, project/workspace data, backups, and unknown findings must remain report-only unless a user explicitly approves a narrowly scoped cleanup.
 
-## Phase 1 status
+## Current status
 
-Phase 1 does not include update, uninstall, cleanup, install, malware-removal, or persistence behavior. The initial CLI is limited to read-only diagnostics and dry-run placeholders.
+The current CLI does not include update, uninstall, cleanup, install, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, dry-run placeholders, and module registry contracts.
