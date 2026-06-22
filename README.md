@@ -58,7 +58,10 @@ to the safe text dashboard in those contexts.
 Color is explicit and accessible: `--color=auto` is the default,
 `--color=never` disables ANSI even in the interactive TUI, and
 `--color=always` forces color for supported human-readable surfaces. JSON
-output never includes ANSI.
+output never includes ANSI. The root dashboard JSON includes additive contract
+metadata (`schema_version`, `contract`, `read_only`, and `writes_attempted`) so
+automation can distinguish foundation review output from future mutating
+module surfaces.
 
 Current commands are read-only, dry-run, or explicit user-local store
 scaffolding. They exist to prove the binary, brand metadata, test harness,

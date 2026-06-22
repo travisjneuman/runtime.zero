@@ -104,6 +104,25 @@ the custom text renderer without raw-mode terminal control. That keeps the CLI
 path scriptable while letting the interactive TUI use a stronger widget/layout
 layer.
 
+## Dashboard JSON contract
+
+`rz0 --json` exposes the same foundation dashboard state as a machine-readable
+contract. The contract is additive and currently schema version `1`.
+
+Required top-level fields:
+
+- `schema_version: 1`;
+- `contract: "foundation_dashboard"`;
+- `read_only: true`;
+- `writes_attempted: false`;
+- product identity fields such as `title`, `command`, `version`, and `mode`;
+- store, registry, receipt, store-init, installed-module, and planned-module
+  summary fields used by the TUI and text dashboard;
+- section rows whose visible labels remain the meaning source.
+
+JSON output must never include ANSI escape sequences and must not depend on
+terminal dimensions, color mode, raw mode, or Ratatui rendering state.
+
 ## Verification expectations
 
 Automated tests should cover launch routing, key-event filtering, reducer
@@ -113,9 +132,11 @@ wide, colorized, and non-colorized frames. Renderer tests should also exercise
 every dashboard section across help and non-help states so future visual polish
 does not accidentally hide the text labels that make color optional. Ratatui
 buffer tests should prove labels remain visible with and without color and that
-compact/normal/wide frames stay within terminal boundaries. A manual smoke
-check is still required after local install refresh because full-screen raw
-terminal behavior depends on the host terminal emulator.
+compact/normal/wide frames stay within terminal boundaries. Dashboard JSON
+tests should prove the versioned read-only contract fields remain present and
+ANSI-free. A manual smoke check is still required after local install refresh
+because full-screen raw terminal behavior depends on the host terminal
+emulator.
 
 Manual check after refreshing the installed binary:
 

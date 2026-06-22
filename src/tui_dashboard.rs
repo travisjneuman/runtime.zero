@@ -10,6 +10,10 @@ use crate::tui_theme;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TuiDashboard {
+    pub schema_version: u8,
+    pub read_only: bool,
+    pub writes_attempted: bool,
+    pub contract: &'static str,
     pub title: &'static str,
     pub command: &'static str,
     pub version: &'static str,
@@ -65,6 +69,10 @@ fn build_dashboard(
     modules: &ModuleRegistryReport,
 ) -> TuiDashboard {
     TuiDashboard {
+        schema_version: 1,
+        read_only: true,
+        writes_attempted: false,
+        contract: "foundation_dashboard",
         title: brand::TITLE,
         command: brand::COMMAND,
         version: env!("CARGO_PKG_VERSION"),

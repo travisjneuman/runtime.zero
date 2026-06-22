@@ -1,4 +1,4 @@
-use runtime_zero::{ExitCode, run};
+use runtime_zero::{ExitCode, dashboard_cli, run};
 
 #[test]
 fn version_includes_brand_and_command() {
@@ -64,6 +64,21 @@ fn invalid_global_color_flag_fails_before_actions() {
     assert!(out.is_empty());
     assert!(err.contains("unsupported --color value"));
 }
+
+#[test]
+fn dashboard_json_reports_versioned_read_only_contract() {
+    let (code, out, err) = dashboard_cli::dashboard_json();
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("dashboard json");
+    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["contract"], "foundation_dashboard");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["installed_module_count"], 0);
+    assert!(!out.contains("\u{1b}["));
+}
+
 #[test]
 fn modules_show_planned_leftover_scanner() {
     let (code, out, err) = run(["modules"]);
