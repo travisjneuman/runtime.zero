@@ -132,6 +132,22 @@ These actions are descriptions only. Text output says `writes_attempted: no`,
 and JSON output sets every action to `would_write: false`. Invalid manifests or
 integrity failures return a nonzero exit code and no planned actions.
 
+JSON dry-run output also includes read-only future-state contract metadata:
+
+- `store.store_schema_version`;
+- `store.data_root`;
+- `store.state_root`;
+- `store.registry_path`;
+- `store.receipt_path`;
+- `store.transaction_path`;
+- `store.rollback_supported`;
+- `store.quarantine_supported`;
+- `store.forbidden_path_classes`;
+- `launch_context.launch_mode`.
+
+These fields are calculated only. They do not create store directories or write
+registry, receipt, transaction, staging, rollback, quarantine, or module files.
+
 ## Safety non-goals
 
 This validation layer does not yet provide signature verification, revocation,

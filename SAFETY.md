@@ -58,6 +58,12 @@ propose to create, copy, or record. It has no non-dry-run form and must leave
 files, PATH, registry, services, scheduled tasks, persistence, and module code
 untouched.
 
+The future local module store contract is also read-only in the current code.
+`rz0` may calculate user-local data/state/cache/log/quarantine paths for JSON
+plans, but it must not create those directories or write registry, receipt,
+transaction, rollback, quarantine, or staging files until a separate
+write-capable install gate is explicitly approved.
+
 ## Cleanup risk categories
 
 Future cleanup modules must classify findings before action:

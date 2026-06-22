@@ -58,6 +58,10 @@ This is local, read-only validation and planning only. The install planner
 reports proposed locations and state changes, but it does not write files,
 install, update, fetch, trust, enable, or run modules.
 
+The dry-run planner also reports future local store and CLI/TUI routing
+contract metadata in JSON output. These fields describe where future state would
+live and why explicit subcommands remain scriptable; they do not create files.
+
 ## Platform target
 
 The initial support target is modern Windows, macOS, and mainstream Linux distributions.
@@ -92,7 +96,9 @@ The project is intentionally modular:
 
 See [`docs/architecture.md`](docs/architecture.md),
 [`docs/module-system.md`](docs/module-system.md), and
-[`docs/manifest-validation.md`](docs/manifest-validation.md).
+[`docs/manifest-validation.md`](docs/manifest-validation.md). See
+[`docs/store-and-routing-contract.md`](docs/store-and-routing-contract.md) for
+the read-only future module store and CLI/TUI launch-routing contract.
 
 ## Brand system
 

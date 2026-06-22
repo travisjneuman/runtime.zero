@@ -1,8 +1,9 @@
 use serde::Serialize;
-use std::env;
 use std::path::{Path, PathBuf};
 
+use crate::launch_routing::{LaunchRoutingReport, cli_subcommand_report};
 use crate::module_manifest::{ModuleKind, ModuleStatus};
+use crate::module_store::{ModuleStorePlan, module_store_plan};
 use crate::module_validation::{ManifestValidationReport, load_manifest_file};
 
 const MODULE_MANIFEST_FILE: &str = "rz0-module.json";
@@ -16,6 +17,8 @@ pub struct ModuleInstallPlanReport {
     pub package_root: String,
     pub proposed_install_root: String,
     pub proposed_module_dir: Option<String>,
+    pub store: ModuleStorePlan,
+    pub launch_context: LaunchRoutingReport,
     pub validation: ManifestValidationReport,
     pub planned_actions: Vec<PlannedInstallAction>,
     pub errors: Vec<String>,
@@ -61,8 +64,8 @@ fn build_report(
     mut errors: Vec<String>,
 ) -> ModuleInstallPlanReport {
     errors.extend(validation.errors.iter().cloned());
-    let install_root = default_module_install_root();
-    let proposed_module_dir = proposed_module_dir(&install_root, &validation);
+    let store = store_plan(&manifest_path, &validation);
+    let proposed_module_dir = store.module_dir.clone();
     validate_manifest_for_install_plan(&validation, &mut errors);
     let valid = errors.is_empty();
     let actions = if valid {
@@ -78,14 +81,40 @@ fn build_report(
         dry_run: true,
         manifest_path: manifest_path.display().to_string(),
         package_root: package_root.display().to_string(),
-        proposed_install_root: install_root.display().to_string(),
+        proposed_install_root: store.modules_root.clone(),
         proposed_module_dir,
+        store,
+        launch_context: cli_subcommand_report("modules install --dry-run"),
         validation,
         planned_actions: actions,
         errors,
         warnings,
         safety_note: "Dry-run planner only; no files, registry entries, PATH, services, tasks, or module code were changed.",
     }
+}
+
+fn store_plan(manifest_path: &Path, validation: &ManifestValidationReport) -> ModuleStorePlan {
+    let seed = validation
+        .manifest
+        .as_ref()
+        .map(|manifest| {
+            format!(
+                "{}|{}|{}",
+                manifest.id,
+                manifest.version,
+                manifest_path.display()
+            )
+        })
+        .unwrap_or_else(|| manifest_path.display().to_string());
+    let module_id = validation
+        .manifest
+        .as_ref()
+        .map(|manifest| manifest.id.as_str());
+    let version = validation
+        .manifest
+        .as_ref()
+        .map(|manifest| manifest.version.as_str());
+    module_store_plan(module_id, version, &seed)
 }
 
 fn resolve_package_input(input_path: &Path) -> ResolvedPackageInput {
@@ -162,52 +191,6 @@ fn planned_actions(
     actions
 }
 
-fn proposed_module_dir(
-    install_root: &Path,
-    validation: &ManifestValidationReport,
-) -> Option<String> {
-    let manifest = validation.manifest.as_ref()?;
-    Some(
-        install_root
-            .join(&manifest.id)
-            .join(&manifest.version)
-            .display()
-            .to_string(),
-    )
-}
-
-fn default_module_install_root() -> PathBuf {
-    match env::consts::OS {
-        "windows" => env::var_os("LOCALAPPDATA")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("%LOCALAPPDATA%"))
-            .join("runtime.zero")
-            .join("modules"),
-        "macos" => home_dir()
-            .unwrap_or_else(|| PathBuf::from("~"))
-            .join("Library")
-            .join("Application Support")
-            .join("runtime.zero")
-            .join("modules"),
-        _ => env::var_os("XDG_DATA_HOME")
-            .map(PathBuf::from)
-            .or_else(home_data_dir)
-            .unwrap_or_else(|| PathBuf::from("~/.local/share"))
-            .join("runtime.zero")
-            .join("modules"),
-    }
-}
-
-fn home_data_dir() -> Option<PathBuf> {
-    Some(home_dir()?.join(".local").join("share"))
-}
-
-fn home_dir() -> Option<PathBuf> {
-    env::var_os("HOME")
-        .or_else(|| env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-}
-
 fn looks_url_like(path: &str) -> bool {
     let lower = path.to_ascii_lowercase();
     lower.contains("://")
@@ -233,6 +216,18 @@ mod tests {
         ));
         assert!(report.valid, "{:?}", report.errors);
         assert!(report.dry_run);
+        assert_eq!(report.store.store_schema_version, 1);
+        assert!(
+            report
+                .store
+                .registry_path
+                .contains("installed-modules.json")
+        );
+        assert!(report.store.receipt_path.is_some());
+        assert_eq!(
+            report.launch_context.launch_mode,
+            crate::launch_routing::LaunchMode::CliSubcommand
+        );
         assert!(
             report
                 .planned_actions

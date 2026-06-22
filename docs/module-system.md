@@ -68,8 +68,18 @@ that would be recorded later. Every planned action has `would_write: false` in
 JSON output. The command performs no writes and intentionally has no non-dry-run
 form.
 
+Dry-run JSON now also includes a `store` object and `launch_context` object.
+The `store` object describes future user-local data/state/cache/log/quarantine
+paths, registry/receipt/transaction paths, rollback/quarantine support flags,
+and forbidden path classes. The `launch_context` object records that explicit
+subcommands stay on the scriptable CLI path. These are contract fields only:
+the command still creates no directories, writes no registry or receipt files,
+and launches no TUI.
+
 See [`manifest-validation.md`](manifest-validation.md) for the validation
-contract and current trust boundaries.
+contract and current trust boundaries. See
+[`store-and-routing-contract.md`](store-and-routing-contract.md) for the local
+store and CLI/TUI routing contract.
 
 ## Planned module families
 

@@ -1,10 +1,12 @@
 use std::env;
 
 pub mod brand;
+pub mod launch_routing;
 pub mod module_cli;
 pub mod module_install_plan;
 pub mod module_manifest;
 pub mod module_registry;
+pub mod module_store;
 pub mod module_validation;
 pub mod package_integrity;
 
