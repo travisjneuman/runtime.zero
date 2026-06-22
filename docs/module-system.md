@@ -60,6 +60,12 @@ passes the foundation contract. `rz0 modules --from <directory>` reads JSON
 manifests directly inside that directory and includes only valid manifests in
 `installed_modules`. Neither command executes code or fetches remote content.
 
+The future installed-module registry lives at the store contract's
+`installed-modules.json` path. `rz0 store status` can now parse that file if it
+already exists and report whether it is absent, empty, valid, invalid, or
+unreadable. Registry parsing is read-only and does not make a trust or
+activation decision.
+
 Installed manifests are valid only when their explicitly listed package files
 pass local SHA-256 integrity checks. Planned manifests may omit integrity
 metadata, but the validator reports that they are not package-verified yet.

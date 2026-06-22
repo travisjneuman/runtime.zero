@@ -68,6 +68,54 @@ This command must remain safe when no store exists yet; an absent store is a
 normal result before any write-capable install/store initialization behavior is
 approved.
 
+### Installed module registry schema
+
+The future installed registry file is:
+
+```text
+<state_root>/installed-modules.json
+```
+
+Schema version `1` expects:
+
+```json
+{
+  "schema_version": 1,
+  "modules": [
+    {
+      "id": "first-party.inventory",
+      "version": "0.1.0",
+      "manifest_path": "modules/first-party.inventory/0.1.0/rz0-module.json",
+      "receipt_path": "receipts/rz0plan_inventory.json",
+      "module_dir": "modules/first-party.inventory/0.1.0"
+    }
+  ]
+}
+```
+
+`module_dir` is optional for forward compatibility with future receipt-first
+records, but `id`, `version`, `manifest_path`, and `receipt_path` are required.
+Paths are registry references, not instructions to write files. They must be
+relative, must not use backslashes, absolute paths, URL-like values, or `..`
+traversal, and must stay in the expected future store classes:
+
+- `manifest_path` under `modules/`, ending in `rz0-module.json`;
+- `module_dir` under `modules/` when present;
+- `receipt_path` under `receipts/`, ending in `.json`.
+
+`rz0 store status` reports registry state as:
+
+- `absent`;
+- `empty`;
+- `valid`;
+- `invalid`;
+- `unreadable`.
+
+It also reports schema version, installed module count, duplicate IDs,
+malformed record count, unsafe path count, record validation errors, and parser
+errors. This is inventory only: a valid registry does not execute, trust,
+activate, repair, migrate, install, update, or uninstall any module.
+
 ## Dry-run install metadata
 
 `rz0 modules install --dry-run <package-dir-or-manifest> --format json` includes

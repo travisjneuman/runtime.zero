@@ -3,6 +3,9 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
+use crate::installed_registry::{
+    InstalledRegistryReport, InstalledRegistryState, installed_registry_report,
+};
 use crate::launch_routing::{LaunchEnvironment, LaunchRoutingReport, resolve_launch_mode};
 use crate::module_store::{ModuleStorePlan, STORE_SCHEMA_VERSION, module_store_plan};
 
@@ -21,6 +24,7 @@ pub struct StoreStatusReport {
     pub overall_state: StoreOverallState,
     pub store: ModuleStorePlan,
     pub paths: Vec<StorePathStatus>,
+    pub registry: InstalledRegistryReport,
     pub launch_context: LaunchRoutingReport,
     pub safety_note: &'static str,
 }
@@ -80,14 +84,17 @@ pub fn store_status_report(args: &[String]) -> StoreStatusReport {
         STATUS_SEED,
     );
     let paths = inspect_store_paths(&store);
+    let registry = installed_registry_report(Path::new(&store.registry_path));
+    let overall_state = overall_state(&paths, registry.status);
     StoreStatusReport {
         command: "store status",
         read_only: true,
         writes_attempted: false,
         store_schema_version: STORE_SCHEMA_VERSION,
-        overall_state: overall_state(&paths),
+        overall_state,
         store,
         paths,
+        registry,
         launch_context: resolve_launch_mode(args, LaunchEnvironment::cli_subcommand()),
         safety_note: SAFETY_NOTE,
     }
@@ -189,7 +196,16 @@ fn classify_directory_entries(mut entries: fs::ReadDir) -> (StorePathState, Stri
     }
 }
 
-fn overall_state(paths: &[StorePathStatus]) -> StoreOverallState {
+fn overall_state(
+    paths: &[StorePathStatus],
+    registry_state: InstalledRegistryState,
+) -> StoreOverallState {
+    if matches!(
+        registry_state,
+        InstalledRegistryState::Invalid | InstalledRegistryState::Unreadable
+    ) {
+        return StoreOverallState::Invalid;
+    }
     if paths
         .iter()
         .any(|path| path.state == StorePathState::Invalid)
@@ -198,11 +214,16 @@ fn overall_state(paths: &[StorePathStatus]) -> StoreOverallState {
     } else if paths
         .iter()
         .all(|path| path.state == StorePathState::Absent)
+        && registry_state == InstalledRegistryState::Absent
     {
         StoreOverallState::NotInitialized
     } else if paths
         .iter()
         .all(|path| matches!(path.state, StorePathState::Absent | StorePathState::Empty))
+        && matches!(
+            registry_state,
+            InstalledRegistryState::Absent | InstalledRegistryState::Empty
+        )
     {
         StoreOverallState::Empty
     } else {
@@ -227,7 +248,10 @@ mod tests {
                 .iter()
                 .all(|path| path.state == StorePathState::Absent)
         );
-        assert_eq!(overall_state(&paths), StoreOverallState::NotInitialized);
+        assert_eq!(
+            overall_state(&paths, InstalledRegistryState::Absent),
+            StoreOverallState::NotInitialized
+        );
     }
 
     #[test]
@@ -241,6 +265,8 @@ mod tests {
         assert!(json.contains("\"store_schema_version\":1"));
         assert!(json.contains("\"writes_attempted\":false"));
         assert!(json.contains("\"registry_path\""));
+        assert!(json.contains("\"registry\""));
+        assert!(json.contains("\"installed_module_count\""));
         assert!(json.contains("\"transactions_dir\""));
         assert!(json.contains("\"receipts_dir\""));
         assert!(json.contains("\"launch_mode\":\"cli_subcommand\""));

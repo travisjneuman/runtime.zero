@@ -71,8 +71,10 @@ transactions, rollback plans, quarantine records, staging files, module files,
 or TUI surfaces are created.
 
 `rz0 store status` is also read-only. It checks whether the future store paths
-already exist and reports absent, empty, present, or invalid states. It must not
-create, repair, migrate, delete, initialize, or write store files.
+already exist and reports absent, empty, present, or invalid states. It also
+parses an existing `installed-modules.json` registry file if present and reports
+registry validity as data. It must not create, repair, migrate, delete,
+initialize, trust, activate, or write store files.
 
 Bare `rz0` may open a minimal TUI dashboard in an interactive terminal. That
 dashboard is a review surface only: it may display foundation state, store

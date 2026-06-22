@@ -91,6 +91,7 @@ fn tone_for(tone: &str) -> tui_theme::TuiTone {
         "accent" => tui_theme::TuiTone::Accent,
         "safe" => tui_theme::TuiTone::Safe,
         "dry_run" => tui_theme::TuiTone::DryRun,
+        "warn" => tui_theme::TuiTone::Warn,
         "muted" => tui_theme::TuiTone::Muted,
         _ => tui_theme::TuiTone::Info,
     }

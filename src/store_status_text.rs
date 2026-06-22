@@ -1,6 +1,7 @@
 use std::fmt::Write as FmtWrite;
 
 use crate::brand;
+use crate::installed_registry::InstalledRegistryState;
 use crate::launch_routing::LaunchMode;
 use crate::store_status::{
     StoreOverallState, StorePathKind, StorePathRole, StorePathState, StoreStatusReport,
@@ -28,6 +29,45 @@ pub fn store_status_text(report: &StoreStatusReport) -> String {
         );
         let _ = writeln!(out, "    detail: {}", path.detail);
     }
+    let _ = writeln!(out, "registry:");
+    let _ = writeln!(
+        out,
+        "  status: {}",
+        registry_state_label(report.registry.status)
+    );
+    let _ = writeln!(
+        out,
+        "  schema_version: {}",
+        report
+            .registry
+            .schema_version
+            .map(|version| version.to_string())
+            .unwrap_or_else(|| "none".to_string())
+    );
+    let _ = writeln!(
+        out,
+        "  installed_module_count: {}",
+        report.registry.installed_module_count
+    );
+    let _ = writeln!(
+        out,
+        "  duplicate_ids: {}",
+        if report.registry.duplicate_ids.is_empty() {
+            "none".to_string()
+        } else {
+            report.registry.duplicate_ids.join(", ")
+        }
+    );
+    let _ = writeln!(
+        out,
+        "  malformed_record_count: {}",
+        report.registry.malformed_record_count
+    );
+    let _ = writeln!(
+        out,
+        "  unsafe_path_count: {}",
+        report.registry.unsafe_path_count
+    );
     let _ = writeln!(
         out,
         "launch_mode: {}",
@@ -78,6 +118,16 @@ fn path_state_label(state: StorePathState) -> &'static str {
         StorePathState::Empty => "empty",
         StorePathState::Present => "present",
         StorePathState::Invalid => "invalid",
+    }
+}
+
+fn registry_state_label(state: InstalledRegistryState) -> &'static str {
+    match state {
+        InstalledRegistryState::Absent => "absent",
+        InstalledRegistryState::Empty => "empty",
+        InstalledRegistryState::Valid => "valid",
+        InstalledRegistryState::Invalid => "invalid",
+        InstalledRegistryState::Unreadable => "unreadable",
     }
 }
 

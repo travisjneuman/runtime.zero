@@ -11,6 +11,7 @@ pub const LABEL_OK: &str = "[OK]";
 pub const LABEL_INFO: &str = "[INFO]";
 pub const LABEL_PLAN: &str = "[PLAN]";
 pub const LABEL_DRY_RUN: &str = "[DRY-RUN]";
+pub const LABEL_WARN: &str = "[WARN]";
 pub const LABEL_SKIP: &str = "[SKIP]";
 
 pub const BORDER_HORIZONTAL: &str = "─";
@@ -26,6 +27,7 @@ pub enum TuiTone {
     Info,
     Safe,
     DryRun,
+    Warn,
     Muted,
 }
 
@@ -35,6 +37,7 @@ pub fn ansi(tone: TuiTone) -> &'static str {
         TuiTone::Info => "\x1b[38;5;110m",
         TuiTone::Safe => "\x1b[38;5;108m",
         TuiTone::DryRun => "\x1b[38;5;147m",
+        TuiTone::Warn => "\x1b[38;5;179m",
         TuiTone::Muted => "\x1b[38;5;245m",
     }
 }

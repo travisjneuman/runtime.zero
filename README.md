@@ -88,8 +88,11 @@ These commands are read-only. `store plan` reports the platform-specific
 user-local store roots, registry and transaction paths, example
 receipt/quarantine/rollback paths, forbidden path classes, and current CLI/TUI
 launch-routing interpretation. `store status` checks whether those future paths
-already exist and reports absent, empty, present, or invalid state without
-creating directories, writing state, or repairing anything.
+already exist and also parses an existing `installed-modules.json` registry if
+present. It reports absent, empty, valid, invalid, or unreadable registry state,
+schema version, installed module count, duplicate IDs, malformed records, and
+unsafe path references without creating directories, writing state, repairing
+anything, or implying modules are active.
 
 ## Platform target
 

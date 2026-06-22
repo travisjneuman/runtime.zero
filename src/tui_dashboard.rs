@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use crate::brand;
+use crate::installed_registry::InstalledRegistryState;
 use crate::module_registry::ModuleRegistryReport;
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
 use crate::tui_theme;
@@ -13,6 +14,7 @@ pub struct TuiDashboard {
     pub mode: &'static str,
     pub safety_posture: &'static str,
     pub store_state: StoreOverallState,
+    pub registry_state: InstalledRegistryState,
     pub installed_module_count: usize,
     pub planned_module_family_count: usize,
     pub sections: Vec<TuiSection>,
@@ -55,7 +57,8 @@ fn build_dashboard(store: &StoreStatusReport, modules: &ModuleRegistryReport) ->
         mode: "safe review dashboard",
         safety_posture: brand::SAFETY_POSTURE,
         store_state: store.overall_state,
-        installed_module_count: modules.summary.installed_module_count,
+        registry_state: store.registry.status,
+        installed_module_count: store.registry.installed_module_count,
         planned_module_family_count: modules.summary.planned_family_count,
         sections: sections(store, modules),
         palette: palette(),
@@ -88,6 +91,11 @@ fn sections(store: &StoreStatusReport, modules: &ModuleRegistryReport) -> Vec<Tu
                     tui_theme::LABEL_SKIP,
                     "no store writes or initialization",
                     "muted",
+                ),
+                row(
+                    registry_label(store.registry.status),
+                    registry_state_label(store.registry.status),
+                    registry_tone(store.registry.status),
                 ),
             ],
         },
@@ -137,6 +145,34 @@ fn store_state_label(state: StoreOverallState) -> &'static str {
     }
 }
 
+fn registry_state_label(state: InstalledRegistryState) -> &'static str {
+    match state {
+        InstalledRegistryState::Absent => "registry absent",
+        InstalledRegistryState::Empty => "registry file empty",
+        InstalledRegistryState::Valid => "registry valid",
+        InstalledRegistryState::Invalid => "registry invalid",
+        InstalledRegistryState::Unreadable => "registry unreadable",
+    }
+}
+
+fn registry_label(state: InstalledRegistryState) -> &'static str {
+    match state {
+        InstalledRegistryState::Invalid | InstalledRegistryState::Unreadable => {
+            tui_theme::LABEL_WARN
+        }
+        InstalledRegistryState::Valid => tui_theme::LABEL_OK,
+        InstalledRegistryState::Absent | InstalledRegistryState::Empty => tui_theme::LABEL_INFO,
+    }
+}
+
+fn registry_tone(state: InstalledRegistryState) -> &'static str {
+    match state {
+        InstalledRegistryState::Invalid | InstalledRegistryState::Unreadable => "warn",
+        InstalledRegistryState::Valid => "safe",
+        InstalledRegistryState::Absent | InstalledRegistryState::Empty => "info",
+    }
+}
+
 fn palette() -> TuiPalette {
     TuiPalette {
         surface_bg: tui_theme::SURFACE_BG,
@@ -155,6 +191,7 @@ mod tests {
     fn dashboard_does_not_claim_active_feature_modules() {
         let dashboard = dashboard();
         assert_eq!(dashboard.installed_module_count, 0);
+        assert_eq!(dashboard.registry_state, InstalledRegistryState::Absent);
         assert!(dashboard.planned_module_family_count > 0);
     }
 }

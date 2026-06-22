@@ -2,6 +2,8 @@ use std::env;
 
 pub mod brand;
 pub mod dashboard_cli;
+pub mod installed_registry;
+mod installed_registry_path;
 pub mod launch_routing;
 pub mod module_cli;
 pub mod module_install_plan;
