@@ -35,6 +35,8 @@ rz0 store plan --format json
 rz0 store status
 rz0 store status --format json
 rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
+rz0 store init --dry-run
+rz0 store init --yes
 rz0 scan --dry-run
 ```
 
@@ -43,9 +45,9 @@ Use `rz0 --no-tui` for the scriptable text dashboard, or `rz0 --json` for a
 machine-readable foundation dashboard. `rz0 <subcommand>` remains scriptable and
 never opens the TUI.
 
-Current commands are read-only or dry-run stubs. They exist to prove the binary,
-brand metadata, test harness, documentation foundation, TUI shell, and module
-contract surface.
+Current commands are read-only, dry-run, or explicit user-local store
+scaffolding. They exist to prove the binary, brand metadata, test harness,
+documentation foundation, TUI shell, and module contract surface.
 
 ## Core vs modules
 
@@ -84,6 +86,8 @@ rz0 store plan --format json
 rz0 store status
 rz0 store status --format json
 rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
+rz0 store init --dry-run
+rz0 store init --yes
 ```
 
 These commands are read-only. `store plan` reports the platform-specific
@@ -103,6 +107,15 @@ active.
 inspecting a supplied local store root instead of the real user-local store. It
 reports missing roots as absent and wrong filesystem types as invalid; it never
 initializes, repairs, migrates, or writes the supplied path.
+
+`store init --dry-run` reports the exact user-local store scaffolding that a
+future-ready local store needs. `store init --yes` is the only write-capable
+foundation command today: it creates runtime.zero-owned user-local directories,
+an empty schema-1 registry, and a store initialization marker. It is idempotent
+and refuses to repair or overwrite invalid existing registry state. It does not
+install modules, copy packages, execute code, fetch remote content, edit PATH,
+or create services, tasks, registry entries, persistence, releases, or
+bootstrap hooks.
 
 ## Platform target
 
@@ -133,6 +146,8 @@ cargo run -- store plan --format json
 cargo run -- store status
 cargo run -- store status --format json
 cargo run -- store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
+cargo run -- store init --dry-run
+cargo run -- store init --dry-run --format json
 cargo run -- scan --dry-run
 ```
 
@@ -178,7 +193,8 @@ See [`docs/architecture.md`](docs/architecture.md),
 [`docs/module-system.md`](docs/module-system.md), and
 [`docs/manifest-validation.md`](docs/manifest-validation.md). See
 [`docs/store-and-routing-contract.md`](docs/store-and-routing-contract.md) for
-the read-only future module store and CLI/TUI launch-routing contract.
+the local module store, store initialization, and CLI/TUI launch-routing
+contract.
 
 ## Brand system
 

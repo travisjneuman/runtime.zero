@@ -59,11 +59,12 @@ propose to create, copy, or record. It has no non-dry-run form and must leave
 files, PATH, registry, services, scheduled tasks, persistence, and module code
 untouched.
 
-The future local module store contract is also read-only in the current code.
-`rz0` may calculate user-local data/state/cache/log/quarantine paths for JSON
-plans, but it must not create those directories or write registry, receipt,
-transaction, rollback, quarantine, or staging files until a separate
-write-capable install gate is explicitly approved.
+The local module store contract is plan-first. `rz0` may calculate user-local
+data/state/cache/log/quarantine paths for JSON plans and may initialize only
+runtime.zero-owned user-local scaffolding when the user explicitly runs
+`rz0 store init --yes`. It must not write module registry entries, module
+receipts, transactions, rollback plans, quarantine records, staging files, or
+module files until a separate write-capable install gate is explicitly approved.
 
 `rz0 store plan` exposes that same store/routing contract directly for manual
 inspection. It is path planning only: no directories, registry files, receipts,
@@ -83,6 +84,15 @@ against an explicitly supplied local fixture/support root. The override is not
 an installer setting and must not affect module install behavior. Missing roots
 are reported as absent and wrong filesystem types are reported as invalid; the
 command still must not create, repair, migrate, delete, or write anything.
+
+`rz0 store init --dry-run` is planning only. `rz0 store init --yes` is the only
+write-capable foundation command: it may create the runtime.zero user-local
+store roots, `state/transactions`, `state/receipts`, an empty schema-1
+`installed-modules.json`, and `state/store-init.json`. It must be idempotent,
+must refuse to repair or overwrite invalid existing state, and must not install
+modules, copy packages, execute code, fetch remote content, edit PATH, create
+services/tasks/persistence, or touch credentials, browser profiles, OAuth
+sessions, backups, project workspaces, or unknown user data.
 
 Bare `rz0` may open a minimal TUI dashboard in an interactive terminal. That
 dashboard is a review surface only: it may display foundation state, store
@@ -104,7 +114,7 @@ foundation development. That path is intentionally narrow:
 - no remote fetch/download, release publication, package manager install, or
   public direct-run/bootstrap command;
 - no shell profile edits, scheduled tasks, services, persistence, module
-  install/update/fetch/trust/execution, or future store initialization;
+  install/update/fetch/trust/execution, or real store initialization;
 - reversible by `scripts\uninstall-local.ps1 -RemovePath`.
 
 The local install script writes only the copied `rz0.exe` and a
@@ -130,4 +140,4 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 
 ## Current status
 
-The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, dry-run placeholders, dry-run module install planning, and module registry contracts.
+The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, dry-run placeholders, explicit user-local store initialization, dry-run module install planning, and module registry contracts.

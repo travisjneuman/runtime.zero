@@ -43,7 +43,7 @@ pub fn render_dashboard(dashboard: &TuiDashboard, color: bool) -> String {
     ));
     out.push('\n');
     out.push_str(&line(
-        "commands: rz0 doctor | rz0 modules | rz0 store plan | rz0 store status",
+        "commands: rz0 doctor | rz0 store status | rz0 store init --dry-run",
         false,
         None,
     ));

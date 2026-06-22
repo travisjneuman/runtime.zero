@@ -41,6 +41,7 @@ rz0 store plan --format json
 rz0 store status
 rz0 store status --format json
 rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
+rz0 store init --dry-run
 ```
 
 Bare `rz0` opens a minimal read-only TUI dashboard in interactive terminals.
@@ -75,6 +76,11 @@ override is intentionally limited to read-only store inspection; it does not
 initialize state, write registry/receipt files, or change future install
 behavior.
 
+`rz0 store init --dry-run` reports the future store scaffolding plan.
+`rz0 store init --yes` may initialize only runtime.zero-owned user-local store
+scaffolding; it does not install modules, activate registry records, trust
+receipts, or execute module code.
+
 Installed manifests are valid only when their explicitly listed package files
 pass local SHA-256 integrity checks. Planned manifests may omit integrity
 metadata, but the validator reports that they are not package-verified yet.
@@ -104,7 +110,8 @@ See [`manifest-validation.md`](manifest-validation.md) for the validation
 contract and current trust boundaries. See
 [`store-and-routing-contract.md`](store-and-routing-contract.md) for the local
 store and CLI/TUI routing contract, including `rz0 store plan` and
-`rz0 store status` for read-only inspection without module install planning.
+`rz0 store status` for read-only inspection without module install planning,
+plus the explicit `rz0 store init --dry-run` / `--yes` scaffold gate.
 
 ## Planned module families
 

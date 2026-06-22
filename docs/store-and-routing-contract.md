@@ -1,8 +1,9 @@
 # Store and Routing Contract
 
-`runtime.zero` now exposes read-only contract plumbing for future local module
-state and future CLI/TUI launch routing. This is not an installer and does not
-create directories or write state files.
+`runtime.zero` now exposes contract plumbing for local module state and
+CLI/TUI launch routing. Store inspection remains read-only; store
+initialization is explicit, user-local, and limited to runtime.zero-owned
+scaffolding.
 
 ## Local module store contract
 
@@ -67,8 +68,7 @@ receipts paths and classifies each path as:
 The overall state is `not_initialized`, `empty`, `present`, or `invalid`.
 Type mismatches, metadata errors, and symlinks are reported as invalid state.
 This command must remain safe when no store exists yet; an absent store is a
-normal result before any write-capable install/store initialization behavior is
-approved.
+normal result before `rz0 store init --yes` is explicitly run.
 
 For fixture demos and future support triage, `rz0 store status` also accepts
 `--store-root <path>`. The override is read-only and affects only store status
@@ -204,23 +204,23 @@ Absolute paths, backslashes, URL-like values, and `..` traversal are rejected.
 Receipt validation is not a trust decision and does not execute, trust,
 activate, repair, migrate, install, update, or uninstall any module.
 
-## Future store initialization plan
+## Store initialization command
 
-Store initialization is not implemented yet. The proposed approval-gated shape
-is:
+Store initialization is implemented as a plan-first foundation command:
 
 ```bash
 rz0 store init --dry-run
-rz0 store init
+rz0 store init --dry-run --format json
+rz0 store init --yes
 ```
 
-The dry-run command should report the exact filesystem operations that would be
-attempted and should share the same JSON/text contract style as `store plan`
-and `store status`. The future write-capable command must remain user-local by
-default and should require explicit confirmation when run interactively.
+The dry-run command reports the exact filesystem operations that would be
+attempted and shares the same JSON/text contract style as `store plan` and
+`store status`. The write-capable command requires the explicit `--yes` flag;
+plain `rz0 store init` is rejected.
 
-The first write-capable initialization slice should only create runtime.zero
-owned store scaffolding:
+The first write-capable initialization slice only creates runtime.zero-owned
+user-local store scaffolding:
 
 - data root;
 - state root;
@@ -232,15 +232,16 @@ owned store scaffolding:
 - receipts directory under state;
 - an `installed-modules.json` registry with schema version `1` and an empty
   `modules` list;
-- an initialization marker or receipt under state that records schema version,
-  created paths, command version, timestamp, host OS, and rollback guidance.
+- `state/store-init.json`, a store initialization marker that records schema
+  version, created roots, command shape, timestamp, and rollback guidance.
 
-The initialization receipt should be distinct from module install receipts and
-must not imply that any module is installed or trusted. If a registry already
-exists, initialization should validate it first and refuse to overwrite invalid
-or unknown data without a later explicit repair/migration design.
+The initialization marker is distinct from module install receipts and does not
+imply that any module is installed or trusted. If a registry already exists,
+initialization validates it first and refuses to overwrite invalid, empty, or
+unreadable state. If `state/store-init.json` already exists, initialization
+also validates its schema/kind before treating the store as initialized.
 
-Planned safety requirements for initialization:
+Safety requirements for initialization:
 
 - no remote fetches, module package copies, module execution, PATH edits,
   registry edits, services, scheduled tasks, or persistence hooks;
@@ -257,8 +258,8 @@ Planned safety requirements for initialization:
 - keep uninstall/rollback scoped to runtime.zero-owned files recorded by
   initialization and install receipts.
 
-The next approval gate should design the exact initialization JSON schema,
-confirmation UX, and rollback metadata before enabling `rz0 store init` writes.
+Repair, migration, uninstall, and module install behavior remain deliberately
+blocked for later approval gates.
 
 ## Dry-run install metadata
 

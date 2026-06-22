@@ -139,6 +139,46 @@ fn store_status_override_surfaces_invalid_receipt() {
     assert_eq!(json["overall_state"], "invalid");
 }
 
+#[test]
+fn store_init_requires_explicit_plan_or_apply_flag() {
+    let args = vec!["init".to_string()];
+    let (code, out, err) = store_command(&args);
+    assert_eq!(code, ExitCode::Usage);
+    assert!(out.is_empty());
+    assert!(err.contains("requires --dry-run or --yes"));
+}
+
+#[test]
+fn store_init_dry_run_reports_scaffold_plan() {
+    let args = vec![
+        "init".to_string(),
+        "--dry-run".to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+    let (code, out, err) = store_command(&args);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let json: Value = serde_json::from_str(&out).expect("store init should be JSON");
+    assert_eq!(json["command"], "store init");
+    assert_eq!(json["dry_run"], true);
+    assert_eq!(json["writes_attempted"], false);
+    assert!(
+        json["steps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|step| { step["role"] == "registry_path" })
+    );
+    assert!(
+        json["steps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|step| { step["role"] == "init_marker_path" })
+    );
+}
+
 fn store_status_fixture_args(name: &str, json: bool) -> Vec<String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")

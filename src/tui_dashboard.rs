@@ -4,6 +4,7 @@ use crate::brand;
 use crate::install_receipt::ReceiptInventoryState;
 use crate::installed_registry::InstalledRegistryState;
 use crate::module_registry::ModuleRegistryReport;
+use crate::store_init::{StoreInitMode, StoreInitOptions, StoreInitStatus, store_init_report};
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
 use crate::tui_theme;
 
@@ -17,6 +18,7 @@ pub struct TuiDashboard {
     pub store_state: StoreOverallState,
     pub registry_state: InstalledRegistryState,
     pub receipt_state: ReceiptInventoryState,
+    pub store_init_status: StoreInitStatus,
     pub installed_module_count: usize,
     pub planned_module_family_count: usize,
     pub sections: Vec<TuiSection>,
@@ -47,11 +49,19 @@ pub struct TuiPalette {
 
 pub fn dashboard() -> TuiDashboard {
     let store = store_status_report(&["tui".to_string()]);
+    let init = store_init_report(
+        &["tui".to_string()],
+        StoreInitOptions::new(StoreInitMode::DryRun),
+    );
     let modules = ModuleRegistryReport::empty_installed();
-    build_dashboard(&store, &modules)
+    build_dashboard(&store, init.status, &modules)
 }
 
-fn build_dashboard(store: &StoreStatusReport, modules: &ModuleRegistryReport) -> TuiDashboard {
+fn build_dashboard(
+    store: &StoreStatusReport,
+    init_status: StoreInitStatus,
+    modules: &ModuleRegistryReport,
+) -> TuiDashboard {
     TuiDashboard {
         title: brand::TITLE,
         command: brand::COMMAND,
@@ -61,25 +71,26 @@ fn build_dashboard(store: &StoreStatusReport, modules: &ModuleRegistryReport) ->
         store_state: store.overall_state,
         registry_state: store.registry.status,
         receipt_state: store.receipts.overall_state,
+        store_init_status: init_status,
         installed_module_count: store.registry.installed_module_count,
         planned_module_family_count: modules.summary.planned_family_count,
-        sections: sections(store, modules),
+        sections: sections(store, init_status, modules),
         palette: palette(),
     }
 }
 
-fn sections(store: &StoreStatusReport, modules: &ModuleRegistryReport) -> Vec<TuiSection> {
+fn sections(
+    store: &StoreStatusReport,
+    init_status: StoreInitStatus,
+    modules: &ModuleRegistryReport,
+) -> Vec<TuiSection> {
     vec![
         TuiSection {
             title: "foundation",
             rows: vec![
                 row(tui_theme::LABEL_OK, "core CLI loaded", "safe"),
                 row(tui_theme::LABEL_INFO, brand::SAFETY_POSTURE, "info"),
-                row(
-                    tui_theme::LABEL_SKIP,
-                    "mutation capability disabled",
-                    "muted",
-                ),
+                row(tui_theme::LABEL_SKIP, "module mutation disabled", "muted"),
             ],
         },
         TuiSection {
@@ -91,9 +102,9 @@ fn sections(store: &StoreStatusReport, modules: &ModuleRegistryReport) -> Vec<Tu
                     "info",
                 ),
                 row(
-                    tui_theme::LABEL_SKIP,
-                    "no store writes or initialization",
-                    "muted",
+                    init_label(init_status),
+                    init_status_label(init_status),
+                    init_tone(init_status),
                 ),
                 row(
                     registry_label(store.registry.status),
@@ -150,6 +161,31 @@ fn store_state_label(state: StoreOverallState) -> &'static str {
         StoreOverallState::Empty => "store paths exist but are empty",
         StoreOverallState::Present => "store paths present",
         StoreOverallState::Invalid => "store path mismatch detected",
+    }
+}
+
+fn init_status_label(status: StoreInitStatus) -> &'static str {
+    match status {
+        StoreInitStatus::Ready => "store init dry-run ready",
+        StoreInitStatus::AlreadyInitialized => "store scaffolding initialized",
+        StoreInitStatus::Applied => "store init applied",
+        StoreInitStatus::Blocked => "store init blocked",
+    }
+}
+
+fn init_label(status: StoreInitStatus) -> &'static str {
+    match status {
+        StoreInitStatus::Blocked => tui_theme::LABEL_WARN,
+        StoreInitStatus::AlreadyInitialized | StoreInitStatus::Applied => tui_theme::LABEL_OK,
+        StoreInitStatus::Ready => tui_theme::LABEL_DRY_RUN,
+    }
+}
+
+fn init_tone(status: StoreInitStatus) -> &'static str {
+    match status {
+        StoreInitStatus::Blocked => "warn",
+        StoreInitStatus::AlreadyInitialized | StoreInitStatus::Applied => "safe",
+        StoreInitStatus::Ready => "dry_run",
     }
 }
 
@@ -237,6 +273,7 @@ mod tests {
             dashboard.receipt_state,
             ReceiptInventoryState::NotReferenced
         );
+        assert_eq!(dashboard.store_init_status, StoreInitStatus::Ready);
         assert!(dashboard.planned_module_family_count > 0);
     }
 }
