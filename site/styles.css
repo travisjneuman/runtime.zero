@@ -134,11 +134,14 @@ a:focus-visible {
 }
 
 .hero-lockup {
+  --hero-pad: clamp(24px, 5vw, 86px);
   position: absolute;
   top: clamp(21svh, 26svh, 30svh);
   left: 50%;
   display: grid;
-  width: min(78vw, 1220px);
+  width: min(92vw, 1440px);
+  max-width: calc(100vw - 48px);
+  padding-inline: var(--hero-pad);
   transform: translate(-50%, var(--title-y)) scale(var(--title-scale));
   transform-origin: 50% 0;
   opacity: var(--title-opacity);
@@ -152,9 +155,10 @@ a:focus-visible {
   position: absolute;
   top: 50%;
   width: clamp(22px, 5vw, 76px);
-  height: clamp(46px, 7vw, 96px);
+  height: clamp(58px, 9vw, 142px);
   border-color: var(--rz0-border-strong);
   opacity: 0.52;
+  transform: translateY(-50%);
 }
 
 .hero-lockup::before {
@@ -173,8 +177,8 @@ a:focus-visible {
 
 .brass-pin {
   position: absolute;
-  left: clamp(16px, 7vw, 110px);
-  top: calc(50% + clamp(28px, 4vw, 50px));
+  left: var(--hero-pad);
+  top: calc(50% - clamp(48px, 5.2vw, 78px));
   width: clamp(28px, 4.8vw, 70px);
   height: 4px;
   background: linear-gradient(90deg, var(--rz0-brand-primary), transparent);
@@ -184,8 +188,10 @@ a:focus-visible {
 .hero-title {
   margin: 0;
   color: var(--rz0-text-primary);
-  font: 500 clamp(3.8rem, 11.7vw, 11.6rem)/0.9 var(--rz0-font-mono);
-  letter-spacing: clamp(0.08em, 1.08vw, 0.22em);
+  max-width: 100%;
+  font: 500 clamp(2.7rem, 8.8vw, 9.2rem)/0.9 var(--rz0-font-mono);
+  letter-spacing: clamp(0.02em, 0.48vw, 0.11em);
+  text-align: center;
   text-transform: lowercase;
   white-space: nowrap;
   text-shadow: 0 0 34px rgba(230, 224, 210, 0.08);
@@ -205,8 +211,8 @@ a:focus-visible {
 
 .alias-chip {
   position: absolute;
-  right: clamp(14px, 6vw, 96px);
-  top: calc(50% + clamp(26px, 3.9vw, 48px));
+  right: var(--hero-pad);
+  top: calc(50% - clamp(48px, 5.2vw, 78px) - 0.72rem);
   padding: 0.32rem 0.62rem;
   border: 1px solid var(--rz0-brand-deep);
   color: var(--rz0-brand-accessible);
@@ -368,27 +374,6 @@ a:focus-visible {
   color: var(--rz0-brand-accessible);
 }
 
-.accessible-summary {
-  width: min(860px, calc(100vw - 40px));
-  margin: 0 auto;
-  padding: 72px 0 96px;
-  color: var(--rz0-text-secondary);
-}
-
-.accessible-summary h2 {
-  margin: 0 0 18px;
-  color: var(--rz0-text-primary);
-  font: 600 clamp(1.6rem, 3vw, 2.4rem)/1.1 var(--rz0-font-mono);
-}
-
-.accessible-summary p,
-.accessible-summary li {
-  font-size: 1rem;
-  line-height: 1.75;
-}
-
-.accessible-summary strong { color: var(--rz0-text-primary); }
-
 @media (max-width: 780px) {
   .scroll-stage { min-height: auto; }
 
@@ -405,13 +390,16 @@ a:focus-visible {
     top: auto;
     left: auto;
     width: 100%;
+    max-width: 100%;
+    padding-inline: 0;
     transform: none !important;
     margin: 0 auto 36px;
   }
 
   .hero-title {
-    font-size: clamp(2rem, 9.8vw, 3.4rem);
-    letter-spacing: 0.025em;
+    width: 100%;
+    font-size: clamp(1.55rem, 6.9vw, 2.55rem);
+    letter-spacing: 0.005em;
   }
 
   .hero-lockup::before,
@@ -495,11 +483,16 @@ a:focus-visible {
     left: auto;
     transform: none !important;
     width: min(860px, 100%);
+    max-width: 100%;
+    padding-inline: 0;
     padding-top: 25svh;
     margin: 0 auto 52svh;
   }
 
-  .hero-title { font-size: clamp(2.6rem, 9vw, 6.5rem); }
+  .hero-title {
+    font-size: clamp(2.6rem, 8vw, 6rem);
+    letter-spacing: clamp(0.02em, 0.3vw, 0.08em);
+  }
 
   .tui-frame {
     position: relative;
@@ -516,5 +509,17 @@ a:focus-visible {
     bottom: auto;
     transform: none;
     opacity: 1 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 780px) {
+  .hero-lockup {
+    width: calc(100vw - 48px);
+  }
+
+  .hero-title {
+    width: 100%;
+    font-size: clamp(1.55rem, 6.9vw, 2.55rem);
+    letter-spacing: 0.005em;
   }
 }

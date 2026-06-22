@@ -21,7 +21,7 @@
     <script src="terminal.js" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#summary">Skip to accessible summary</a>
+    <a class="skip-link" href="#links">Skip to links</a>
     <main id="content" class="site-shell">
       <section class="scroll-stage" aria-label="runtime.zero cinematic landing sequence">
         <div class="cinematic">
@@ -60,25 +60,12 @@
             </div>
           </section>
 
-          <footer class="quiet-footer" data-footer-links>
+          <footer id="links" class="quiet-footer" data-footer-links>
             <a href="https://github.com/travisjneuman/runtime.zero">GitHub</a>
             <a href="https://github.com/travisjneuman/runtime.zero/tree/main/docs">Docs</a>
             <a href="https://github.com/travisjneuman/runtime.zero/blob/main/SAFETY.md">Safety Model</a>
           </footer>
         </div>
-      </section>
-
-      <section id="summary" class="accessible-summary" aria-labelledby="summary-title">
-        <h2 id="summary-title">runtime.zero summary</h2>
-        <p>
-          runtime.zero is a pre-alpha, Rust-first terminal-native foundation for safe system management. Current public behavior is read-only or dry-run-first. The animated TUI on this page is a design reference for future local/manual review flows, not a production TUI claim.
-        </p>
-        <ul>
-          <li><strong>Current foundation:</strong> CLI core, diagnostics, module registry contracts, manifest validation, store planning, and dry-run planning.</li>
-          <li><strong>Safety posture:</strong> report first, dry-run first, quarantine before delete, explicit confirmation before mutation.</li>
-          <li><strong>Module posture:</strong> substantial capabilities are explicit first-party module choices; third-party trust requires future hardening.</li>
-          <li><strong>Unavailable today:</strong> verified downloads, direct bootstrap commands, package publishing, destructive cleanup, and a real TUI implementation.</li>
-        </ul>
       </section>
     </main>
   </body>
