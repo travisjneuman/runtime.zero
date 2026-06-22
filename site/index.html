@@ -7,12 +7,12 @@
     <title>runtime.zero — rz0 system management toolkit</title>
     <meta
       name="description"
-      content="runtime.zero is a Rust-first, terminal-native system management toolkit launched with rz0. It is safety-led, dry-run-first, and modular by design."
+      content="runtime.zero is a pre-alpha, terminal-native system management foundation for safe, policy-gated, module-aware workflows."
     />
     <meta property="og:title" content="runtime.zero — rz0" />
     <meta
       property="og:description"
-      content="A safety-first terminal-native system management toolkit for people who want control without chaos."
+      content="A safety-first terminal-native system management foundation for operators who prefer control over convenience."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://rz0.neuman.dev" />
@@ -21,153 +21,64 @@
     <script src="terminal.js" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#content">Skip to content</a>
-    <div class="screen-noise" aria-hidden="true"></div>
-    <div class="boot-shutter" aria-hidden="true"></div>
+    <a class="skip-link" href="#summary">Skip to accessible summary</a>
+    <main id="content" class="site-shell">
+      <section class="scroll-stage" aria-label="runtime.zero cinematic landing sequence">
+        <div class="cinematic">
+          <div class="grain"></div>
+          <div class="hero-lockup" data-title-lockup>
+            <span class="brass-pin"></span>
+            <h1 class="hero-title" data-title>runtime.zero<span class="cursor-block"></span></h1>
+            <span class="alias-chip">rz0</span>
+          </div>
 
-    <main id="content" class="terminal-shell" aria-labelledby="site-title">
-      <section id="top" class="terminal-artifact" aria-label="runtime.zero terminal command surface">
-        <header class="terminal-bar">
-          <a class="brand-chip" href="#top" aria-label="runtime.zero home">rz0</a>
-          <nav class="terminal-nav" aria-label="Primary navigation">
-            <a href="#session">session</a>
-            <a href="#modules">modules</a>
-            <a href="#safety">safety</a>
-            <a href="#source">source</a>
-            <a href="https://github.com/travisjneuman/runtime.zero">github</a>
-          </nav>
-        </header>
+          <section class="tui-frame" data-tui-frame aria-label="future rz0 TUI design reference" aria-hidden="true">
+            <div class="tui-topbar">
+              <span>runtime.zero</span>
+              <span data-scene-counter>00 / 06</span>
+              <span>rz0</span>
+            </div>
+            <div class="tui-grid">
+              <nav class="tui-nav" aria-label="TUI scene navigation">
+                <span data-nav-item>launch</span>
+                <span data-nav-item>home</span>
+                <span data-nav-item>palette</span>
+                <span data-nav-item>modules</span>
+                <span data-nav-item>dry-run</span>
+                <span data-nav-item>restore</span>
+              </nav>
+              <div class="tui-panel">
+                <div class="scene-kicker" data-scene-label>[INFO] foundation preview</div>
+                <h2 data-scene-title>launch surface</h2>
+                <pre data-scene-output></pre>
+              </div>
+            </div>
+            <div class="tui-statusbar">
+              <span data-status-left>[PLAN] policy-gated</span>
+              <span data-status-mid>[DRY-RUN] no mutation</span>
+              <span>rz0 ~ # <i></i></span>
+            </div>
+          </section>
 
-        <div class="boot-panel" aria-label="boot sequence">
-          <span data-boot-line>boot/runtime.zero</span>
-          <span data-boot-line>mounting safety policy</span>
-          <span data-boot-line>mutation_capability: disabled</span>
+          <footer class="quiet-footer" data-footer-links>
+            <a href="https://github.com/travisjneuman/runtime.zero">GitHub</a>
+            <a href="https://github.com/travisjneuman/runtime.zero/tree/main/docs">Docs</a>
+            <a href="https://github.com/travisjneuman/runtime.zero/blob/main/SAFETY.md">Safety Model</a>
+          </footer>
         </div>
+      </section>
 
-        <section class="terminal-hero" aria-label="runtime.zero introduction">
-          <div class="hero-session">
-            <p class="prompt-line"><span>$</span> rz0</p>
-            <h1 id="site-title" data-text="runtime.zero">runtime.zero</h1>
-            <p class="tagline">A terminal-native system management toolkit for people who want control without chaos.</p>
-            <p class="safety-line">report-first / dry-run-first / quarantine-first / explicit-confirmation-first</p>
-            <div class="terminal-actions" aria-label="Primary actions">
-              <a href="https://github.com/travisjneuman/runtime.zero">[open github]</a>
-              <a href="https://github.com/travisjneuman/runtime.zero/blob/main/SAFETY.md">[read safety]</a>
-            </div>
-          </div>
-
-          <dl class="runtime-facts" aria-label="Project status">
-            <div><dt>status</dt><dd>pre-alpha</dd></div>
-            <div><dt>phase</dt><dd>bootstrap</dd></div>
-            <div><dt>targets</dt><dd>win / mac / linux</dd></div>
-            <div><dt>mutation</dt><dd>disabled</dd></div>
-          </dl>
-        </section>
-
-        <section id="session" class="session-grid" aria-labelledby="session-title">
-          <div class="section-copy">
-            <p class="section-index">01 / session</p>
-            <h2 id="session-title">the page is the session</h2>
-            <p>Scroll the transcript. Real commands are separated from planned module UX and locked destructive paths.</p>
-          </div>
-
-          <div class="terminal-window" aria-label="Scroll-driven terminal transcript">
-            <div class="window-bar">
-              <span>rz0 session</span>
-              <span id="scene-state">REAL</span>
-            </div>
-            <pre id="terminal-output" aria-live="polite"></pre>
-          </div>
-        </section>
-
-        <section class="scene-rail" aria-label="Terminal transcript controls">
-          <article class="scene is-active" data-scene="0">
-            <span class="scene-state real">REAL</span>
-            <h3>boot and diagnose</h3>
-            <p>Current build identifies itself and reports local runtime posture without changing anything.</p>
-          </article>
-          <article class="scene" data-scene="1">
-            <span class="scene-state real">REAL</span>
-            <h3>list module boundaries</h3>
-            <p>Core primitives are active; substantial capability modules are explicitly planned, not bundled.</p>
-          </article>
-          <article class="scene" data-scene="2">
-            <span class="scene-state real">REAL</span>
-            <h3>dry-run scan only</h3>
-            <p>The scan path is report-only in this bootstrap build.</p>
-          </article>
-          <article class="scene" data-scene="3">
-            <span class="scene-state planned">PLANNED</span>
-            <h3>first-party modules</h3>
-            <p>Future inventory modules must explain publisher, risk, mutation, and output boundaries.</p>
-          </article>
-          <article class="scene" data-scene="4">
-            <span class="scene-state planned">PLANNED</span>
-            <h3>install preview only</h3>
-            <p>Module install UX requires verification design before any public install path exists.</p>
-          </article>
-          <article class="scene" data-scene="5">
-            <span class="scene-state locked">LOCKED</span>
-            <h3>danger stays blocked</h3>
-            <p>Destructive-gated paths require report, review, quarantine or rollback, and explicit confirmation.</p>
-          </article>
-        </section>
-
-        <section id="modules" class="terminal-section" aria-labelledby="modules-title">
-          <div class="section-copy">
-            <p class="section-index">02 / modules</p>
-            <h2 id="modules-title">foundation, not bundle</h2>
-            <p>The foundation owns the safety contract and command surface. Feature modules should be selected, inspected, and trusted explicitly.</p>
-          </div>
-          <div class="terminal-list" role="table" aria-label="runtime.zero module boundary">
-            <div role="row" class="list-head"><span>id</span><span>state</span><span>risk</span><span>summary</span></div>
-            <div role="row"><span>core.cli</span><span>active</span><span>none</span><span>safe command parser and output surface</span></div>
-            <div role="row"><span>core.doctor</span><span>active</span><span>read-only</span><span>local runtime diagnostics</span></div>
-            <div role="row"><span>core.scan-plan</span><span>stub</span><span>dry-run</span><span>no system changes attempted</span></div>
-            <div role="row"><span>modules.inventory</span><span>planned</span><span>read-only</span><span>normalized local inventory evidence</span></div>
-            <div role="row"><span>modules.update</span><span>planned</span><span>dry-run</span><span>installed-only update planning</span></div>
-            <div role="row"><span>modules.leftovers</span><span>planned</span><span class="risk-lock">locked</span><span>report-first classification before quarantine design</span></div>
-          </div>
-        </section>
-
-        <section id="safety" class="terminal-section safety-terminal" aria-labelledby="safety-title">
-          <div class="section-copy">
-            <p class="section-index">03 / safety</p>
-            <h2 id="safety-title">do not surprise the system</h2>
-          </div>
-          <div class="safety-log" aria-label="runtime.zero safety contract">
-            <p><span>allow</span> report-first diagnostics</p>
-            <p><span>allow</span> dry-run planning</p>
-            <p><span>allow</span> explicit module inspection</p>
-            <p><span>deny</span> surprise installs</p>
-            <p><span>deny</span> silent module execution</p>
-            <p><span>deny</span> credential, session, workspace, backup, or unknown-data cleanup without explicit approval</p>
-          </div>
-          <div class="terminal-actions secondary-actions">
-            <a href="https://github.com/travisjneuman/runtime.zero/blob/main/SAFETY.md">[SAFETY.md]</a>
-            <a href="https://github.com/travisjneuman/runtime.zero/blob/main/SECURITY.md">[SECURITY.md]</a>
-          </div>
-        </section>
-
-        <section id="source" class="terminal-section source-terminal" aria-labelledby="source-title">
-          <div class="section-copy">
-            <p class="section-index">04 / source</p>
-            <h2 id="source-title">source now. verified downloads later.</h2>
-            <p>No direct-run bootstrap command is published until release artifacts, checksums, signatures, and bootstrap safety are designed.</p>
-          </div>
-          <div class="source-output" aria-label="source and download status">
-            <p><span>$</span> rz0 source --status</p>
-            <p>github: available</p>
-            <p>verified_downloads: later</p>
-            <p>direct_bootstrap: not published</p>
-            <p>module_install: not enabled</p>
-          </div>
-          <div class="terminal-actions secondary-actions">
-            <a href="https://github.com/travisjneuman/runtime.zero">[github repository]</a>
-            <a href="https://github.com/travisjneuman/runtime.zero/blob/main/LICENSE">[license]</a>
-            <a href="https://github.com/travisjneuman/runtime.zero/blob/main/CONTRIBUTING.md">[contributing]</a>
-          </div>
-        </section>
+      <section id="summary" class="accessible-summary" aria-labelledby="summary-title">
+        <h2 id="summary-title">runtime.zero summary</h2>
+        <p>
+          runtime.zero is a pre-alpha, Rust-first terminal-native foundation for safe system management. Current public behavior is read-only or dry-run-first. The animated TUI on this page is a design reference for future local/manual review flows, not a production TUI claim.
+        </p>
+        <ul>
+          <li><strong>Current foundation:</strong> CLI core, diagnostics, module registry contracts, manifest validation, store planning, and dry-run planning.</li>
+          <li><strong>Safety posture:</strong> report first, dry-run first, quarantine before delete, explicit confirmation before mutation.</li>
+          <li><strong>Module posture:</strong> substantial capabilities are explicit first-party module choices; third-party trust requires future hardening.</li>
+          <li><strong>Unavailable today:</strong> verified downloads, direct bootstrap commands, package publishing, destructive cleanup, and a real TUI implementation.</li>
+        </ul>
       </section>
     </main>
   </body>

@@ -1,142 +1,214 @@
 const scenes = [
   {
-    badge: "REAL",
+    id: "launch",
+    nav: "launch",
+    label: "[INFO] launch surface",
+    title: "start from zero",
+    statusLeft: "[PLAN] policy-gated",
+    statusMid: "[INFO] foundation layer",
     lines: [
-      "$ rz0 --version",
-      "runtime.zero rz0 0.1.0",
-      "System Management Toolkit",
+      "rz0",
       "",
-      "$ rz0 doctor",
-      "status: phase-1 bootstrap",
-      "command: rz0",
-      "version: 0.1.0",
-      "os: windows | macos | linux",
-      "arch: x86_64 | aarch64",
-      "safety: report-first / dry-run-first / quarantine-first",
-      "mutation_capability: disabled",
-      "cloudflare_automation: not configured",
-      "github_actions: not configured"
-    ]
-  },
-  {
-    badge: "REAL",
-    lines: [
-      "$ rz0 modules",
-      "core.cli          active    safe command parser and output surface",
-      "core.doctor       active    read-only local runtime diagnostics",
-      "core.scan-plan    stub      dry-run-only scan placeholder",
-      "platform.windows  planned   Windows adapter for local inventory evidence",
-      "modules.update    planned   installed-only update planning",
-      "modules.leftovers planned   report-first classification and quarantine planning"
-    ]
-  },
-  {
-    badge: "REAL",
-    lines: [
-      "$ rz0 scan --dry-run",
-      "runtime.zero scan plan",
+      "runtime.zero",
+      "safe system management foundation",
       "",
-      "mode: dry-run",
-      "mutation_capability: disabled",
-      "result: no system changes were attempted",
-      "next: platform adapters will add read-only inventory in a later phase"
+      "[INFO] loading core.policy",
+      "[INFO] loading core.registry",
+      "[PLAN] no mutation without explicit approval",
+      "[PLAN] future TUI design reference only"
     ]
   },
   {
-    badge: "PLANNED",
+    id: "home",
+    nav: "home",
+    label: "[INFO] pre-alpha foundation",
+    title: "operator home",
+    statusLeft: "[OK] report-first",
+    statusMid: "[DRY-RUN] default posture",
     lines: [
-      "$ rz0 modules info first-party/windows-inventory",
-      "status: planned",
-      "publisher: runtime.zero first-party",
-      "risk: read-only",
-      "mutates_system: false",
-      "outputs: normalized local inventory evidence"
-    ]
-  },
-  {
-    badge: "PLANNED",
-    lines: [
-      "$ rz0 modules install first-party/windows-inventory --dry-run",
-      "plan: download first-party module manifest",
-      "verify: publisher + checksum + signature",
-      "compatibility: pending",
-      "result: no module installed in dry-run"
-    ]
-  },
-  {
-    badge: "LOCKED",
-    lines: [
-      "$ rz0 run leftovers --quarantine --dry-run",
-      "module: first-party/leftovers",
-      "status: not installed",
-      "risk: destructive-gated",
-      "required: dry-run report + quarantine manifest + confirmation",
-      "result: blocked safely",
+      "foundation layer",
+      "safe system management",
       "",
-      "$ rz0",
-      "foundation: ready",
-      "modules: user-selected",
-      "trust: explicit"
+      "[OK] report-first posture",
+      "[OK] dry-run-first workflow",
+      "[PLAN] modules available for inspection",
+      "[QUARANTINE] reversible isolation model",
+      "",
+      "status: pre-alpha"
+    ]
+  },
+  {
+    id: "palette",
+    nav: "palette",
+    label: "[PLAN] command palette",
+    title: "choose intent first",
+    statusLeft: "[PLAN] inspect before action",
+    statusMid: "[INFO] keyboard-native",
+    lines: [
+      "> doctor",
+      "  modules",
+      "  scan --dry-run",
+      "  modules validate",
+      "  store plan",
+      "  quarantine review",
+      "",
+      "selection changes intent, not system state"
+    ]
+  },
+  {
+    id: "registry",
+    nav: "modules",
+    label: "[INFO] module registry",
+    title: "manifest before module",
+    statusLeft: "[PLAN] explicit modules",
+    statusMid: "[INFO] no execution",
+    lines: [
+      "modules",
+      "core.cli          present",
+      "core.policy       present",
+      "core.registry     present",
+      "",
+      "validate manifest",
+      "sha256            required",
+      "remote code       not allowed",
+      "execution         not allowed during validation"
+    ]
+  },
+  {
+    id: "dryrun",
+    nav: "dry-run",
+    label: "[DRY-RUN] plan-first behavior",
+    title: "scan without mutation",
+    statusLeft: "[DRY-RUN] writes disabled",
+    statusMid: "[SKIP] untouched",
+    lines: [
+      "scan --dry-run",
+      "",
+      "[PLAN] inspect target paths",
+      "[PLAN] report candidate changes",
+      "[SKIP] no files modified",
+      "[SKIP] no installs performed",
+      "[SKIP] no credentials touched",
+      "[SKIP] no browser sessions touched"
+    ]
+  },
+  {
+    id: "restore",
+    nav: "restore",
+    label: "[QUARANTINE] reversible model",
+    title: "restore path first",
+    statusLeft: "[QUARANTINE] reversible",
+    statusMid: "[BLOCKED] approval required",
+    lines: [
+      "quarantine review",
+      "",
+      "[QUARANTINE] isolated candidates",
+      "[PLAN] receipt path recorded",
+      "[PLAN] restore path available",
+      "[BLOCKED] delete requires explicit approval",
+      "",
+      "github  docs  safety model"
     ]
   }
 ];
 
-const terminal = document.querySelector("#terminal-output");
-const state = document.querySelector("#scene-state");
-const sceneCards = Array.from(document.querySelectorAll(".scene"));
+const root = document.documentElement;
+const stage = document.querySelector(".scroll-stage");
+const frame = document.querySelector("[data-tui-frame]");
+const title = document.querySelector("[data-scene-title]");
+const label = document.querySelector("[data-scene-label]");
+const output = document.querySelector("[data-scene-output]");
+const counter = document.querySelector("[data-scene-counter]");
+const statusLeft = document.querySelector("[data-status-left]");
+const statusMid = document.querySelector("[data-status-mid]");
+const footer = document.querySelector("[data-footer-links]");
+const navItems = Array.from(document.querySelectorAll("[data-nav-item]"));
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const narrowViewport = window.matchMedia("(max-width: 780px)").matches;
+
 let activeScene = -1;
 let typingTimer = 0;
 
-function renderScene(index) {
-  if (!terminal || !scenes[index] || activeScene === index) {
-    return;
-  }
-
-  activeScene = index;
-  window.clearInterval(typingTimer);
-
-  const scene = scenes[index];
-  const text = `${scene.lines.join("\n")}\n`;
-  terminal.dataset.badge = scene.badge;
-  if (state) {
-    state.textContent = scene.badge;
-    state.dataset.state = scene.badge.toLowerCase();
-  }
-
-  if (reduceMotion || index === 0) {
-    terminal.textContent = text;
-    return;
-  }
-
-  terminal.textContent = "";
-  let cursor = 0;
-  typingTimer = window.setInterval(() => {
-    terminal.textContent = text.slice(0, cursor);
-    cursor += 4;
-    if (cursor > text.length) {
-      terminal.textContent = text;
-      window.clearInterval(typingTimer);
-    }
-  }, 7);
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
-const observer = new IntersectionObserver(
-  (entries) => {
-    const visible = entries
-      .filter((entry) => entry.isIntersecting)
-      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+function progressForStage() {
+  if (!stage) return 0;
+  const rect = stage.getBoundingClientRect();
+  const distance = rect.height - window.innerHeight;
+  if (distance <= 0) return 1;
+  return clamp(-rect.top / distance, 0, 1);
+}
 
-    if (!visible) {
-      return;
+function setVars(progress) {
+  const reveal = clamp((progress - 0.12) / 0.16, 0, 1);
+  const footerReveal = clamp((progress - 0.84) / 0.12, 0, 1);
+  root.style.setProperty("--title-scale", String(1 - progress * 0.48));
+  root.style.setProperty("--title-y", `${-progress * 84}px`);
+  root.style.setProperty("--terminal-opacity", String(reveal));
+  root.style.setProperty("--terminal-y", `${34 - reveal * 34}px`);
+  root.style.setProperty("--terminal-scale", String(0.94 + reveal * 0.06));
+  root.style.setProperty("--footer-opacity", String(footerReveal));
+  root.style.setProperty("--scene-progress", String(progress));
+}
+
+function sceneIndexFor(progress) {
+  if (progress < 0.18) return 0;
+  if (progress < 0.34) return 1;
+  if (progress < 0.49) return 2;
+  if (progress < 0.64) return 3;
+  if (progress < 0.79) return 4;
+  return 5;
+}
+
+function typeLines(text) {
+  if (!output) return;
+  window.clearInterval(typingTimer);
+  if (reduceMotion || narrowViewport) {
+    output.textContent = text;
+    return;
+  }
+  output.textContent = "";
+  let cursor = 0;
+  typingTimer = window.setInterval(() => {
+    output.textContent = text.slice(0, cursor);
+    cursor += 5;
+    if (cursor > text.length) {
+      output.textContent = text;
+      window.clearInterval(typingTimer);
     }
+  }, 9);
+}
 
-    const sceneIndex = Number(visible.target.getAttribute("data-scene"));
-    sceneCards.forEach((card) => card.classList.toggle("is-active", card === visible.target));
-    renderScene(sceneIndex);
-  },
-  { rootMargin: "-42% 0px -38% 0px", threshold: [0.25, 0.55, 0.8] }
-);
+function renderScene(index) {
+  if (!scenes[index] || index === activeScene) return;
+  activeScene = index;
+  const scene = scenes[index];
+  if (title) title.textContent = scene.title;
+  if (label) label.textContent = scene.label;
+  if (counter) counter.textContent = `${String(index + 1).padStart(2, "0")} / ${String(scenes.length).padStart(2, "0")}`;
+  if (statusLeft) statusLeft.textContent = scene.statusLeft;
+  if (statusMid) statusMid.textContent = scene.statusMid;
+  navItems.forEach((item) => item.classList.toggle("is-active", item.textContent.trim() === scene.nav));
+  typeLines(`${scene.lines.join("\n")}\n`);
+}
 
-sceneCards.forEach((card) => observer.observe(card));
-renderScene(0);
+function update() {
+  const progress = reduceMotion || narrowViewport ? 0 : progressForStage();
+  setVars(progress);
+  renderScene(sceneIndexFor(progress));
+}
+
+function syncFooterFocus() {
+  if (!footer) return;
+  footer.addEventListener("focusin", () => {
+    root.style.setProperty("--footer-opacity", "1");
+  });
+}
+
+window.addEventListener("scroll", update, { passive: true });
+window.addEventListener("resize", update);
+syncFooterFocus();
+if (frame) frame.setAttribute("aria-hidden", "true");
+update();
