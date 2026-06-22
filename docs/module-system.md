@@ -42,6 +42,11 @@ rz0 store status
 rz0 store status --format json
 ```
 
+Bare `rz0` opens a minimal read-only TUI dashboard in interactive terminals.
+That dashboard may show module posture and future module slots, but it must not
+claim planned module families are installed or executable. Explicit subcommands
+remain the scriptable CLI surface.
+
 The JSON output uses schema version `1` and separates:
 
 - `core`;

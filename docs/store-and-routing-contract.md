@@ -90,18 +90,25 @@ paths.
 
 The future routing contract is deterministic:
 
-- bare `rz0` in an interactive terminal opens the TUI dashboard once the TUI is
-  implemented and available;
-- bare `rz0` falls back to safe CLI dashboard/status text while TUI is absent;
+- bare `rz0` in an interactive terminal opens the minimal read-only TUI
+  dashboard;
+- bare `rz0` falls back to safe CLI dashboard/status text while non-interactive
+  or automated;
 - `rz0 <subcommand>` always runs the scriptable CLI path;
 - `rz0 --json` and `rz0 --format json` never launch a full-screen TUI;
 - pipes, redirected output, non-interactive contexts, and automation contexts
   never launch a full-screen TUI;
-- a future `--no-tui` bypass forces the scriptable CLI path.
+- `rz0 --no-tui` bypasses the TUI and prints the scriptable text dashboard.
 
-The current slice adds pure routing types and tests only. It does not add a TUI
-dependency, TUI renderer, installer, PATH setup, release binary, or bootstrap
-command.
+The current TUI shell is intentionally small and dependency-free. It uses
+standard-library terminal detection, centralized theme tokens, a dashboard data
+model, a renderer, and a minimal input loop. It does not add an installer, PATH
+setup, release binary, or bootstrap command.
+
+The TUI may show only foundation state: doctor/status posture, store
+plan/status summaries, module validation/dry-run posture, safety model, and
+future module slots. It must not imply optional modules are installed or active
+when the installed module registry is empty.
 
 ## Brand and output constraints
 

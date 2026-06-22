@@ -55,11 +55,14 @@ pub fn resolve_launch_mode(args: &[String], env: LaunchEnvironment) -> LaunchRou
     let no_tui_requested = args.iter().any(|arg| arg == "--no-tui");
     let tui_requested = args.iter().any(|arg| arg == "--tui");
     let has_subcommand = args.first().is_some_and(|arg| !arg.starts_with('-'));
+    let cli_passthrough_flag = args
+        .iter()
+        .any(|arg| matches!(arg.as_str(), "--help" | "-h" | "--version" | "-V"));
 
-    let (launch_mode, reason) = if has_subcommand {
+    let (launch_mode, reason) = if has_subcommand || cli_passthrough_flag {
         (
             LaunchMode::CliSubcommand,
-            "explicit subcommands use scriptable CLI",
+            "explicit commands and passthrough flags use scriptable CLI",
         )
     } else if json_requested {
         (
@@ -153,6 +156,12 @@ mod tests {
         let report = resolve_launch_mode(&["modules".to_string()], interactive(true));
         assert_eq!(report.launch_mode, LaunchMode::CliSubcommand);
         assert_eq!(report.interface, InterfaceMode::Cli);
+    }
+
+    #[test]
+    fn help_flag_uses_scriptable_cli() {
+        let report = resolve_launch_mode(&["--help".to_string()], interactive(true));
+        assert_eq!(report.launch_mode, LaunchMode::CliSubcommand);
     }
 
     #[test]

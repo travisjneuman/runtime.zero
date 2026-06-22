@@ -23,6 +23,7 @@ Command: `rz0`
 
 ```bash
 rz0 --version
+rz0 --no-tui
 rz0 doctor
 rz0 modules
 rz0 modules --format json
@@ -36,7 +37,14 @@ rz0 store status --format json
 rz0 scan --dry-run
 ```
 
-Current commands are read-only or dry-run stubs. They exist to prove the binary, brand metadata, test harness, documentation foundation, and module contract surface.
+Bare `rz0` opens a minimal read-only TUI dashboard in an interactive terminal.
+Use `rz0 --no-tui` for the scriptable text dashboard, or `rz0 --json` for a
+machine-readable foundation dashboard. `rz0 <subcommand>` remains scriptable and
+never opens the TUI.
+
+Current commands are read-only or dry-run stubs. They exist to prove the binary,
+brand metadata, test harness, documentation foundation, TUI shell, and module
+contract surface.
 
 ## Core vs modules
 
@@ -98,6 +106,9 @@ The long-term goal is broad terminal compatibility. The public compatibility pro
 
 ```bash
 cargo test
+cargo run --
+cargo run -- --no-tui
+cargo run -- --json
 cargo run -- --version
 cargo run -- doctor
 cargo run -- modules
@@ -118,6 +129,8 @@ The project is intentionally modular:
 - Rust CLI core for command parsing, action planning, policy, logs, JSON output, and quarantine/restore.
 - Platform adapters for Windows, macOS, and Linux.
 - Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
+- Minimal read-only TUI shell for local review; subcommands remain the stable
+  automation/script surface.
 
 See [`docs/architecture.md`](docs/architecture.md),
 [`docs/module-system.md`](docs/module-system.md), and

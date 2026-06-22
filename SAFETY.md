@@ -6,6 +6,7 @@
 
 - Report first.
 - Dry-run first.
+- Review/dashboard first for the TUI.
 - Quarantine before delete.
 - Prefer package-manager/native uninstall commands over direct file removal.
 - Never surprise-install missing tools.
@@ -73,6 +74,14 @@ or TUI surfaces are created.
 already exist and reports absent, empty, present, or invalid states. It must not
 create, repair, migrate, delete, initialize, or write store files.
 
+Bare `rz0` may open a minimal TUI dashboard in an interactive terminal. That
+dashboard is a review surface only: it may display foundation state, store
+status, module posture, and safety boundaries, but it must not install, update,
+uninstall, repair, execute module code, create store state, or mutate the
+system. `rz0 <subcommand>`, JSON output, redirected/piped output,
+non-interactive contexts, and `rz0 --no-tui` must stay scriptable and must not
+launch the full-screen dashboard.
+
 ## Cleanup risk categories
 
 Future cleanup modules must classify findings before action:
@@ -90,4 +99,4 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 
 ## Current status
 
-The current CLI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, dry-run placeholders, dry-run module install planning, and module registry contracts.
+The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, dry-run placeholders, dry-run module install planning, and module registry contracts.

@@ -1,6 +1,7 @@
 use std::env;
 
 pub mod brand;
+pub mod dashboard_cli;
 pub mod launch_routing;
 pub mod module_cli;
 pub mod module_install_plan;
@@ -12,6 +13,10 @@ pub mod package_integrity;
 pub mod store_cli;
 pub mod store_status;
 pub mod store_status_text;
+pub mod tui_app;
+pub mod tui_dashboard;
+pub mod tui_render;
+pub mod tui_theme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitCode {
@@ -44,14 +49,6 @@ where
     }
 }
 
-pub fn modules_text() -> String {
-    module_cli::modules_text()
-}
-
-pub fn modules_json() -> Result<String, String> {
-    module_cli::modules_json()
-}
-
 pub fn version_text() -> String {
     format!(
         "{} {} {}\n{}\n",
@@ -64,7 +61,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
