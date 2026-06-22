@@ -23,6 +23,10 @@ From the repository root:
 .\scripts\install-local.ps1 -DryRun -AddToPath
 ```
 
+The install script resolves the repository from its own location and runs the
+Cargo build from that repo root, so the same script path can also be invoked
+from another current directory when needed.
+
 Dry-run mode prints the build, copy, marker, and user-PATH actions it would
 take. It does not build, copy, create directories, or modify environment
 variables.

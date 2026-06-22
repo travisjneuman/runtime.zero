@@ -124,7 +124,7 @@ Write-PlanLine "marker file: $MarkerPath"
 Write-PlanLine "PATH mutation: $(if ($AddToPath) { 'user PATH will include install dir if missing' } else { 'not requested' })"
 
 if ($DryRun) {
-    Write-PlanLine "dry run: would run '$cargo $($cargoArgs -join ' ')'"
+    Write-PlanLine "dry run: would run '$cargo $($cargoArgs -join ' ')' from $RepoRoot"
     Write-PlanLine "dry run: would create install directory if missing"
     Write-PlanLine "dry run: would copy built rz0.exe to the install target"
     if ($AddToPath) {
@@ -136,9 +136,18 @@ if ($DryRun) {
     exit 0
 }
 
-& $cargo @cargoArgs
-if ($LASTEXITCODE -ne 0) {
-    throw "Cargo build failed with exit code $LASTEXITCODE."
+$buildExitCode = 0
+Push-Location -LiteralPath $RepoRoot
+try {
+    & $cargo @cargoArgs
+    $buildExitCode = $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
+
+if ($buildExitCode -ne 0) {
+    throw "Cargo build failed with exit code $buildExitCode."
 }
 
 if (-not (Test-Path -LiteralPath $BuiltExe -PathType Leaf)) {
