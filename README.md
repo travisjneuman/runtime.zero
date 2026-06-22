@@ -122,6 +122,34 @@ cargo run -- store status --format json
 cargo run -- scan --dry-run
 ```
 
+## Local install for development
+
+To make `rz0` available from a normal PowerShell terminal on a development
+machine, use the local-only install script:
+
+```powershell
+.\scripts\install-local.ps1 -DryRun -AddToPath
+.\scripts\install-local.ps1 -AddToPath
+```
+
+The script builds the checked-out binary, copies it to
+`%USERPROFILE%\.local\bin\rz0.exe`, writes a local install marker, and adds that
+directory to the **user** PATH only when `-AddToPath` is supplied. Open a new
+PowerShell terminal after installing before expecting `rz0` to resolve outside
+the repository.
+
+Rollback is also local and explicit:
+
+```powershell
+.\scripts\uninstall-local.ps1 -DryRun -RemovePath
+.\scripts\uninstall-local.ps1 -RemovePath
+```
+
+See [`docs/local-install.md`](docs/local-install.md) for the safety boundaries
+and options, including how rollback treats pre-existing user PATH entries. This
+is not a public release, installer, package manager, bootstrap command, or
+install-from-internet flow.
+
 ## Architecture
 
 The project is intentionally modular:

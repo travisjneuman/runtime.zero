@@ -82,6 +82,27 @@ system. `rz0 <subcommand>`, JSON output, redirected/piped output,
 non-interactive contexts, and `rz0 --no-tui` must stay scriptable and must not
 launch the full-screen dashboard.
 
+## Local development install boundary
+
+The repository may provide local-only scripts under `scripts/` so Travis can
+make the checked-out `rz0` binary available from a normal terminal during
+foundation development. That path is intentionally narrow:
+
+- user-local target only, defaulting to `%USERPROFILE%\.local\bin\rz0.exe`;
+- user PATH only, and only when the install script is run with `-AddToPath`;
+- no administrator requirement or system PATH mutation;
+- no remote fetch/download, release publication, package manager install, or
+  public direct-run/bootstrap command;
+- no shell profile edits, scheduled tasks, services, persistence, module
+  install/update/fetch/trust/execution, or future store initialization;
+- reversible by `scripts\uninstall-local.ps1 -RemovePath`.
+
+The local install script writes only the copied `rz0.exe` and a
+`rz0.local-install.json` marker in the configured install directory. The
+uninstall script refuses to remove an unmarked existing target unless `-Force`
+is explicitly supplied, and it does not remove a pre-existing PATH entry unless
+forced.
+
 ## Cleanup risk categories
 
 Future cleanup modules must classify findings before action:
