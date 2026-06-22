@@ -1,8 +1,10 @@
 use std::env;
-use std::fmt::Write as FmtWrite;
 
 pub mod brand;
+pub mod module_cli;
+pub mod module_manifest;
 pub mod module_registry;
+pub mod module_validation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitCode {
@@ -28,17 +30,18 @@ where
         Some("--help" | "-h" | "help") => (ExitCode::Ok, help_text(), String::new()),
         Some("--version" | "-V" | "version") => (ExitCode::Ok, version_text(), String::new()),
         Some("doctor") => (ExitCode::Ok, doctor_text(), String::new()),
-        Some("modules") => modules_command(&args[1..]),
+        Some("modules") => module_cli::modules_command(&args[1..]),
         Some("scan") => scan_command(&args[1..]),
-        Some(command) => (
-            ExitCode::Usage,
-            String::new(),
-            format!(
-                "unknown command '{command}'\n\nRun '{} help' for safe Phase 1 commands.\n",
-                brand::COMMAND
-            ),
-        ),
+        Some(command) => unknown_command(command),
     }
+}
+
+pub fn modules_text() -> String {
+    module_cli::modules_text()
+}
+
+pub fn modules_json() -> Result<String, String> {
+    module_cli::modules_json()
 }
 
 pub fn version_text() -> String {
@@ -53,7 +56,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core lists contracts and installed modules. Substantial feature modules are not bundled or executed by default.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
@@ -78,63 +81,15 @@ pub fn doctor_text() -> String {
     )
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OutputFormat {
-    Text,
-    Json,
-}
-
-fn modules_command(args: &[String]) -> (ExitCode, String, String) {
-    match parse_format_args(args) {
-        Ok(OutputFormat::Text) => (ExitCode::Ok, modules_text(), String::new()),
-        Ok(OutputFormat::Json) => match modules_json() {
-            Ok(json) => (ExitCode::Ok, json, String::new()),
-            Err(err) => (ExitCode::Usage, String::new(), err),
-        },
-        Err(err) => (ExitCode::Usage, String::new(), err),
-    }
-}
-
-fn parse_format_args(args: &[String]) -> Result<OutputFormat, String> {
-    match args {
-        [] => Ok(OutputFormat::Text),
-        [flag, value] if flag == "--format" && value == "json" => Ok(OutputFormat::Json),
-        [flag] if flag == "--json" => Ok(OutputFormat::Json),
-        _ => Err(format!(
-            "unsupported modules option(s): {}\n\nUsage: {} modules [--format json]\n",
-            args.join(", "),
+fn unknown_command(command: &str) -> (ExitCode, String, String) {
+    (
+        ExitCode::Usage,
+        String::new(),
+        format!(
+            "unknown command '{command}'\n\nRun '{} help' for safe Phase 1 commands.\n",
             brand::COMMAND
-        )),
-    }
-}
-
-pub fn modules_text() -> String {
-    let report = module_registry::ModuleRegistryReport::empty_installed();
-
-    let mut out = format!("{} modules\n\n", brand::TITLE);
-    let _ = writeln!(out, "core foundation:");
-    for module in report.core {
-        let _ = writeln!(out, "  {:<16} active   {}", module.id, module.summary);
-    }
-    let _ = writeln!(out, "\ninstalled modules:");
-    if report.installed_modules.is_empty() {
-        let _ = writeln!(out, "  none");
-    }
-    let _ = writeln!(out, "\nplanned first-party module families:");
-    for module in report.planned_module_families {
-        let _ = writeln!(out, "  {:<22} planned  {}", module.id, module.summary);
-    }
-    let _ = writeln!(
-        out,
-        "\nsafety: optional modules are not bundled, installed, or executed by default"
-    );
-    out
-}
-
-pub fn modules_json() -> Result<String, String> {
-    serde_json::to_string_pretty(&module_registry::ModuleRegistryReport::empty_installed())
-        .map(|json| format!("{json}\n"))
-        .map_err(|err| format!("failed to render module registry JSON: {err}\n"))
+        ),
+    )
 }
 
 fn scan_command(args: &[String]) -> (ExitCode, String, String) {
@@ -226,6 +181,14 @@ mod tests {
         assert_eq!(code, ExitCode::Usage);
         assert!(out.is_empty());
         assert!(err.contains("unsupported modules option"));
+    }
+
+    #[test]
+    fn modules_validate_rejects_missing_manifest() {
+        let (code, out, err) = run(["modules", "validate", "missing-rz0-module.json"]);
+        assert_eq!(code, ExitCode::Usage);
+        assert!(err.is_empty());
+        assert!(out.contains("status: invalid"));
     }
 
     #[test]

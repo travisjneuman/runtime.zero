@@ -5,7 +5,7 @@
 ## Layers
 
 1. **CLI core** — argument parsing, brand metadata, output, exit codes, and future interactive flows.
-2. **Module registry** — manifest model, installed-module listing, and core-vs-module reporting.
+2. **Module registry** — manifest model, local manifest validation, installed-module listing, and core-vs-module reporting.
 3. **Policy engine** — safety posture, deny rules, confirmation requirements, and mutation gates.
 4. **Action planner** — future conversion of discoveries into update, uninstall, scan, quarantine, or restore plans.
 5. **Platform adapters** — Windows, macOS, and Linux-specific discovery and execution primitives.
@@ -15,6 +15,10 @@
 ## Foundation boundary
 
 The core may include self-description, `doctor`, safe dry-run scaffolding, manifest schemas, output contracts, and policy primitives. It must not bundle substantial feature modules by default. First-party modules should be optional packages with declared capabilities, risk level, supported platforms, and safety behavior. Third-party modules require a separate trust model before implementation.
+
+Local manifest loading is read-only and declarative. Loading a manifest means
+parsing and validating JSON metadata; it does not load code, fetch dependencies,
+install anything, enable anything, or run module entry points.
 
 ## Initial platform intent
 

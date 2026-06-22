@@ -32,6 +32,8 @@ and are not bundled, installed, or executed by default.
 ```bash
 rz0 modules
 rz0 modules --format json
+rz0 modules validate <manifest.json>
+rz0 modules --from <directory> --format json
 ```
 
 The JSON output uses schema version `1` and separates:
@@ -41,6 +43,14 @@ The JSON output uses schema version `1` and separates:
 - `planned_module_families`.
 
 An empty `installed_modules` list is valid and expected for the foundation-only build.
+
+`rz0 modules validate` reads one local JSON manifest and reports whether it
+passes the foundation contract. `rz0 modules --from <directory>` reads JSON
+manifests directly inside that directory and includes only valid manifests in
+`installed_modules`. Neither command executes code or fetches remote content.
+
+See [`manifest-validation.md`](manifest-validation.md) for the validation
+contract and current trust boundaries.
 
 ## Planned module families
 

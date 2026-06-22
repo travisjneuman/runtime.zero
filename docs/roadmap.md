@@ -12,6 +12,7 @@
 ## Phase 2 — foundation contracts and inventory primitives
 
 - Module manifest model and registry contract.
+- Local read-only module manifest validation.
 - Core-vs-installed-module CLI output.
 - JSON output contract for module registry.
 - Windows read-only discovery for PATH, persisted PATH, package managers, app registry entries, and direct known tool paths.

@@ -28,6 +28,21 @@ Every module manifest must declare:
 
 Current core metadata sets remote execution to `false`. Optional modules are not bundled, installed, or executed by default.
 
+## Manifest loading boundary
+
+The foundation may read local JSON module manifests for validation and registry
+listing. That loader is intentionally narrow:
+
+- no remote URLs;
+- no executable module code loading;
+- no scripts or hooks;
+- no install/update/uninstall side effects;
+- no recursive drive scans;
+- bounded manifest file size;
+- third-party manifests rejected until the trust model exists.
+
+Validation failure must be reported as data, not repaired automatically.
+
 ## Cleanup risk categories
 
 Future cleanup modules must classify findings before action:

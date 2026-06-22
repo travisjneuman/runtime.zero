@@ -26,6 +26,8 @@ rz0 --version
 rz0 doctor
 rz0 modules
 rz0 modules --format json
+rz0 modules validate <manifest.json>
+rz0 modules --from <directory> --format json
 rz0 scan --dry-run
 ```
 
@@ -40,6 +42,17 @@ The installed `rz0` foundation is not meant to contain every feature. It should 
 - `core.registry` lists core primitives and explicitly installed modules.
 
 First-party feature modules are planned as separate install/use choices. A full bundle may exist later as a convenience distribution, but it should not redefine the core. Third-party modules require a hardened trust model before support is added.
+
+The foundation can validate local module manifests without executing module
+code:
+
+```bash
+rz0 modules validate path/to/rz0-module.json
+rz0 modules --from path/to/installed-modules --format json
+```
+
+This is local, read-only validation only. It does not install, update, fetch,
+trust, enable, or run modules.
 
 ## Platform target
 
@@ -60,6 +73,7 @@ cargo run -- --version
 cargo run -- doctor
 cargo run -- modules
 cargo run -- modules --format json
+cargo run -- modules validate path/to/rz0-module.json
 cargo run -- scan --dry-run
 ```
 
@@ -71,7 +85,9 @@ The project is intentionally modular:
 - Platform adapters for Windows, macOS, and Linux.
 - Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
 
-See [`docs/architecture.md`](docs/architecture.md) and [`docs/module-system.md`](docs/module-system.md).
+See [`docs/architecture.md`](docs/architecture.md),
+[`docs/module-system.md`](docs/module-system.md), and
+[`docs/manifest-validation.md`](docs/manifest-validation.md).
 
 ## Repository hygiene
 
