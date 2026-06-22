@@ -24,6 +24,20 @@ fn render_wide_dashboard_has_navigation_and_selected_section() {
 }
 
 #[test]
+fn interactive_color_render_styles_body_without_breaking_text() {
+    let rendered = render_dashboard_with_state(
+        &tui_dashboard::dashboard(),
+        true,
+        118,
+        30,
+        &TuiState::new(4),
+    );
+    assert!(rendered.contains("\x1b["));
+    assert!(rendered.contains("[BLOCKED]"));
+    assert!(rendered.contains("DOSSIER 01 · FOUNDATION"));
+}
+
+#[test]
 fn render_handles_narrow_terminal_and_help() {
     let mut state = TuiState::new(4);
     state.show_help = true;

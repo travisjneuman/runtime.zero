@@ -1,5 +1,5 @@
 use crate::tui_canvas::{
-    border_bottom, border_top, line, line_plain, pad, separator, split_line, truncate,
+    border_bottom, border_top, line, line_plain, pad, separator, split_line_toned, truncate,
 };
 use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection};
 use crate::tui_state::TuiState;
@@ -43,7 +43,14 @@ fn render_dashboard_frame(
     let height = usize::from(height).max(16);
     let mut lines = Vec::new();
     lines.extend(header_lines(dashboard, width, color));
-    lines.extend(body_lines(dashboard, state, width, height, interactive));
+    lines.extend(body_lines(
+        dashboard,
+        state,
+        width,
+        height,
+        interactive,
+        color,
+    ));
     lines.extend(footer_lines(state, width, interactive, color));
     lines.push(border_bottom(width));
     lines.join("\n") + "\n"
@@ -77,12 +84,13 @@ fn body_lines(
     width: usize,
     height: usize,
     interactive: bool,
+    color: bool,
 ) -> Vec<String> {
     let budget = height.saturating_sub(if state.show_help { 12 } else { 9 });
     if width >= 92 {
-        wide_body_lines(dashboard, state, width, budget, interactive)
+        wide_body_lines(dashboard, state, width, budget, interactive, color)
     } else {
-        compact_body_lines(dashboard, state, width, budget, interactive)
+        compact_body_lines(dashboard, state, width, budget, interactive, color)
     }
 }
 
@@ -92,6 +100,7 @@ fn wide_body_lines(
     width: usize,
     budget: usize,
     interactive: bool,
+    color: bool,
 ) -> Vec<String> {
     let right_width = width.saturating_sub(NAV_WIDTH + 5);
     let mut left = navigation_lines(dashboard, state, interactive);
@@ -101,7 +110,17 @@ fn wide_body_lines(
     pad_columns(&mut left, &mut right, budget);
     left.into_iter()
         .zip(right)
-        .map(|(l, r)| split_line(&l, &r, NAV_WIDTH, right_width))
+        .map(|(l, r)| {
+            split_line_toned(
+                &l,
+                &r,
+                NAV_WIDTH,
+                right_width,
+                tone_for_text(&l),
+                tone_for_text(&r),
+                color,
+            )
+        })
         .collect()
 }
 
@@ -111,6 +130,7 @@ fn compact_body_lines(
     width: usize,
     budget: usize,
     interactive: bool,
+    color: bool,
 ) -> Vec<String> {
     let inner = width.saturating_sub(4);
     let mut content = navigation_lines(dashboard, state, interactive);
@@ -121,7 +141,7 @@ fn compact_body_lines(
     content.truncate(budget.max(1));
     content
         .into_iter()
-        .map(|value| line_plain(&value, width))
+        .map(|value| line(&value, width, color, tone_for_text(&value)))
         .collect()
 }
 
@@ -276,4 +296,37 @@ fn humanize_debug(value: &str) -> String {
         output.extend(ch.to_lowercase());
     }
     output
+}
+
+fn tone_for_text(value: &str) -> Option<tui_theme::TuiTone> {
+    let trimmed = value.trim_start();
+    if trimmed.starts_with('▸')
+        || trimmed.starts_with("DOSSIER")
+        || trimmed.starts_with("SCRIPTABLE")
+    {
+        return Some(tui_theme::TuiTone::Accent);
+    }
+    if trimmed.starts_with("NAVIGATION")
+        || trimmed.starts_with("POSTURE")
+        || trimmed.starts_with("FOUNDATION STATE")
+        || trimmed.contains(tui_theme::LABEL_INFO)
+    {
+        return Some(tui_theme::TuiTone::Info);
+    }
+    if trimmed.contains(tui_theme::LABEL_OK) {
+        return Some(tui_theme::TuiTone::Safe);
+    }
+    if trimmed.contains(tui_theme::LABEL_DRY_RUN) {
+        return Some(tui_theme::TuiTone::DryRun);
+    }
+    if trimmed.contains(tui_theme::LABEL_PLAN) {
+        return Some(tui_theme::TuiTone::Accent);
+    }
+    if trimmed.contains(tui_theme::LABEL_WARN) || trimmed.contains(tui_theme::LABEL_BLOCKED) {
+        return Some(tui_theme::TuiTone::Warn);
+    }
+    if trimmed.contains(tui_theme::LABEL_SKIP) || trimmed.ends_with("read-only") {
+        return Some(tui_theme::TuiTone::Muted);
+    }
+    None
 }

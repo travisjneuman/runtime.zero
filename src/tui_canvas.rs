@@ -18,11 +18,21 @@ pub(crate) fn line_plain(content: &str, width: usize) -> String {
     line(content, width, false, None)
 }
 
-pub(crate) fn split_line(left: &str, right: &str, left_width: usize, right_width: usize) -> String {
+pub(crate) fn split_line_toned(
+    left: &str,
+    right: &str,
+    left_width: usize,
+    right_width: usize,
+    left_tone: Option<tui_theme::TuiTone>,
+    right_tone: Option<tui_theme::TuiTone>,
+    color: bool,
+) -> String {
+    let left = pad(&truncate(left, left_width), left_width);
+    let right = pad(&truncate(right, right_width), right_width);
     format!(
         "│ {} │ {} │",
-        pad(&truncate(left, left_width), left_width),
-        pad(&truncate(right, right_width), right_width)
+        colorize_optional(&left, left_tone, color),
+        colorize_optional(&right, right_tone, color)
     )
 }
 
@@ -57,7 +67,12 @@ pub(crate) fn truncate(value: &str, max_chars: usize) -> String {
     output
 }
 
-fn colorize(content: &str, tone: tui_theme::TuiTone, color: bool) -> String {
+fn colorize_optional(content: &str, tone: Option<tui_theme::TuiTone>, color: bool) -> String {
+    tone.map(|tone| colorize(content, tone, color))
+        .unwrap_or_else(|| content.to_string())
+}
+
+pub(crate) fn colorize(content: &str, tone: tui_theme::TuiTone, color: bool) -> String {
     if color {
         format!(
             "{}{}{}",

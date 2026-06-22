@@ -72,6 +72,12 @@ renders:
 - a command rail that points back to scriptable CLI commands;
 - a persistent safety footer and optional help text.
 
+Interactive rendering applies Dossier Navy / Burnished Brass status tones to
+headers, selected navigation, status labels, and blocked/dry-run rows. Text
+labels remain the source of truth: `[OK]`, `[INFO]`, `[PLAN]`, `[DRY-RUN]`,
+`[BLOCKED]`, and `[SKIP]` must still explain the state when color is disabled
+or unavailable.
+
 The text dashboard shown by `rz0 --no-tui` uses the same data/rendering model
 without raw-mode terminal control. That keeps the CLI path scriptable while
 letting the interactive TUI feel like a product shell instead of a line-oriented
