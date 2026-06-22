@@ -1,0 +1,22 @@
+[package]
+name = "runtime-zero"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "runtime.zero — System Management Toolkit"
+license = "Apache-2.0"
+repository = "https://github.com/travisjneuman/runtime.zero"
+homepage = "https://rz0.neuman.dev"
+readme = "README.md"
+keywords = ["cli", "system", "maintenance", "scanner", "toolkit"]
+categories = ["command-line-utilities"]
+rust-version = "1.96"
+
+[[bin]]
+name = "rz0"
+path = "src/main.rs"
+
+[profile.release]
+lto = "thin"
+strip = "symbols"
+codegen-units = 1
