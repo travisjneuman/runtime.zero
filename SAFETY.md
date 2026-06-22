@@ -106,7 +106,9 @@ launch the full-screen dashboard.
 clearly instead of silently falling back when the terminal is non-interactive or
 automation is detected.
 
-The TUI uses raw key handling so quit/help/navigation keys do not echo in the
+The TUI uses crossterm raw key handling and a Ratatui widget renderer for
+display only; neither crate path is allowed to create store state, run
+modules, or mutate the system. Quit/help/navigation keys do not echo in the
 terminal. It treats key press/repeat events as intentional input and ignores key
 release events so Windows terminals do not double-advance navigation. Its
 navigation model supports arrows, Tab, `j`/`k`, and Home/End without changing
