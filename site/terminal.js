@@ -125,8 +125,8 @@ const footer = document.querySelector("[data-footer-links]");
 const navItems = Array.from(document.querySelectorAll("[data-nav-item]"));
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const narrowViewport = window.matchMedia("(max-width: 780px)").matches;
-const layoutEnd = 0.3;
-const sceneStart = 0.34;
+const layoutEnd = 0.27;
+const sceneStart = 0.29;
 
 let activeScene = -1;
 let typingTimer = 0;
