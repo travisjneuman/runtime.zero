@@ -283,7 +283,7 @@ paths.
 
 The future routing contract is deterministic:
 
-- bare `rz0` in an interactive terminal opens the minimal read-only TUI
+- bare `rz0` in an interactive terminal opens the read-only foundation TUI
   dashboard;
 - bare `rz0` falls back to safe CLI dashboard/status text while non-interactive
   or automated;
@@ -325,7 +325,7 @@ Future CLI/TUI output should follow [`BRAND.md`](../BRAND.md):
 - `[PLAN]`, `[DRY-RUN]`, `[OK]`, `[WARN]`, `[BLOCKED]`, `[ERROR]`, and
   `[QUARANTINE]` remain the preferred status grammar.
 
-When the real TUI is implemented, it should visually align with the website's
+The current foundation TUI should visually align with the website's
 TUI reference as closely as practical by sharing concepts and future design
 tokens derived from `BRAND.md`. The website is a visual reference, not a rigid
 contract: the TUI must remain easy to customize and refactor, and terminal

@@ -65,7 +65,7 @@ rz0 --json
 rz0 doctor
 ```
 
-Bare `rz0` opens the minimal read-only TUI in an interactive terminal.
+Bare `rz0` opens the read-only foundation TUI in an interactive terminal.
 Subcommands, JSON output, pipes, redirection, and automation contexts remain on
 the scriptable CLI path.
 

@@ -187,7 +187,7 @@ The project is intentionally modular:
 - Rust CLI core for command parsing, action planning, policy, logs, JSON output, and quarantine/restore.
 - Platform adapters for Windows, macOS, and Linux.
 - Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
-- Minimal read-only TUI shell for local review; subcommands remain the stable
+- Read-only foundation TUI shell for local review; subcommands remain the stable
   automation/script surface.
 
 See [`docs/architecture.md`](docs/architecture.md),

@@ -44,7 +44,7 @@ rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-re
 rz0 store init --dry-run
 ```
 
-Bare `rz0` opens a minimal read-only TUI dashboard in interactive terminals.
+Bare `rz0` opens a read-only foundation TUI dashboard in interactive terminals.
 That dashboard may show module posture and future module slots, but it must not
 claim planned module families are installed or executable. Explicit subcommands
 remain the scriptable CLI surface. See [`tui.md`](tui.md) for the raw-key TUI
