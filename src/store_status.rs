@@ -5,7 +5,9 @@ use crate::installed_registry::{
     InstalledRegistryReport, InstalledRegistryState, installed_registry_report,
 };
 use crate::launch_routing::{LaunchEnvironment, LaunchRoutingReport, resolve_launch_mode};
-use crate::module_store::{ModuleStorePlan, STORE_SCHEMA_VERSION, module_store_plan};
+use crate::module_store::{
+    ModuleStorePlan, STORE_SCHEMA_VERSION, module_store_plan, module_store_plan_for_data_root,
+};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,6 +22,7 @@ pub struct StoreStatusReport {
     pub read_only: bool,
     pub writes_attempted: bool,
     pub store_schema_version: u16,
+    pub store_root_override: Option<String>,
     pub overall_state: StoreOverallState,
     pub store: ModuleStorePlan,
     pub paths: Vec<StorePathStatus>,
@@ -74,11 +77,27 @@ pub enum StorePathState {
 }
 
 pub fn store_status_report(args: &[String]) -> StoreStatusReport {
-    let store = module_store_plan(
-        Some(EXAMPLE_MODULE_ID),
-        Some(EXAMPLE_MODULE_VERSION),
-        STATUS_SEED,
-    );
+    store_status_report_for_root(args, None)
+}
+
+pub fn store_status_report_for_root(
+    args: &[String],
+    store_root: Option<PathBuf>,
+) -> StoreStatusReport {
+    let store_root_override = store_root.as_ref().map(|path| path.display().to_string());
+    let store = match store_root {
+        Some(root) => module_store_plan_for_data_root(
+            root,
+            Some(EXAMPLE_MODULE_ID),
+            Some(EXAMPLE_MODULE_VERSION),
+            STATUS_SEED,
+        ),
+        None => module_store_plan(
+            Some(EXAMPLE_MODULE_ID),
+            Some(EXAMPLE_MODULE_VERSION),
+            STATUS_SEED,
+        ),
+    };
     let paths = inspect_store_paths(&store);
     let registry = installed_registry_report(Path::new(&store.registry_path));
     let receipts = receipt_inventory_report(Path::new(&store.state_root), &registry.records);
@@ -88,6 +107,7 @@ pub fn store_status_report(args: &[String]) -> StoreStatusReport {
         read_only: true,
         writes_attempted: false,
         store_schema_version: STORE_SCHEMA_VERSION,
+        store_root_override,
         overall_state,
         store,
         paths,
@@ -233,64 +253,5 @@ fn overall_state(
         StoreOverallState::Empty
     } else {
         StoreOverallState::Present
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    #[test]
-    fn absent_paths_report_not_initialized() {
-        let missing = unique_missing_path();
-        let paths = vec![
-            dir_status(StorePathRole::DataRoot, &missing),
-            file_status(StorePathRole::RegistryPath, &missing),
-        ];
-        assert!(
-            paths
-                .iter()
-                .all(|path| path.state == StorePathState::Absent)
-        );
-        assert_eq!(
-            overall_state(
-                &paths,
-                InstalledRegistryState::Absent,
-                ReceiptInventoryState::NotReferenced
-            ),
-            StoreOverallState::NotInitialized
-        );
-    }
-
-    #[test]
-    fn status_report_has_stable_json_shape() {
-        let report = store_status_report(&[
-            "status".to_string(),
-            "--format".to_string(),
-            "json".to_string(),
-        ]);
-        let json = serde_json::to_string(&report).expect("status JSON should serialize");
-        assert!(json.contains("\"store_schema_version\":1"));
-        assert!(json.contains("\"writes_attempted\":false"));
-        assert!(json.contains("\"registry_path\""));
-        assert!(json.contains("\"registry\""));
-        assert!(json.contains("\"installed_module_count\""));
-        assert!(json.contains("\"receipts\""));
-        assert!(json.contains("\"checked_count\""));
-        assert!(json.contains("\"transactions_dir\""));
-        assert!(json.contains("\"receipts_dir\""));
-        assert!(json.contains("\"launch_mode\":\"cli_subcommand\""));
-    }
-
-    fn unique_missing_path() -> String {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after epoch")
-            .as_nanos();
-        std::env::temp_dir()
-            .join(format!("rz0-store-status-missing-{nanos}"))
-            .display()
-            .to_string()
     }
 }

@@ -78,6 +78,12 @@ that already exists, it validates the receipt shape and cross-checks module
 ID/version and store-relative path references. It must not create, repair,
 migrate, delete, initialize, trust, activate, or write store files.
 
+`rz0 store status --store-root <path>` uses the same read-only inspection logic
+against an explicitly supplied local fixture/support root. The override is not
+an installer setting and must not affect module install behavior. Missing roots
+are reported as absent and wrong filesystem types are reported as invalid; the
+command still must not create, repair, migrate, delete, or write anything.
+
 Bare `rz0` may open a minimal TUI dashboard in an interactive terminal. That
 dashboard is a review surface only: it may display foundation state, store
 status, module posture, and safety boundaries, but it must not install, update,

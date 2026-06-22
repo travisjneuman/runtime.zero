@@ -42,7 +42,29 @@ pub fn module_store_plan(
     version: Option<&str>,
     seed: &str,
 ) -> ModuleStorePlan {
-    let roots = StoreRoots::current();
+    module_store_plan_from_roots(StoreRoots::current(), module_id, version, seed)
+}
+
+pub fn module_store_plan_for_data_root(
+    data_root: PathBuf,
+    module_id: Option<&str>,
+    version: Option<&str>,
+    seed: &str,
+) -> ModuleStorePlan {
+    module_store_plan_from_roots(
+        StoreRoots::from_data_root(data_root),
+        module_id,
+        version,
+        seed,
+    )
+}
+
+fn module_store_plan_from_roots(
+    roots: StoreRoots,
+    module_id: Option<&str>,
+    version: Option<&str>,
+    seed: &str,
+) -> ModuleStorePlan {
     let modules_root = roots.data_root.join("modules");
     let plan_id = stable_plan_id(seed);
     let transaction_path = roots
@@ -150,6 +172,16 @@ impl StoreRoots {
             _ => linux_roots(),
         }
     }
+
+    fn from_data_root(data_root: PathBuf) -> Self {
+        StoreRoots {
+            state_root: data_root.join("state"),
+            cache_root: data_root.join("cache"),
+            log_root: data_root.join("logs"),
+            quarantine_root: data_root.join("quarantine"),
+            data_root,
+        }
+    }
 }
 
 fn windows_roots() -> StoreRoots {
@@ -231,5 +263,15 @@ mod tests {
         let first = module_store_plan(None, None, "same-seed");
         let second = module_store_plan(None, None, "same-seed");
         assert_eq!(first.plan_id, second.plan_id);
+    }
+
+    #[test]
+    fn computes_store_plan_for_explicit_data_root() {
+        let root = PathBuf::from("fixture-store-root");
+        let plan =
+            module_store_plan_for_data_root(root, Some("first-party.demo"), Some("1.0.0"), "seed");
+        assert!(plan.data_root.ends_with("fixture-store-root"));
+        assert!(plan.registry_path.contains(REGISTRY_FILE));
+        assert!(plan.registry_path.contains("state"));
     }
 }

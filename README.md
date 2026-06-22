@@ -34,6 +34,7 @@ rz0 store plan
 rz0 store plan --format json
 rz0 store status
 rz0 store status --format json
+rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
 rz0 scan --dry-run
 ```
 
@@ -82,6 +83,7 @@ rz0 store plan
 rz0 store plan --format json
 rz0 store status
 rz0 store status --format json
+rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
 ```
 
 These commands are read-only. `store plan` reports the platform-specific
@@ -96,6 +98,11 @@ receipt, `store status` validates that receipt shape and cross-checks module
 ID/version and store-relative paths. It still does not create directories,
 write state, repair anything, trust modules, execute code, or imply modules are
 active.
+
+`store status --store-root <path>` is a read-only fixture/support override for
+inspecting a supplied local store root instead of the real user-local store. It
+reports missing roots as absent and wrong filesystem types as invalid; it never
+initializes, repairs, migrates, or writes the supplied path.
 
 ## Platform target
 
@@ -125,6 +132,7 @@ cargo run -- store plan
 cargo run -- store plan --format json
 cargo run -- store status
 cargo run -- store status --format json
+cargo run -- store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
 cargo run -- scan --dry-run
 ```
 

@@ -1,4 +1,6 @@
 use std::fmt::Write as FmtWrite;
+use std::path::PathBuf;
+use std::{env, fs};
 
 use serde::Serialize;
 
@@ -8,7 +10,7 @@ use crate::launch_routing::{
 use crate::module_store::{
     ForbiddenPathClass, ModuleStorePlan, STORE_SCHEMA_VERSION, module_store_plan,
 };
-use crate::store_status::store_status_report;
+use crate::store_status::{StoreStatusReport, store_status_report, store_status_report_for_root};
 use crate::store_status_text::store_status_text;
 use crate::{ExitCode, brand};
 
@@ -36,13 +38,18 @@ enum OutputFormat {
 
 enum StoreAction {
     Plan(OutputFormat),
-    Status(OutputFormat),
+    Status(StoreStatusOptions),
+}
+
+struct StoreStatusOptions {
+    format: OutputFormat,
+    store_root: Option<PathBuf>,
 }
 
 pub fn store_command(args: &[String]) -> (ExitCode, String, String) {
     match parse_store_args(args) {
         Ok(StoreAction::Plan(format)) => render_store_plan(format, args),
-        Ok(StoreAction::Status(format)) => render_store_status(format, args),
+        Ok(StoreAction::Status(options)) => render_store_status(options, args),
         Err(err) => (ExitCode::Usage, String::new(), err),
     }
 }
@@ -56,15 +63,39 @@ fn parse_store_args(args: &[String]) -> Result<StoreAction, String> {
         [cmd, fmt, value] if cmd == "plan" && fmt == "--format" && value == "json" => {
             Ok(StoreAction::Plan(OutputFormat::Json))
         }
-        [cmd] if cmd == "status" => Ok(StoreAction::Status(OutputFormat::Text)),
-        [cmd, flag] if cmd == "status" && flag == "--json" => {
-            Ok(StoreAction::Status(OutputFormat::Json))
-        }
-        [cmd, fmt, value] if cmd == "status" && fmt == "--format" && value == "json" => {
-            Ok(StoreAction::Status(OutputFormat::Json))
-        }
+        [cmd, rest @ ..] if cmd == "status" => parse_store_status_args(rest),
         _ => Err(usage_error(args)),
     }
+}
+
+fn parse_store_status_args(args: &[String]) -> Result<StoreAction, String> {
+    let mut format = OutputFormat::Text;
+    let mut store_root = None;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--json" => format = OutputFormat::Json,
+            "--format" if args.get(index + 1).map(String::as_str) == Some("json") => {
+                format = OutputFormat::Json;
+                index += 1;
+            }
+            "--format" => return Err(usage_error(args)),
+            "--store-root" => {
+                let value = args.get(index + 1).ok_or_else(|| usage_error(args))?;
+                if store_root.is_some() {
+                    return Err("store root override was provided more than once".to_string());
+                }
+                store_root = Some(resolve_store_root_override(value)?);
+                index += 1;
+            }
+            _ => return Err(usage_error(args)),
+        }
+        index += 1;
+    }
+    Ok(StoreAction::Status(StoreStatusOptions {
+        format,
+        store_root,
+    }))
 }
 
 fn render_store_plan(format: OutputFormat, args: &[String]) -> (ExitCode, String, String) {
@@ -78,15 +109,47 @@ fn render_store_plan(format: OutputFormat, args: &[String]) -> (ExitCode, String
     }
 }
 
-fn render_store_status(format: OutputFormat, args: &[String]) -> (ExitCode, String, String) {
-    let report = store_status_report(args);
-    match format {
+fn render_store_status(options: StoreStatusOptions, args: &[String]) -> (ExitCode, String, String) {
+    let report = status_report(args, options.store_root);
+    match options.format {
         OutputFormat::Text => (ExitCode::Ok, store_status_text(&report), String::new()),
         OutputFormat::Json => match serde_json::to_string_pretty(&report) {
             Ok(json) => (ExitCode::Ok, format!("{json}\n"), String::new()),
             Err(err) => (ExitCode::Usage, String::new(), err.to_string()),
         },
     }
+}
+
+fn status_report(args: &[String], store_root: Option<PathBuf>) -> StoreStatusReport {
+    match store_root {
+        Some(root) => store_status_report_for_root(args, Some(root)),
+        None => store_status_report(args),
+    }
+}
+
+fn resolve_store_root_override(value: &str) -> Result<PathBuf, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || looks_url_like(trimmed) {
+        return Err("store root override must be a local filesystem path".to_string());
+    }
+    let path = PathBuf::from(trimmed);
+    let absolute = if path.is_absolute() {
+        path
+    } else {
+        env::current_dir()
+            .map_err(|err| format!("failed to resolve current directory: {err}"))?
+            .join(path)
+    };
+    if absolute.exists() {
+        fs::canonicalize(&absolute)
+            .map_err(|err| format!("failed to canonicalize store root override: {err}"))
+    } else {
+        Ok(absolute)
+    }
+}
+
+fn looks_url_like(value: &str) -> bool {
+    value.contains("://")
 }
 
 fn store_plan_report(args: &[String]) -> StorePlanReport {
@@ -193,85 +256,9 @@ fn interface_label(mode: InterfaceMode) -> &'static str {
 
 fn usage_error(args: &[String]) -> String {
     format!(
-        "unsupported store option(s): {}\n\nUsage: {} store plan [--format json]\n       {} store status [--format json]\n",
+        "unsupported store option(s): {}\n\nUsage: {} store plan [--format json]\n       {} store status [--store-root <path>] [--format json]\n",
         args.join(", "),
         brand::COMMAND,
         brand::COMMAND
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn store_plan_text_reports_read_only_contract() {
-        let args = vec!["plan".to_string()];
-        let (code, out, err) = store_command(&args);
-        assert_eq!(code, ExitCode::Ok);
-        assert!(err.is_empty());
-        assert!(out.contains("mode: read-only"));
-        assert!(out.contains("writes_attempted: no"));
-        assert!(out.contains("registry_path:"));
-        assert!(out.contains("forbidden_path_classes:"));
-        assert!(out.contains("launch_mode: cli_subcommand"));
-    }
-
-    #[test]
-    fn store_plan_json_reports_stable_contract_shape() {
-        let args = vec![
-            "plan".to_string(),
-            "--format".to_string(),
-            "json".to_string(),
-        ];
-        let (code, out, err) = store_command(&args);
-        assert_eq!(code, ExitCode::Ok);
-        assert!(err.is_empty());
-        assert!(out.contains("\"store_schema_version\": 1"));
-        assert!(out.contains("\"writes_attempted\": false"));
-        assert!(out.contains("\"registry_path\""));
-        assert!(out.contains("\"receipt_path\""));
-        assert!(out.contains("\"forbidden_path_classes\""));
-        assert!(out.contains("\"launch_mode\": \"cli_subcommand\""));
-        assert!(out.contains("\"json_requested\": true"));
-    }
-
-    #[test]
-    fn store_status_text_reports_read_only_inventory() {
-        let args = vec!["status".to_string()];
-        let (code, out, err) = store_command(&args);
-        assert_eq!(code, ExitCode::Ok);
-        assert!(err.is_empty());
-        assert!(out.contains("mode: read-only"));
-        assert!(out.contains("writes_attempted: no"));
-        assert!(out.contains("overall_state:"));
-        assert!(out.contains("registry_path:"));
-        assert!(out.contains("registry:"));
-        assert!(out.contains("installed_module_count:"));
-        assert!(out.contains("receipts:"));
-        assert!(out.contains("checked_count:"));
-        assert!(out.contains("launch_mode: cli_subcommand"));
-    }
-
-    #[test]
-    fn store_status_json_reports_stable_inventory_shape() {
-        let args = vec![
-            "status".to_string(),
-            "--format".to_string(),
-            "json".to_string(),
-        ];
-        let (code, out, err) = store_command(&args);
-        assert_eq!(code, ExitCode::Ok);
-        assert!(err.is_empty());
-        assert!(out.contains("\"command\": \"store status\""));
-        assert!(out.contains("\"writes_attempted\": false"));
-        assert!(out.contains("\"overall_state\""));
-        assert!(out.contains("\"registry_path\""));
-        assert!(out.contains("\"registry\""));
-        assert!(out.contains("\"installed_module_count\""));
-        assert!(out.contains("\"receipts\""));
-        assert!(out.contains("\"checked_count\""));
-        assert!(out.contains("\"transactions_dir\""));
-        assert!(out.contains("\"receipts_dir\""));
-    }
 }

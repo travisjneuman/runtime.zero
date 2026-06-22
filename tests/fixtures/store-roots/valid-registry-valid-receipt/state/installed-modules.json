@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "modules": [
+    {
+      "id": "first-party.inventory",
+      "version": "0.1.0",
+      "manifest_path": "modules/first-party.inventory/0.1.0/rz0-module.json",
+      "receipt_path": "receipts/rz0plan_inventory.json",
+      "module_dir": "modules/first-party.inventory/0.1.0"
+    }
+  ]
+}

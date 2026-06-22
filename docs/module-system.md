@@ -40,6 +40,7 @@ rz0 store plan
 rz0 store plan --format json
 rz0 store status
 rz0 store status --format json
+rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
 ```
 
 Bare `rz0` opens a minimal read-only TUI dashboard in interactive terminals.
@@ -67,6 +68,12 @@ unreadable. Registry parsing is read-only and does not make a trust or
 activation decision. If a valid registry record references an existing receipt
 file, `store status` also validates that receipt and checks that receipt
 module/version metadata matches the registry record.
+
+For demos and support triage, `rz0 store status --store-root <path>` can inspect
+a supplied local fixture/store root with the same parser and validator. The
+override is intentionally limited to read-only store inspection; it does not
+initialize state, write registry/receipt files, or change future install
+behavior.
 
 Installed manifests are valid only when their explicitly listed package files
 pass local SHA-256 integrity checks. Planned manifests may omit integrity

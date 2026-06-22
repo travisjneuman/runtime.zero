@@ -13,6 +13,9 @@ pub fn store_status_text(report: &StoreStatusReport) -> String {
     let _ = writeln!(out, "mode: read-only");
     let _ = writeln!(out, "writes_attempted: no");
     let _ = writeln!(out, "store_schema_version: {}", report.store_schema_version);
+    if let Some(root) = &report.store_root_override {
+        let _ = writeln!(out, "store_root_override: {root}");
+    }
     let _ = writeln!(
         out,
         "overall_state: {}",

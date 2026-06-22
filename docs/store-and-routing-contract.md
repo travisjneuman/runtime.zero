@@ -35,6 +35,8 @@ rz0 store plan
 rz0 store plan --format json
 rz0 store status
 rz0 store status --format json
+rz0 store status --store-root <path>
+rz0 store status --store-root <path> --format json
 ```
 
 `rz0 store plan` reports the current platform-specific store contract without
@@ -67,6 +69,14 @@ Type mismatches, metadata errors, and symlinks are reported as invalid state.
 This command must remain safe when no store exists yet; an absent store is a
 normal result before any write-capable install/store initialization behavior is
 approved.
+
+For fixture demos and future support triage, `rz0 store status` also accepts
+`--store-root <path>`. The override is read-only and affects only store status
+inspection. It does not change module install planning, future install behavior,
+or the real user-local store. Missing override roots are reported as absent,
+not created. Existing files where a directory root is expected are reported as
+invalid. The CLI canonicalizes existing override paths when possible so JSON
+output points at the inspected local store root.
 
 ### Installed module registry schema
 
@@ -193,6 +203,62 @@ references are intentionally narrow:
 Absolute paths, backslashes, URL-like values, and `..` traversal are rejected.
 Receipt validation is not a trust decision and does not execute, trust,
 activate, repair, migrate, install, update, or uninstall any module.
+
+## Future store initialization plan
+
+Store initialization is not implemented yet. The proposed approval-gated shape
+is:
+
+```bash
+rz0 store init --dry-run
+rz0 store init
+```
+
+The dry-run command should report the exact filesystem operations that would be
+attempted and should share the same JSON/text contract style as `store plan`
+and `store status`. The future write-capable command must remain user-local by
+default and should require explicit confirmation when run interactively.
+
+The first write-capable initialization slice should only create runtime.zero
+owned store scaffolding:
+
+- data root;
+- state root;
+- cache root;
+- log root;
+- quarantine root;
+- modules root;
+- transactions directory under state;
+- receipts directory under state;
+- an `installed-modules.json` registry with schema version `1` and an empty
+  `modules` list;
+- an initialization marker or receipt under state that records schema version,
+  created paths, command version, timestamp, host OS, and rollback guidance.
+
+The initialization receipt should be distinct from module install receipts and
+must not imply that any module is installed or trusted. If a registry already
+exists, initialization should validate it first and refuse to overwrite invalid
+or unknown data without a later explicit repair/migration design.
+
+Planned safety requirements for initialization:
+
+- no remote fetches, module package copies, module execution, PATH edits,
+  registry edits, services, scheduled tasks, or persistence hooks;
+- no writes outside the computed runtime.zero store roots;
+- deny symlinks/reparse points for paths being initialized until a later
+  cross-platform policy is approved;
+- verify parent directories and permissions before writing;
+- be idempotent when all expected paths/files already exist and validate;
+- fail closed on partial or mismatched state;
+- on failure, report which paths were created and which rollback steps are safe
+  for the user to review;
+- never delete credentials, browser profiles, OAuth sessions, backups, project
+  workspaces, or unknown user data;
+- keep uninstall/rollback scoped to runtime.zero-owned files recorded by
+  initialization and install receipts.
+
+The next approval gate should design the exact initialization JSON schema,
+confirmation UX, and rollback metadata before enabling `rz0 store init` writes.
 
 ## Dry-run install metadata
 
