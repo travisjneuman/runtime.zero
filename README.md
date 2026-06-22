@@ -43,9 +43,11 @@ rz0 scan --dry-run
 Bare `rz0` opens the read-only TUI dashboard shell in an interactive terminal.
 It uses raw key handling, so `q`/Esc exits without echoing typed input, and it
 filters terminal key events so Windows key-release events do not double-advance
-selection. Use `rz0 --no-tui` for the scriptable text dashboard, or `rz0
---json` for a machine-readable foundation dashboard. `rz0 <subcommand>`
-remains scriptable and never opens the TUI.
+selection. The current dashboard uses numbered dossier sections, a navigation
+rail, Home/End jumps, arrow/Tab navigation, and `j`/`k` keyboard shortcuts for
+operator-style terminal use. Use `rz0 --no-tui` for the scriptable text
+dashboard, or `rz0 --json` for a machine-readable foundation dashboard.
+`rz0 <subcommand>` remains scriptable and never opens the TUI.
 
 Current commands are read-only, dry-run, or explicit user-local store
 scaffolding. They exist to prove the binary, brand metadata, test harness,
@@ -189,8 +191,9 @@ The project is intentionally modular:
 - Platform adapters for Windows, macOS, and Linux.
 - Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
 - Read-only foundation TUI shell for local review, with navigation rail,
-  selected-section panel, foundation status cards, and command rail; subcommands
-  remain the stable automation/script surface.
+  numbered dossier sections, selected-section panel, foundation status cards,
+  Home/End and `j`/`k` navigation, and command rail; subcommands remain the
+  stable automation/script surface.
 
 See [`docs/architecture.md`](docs/architecture.md),
 [`docs/module-system.md`](docs/module-system.md), and

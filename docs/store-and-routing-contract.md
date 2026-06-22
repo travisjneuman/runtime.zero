@@ -303,8 +303,9 @@ The TUI key contract is:
 
 - `q` or Esc exits safely without echoing typed input;
 - `h` or `?` toggles help;
-- Tab/down/right moves to the next section;
-- up/left moves to the previous section;
+- Tab/down/right/`j` moves to the next section;
+- up/left/BackTab/`k` moves to the previous section;
+- Home and End jump to the first and last section;
 - terminal resize events re-render the dashboard without changing state;
 - key release events are ignored, while press and repeat events remain
   intentional input so Windows terminals do not double-advance navigation.

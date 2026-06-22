@@ -27,7 +27,9 @@ pub struct TuiDashboard {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TuiSection {
+    pub code: &'static str,
     pub title: &'static str,
+    pub summary: &'static str,
     pub rows: Vec<TuiRow>,
 }
 
@@ -86,7 +88,9 @@ fn sections(
 ) -> Vec<TuiSection> {
     vec![
         TuiSection {
+            code: "01",
             title: "foundation",
+            summary: "core contracts and safety posture",
             rows: vec![
                 row(tui_theme::LABEL_OK, "core CLI loaded", "safe"),
                 row(tui_theme::LABEL_INFO, brand::SAFETY_POSTURE, "info"),
@@ -94,7 +98,9 @@ fn sections(
             ],
         },
         TuiSection {
+            code: "02",
             title: "local store",
+            summary: "user-local store and registry health",
             rows: vec![
                 row(
                     tui_theme::LABEL_INFO,
@@ -119,7 +125,9 @@ fn sections(
             ],
         },
         TuiSection {
+            code: "03",
             title: "modules",
+            summary: "module planning without activation",
             rows: vec![
                 row_count(
                     tui_theme::LABEL_INFO,
@@ -141,7 +149,9 @@ fn sections(
             ],
         },
         TuiSection {
+            code: "04",
             title: "safety gates",
+            summary: "blocked mutation and trust gates",
             rows: vec![
                 row(
                     tui_theme::LABEL_OK,

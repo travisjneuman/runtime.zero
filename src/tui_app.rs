@@ -64,6 +64,10 @@ fn input_from_key(key: KeyEvent) -> Option<TuiInput> {
     Some(match key.code {
         KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => TuiInput::Quit,
         KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?') => TuiInput::ToggleHelp,
+        KeyCode::Char('j') | KeyCode::Char('J') => TuiInput::NextSection,
+        KeyCode::Char('k') | KeyCode::Char('K') => TuiInput::PreviousSection,
+        KeyCode::Home => TuiInput::FirstSection,
+        KeyCode::End => TuiInput::LastSection,
         KeyCode::Tab | KeyCode::Down | KeyCode::Right => TuiInput::NextSection,
         KeyCode::BackTab | KeyCode::Up | KeyCode::Left => TuiInput::PreviousSection,
         _ => TuiInput::Other,
@@ -119,6 +123,22 @@ mod tests {
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Up)),
             Some(TuiInput::PreviousSection)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Char('j'))),
+            Some(TuiInput::NextSection)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Char('k'))),
+            Some(TuiInput::PreviousSection)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Home)),
+            Some(TuiInput::FirstSection)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::End)),
+            Some(TuiInput::LastSection)
         );
     }
 

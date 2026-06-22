@@ -17,6 +17,8 @@ pub enum TuiInput {
     ToggleHelp,
     NextSection,
     PreviousSection,
+    FirstSection,
+    LastSection,
     Resize,
     Other,
 }
@@ -50,6 +52,16 @@ impl TuiState {
                 }
                 TuiAction::Continue
             }
+            TuiInput::FirstSection => {
+                self.selected_section = 0;
+                TuiAction::Continue
+            }
+            TuiInput::LastSection => {
+                if self.section_count > 0 {
+                    self.selected_section = self.section_count - 1;
+                }
+                TuiAction::Continue
+            }
             TuiInput::Resize | TuiInput::Other => TuiAction::Continue,
         }
     }
@@ -77,5 +89,14 @@ mod tests {
         assert_eq!(state.selected_section, 0);
         let _ = state.apply(TuiInput::PreviousSection);
         assert_eq!(state.selected_section, 1);
+    }
+
+    #[test]
+    fn home_and_end_jump_to_edges() {
+        let mut state = TuiState::new(4);
+        let _ = state.apply(TuiInput::LastSection);
+        assert_eq!(state.selected_section, 3);
+        let _ = state.apply(TuiInput::FirstSection);
+        assert_eq!(state.selected_section, 0);
     }
 }

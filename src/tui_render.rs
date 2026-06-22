@@ -128,25 +128,34 @@ fn compact_body_lines(
 fn navigation_lines(dashboard: &TuiDashboard, state: &TuiState, interactive: bool) -> Vec<String> {
     let mut lines = vec!["NAVIGATION".to_string()];
     for (index, section) in dashboard.sections.iter().enumerate() {
-        let marker = if interactive && index == selected_index(dashboard, state) {
-            "▸"
-        } else {
-            " "
-        };
-        lines.push(format!("{marker} {}", section.title));
+        let selected = interactive && index == selected_index(dashboard, state);
+        let marker = if selected { "▸" } else { " " };
+        let suffix = if selected { "  active" } else { "" };
+        lines.push(format!(
+            "{marker} {} {}{}",
+            section.code, section.title, suffix
+        ));
     }
     lines.push(String::new());
-    lines.push("MODE".to_string());
-    lines.push("safe review only".to_string());
-    lines.push("no module execution".to_string());
+    lines.push("POSTURE".to_string());
+    lines.push(format!("{} safe review", tui_theme::LABEL_INFO));
+    lines.push(format!(
+        "{} module execution blocked",
+        tui_theme::LABEL_BLOCKED
+    ));
     lines
 }
 
 fn selected_panel_lines(dashboard: &TuiDashboard, state: &TuiState, width: usize) -> Vec<String> {
     let section = selected_section(dashboard, state);
-    let mut lines = vec![format!("{} /", section.title.to_uppercase())];
+    let mut lines = vec![format!(
+        "DOSSIER {} · {}",
+        section.code,
+        section.title.to_uppercase()
+    )];
+    lines.push(truncate(section.summary, width));
     lines.push(format!(
-        "section {} of {}",
+        "section {} / {} · read-only",
         selected_index(dashboard, state) + 1,
         dashboard.sections.len()
     ));
@@ -158,7 +167,7 @@ fn selected_panel_lines(dashboard: &TuiDashboard, state: &TuiState, width: usize
 }
 
 fn status_card_lines(dashboard: &TuiDashboard, width: usize) -> Vec<String> {
-    let mut lines = vec![String::new(), "FOUNDATION STATE".to_string()];
+    let mut lines = vec![String::new(), "FOUNDATION STATE / live".to_string()];
     lines.push(card_line(
         "store",
         &humanize_debug(&format!("{:?}", dashboard.store_init_status)),
@@ -195,7 +204,7 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
     ));
     if interactive && state.show_help {
         lines.push(line_plain(
-            "keys: q/Esc quit · h/? help · ↑/↓/Tab navigate sections",
+            "keys: q/Esc quit · h/? help · ↑/↓/j/k/Tab navigate · Home/End jump",
             width,
         ));
         lines.push(line_plain(
@@ -204,7 +213,7 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
         ));
     } else if interactive {
         lines.push(line_plain(
-            "keys: q quit · h help · ↑/↓ navigate · Tab next",
+            "keys: q quit · h help · ↑/↓/j/k navigate · Home/End jump",
             width,
         ));
     } else {

@@ -105,9 +105,10 @@ launch the full-screen dashboard.
 The TUI uses raw key handling so quit/help/navigation keys do not echo in the
 terminal. It treats key press/repeat events as intentional input and ignores key
 release events so Windows terminals do not double-advance navigation. Its
-terminal guard must restore raw mode, cursor visibility, and the normal screen
-on exit or panic unwinding. If restoration fails, that is a TUI runtime bug,
-not permission to mutate system state.
+navigation model supports arrows, Tab, `j`/`k`, and Home/End without changing
+the safety boundary. Its terminal guard must restore raw mode, cursor
+visibility, and the normal screen on exit or panic unwinding. If restoration
+fails, that is a TUI runtime bug, not permission to mutate system state.
 
 ## Local development install boundary
 

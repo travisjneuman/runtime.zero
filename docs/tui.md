@@ -34,8 +34,10 @@ Minimum keys:
 
 - `q` or `Esc`: quit safely;
 - `h` or `?`: toggle keyboard/safety help;
-- `Tab`, down arrow, or right arrow: next dashboard section;
-- up arrow or left arrow: previous dashboard section.
+- `Tab`, down arrow, right arrow, or `j`: next dashboard section;
+- up arrow, left arrow, BackTab, or `k`: previous dashboard section;
+- Home: first dashboard section;
+- End: last dashboard section.
 
 ## Dashboard content
 
@@ -61,8 +63,10 @@ The TUI is intentionally more than a command transcript. The current shell
 renders:
 
 - a header with product/version and foundation mode;
-- a navigation rail for foundation, local store, modules, and safety gates;
-- a selected-section panel with focused rows;
+- a navigation rail for numbered dossier sections: foundation, local store,
+  modules, and safety gates;
+- a selected-section panel with dossier code, summary, current position, and
+  focused rows;
 - foundation state cards for store, registry, receipt, and installed-module
   posture;
 - a command rail that points back to scriptable CLI commands;
@@ -86,8 +90,9 @@ Manual check after refreshing the installed binary:
 1. Run `rz0` in a new interactive PowerShell terminal.
 2. Press down arrow once; selection should advance exactly one section.
 3. Hold down arrow; repeat navigation should continue predictably.
-4. Press `h` or `?`; help should toggle without typed input echo.
-5. Press `q` or Esc; the TUI should exit and restore the normal prompt.
+4. Press `j`, `k`, Home, and End; navigation should match the help text.
+5. Press `h` or `?`; help should toggle without typed input echo.
+6. Press `q` or Esc; the TUI should exit and restore the normal prompt.
 
 ## Brand and maintainability
 

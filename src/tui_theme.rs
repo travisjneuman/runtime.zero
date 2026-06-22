@@ -12,6 +12,7 @@ pub const LABEL_INFO: &str = "[INFO]";
 pub const LABEL_PLAN: &str = "[PLAN]";
 pub const LABEL_DRY_RUN: &str = "[DRY-RUN]";
 pub const LABEL_WARN: &str = "[WARN]";
+pub const LABEL_BLOCKED: &str = "[BLOCKED]";
 pub const LABEL_SKIP: &str = "[SKIP]";
 
 pub const BORDER_HORIZONTAL: &str = "─";

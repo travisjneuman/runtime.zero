@@ -17,8 +17,9 @@ fn render_wide_dashboard_has_navigation_and_selected_section() {
     state.selected_section = 1;
     let rendered = render_dashboard_with_state(&tui_dashboard::dashboard(), false, 118, 30, &state);
     assert!(rendered.contains("NAVIGATION"));
-    assert!(rendered.contains("▸ local store"));
-    assert!(rendered.contains("LOCAL STORE /"));
+    assert!(rendered.contains("▸ 02 local store"));
+    assert!(rendered.contains("DOSSIER 02 · LOCAL STORE"));
+    assert!(rendered.contains("user-local store and registry health"));
     assert!(rendered.contains("FOUNDATION STATE"));
 }
 
