@@ -115,6 +115,18 @@ store and CLI/TUI routing contract, including `rz0 store plan` and
 `rz0 store status` for read-only inspection without module install planning,
 plus the explicit `rz0 store init --dry-run` / `--yes` scaffold gate.
 
+## First first-party module boundary
+
+The foundation is ready for first-module planning only inside a read-only,
+first-party boundary. The first module may rely on manifest validation,
+SHA-256 package integrity checks, dry-run install planning, store plan/status,
+registry/receipt validation, stable JSON output, and read-only TUI surfacing.
+
+Starting module work does not approve module execution, real install/update/
+uninstall behavior, third-party trust, signing, release/package publishing,
+remote fetch, bootstrap/direct-run commands, cleanup, repair, or broad system
+mutation. See [`foundation-readiness.md`](foundation-readiness.md) for the
+handoff gate and acceptance checklist.
 ## Planned module families
 
 - tool/package updater modules;

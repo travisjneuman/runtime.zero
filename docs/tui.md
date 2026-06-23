@@ -135,6 +135,13 @@ Required top-level fields:
 JSON output must never include ANSI escape sequences and must not depend on
 terminal dimensions, color mode, raw mode, or Ratatui rendering state.
 
+## Website parity backlog
+
+The terminal TUI is now the source of truth for labels, state hierarchy,
+responsive layout vocabulary, and read-only command preview posture. Website
+mockups should be updated only in a separate website lane after Travis approves
+the visual direction. See [`website-tui-parity-backlog.md`](website-tui-parity-backlog.md)
+for the exact backlog and checks.
 ## Verification expectations
 
 Automated tests should cover launch routing, key-event filtering, reducer

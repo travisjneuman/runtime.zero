@@ -217,14 +217,17 @@ The project is intentionally modular:
   automation/script surface.
 
 See [`docs/architecture.md`](docs/architecture.md),
-[`docs/module-system.md`](docs/module-system.md), and
-[`docs/manifest-validation.md`](docs/manifest-validation.md). See
+[`docs/module-system.md`](docs/module-system.md),
+[`docs/manifest-validation.md`](docs/manifest-validation.md), and
+[`docs/foundation-readiness.md`](docs/foundation-readiness.md). See
 [`docs/store-and-routing-contract.md`](docs/store-and-routing-contract.md) for
 the local module store, store initialization, and CLI/TUI launch-routing
 contract.
 
 [`docs/tui.md`](docs/tui.md) for the read-only terminal UI foundation,
-keyboard behavior, rendering boundaries, and brand/theme structure.
+keyboard behavior, rendering boundaries, and brand/theme structure. Website TUI
+parity is tracked in [`docs/website-tui-parity-backlog.md`](docs/website-tui-parity-backlog.md)
+so the static site can later follow the real terminal TUI without drifting.
 
 ## Brand system
 
