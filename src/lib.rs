@@ -28,6 +28,7 @@ pub mod tui_canvas;
 mod tui_command_rail;
 pub mod tui_dashboard;
 mod tui_dashboard_labels;
+pub mod tui_layout;
 pub mod tui_ratatui;
 mod tui_ratatui_components;
 mod tui_ratatui_rail;

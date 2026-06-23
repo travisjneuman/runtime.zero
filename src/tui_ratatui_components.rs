@@ -4,14 +4,28 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
 use crate::tui_dashboard::TuiDashboard;
-use crate::tui_ratatui_support::{block, label_line, tone_style};
+use crate::tui_layout::TuiLayoutTier;
+use crate::tui_ratatui_support::{
+    block, focus_summary, label_line, selected_index, selected_section, tone_style,
+};
+use crate::tui_state::TuiState;
 use crate::tui_theme;
 
-pub(crate) fn render_compact_notice(frame: &mut Frame<'_>, area: Rect, color: bool) {
+pub(crate) fn render_compact_notice(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    tier: TuiLayoutTier,
+    color: bool,
+) {
     let lines = vec![
         Line::styled("runtime.zero", tone_style("accent", color)),
         Line::raw("safe review dashboard"),
-        Line::raw("Terminal too small for the full TUI."),
+        Line::raw(format!(
+            "layout: {} · min {}",
+            tier.name(),
+            tier.minimum_size()
+        )),
+        Line::raw("Terminal too small for the full TUI frame."),
         Line::raw("Use rz0 --no-tui or resize wider/taller."),
         Line::raw("q/Esc exits when interactive."),
     ];
@@ -21,10 +35,50 @@ pub(crate) fn render_compact_notice(frame: &mut Frame<'_>, area: Rect, color: bo
     );
 }
 
+pub(crate) fn render_compact_dashboard(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    dashboard: &TuiDashboard,
+    state: &TuiState,
+    tier: TuiLayoutTier,
+    color: bool,
+) {
+    let section = selected_section(dashboard, state);
+    let lines = vec![
+        Line::from(vec![
+            Span::styled("runtime.zero rz0", tone_style("accent", color)),
+            Span::raw("   "),
+            Span::styled(tui_theme::LABEL_OK, tone_style("safe", color)),
+            Span::raw(" read-only"),
+        ]),
+        Line::raw(format!(
+            "layout: {} · min {} · section {} / {}",
+            tier.name(),
+            tier.minimum_size(),
+            selected_index(dashboard, state) + 1,
+            dashboard.sections.len()
+        )),
+        Line::raw(format!("focus: {}", focus_summary(state.focus_region))),
+        Line::raw(format!("dossier {} · {}", section.code, section.title)),
+        Line::raw(section.summary),
+        Line::raw(format!(
+            "store {:?} · registry {:?} · modules {}",
+            dashboard.store_init_status, dashboard.registry_state, dashboard.installed_module_count
+        )),
+        preview_only_line(color),
+        Line::raw("Tab focus · arrows/j/k move · Enter previews · q exits"),
+    ];
+    frame.render_widget(
+        Paragraph::new(lines).block(block("COMPACT // SAFE DASHBOARD", "info", color)),
+        area,
+    );
+}
+
 pub(crate) fn render_header(
     frame: &mut Frame<'_>,
     area: Rect,
     dashboard: &TuiDashboard,
+    tier: TuiLayoutTier,
     color: bool,
 ) {
     let lines = vec![
@@ -39,6 +93,8 @@ pub(crate) fn render_header(
         ]),
         Line::from(vec![
             Span::styled("Dossier Navy / Burnished Brass", tone_style("muted", color)),
+            Span::raw(" · "),
+            Span::raw(tier.name()),
             Span::raw(" · "),
             Span::styled(
                 "no installs · no cleanup · no module execution",

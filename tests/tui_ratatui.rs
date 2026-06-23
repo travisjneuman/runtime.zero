@@ -1,5 +1,6 @@
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use runtime_zero::tui_layout::TuiLayoutTier;
 use runtime_zero::tui_ratatui::draw_dashboard;
 use runtime_zero::tui_state::TuiState;
 use runtime_zero::tui_theme;
@@ -46,6 +47,27 @@ fn compact_frame_renders_safe_notice_without_panic() {
     let text = render_text(42, 10, &TuiState::new(4), false);
     assert!(text.contains("Terminal too small"));
     assert!(text.contains("rz0 --no-tui"));
+}
+
+#[test]
+fn compact_layout_keeps_focus_and_safety_visible() {
+    let mut state = TuiState::new(4);
+    state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
+    let text = render_text(58, 16, &state, false);
+    assert!(text.contains("COMPACT // SAFE DASHBOARD"));
+    assert!(text.contains("layout: compact"));
+    assert!(text.contains("focus: details"));
+    assert!(text.contains("PREVIEW ONLY"));
+    assert!(text.contains("q exits"));
+}
+
+#[test]
+fn layout_tiers_are_named_and_bounded() {
+    assert_eq!(TuiLayoutTier::from_size(42, 10), TuiLayoutTier::VerySmall);
+    assert_eq!(TuiLayoutTier::from_size(58, 16), TuiLayoutTier::Compact);
+    assert_eq!(TuiLayoutTier::from_size(90, 24), TuiLayoutTier::Standard);
+    assert_eq!(TuiLayoutTier::from_size(120, 34), TuiLayoutTier::Wide);
+    assert_eq!(TuiLayoutTier::Wide.name(), "wide");
 }
 
 #[test]
@@ -120,7 +142,7 @@ fn color_mode_does_not_change_required_text_labels() {
 
 #[test]
 fn ratatui_frame_keeps_terminal_boundaries_across_sizes() {
-    for (width, height) in [(58, 16), (80, 24), (120, 34)] {
+    for (width, height) in [(42, 10), (58, 16), (80, 24), (120, 34)] {
         let text = render_text(width, height, &TuiState::new(4), false);
         assert_eq!(text.lines().count(), usize::from(height));
         for line in text.lines() {

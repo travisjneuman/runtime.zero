@@ -34,6 +34,11 @@ comparison.
 
 Runtime behavior:
 
+- chooses a named layout tier from terminal dimensions before rendering;
+- uses a very-small safe fallback below 50x12;
+- uses a compact single-frame dashboard from 50x12 when width/height are constrained;
+- uses standard and wide full dashboard layouts from 72x20 and 110x24 respectively;
+- keeps focus, section, read-only, and preview-only labels visible in compact mode instead of hiding actions behind clipped panes;
 - enters raw mode so single-key actions do not require Enter and do not echo;
 - uses an alternate screen for the dashboard;
 - hides the cursor while active;
@@ -170,6 +175,7 @@ Rendering, app state, input handling, and data shaping are deliberately split:
 - `src/tui_render.rs` renders the resize-safe scriptable text dashboard shell;
 - `src/tui_render_support.rs` owns render-only text helpers and tone mapping;
 - `src/tui_ratatui.rs` composes the interactive widget dashboard;
+- `src/tui_layout.rs` owns named layout tiers and minimum terminal dimensions;
 - `src/tui_ratatui_components.rs` owns reusable header, state card,
   preview-only, compact, and safety-footer components;
 - `src/tui_ratatui_rail.rs` renders the read-only command preview rail;

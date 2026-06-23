@@ -5,8 +5,10 @@ use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::{Frame, Terminal};
 
 use crate::tui_dashboard::TuiDashboard;
+use crate::tui_layout::TuiLayoutTier;
 use crate::tui_ratatui_components::{
-    preview_only_line, render_compact_notice, render_footer, render_header, render_state_cards,
+    preview_only_line, render_compact_dashboard, render_compact_notice, render_footer,
+    render_header, render_state_cards,
 };
 use crate::tui_ratatui_rail::render_command_rail;
 use crate::tui_ratatui_support::{
@@ -38,11 +40,16 @@ fn render_dashboard(
     color: bool,
 ) {
     let area = frame.area();
-    if area.width < 50 || area.height < 12 {
-        render_compact_notice(frame, area, color);
+    let tier = TuiLayoutTier::from_size(area.width, area.height);
+
+    if tier == TuiLayoutTier::VerySmall {
+        render_compact_notice(frame, area, tier, color);
         return;
     }
-
+    if tier == TuiLayoutTier::Compact {
+        render_compact_dashboard(frame, area, dashboard, state, tier, color);
+        return;
+    }
     let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -53,8 +60,8 @@ fn render_dashboard(
         ])
         .split(area);
 
-    render_header(frame, vertical[0], dashboard, color);
-    render_body(frame, vertical[1], dashboard, state, color);
+    render_header(frame, vertical[0], dashboard, tier, color);
+    render_body(frame, vertical[1], dashboard, state, tier, color);
     render_help(frame, vertical[2], state, color);
     render_footer(frame, vertical[3], color);
 }
@@ -64,9 +71,10 @@ fn render_body(
     area: Rect,
     dashboard: &TuiDashboard,
     state: &TuiState,
+    tier: TuiLayoutTier,
     color: bool,
 ) {
-    if area.width >= WIDE_LAYOUT_WIDTH {
+    if tier == TuiLayoutTier::Wide || area.width >= WIDE_LAYOUT_WIDTH {
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Length(MIN_NAV_WIDTH), Constraint::Min(40)])
