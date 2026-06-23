@@ -73,7 +73,8 @@ fn focus_regions_are_visible_without_color() {
     state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
     let rail = render_text(110, 32, &state, false);
     assert!(rail.contains("SCRIPTABLE CLI RAIL [FOCUS]"));
-    assert!(rail.contains("▶ doctor"));
+    assert!(rail.contains("▶ [INFO]"));
+    assert!(rail.contains("doctor"));
 }
 
 #[test]
@@ -84,8 +85,18 @@ fn read_only_previews_do_not_claim_execution() {
     state.apply(runtime_zero::tui_state::TuiInput::Activate);
     let text = render_text(110, 32, &state, false);
     assert!(text.contains("PREVIEW"));
-    assert!(text.contains("not executed from TUI"));
+    assert!(text.contains("no command execution from TUI"));
     assert!(!text.contains("installed successfully"));
+}
+
+#[test]
+fn polished_shell_uses_component_labels_without_color_dependency() {
+    let text = render_text(118, 34, &TuiState::new(4), false);
+    assert!(text.contains("RZ0 // FOUNDATION CONTROL SURFACE"));
+    assert!(text.contains("FOUNDATION STATE // LIVE"));
+    assert!(text.contains("SAFETY // LOCKED"));
+    assert!(text.contains("preview/control surface only"));
+    assert!(text.contains("select to preview; TUI will not run commands"));
 }
 
 #[test]

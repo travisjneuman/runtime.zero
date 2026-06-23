@@ -4,8 +4,10 @@ use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 
 use crate::tui_command_rail::{COMMANDS, selected_command};
-use crate::tui_ratatui_support::{block, command_line, focused_title, tone_style};
+use crate::tui_ratatui_components::preview_only_line;
+use crate::tui_ratatui_support::{block, command_line, focused_title, label_line, tone_style};
 use crate::tui_state::{TuiFocusRegion, TuiState};
+use crate::tui_theme;
 
 pub(crate) fn render_command_rail(
     frame: &mut Frame<'_>,
@@ -16,14 +18,16 @@ pub(crate) fn render_command_rail(
     let mut lines = Vec::new();
     if state.preview_open && state.focus_region == TuiFocusRegion::CommandRail {
         let command = selected_command(state.selected_command);
-        lines.push(Line::styled(
-            format!("PREVIEW · {}", command.preview),
-            tone_style("accent", color),
+        lines.push(preview_only_line(color));
+        lines.push(Line::styled(command.preview, tone_style("muted", color)));
+        lines.push(Line::raw(format!("selected: {}", command.command)));
+    } else {
+        lines.push(label_line(
+            tui_theme::LABEL_INFO,
+            "select to preview; TUI will not run commands",
+            "info",
+            color,
         ));
-        lines.push(Line::raw(
-            "not executed from TUI; copy/run manually if desired",
-        ));
-        lines.push(Line::raw(""));
     }
     for (index, command) in COMMANDS.iter().enumerate() {
         let focused = state.focus_region == TuiFocusRegion::CommandRail

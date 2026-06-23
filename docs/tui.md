@@ -79,22 +79,25 @@ fetches, or destructive actions.
 The TUI is intentionally more than a command transcript. The interactive shell
 now renders the existing dashboard data model through Ratatui widgets:
 
-- a bounded header panel with product/version and foundation mode;
+- a bounded header panel with product/version, brand posture, and read-only status badge;
 - a navigation rail/index for numbered dossier sections: foundation, local
   store, modules, and safety gates;
 - a selected-section panel with dossier code, summary, current position,
   visible details focus, and read-only row previews;
 - foundation state cards for store, registry, receipt, and installed-module
-  posture;
+  posture with reusable status-pair formatting;
 - a command rail that supports selection and read-only previews of equivalent
-  scriptable CLI commands without running them;
+  scriptable CLI commands without running them, with explicit `PREVIEW ONLY`
+  copy;
 - a persistent safety footer and optional help overlay.
 
 Interactive rendering applies Dossier Navy / Burnished Brass status tones to
-headers, selected navigation, status labels, and blocked/dry-run rows. Text
-labels remain the source of truth: `[OK]`, `[INFO]`, `[PLAN]`, `[DRY-RUN]`,
-`[BLOCKED]`, and `[SKIP]` must still explain the state when color is disabled
-or unavailable.
+headers, selected navigation, focus titles, status badges, and blocked/dry-run
+rows. Reusable Ratatui component helpers own the header, state cards,
+preview-only copy, command rail, and safety footer so later visual tuning stays
+narrow. Text labels remain the source of truth: `[OK]`, `[INFO]`, `[PLAN]`,
+`[DRY-RUN]`, `[BLOCKED]`, and `[SKIP]` must still explain the state when color
+is disabled or unavailable.
 
 Color control is global:
 
@@ -166,7 +169,9 @@ Rendering, app state, input handling, and data shaping are deliberately split:
 - `src/tui_canvas.rs` owns frame, padding, truncation, and line helpers;
 - `src/tui_render.rs` renders the resize-safe scriptable text dashboard shell;
 - `src/tui_render_support.rs` owns render-only text helpers and tone mapping;
-- `src/tui_ratatui.rs` renders the interactive widget dashboard;
+- `src/tui_ratatui.rs` composes the interactive widget dashboard;
+- `src/tui_ratatui_components.rs` owns reusable header, state card,
+  preview-only, compact, and safety-footer components;
 - `src/tui_ratatui_rail.rs` renders the read-only command preview rail;
 - `src/tui_ratatui_support.rs` owns Ratatui style/layout helper primitives;
 - `src/tui_command_rail.rs` owns command preview metadata;
@@ -177,3 +182,5 @@ Rendering, app state, input handling, and data shaping are deliberately split:
 Future TUI polish should preserve this separation so the website reference and
 real terminal UI can evolve together without making terminal usability depend
 on a web layout.
+
+Website TUI parity remains a later website-lane slice after the real terminal TUI stabilizes. The terminal TUI should continue to be the source of truth when terminal usability and the website mock differ; do not edit site/ as part of foundation TUI polish unless that lane is explicitly approved.

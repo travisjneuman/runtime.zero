@@ -5,6 +5,9 @@ use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::{Frame, Terminal};
 
 use crate::tui_dashboard::TuiDashboard;
+use crate::tui_ratatui_components::{
+    preview_only_line, render_compact_notice, render_footer, render_header, render_state_cards,
+};
 use crate::tui_ratatui_rail::render_command_rail;
 use crate::tui_ratatui_support::{
     block, focus_summary, focused_title, help_height, label_line, nav_line, row_line,
@@ -54,41 +57,6 @@ fn render_dashboard(
     render_body(frame, vertical[1], dashboard, state, color);
     render_help(frame, vertical[2], state, color);
     render_footer(frame, vertical[3], color);
-}
-
-fn render_compact_notice(frame: &mut Frame<'_>, area: Rect, color: bool) {
-    let lines = vec![
-        Line::styled("runtime.zero", tone_style("accent", color)),
-        Line::raw("safe review dashboard"),
-        Line::raw("Terminal too small for the full TUI."),
-        Line::raw("Use rz0 --no-tui or resize wider/taller."),
-        Line::raw("q/Esc exits when interactive."),
-    ];
-    frame.render_widget(
-        Paragraph::new(lines).block(block("COMPACT", "info", color)),
-        area,
-    );
-}
-
-fn render_header(frame: &mut Frame<'_>, area: Rect, dashboard: &TuiDashboard, color: bool) {
-    let lines = vec![
-        Line::from(vec![
-            Span::styled(dashboard.title, tone_style("accent", color)),
-            Span::raw("  "),
-            Span::styled(dashboard.command, tone_style("info", color)),
-            Span::raw(format!("  v{}", dashboard.version)),
-        ]),
-        Line::from(vec![
-            Span::styled("foundation control surface", tone_style("info", color)),
-            Span::raw(" · "),
-            Span::raw(dashboard.mode),
-            Span::raw(" · local-first"),
-        ]),
-    ];
-    frame.render_widget(
-        Paragraph::new(lines).block(block("RUNTIME DOSSIER", "accent", color)),
-        area,
-    );
 }
 
 fn render_body(
@@ -191,12 +159,18 @@ fn render_selected_panel(
             ),
             Span::styled(section.title.to_uppercase(), strong_style(color)),
         ]),
-        Line::styled(section.summary, tone_style("info", color)),
-        Line::raw(format!(
-            "section {} / {} · read-only",
-            selected_index(dashboard, state) + 1,
-            dashboard.sections.len()
-        )),
+        Line::from(vec![
+            Span::styled(section.summary, tone_style("info", color)),
+            Span::raw("   "),
+            Span::styled(
+                format!(
+                    "section {} / {}",
+                    selected_index(dashboard, state) + 1,
+                    dashboard.sections.len()
+                ),
+                tone_style("muted", color),
+            ),
+        ]),
         Line::styled(
             focus_summary(state.focus_region),
             tone_style("muted", color),
@@ -214,11 +188,8 @@ fn render_selected_panel(
     if state.preview_open && state.focus_region == TuiFocusRegion::DetailsPanel {
         let row = &section.rows[selected_row];
         lines.push(Line::raw(""));
-        lines.push(Line::styled(
-            format!("PREVIEW · {} {}", row.label, row.value),
-            tone_style("accent", color),
-        ));
-        lines.push(Line::raw("read-only context only; no action will run"));
+        lines.push(preview_only_line(color));
+        lines.push(Line::raw(format!("context: {} {}", row.label, row.value)));
     }
     frame.render_widget(
         Paragraph::new(lines)
@@ -231,29 +202,6 @@ fn render_selected_panel(
                 color,
             ))
             .wrap(Wrap { trim: true }),
-        area,
-    );
-}
-
-fn render_state_cards(frame: &mut Frame<'_>, area: Rect, dashboard: &TuiDashboard, color: bool) {
-    let lines = vec![
-        Line::from(vec![
-            Span::styled("store ", tone_style("info", color)),
-            Span::raw(format!("{:?}", dashboard.store_init_status).to_lowercase()),
-            Span::raw("   "),
-            Span::styled("registry ", tone_style("info", color)),
-            Span::raw(format!("{:?}", dashboard.registry_state).to_lowercase()),
-        ]),
-        Line::from(vec![
-            Span::styled("receipts ", tone_style("info", color)),
-            Span::raw(format!("{:?}", dashboard.receipt_state).to_lowercase()),
-            Span::raw("   "),
-            Span::styled("modules ", tone_style("info", color)),
-            Span::raw(format!("{} installed", dashboard.installed_module_count)),
-        ]),
-    ];
-    frame.render_widget(
-        Paragraph::new(lines).block(block("FOUNDATION STATE / live", "info", color)),
         area,
     );
 }
@@ -276,17 +224,6 @@ fn render_help(frame: &mut Frame<'_>, area: Rect, state: &TuiState, color: bool)
             "info",
             color,
         )),
-        area,
-    );
-}
-
-fn render_footer(frame: &mut Frame<'_>, area: Rect, color: bool) {
-    let line = Line::styled(
-        "read-only · no installs/cleanup/module execution/store writes",
-        tone_style("dry_run", color),
-    );
-    frame.render_widget(
-        Paragraph::new(vec![line]).block(block("SAFETY", "dry_run", color)),
         area,
     );
 }

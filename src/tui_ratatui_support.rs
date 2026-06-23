@@ -6,6 +6,7 @@ use ratatui::widgets::{Block, Borders};
 use crate::tui_command_rail::TuiCommandPreview;
 use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection};
 use crate::tui_state::{TuiFocusRegion, TuiState};
+use crate::tui_theme;
 
 pub(crate) const COMPACT_HELP_HEIGHT: u16 = 4;
 pub(crate) const DEFAULT_HELP_HEIGHT: u16 = 5;
@@ -58,7 +59,11 @@ pub(crate) fn command_line(
     };
     Line::from(vec![
         Span::styled(marker, style),
-        Span::styled(format!("{:<14}", command.label), tone_style("info", color)),
+        Span::styled(
+            format!("{:<11}", tui_theme::LABEL_INFO),
+            tone_style("info", color),
+        ),
+        Span::styled(format!("{:<14}", command.label), tone_style("muted", color)),
         Span::raw(command.command.to_string()),
     ])
 }

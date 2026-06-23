@@ -46,7 +46,7 @@ Bare `rz0` opens the read-only TUI dashboard shell in an interactive terminal.
 It uses raw key handling, so `q` exits without echoing typed input, and it
 filters terminal key events so Windows key-release events do not double-advance
 selection. The current interactive dashboard uses a Ratatui widget layer for bounded
-panels, numbered dossier sections, explicit focus regions, a navigation rail,
+componentized panels, status badges, numbered dossier sections, explicit focus regions, a navigation rail,
 selected-section details, read-only command previews, Home/End jumps,
 Tab/Shift+Tab focus cycling, arrow movement, and `j`/`k` keyboard shortcuts for
 operator-style terminal use. Esc closes help/previews or backs out before quitting
@@ -208,7 +208,7 @@ The project is intentionally modular:
 - Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
 - Read-only foundation TUI shell for local review, using crossterm for raw
   terminal lifecycle and Ratatui for the interactive widget dashboard, with
-  focus regions, navigation rail, numbered dossier sections, selected-section
+  componentized panels/status badges, focus regions, navigation rail, numbered dossier sections, selected-section
   panel, foundation status cards, read-only command previews, Home/End and
   `j`/`k` navigation, and command rail; subcommands remain the stable
   automation/script surface.
