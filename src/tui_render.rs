@@ -227,7 +227,7 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
     ));
     if interactive && state.show_help {
         lines.push(line_plain(
-            "keys: q/Esc quit · h/? help · ↑/↓/j/k/Tab navigate · Home/End jump",
+            "keys: Esc back · q quit · Tab focus · ↑/↓/j/k move · Enter preview",
             width,
         ));
         lines.push(line_plain(
@@ -236,7 +236,7 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
         ));
     } else if interactive {
         lines.push(line_plain(
-            "keys: q quit · h help · ↑/↓/j/k navigate · Home/End jump",
+            "keys: q quit · Tab focus · ↑/↓/j/k move · Enter preview · h help",
             width,
         ));
     } else {

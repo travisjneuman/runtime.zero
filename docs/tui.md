@@ -46,12 +46,15 @@ Runtime behavior:
 
 Minimum keys:
 
-- `q` or `Esc`: quit safely;
+- `q`: quit safely;
+- Esc: close preview/help, back out to navigation, or quit from the base navigation focus;
 - `h` or `?`: toggle keyboard/safety help;
-- `Tab`, down arrow, right arrow, or `j`: next dashboard section;
-- up arrow, left arrow, BackTab, or `k`: previous dashboard section;
-- Home: first dashboard section;
-- End: last dashboard section.
+- Tab: cycle focus forward through left navigation, details, and command rail;
+- Shift+Tab / BackTab: cycle focus backward when exposed by the terminal;
+- down/right arrow or `j`: move within the focused region;
+- up/left arrow or `k`: move backward within the focused region;
+- Enter/Space: toggle a read-only details or command preview, never execution;
+- Home/End: first/last dashboard section when left navigation is focused.
 
 ## Dashboard content
 
@@ -79,12 +82,13 @@ now renders the existing dashboard data model through Ratatui widgets:
 - a bounded header panel with product/version and foundation mode;
 - a navigation rail/index for numbered dossier sections: foundation, local
   store, modules, and safety gates;
-- a selected-section panel with dossier code, summary, current position, and
-  focused rows;
+- a selected-section panel with dossier code, summary, current position,
+  visible details focus, and read-only row previews;
 - foundation state cards for store, registry, receipt, and installed-module
   posture;
-- a command rail that points back to scriptable CLI commands;
-- a persistent safety footer and optional help panel.
+- a command rail that supports selection and read-only previews of equivalent
+  scriptable CLI commands without running them;
+- a persistent safety footer and optional help overlay.
 
 Interactive rendering applies Dossier Navy / Burnished Brass status tones to
 headers, selected navigation, status labels, and blocked/dry-run rows. Text
@@ -141,11 +145,13 @@ emulator.
 Manual check after refreshing the installed binary:
 
 1. Run `rz0` in a new interactive PowerShell terminal.
-2. Press down arrow once; selection should advance exactly one section.
+2. Press down arrow once while the left navigation is focused; selection should advance exactly one section.
 3. Hold down arrow; repeat navigation should continue predictably.
-4. Press `j`, `k`, Home, and End; navigation should match the help text.
-5. Press `h` or `?`; help should toggle without typed input echo.
-6. Press `q` or Esc; the TUI should exit and restore the normal prompt.
+4. Press Tab and Shift+Tab; focus should move visibly among left navigation, details, and command rail.
+5. In details or command rail focus, press Enter/Space; a read-only preview should appear and no command should run.
+6. Press Esc; preview/help should close or focus should back out before quitting from base navigation.
+7. Press `h` or `?`; help should toggle without typed input echo and show focus-region guidance.
+8. Press `q`; the TUI should exit and restore the normal prompt.
 
 ## Brand and maintainability
 
@@ -161,8 +167,10 @@ Rendering, app state, input handling, and data shaping are deliberately split:
 - `src/tui_render.rs` renders the resize-safe scriptable text dashboard shell;
 - `src/tui_render_support.rs` owns render-only text helpers and tone mapping;
 - `src/tui_ratatui.rs` renders the interactive widget dashboard;
+- `src/tui_ratatui_rail.rs` renders the read-only command preview rail;
 - `src/tui_ratatui_support.rs` owns Ratatui style/layout helper primitives;
-- `src/tui_state.rs` owns navigation/help state transitions;
+- `src/tui_command_rail.rs` owns command preview metadata;
+- `src/tui_state.rs` owns focus, navigation, preview, and help state transitions;
 - `src/tui_app.rs` owns terminal raw-mode lifecycle and event handling;
 - `src/tui_theme.rs` owns tokens/status label constants.
 

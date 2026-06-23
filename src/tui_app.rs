@@ -61,14 +61,18 @@ fn input_from_key(key: KeyEvent) -> Option<TuiInput> {
         return None;
     }
     Some(match key.code {
-        KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => TuiInput::Quit,
+        KeyCode::Char('q') | KeyCode::Char('Q') => TuiInput::Quit,
+        KeyCode::Esc => TuiInput::Back,
         KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?') => TuiInput::ToggleHelp,
-        KeyCode::Char('j') | KeyCode::Char('J') => TuiInput::NextSection,
-        KeyCode::Char('k') | KeyCode::Char('K') => TuiInput::PreviousSection,
+        KeyCode::Char('j') | KeyCode::Char('J') => TuiInput::NextItem,
+        KeyCode::Char('k') | KeyCode::Char('K') => TuiInput::PreviousItem,
         KeyCode::Home => TuiInput::FirstSection,
         KeyCode::End => TuiInput::LastSection,
-        KeyCode::Tab | KeyCode::Down | KeyCode::Right => TuiInput::NextSection,
-        KeyCode::BackTab | KeyCode::Up | KeyCode::Left => TuiInput::PreviousSection,
+        KeyCode::Tab => TuiInput::FocusNext,
+        KeyCode::BackTab => TuiInput::FocusPrevious,
+        KeyCode::Enter | KeyCode::Char(' ') => TuiInput::Activate,
+        KeyCode::Down | KeyCode::Right => TuiInput::NextItem,
+        KeyCode::Up | KeyCode::Left => TuiInput::PreviousItem,
         _ => TuiInput::Other,
     })
 }
@@ -114,19 +118,19 @@ mod tests {
         );
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Tab)),
-            Some(TuiInput::NextSection)
+            Some(TuiInput::FocusNext)
         );
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Up)),
-            Some(TuiInput::PreviousSection)
+            Some(TuiInput::PreviousItem)
         );
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Char('j'))),
-            Some(TuiInput::NextSection)
+            Some(TuiInput::NextItem)
         );
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Char('k'))),
-            Some(TuiInput::PreviousSection)
+            Some(TuiInput::PreviousItem)
         );
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Home)),
@@ -145,7 +149,23 @@ mod tests {
         let repeat =
             KeyEvent::new_with_kind(KeyCode::Down, KeyModifiers::NONE, KeyEventKind::Repeat);
         assert_eq!(input_from_key(release), None);
-        assert_eq!(input_from_key(repeat), Some(TuiInput::NextSection));
+        assert_eq!(input_from_key(repeat), Some(TuiInput::NextItem));
+    }
+
+    #[test]
+    fn activation_and_back_keys_are_read_only_navigation_inputs() {
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Enter)),
+            Some(TuiInput::Activate)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Char(' '))),
+            Some(TuiInput::Activate)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Esc)),
+            Some(TuiInput::Back)
+        );
     }
 
     #[test]

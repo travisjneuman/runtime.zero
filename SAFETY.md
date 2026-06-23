@@ -111,8 +111,10 @@ display only; neither crate path is allowed to create store state, run
 modules, or mutate the system. Quit/help/navigation keys do not echo in the
 terminal. It treats key press/repeat events as intentional input and ignores key
 release events so Windows terminals do not double-advance navigation. Its
-navigation model supports arrows, Tab, `j`/`k`, and Home/End without changing
-the safety boundary. Its terminal guard must restore raw mode, cursor
+navigation model supports visible focus regions, arrows, Tab/Shift+Tab,
+`j`/`k`, Enter/Space read-only previews, Esc/back behavior, and Home/End without
+changing the safety boundary or executing actions. Its terminal guard must
+restore raw mode, cursor
 visibility, and the normal screen on exit or panic unwinding. If restoration
 fails, that is a TUI runtime bug, not permission to mutate system state.
 

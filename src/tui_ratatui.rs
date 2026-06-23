@@ -5,11 +5,13 @@ use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::{Frame, Terminal};
 
 use crate::tui_dashboard::TuiDashboard;
+use crate::tui_ratatui_rail::render_command_rail;
 use crate::tui_ratatui_support::{
-    block, help_height, label_line, nav_line, row_line, selected_index, selected_section,
-    strong_style, tone_style,
+    block, focus_summary, focused_title, help_height, label_line, nav_line, row_line,
+    selectable_row_line, selected_index, selected_row_index, selected_section, strong_style,
+    tone_style,
 };
-use crate::tui_state::TuiState;
+use crate::tui_state::{TuiFocusRegion, TuiState};
 use crate::tui_theme;
 
 const MIN_NAV_WIDTH: u16 = 26;
@@ -140,7 +142,14 @@ fn render_navigation(
         color,
     ));
     frame.render_widget(
-        Paragraph::new(lines).block(block("INDEX", "accent", color)),
+        Paragraph::new(lines).block(block(
+            focused_title(
+                "INDEX",
+                state.focus_region == TuiFocusRegion::LeftNavigation,
+            ),
+            "accent",
+            color,
+        )),
         area,
     );
 }
@@ -156,13 +165,13 @@ fn render_detail_stack(
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Min(8),
-            Constraint::Length(5),
-            Constraint::Length(5),
+            Constraint::Length(4),
+            Constraint::Length(7),
         ])
         .split(area);
     render_selected_panel(frame, chunks[0], dashboard, state, color);
     render_state_cards(frame, chunks[1], dashboard, color);
-    render_command_rail(frame, chunks[2], color);
+    render_command_rail(frame, chunks[2], state, color);
 }
 
 fn render_selected_panel(
@@ -173,6 +182,7 @@ fn render_selected_panel(
     color: bool,
 ) {
     let section = selected_section(dashboard, state);
+    let selected_row = selected_row_index(section, state);
     let mut lines = vec![
         Line::from(vec![
             Span::styled(
@@ -187,12 +197,39 @@ fn render_selected_panel(
             selected_index(dashboard, state) + 1,
             dashboard.sections.len()
         )),
+        Line::styled(
+            focus_summary(state.focus_region),
+            tone_style("muted", color),
+        ),
         Line::raw(""),
     ];
-    lines.extend(section.rows.iter().map(|row| row_line(row, color)));
+    for (index, row) in section.rows.iter().enumerate() {
+        let focused = state.focus_region == TuiFocusRegion::DetailsPanel && index == selected_row;
+        if state.focus_region == TuiFocusRegion::DetailsPanel {
+            lines.push(selectable_row_line(row, focused, color));
+        } else {
+            lines.push(row_line(row, color));
+        }
+    }
+    if state.preview_open && state.focus_region == TuiFocusRegion::DetailsPanel {
+        let row = &section.rows[selected_row];
+        lines.push(Line::raw(""));
+        lines.push(Line::styled(
+            format!("PREVIEW · {} {}", row.label, row.value),
+            tone_style("accent", color),
+        ));
+        lines.push(Line::raw("read-only context only; no action will run"));
+    }
     frame.render_widget(
         Paragraph::new(lines)
-            .block(block("SELECTED SECTION", "accent", color))
+            .block(block(
+                focused_title(
+                    "SELECTED SECTION",
+                    state.focus_region == TuiFocusRegion::DetailsPanel,
+                ),
+                "accent",
+                color,
+            ))
             .wrap(Wrap { trim: true }),
         area,
     );
@@ -221,30 +258,24 @@ fn render_state_cards(frame: &mut Frame<'_>, area: Rect, dashboard: &TuiDashboar
     );
 }
 
-fn render_command_rail(frame: &mut Frame<'_>, area: Rect, color: bool) {
-    let lines = vec![
-        Line::raw("rz0 doctor · rz0 store status · rz0 --json"),
-        Line::raw("rz0 modules install --dry-run <package>"),
-    ];
-    frame.render_widget(
-        Paragraph::new(lines).block(block("SCRIPTABLE CLI RAIL", "accent", color)),
-        area,
-    );
-}
-
 fn render_help(frame: &mut Frame<'_>, area: Rect, state: &TuiState, color: bool) {
     let lines = if state.show_help {
         vec![
-            Line::raw("q/Esc quit · h/? help · ↑/↓/j/k/Tab navigate · Home/End jump"),
+            Line::raw("Tab/Shift+Tab focus · ↑/↓/j/k move within focus · Enter/Space preview"),
+            Line::raw("Esc closes preview/help or backs out · q quits"),
             Line::raw("subcommands, --json, pipes, and --no-tui stay CLI-only"),
         ]
     } else {
         vec![Line::raw(
-            "keys: q quit · h help · ↑/↓/j/k navigate · Home/End jump",
+            "keys: Tab focus · ↑/↓/j/k move · Enter preview · h help · Esc back · q quit",
         )]
     };
     frame.render_widget(
-        Paragraph::new(lines).block(block("KEYS", "info", color)),
+        Paragraph::new(lines).block(block(
+            focused_title("KEYS", state.focus_region == TuiFocusRegion::HelpOverlay),
+            "info",
+            color,
+        )),
         area,
     );
 }

@@ -55,7 +55,37 @@ fn help_mode_preserves_cli_escape_hatch_copy() {
     let text = render_text(90, 24, &state, false);
     assert!(text.contains("--json"));
     assert!(text.contains("--no-tui"));
-    assert!(text.contains("q/Esc quit"));
+    assert!(text.contains("Esc closes preview/help"));
+    assert!(text.contains("q quits"));
+}
+
+#[test]
+fn focus_regions_are_visible_without_color() {
+    let mut state = TuiState::new(4);
+    let text = render_text(110, 32, &state, false);
+    assert!(text.contains("INDEX [FOCUS]"));
+
+    state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
+    let details = render_text(110, 32, &state, false);
+    assert!(details.contains("SELECTED SECTION [FOCUS]"));
+    assert!(details.contains("▶ [OK]"));
+
+    state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
+    let rail = render_text(110, 32, &state, false);
+    assert!(rail.contains("SCRIPTABLE CLI RAIL [FOCUS]"));
+    assert!(rail.contains("▶ doctor"));
+}
+
+#[test]
+fn read_only_previews_do_not_claim_execution() {
+    let mut state = TuiState::new(4);
+    state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
+    state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
+    state.apply(runtime_zero::tui_state::TuiInput::Activate);
+    let text = render_text(110, 32, &state, false);
+    assert!(text.contains("PREVIEW"));
+    assert!(text.contains("not executed from TUI"));
+    assert!(!text.contains("installed successfully"));
 }
 
 #[test]

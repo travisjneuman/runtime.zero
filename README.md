@@ -43,12 +43,14 @@ rz0 scan --dry-run
 ```
 
 Bare `rz0` opens the read-only TUI dashboard shell in an interactive terminal.
-It uses raw key handling, so `q`/Esc exits without echoing typed input, and it
+It uses raw key handling, so `q` exits without echoing typed input, and it
 filters terminal key events so Windows key-release events do not double-advance
 selection. The current interactive dashboard uses a Ratatui widget layer for bounded
-panels, numbered dossier sections, a navigation rail, Home/End jumps,
-arrow/Tab navigation, and `j`/`k` keyboard shortcuts for operator-style
-terminal use. Use `rz0 --no-tui` for the scriptable text
+panels, numbered dossier sections, explicit focus regions, a navigation rail,
+selected-section details, read-only command previews, Home/End jumps,
+Tab/Shift+Tab focus cycling, arrow movement, and `j`/`k` keyboard shortcuts for
+operator-style terminal use. Esc closes help/previews or backs out before quitting
+from the base navigation focus. Use `rz0 --no-tui` for the scriptable text
 dashboard, or `rz0 --json` for a machine-readable foundation dashboard.
 `rz0 <subcommand>` remains scriptable and never opens the TUI.
 `rz0 --tui` explicitly requests the full-screen TUI and fails clearly if the
@@ -206,9 +208,10 @@ The project is intentionally modular:
 - Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
 - Read-only foundation TUI shell for local review, using crossterm for raw
   terminal lifecycle and Ratatui for the interactive widget dashboard, with
-  navigation rail, numbered dossier sections, selected-section panel,
-  foundation status cards, Home/End and `j`/`k` navigation, and command rail;
-  subcommands remain the stable automation/script surface.
+  focus regions, navigation rail, numbered dossier sections, selected-section
+  panel, foundation status cards, read-only command previews, Home/End and
+  `j`/`k` navigation, and command rail; subcommands remain the stable
+  automation/script surface.
 
 See [`docs/architecture.md`](docs/architecture.md),
 [`docs/module-system.md`](docs/module-system.md), and

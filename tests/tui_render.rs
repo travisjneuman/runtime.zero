@@ -80,7 +80,7 @@ fn render_handles_narrow_terminal_and_help() {
     let mut state = TuiState::new(4);
     state.show_help = true;
     let rendered = render_dashboard_with_state(&tui_dashboard::dashboard(), false, 40, 16, &state);
-    assert!(rendered.contains("q/Esc quit"));
+    assert!(rendered.contains("Esc back"));
     assert!(rendered.contains("NAVIGATION"));
     assert!(!rendered.contains("\x1b["));
 }
@@ -172,10 +172,10 @@ fn all_sections_render_with_accessible_labels_across_terminal_sizes() {
                         );
                     }
                     if show_help {
-                        assert!(plain.contains("q/Esc quit"));
+                        assert!(plain.contains("Esc back"));
                         assert!(plain.contains("automation: subcommands"));
                     } else {
-                        assert!(plain.contains("keys: q quit"));
+                        assert!(plain.contains("Tab focus"));
                     }
                 }
             }

@@ -3,8 +3,9 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders};
 
+use crate::tui_command_rail::TuiCommandPreview;
 use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection};
-use crate::tui_state::TuiState;
+use crate::tui_state::{TuiFocusRegion, TuiState};
 
 pub(crate) const COMPACT_HELP_HEIGHT: u16 = 4;
 pub(crate) const DEFAULT_HELP_HEIGHT: u16 = 5;
@@ -23,8 +24,43 @@ pub(crate) fn nav_line(section: &TuiSection, selected: bool, color: bool) -> Lin
     )
 }
 
+pub(crate) fn focused_title(title: &'static str, focused: bool) -> String {
+    if focused {
+        format!("{title} [FOCUS]")
+    } else {
+        title.to_string()
+    }
+}
+
 pub(crate) fn row_line(row: &TuiRow, color: bool) -> Line<'static> {
     label_line(row.label, &row.value, row.tone, color)
+}
+
+pub(crate) fn selectable_row_line(row: &TuiRow, selected: bool, color: bool) -> Line<'static> {
+    let marker = if selected { "▶ " } else { "  " };
+    Line::from(vec![
+        Span::styled(marker, selected_style(color)),
+        Span::styled(format!("{:<11}", row.label), tone_style(row.tone, color)),
+        Span::raw(row.value.to_string()),
+    ])
+}
+
+pub(crate) fn command_line(
+    command: TuiCommandPreview,
+    selected: bool,
+    color: bool,
+) -> Line<'static> {
+    let marker = if selected { "▶ " } else { "  " };
+    let style = if selected {
+        selected_style(color)
+    } else {
+        Style::default()
+    };
+    Line::from(vec![
+        Span::styled(marker, style),
+        Span::styled(format!("{:<14}", command.label), tone_style("info", color)),
+        Span::raw(command.command.to_string()),
+    ])
 }
 
 pub(crate) fn label_line(
@@ -39,11 +75,14 @@ pub(crate) fn label_line(
     ])
 }
 
-pub(crate) fn block(title: &'static str, tone: &'static str, color: bool) -> Block<'static> {
+pub(crate) fn block<T>(title: T, tone: &'static str, color: bool) -> Block<'static>
+where
+    T: Into<String>,
+{
     Block::default()
         .borders(Borders::ALL)
         .border_style(tone_style(tone, color))
-        .title(title)
+        .title(title.into())
 }
 
 pub(crate) fn selected_style(color: bool) -> Style {
@@ -101,4 +140,21 @@ pub(crate) fn selected_section<'a>(
     state: &TuiState,
 ) -> &'a TuiSection {
     &dashboard.sections[selected_index(dashboard, state)]
+}
+
+pub(crate) fn selected_row_index(section: &TuiSection, state: &TuiState) -> usize {
+    if section.rows.is_empty() {
+        0
+    } else {
+        state.selected_detail_row.min(section.rows.len() - 1)
+    }
+}
+
+pub(crate) fn focus_summary(region: TuiFocusRegion) -> &'static str {
+    match region {
+        TuiFocusRegion::LeftNavigation => "left nav: choose a dossier section",
+        TuiFocusRegion::DetailsPanel => "details: review section rows and open read-only preview",
+        TuiFocusRegion::CommandRail => "command rail: preview safe CLI equivalents, never run",
+        TuiFocusRegion::HelpOverlay => "help overlay: review keys and safety posture",
+    }
 }
