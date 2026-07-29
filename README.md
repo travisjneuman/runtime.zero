@@ -131,7 +131,9 @@ gates while remaining structurally unable to authorize execution. The
 receipt-relative file through the same returned open handle without executing
 it. `crates/capability-contract/` supplies one shared least-privilege vocabulary
 for manifests, protocols, and action plans while granting no authority.
-`crates/transaction-contract/` supplies a bounded hash-chained state machine,
+`crates/confirmation-contract/` binds validated plan/dry-run/write-set/state
+hashes to a five-minute interactive phrase and single-use consumption record
+while remaining unable to authorize execution. `crates/transaction-contract/` supplies a bounded hash-chained state machine,
 exclusive immutable snapshot writer, committed-head/plan/write-set/registry
 receipt binding, and conservative recovery decisions without automatic action
 mutation. `crates/error-contract/` supplies stable machine error
@@ -143,6 +145,7 @@ ID/version/hash/path grammar so parsers cannot silently diverge.
 12-stage evidence ledger while remaining unable to authorize release. See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),
 [`docs/capability-contract.md`](docs/capability-contract.md),
+[`docs/confirmation-contract.md`](docs/confirmation-contract.md),
 [`docs/error-contract.md`](docs/error-contract.md),
 [`docs/resource-contract.md`](docs/resource-contract.md),
 [`docs/validation-contract.md`](docs/validation-contract.md),

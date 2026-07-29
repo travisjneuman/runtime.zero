@@ -92,6 +92,8 @@ See [`action-planning.md`](action-planning.md).
   ceilings, consumed across foundation and inventory modules.
 - [x] Allocation-free validation contract for canonical IDs, versions, lowercase
   hashes, evidence references, and platform-neutral relative paths.
+- [x] Deterministic validated action-plan/write-set digests and five-minute exact
+  interactive confirmation with single-use transaction-consumption evidence.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
 - [x] Test-key-only detached Ed25519 signature contract and strict verification.
 - [x] Fixture-only immutable staging plan plus atomic temporary-root publication
@@ -117,7 +119,8 @@ See [`action-planning.md`](action-planning.md).
   intent/verification pairing, non-authorizing recovery decisions, exclusive
   cross-process writer locks, and atomic immutable snapshot publication/recovery.
 - [x] Add a tamper-evident commit receipt binding the committed journal head,
-  action plan, write set, and prior/next installed-registry digests.
+  action plan, write set, confirmation consumption, and prior/next installed-
+  registry digests.
 - [ ] Durably publish commit receipts and atomic installed-registry state, then
   prove safe root handles and process/power-loss recovery on every platform.
 - [ ] Bind the verified open identity to platform execution, close remaining

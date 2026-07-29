@@ -14,8 +14,9 @@ actions.
    manager/source, target, risk, capabilities, and prerequisites.
 4. **Dry-run plan** — the core validates policy, resolves exact paths/commands,
    reports expected writes and rollback, and sets `would_write: false`.
-5. **Explicit approval** — a user approves the exact plan, never a vague module
-   category or future action.
+5. **Explicit approval** — the foundation binds the exact plan/dry-run/write-set/
+   state digests into a short-lived interactive challenge; a user never approves
+   a vague module category or future action.
 6. **Transaction** — only a separately approved execution layer may act and
    produce a receipt.
 7. **Verification** — re-inventory confirms outcome; mismatches stop for review.
@@ -116,6 +117,8 @@ restore plans now bind an exact simulation-relative source path, lowercase
 SHA-256, and bounded size; transaction-shape validation requires the matching
 capabilities and write-set kinds. Every valid fixture is dry-run-only with
 `writes_attempted: false` and every action has `would_write: false`.
+Validated plans can now produce domain-separated deterministic plan and write-set
+digests for confirmation, transaction, and receipt binding; invalid plans cannot.
 
 Integration-test helpers now exercise quarantine/restore only under a marked,
 prefixed direct child of the OS temporary root. Tests prove verified-copy-before-
@@ -124,7 +127,10 @@ occupied-destination refusal, tamper/symlink rejection, and a failure after copy
 that retains both source and verified copy. Test cleanup removes only that
 isolated root.
 
-There is intentionally no `rz0` action-plan command, manager adapter, staging
-executor, production filesystem mover, or runtime mutation path. Real
+`crates/confirmation-contract/` adds exact short-lived CLI/TUI challenge,
+response, and single-use consumption evidence while remaining structurally
+unable to authorize execution. There is intentionally no `rz0` action-plan
+command, manager adapter, staging executor, production filesystem mover, or
+runtime mutation path. Real
 package-manager commands and non-fixture filesystem mutation still require
 separate approval.

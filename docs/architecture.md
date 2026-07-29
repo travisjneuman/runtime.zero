@@ -45,6 +45,8 @@ recursively scan drives. See
 
 `crates/capability-contract/` owns the shared read/action capability vocabulary
 used by manifests, protocols, and plans while granting no authority.
+`crates/confirmation-contract/` owns exact short-lived interactive plan binding,
+response digests, and single-use consumption evidence without execution authority.
 `crates/error-contract/` owns stable machine codes and conservative privacy/retry
 semantics; human messages are not policy. `crates/resource-contract/` owns
 shared byte/record/timeout/process ceilings so modules can narrow but not expand
@@ -60,8 +62,8 @@ key store, installer, execution path, or production trust root. Schema-1
 staging plans and OS-temp integration tests also exercise immutable publication
 and quarantine/restore failure semantics without a production mover.
 `crates/transaction-contract/` owns the bounded hash-chained transaction state
-machine, exclusive immutable snapshot publication/recovery, exact commit-receipt
-binding, and non-authorizing recovery assessment; durable receipt/registry
+machine, exclusive immutable snapshot publication/recovery, exact confirmation-
+aware commit-receipt binding, and non-authorizing recovery assessment; durable receipt/registry
 publication remains gated.
 `crates/module-protocol/` validates a read-only/offline
 invocation preview and not-executed response with exact-path/digest metadata,

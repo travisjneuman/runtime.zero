@@ -76,8 +76,8 @@ validate against the current module preview plan.
 ## Production execution assessment
 
 Schema-1 `production_execution_assessment` is a separate fail-closed foundation
-contract. It requires the exact canonical set of 27 artifact, capability,
-executable-identity, process, runtime, and transaction gates for one
+contract. It requires the exact canonical set of 29 artifact, confirmation,
+capability, executable-identity, process, runtime, and transaction gates for one
 module/platform assessment. Proven gates require bounded mechanism and evidence
 identifiers; missing/unsupported gates cannot masquerade as proof. Gates must be
 unique and canonically ordered.

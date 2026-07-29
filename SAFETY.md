@@ -37,7 +37,7 @@ Every module manifest must declare:
 - whether quarantine/rollback is supported;
 - whether remote execution is allowed.
 
-Current core metadata sets remote execution to `false`. Optional modules are not bundled, installed, or executed by default.
+Current core metadata sets remote execution to `false`. Optional modules are not bundled, installed, or executed by default. Exact confirmation is foundation-owned: schema 1 requires a completed no-write dry run, plan/write-set/state digests, a five-minute interactive phrase, rollback/quarantine posture, and durable single-use consumption. Confirmation alone never authorizes execution.
 
 ## Manifest loading boundary
 
@@ -76,8 +76,8 @@ publishes and recovers exact immutable snapshots under an exclusive cross-proces
 writer lock, and emits conservative recovery decisions. Snapshot publication
 writes only caller-selected transaction roots and does not authorize action-plan
 writes, receipt commits, registry changes, rollback, or automatic recovery. The
-commit-receipt contract binds evidence to a committed journal head and registry
-digests but performs no publication. Every recovery assessment and receipt
+commit-receipt contract binds exact plan, write-set, confirmation-consumption,
+committed journal-head, and registry evidence but performs no publication. Every recovery assessment and receipt
 refuses to authorize automatic mutation. Modules may
 not create private transaction, writer-lock, or recovery engines.
 

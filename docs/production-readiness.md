@@ -153,8 +153,9 @@ parallel once its shared foundation dependency is stable.
    measured budgets remain.
 2. Stabilize the core package/module/store/configuration/error/logging contracts
    and migration rules. Shared typed error semantics, byte/record/timeout/process
-   ceilings, and allocation-free ID/version/hash/path grammar exist; remaining
-   adapters and measured budgets must consume the shared policies.
+   ceilings, allocation-free ID/version/hash/path grammar, and exact short-lived
+   single-use plan-confirmation contracts exist; remaining adapters and measured
+   budgets must consume the shared policies.
 3. Close package and executable identity races; the same-open-handle artifact
    identity primitive and Unix root-relative no-follow traversal exist, but
    Windows root-handle semantics and platform execution binding remain.
@@ -165,8 +166,9 @@ parallel once its shared foundation dependency is stable.
 5. Implement crash-safe staging, journals, receipts, atomic state, quarantine,
    rollback, idempotency, and interrupted recovery. The bounded hash-chained
    state machine now has exclusive immutable snapshot publication/recovery and a
-   commit-receipt contract binding journal head, plan, write set, and before/after
-   registry digests; safe root handles, receipt/registry publication, rollback
+   commit-receipt contract binding journal head, plan, write set, single-use
+   confirmation evidence, and before/after registry digests; safe root handles,
+   confirmation-consumption/receipt/registry publication, rollback
    execution, and platform power-loss evidence remain.
 6. Implement foundation-owned module install, activation, invocation,
    deactivation, repair, migration, upgrade, and uninstall.
@@ -190,8 +192,9 @@ parallel once its shared foundation dependency is stable.
 ## Production execution gate
 
 `crates/module-protocol/` owns a schema-1
-`production_execution_assessment`. It enumerates the canonical artifact,
-capability, executable-identity, process, runtime, and transaction gates for one
+`production_execution_assessment`. It enumerates 29 canonical artifact,
+confirmation, capability, executable-identity, process, runtime, and transaction
+gates for one
 module/platform assessment. Schema 1 can report evidence and unresolved gates,
 but it can never authorize product execution. Test-child evidence is never
 silently promoted to production proof.
