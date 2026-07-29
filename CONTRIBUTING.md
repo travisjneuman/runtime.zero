@@ -15,7 +15,10 @@ Issues, design feedback, documentation suggestions, and safety reviews are welco
   read-only behavior before proposing platform probes. Filesystem transaction
   simulations must remain test-only and confined to marked direct OS-temp roots.
 - Run `cargo fmt --check`, `cargo test --workspace`, and workspace Clippy with
-  warnings denied for Rust changes. Run the committed `cargo deny check` policy
-  when changing dependencies or preparing a release candidate.
+  warnings denied for Rust changes. Process-transport changes must also run
+  `cargo test -p rz0-module-protocol --all-features`; the explicit feature may
+  execute only the committed Cargo test helper under a guarded OS-temp root.
+  Run the committed `cargo deny check` policy when changing dependencies or
+  preparing a release candidate.
 
 The repository currently uses Apache-2.0. Premium or commercial modules may use separate licenses later.

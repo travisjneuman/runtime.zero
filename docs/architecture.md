@@ -49,9 +49,12 @@ production trust root. Schema-1 staging plans and OS-temp integration tests also
 exercise immutable publication and quarantine/restore failure semantics without
 a production mover. `crates/module-protocol/` validates a read-only/offline
 invocation preview and not-executed response with exact-path/digest metadata,
-least-privilege grants, a cleared environment-name allowlist, and bounded I/O;
-it contains no process launch. Future execution, production signing, capability
-enforcement, durable transactions, and distribution work is gated by
+least-privilege grants, a cleared environment-name allowlist, and bounded I/O.
+An explicit-feature integration lane launches only a Cargo-built test helper from
+a guarded OS-temp receipt-like path to exercise framing, concurrent drains, and
+timeout kill/reap; no core or inventory-module launch exists. Future module
+execution, production signing, capability enforcement, durable transactions,
+and distribution work is gated by
 [`module-trust-and-execution.md`](module-trust-and-execution.md).
 Update/uninstall/quarantine semantics are gated by
 [`action-planning.md`](action-planning.md).

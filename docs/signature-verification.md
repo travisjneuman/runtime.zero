@@ -79,13 +79,15 @@ See [`transaction-simulation.md`](transaction-simulation.md).
 
 There is intentionally no production key, private key, signing command,
 manifest mutation, signature-file loader, core integration, install/activation
-path, module process launch, network fetch, release workflow, or third-party
-trust decision.
+path, production/core/inventory-module process launch, network fetch, release
+workflow, or third-party trust decision.
 
-A versioned first-party invocation/not-executed response protocol is now
-fixture-validated without process launch. The next bounded trust stage is child
-transport plus capability/platform-isolation tests. Before any developer
-artifact trial, the core also needs production-grade package-file/signature
-routing, receipt binding, platform isolation, and a dedicated review of
+A versioned first-party invocation/not-executed response protocol is
+fixture-validated, and an explicit-feature lane executes only a Cargo-built test
+helper to exercise bounded transport failures. The next bounded trust stage is
+executable-handle pinning, process-tree/handle control, and real platform
+capability-isolation proof. Before any developer artifact trial, the core also
+needs production-grade package-file/signature routing, receipt binding,
+platform isolation, and a dedicated review of
 production key/revocation policy. Release/distribution work remains a
 separate explicit approval.

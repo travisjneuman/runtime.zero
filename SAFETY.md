@@ -61,13 +61,22 @@ restore refuses occupied destinations and retains quarantine. Test cleanup may
 remove only its isolated temp root. No production staging, quarantine, restore,
 install, cleanup, or deletion API exists.
 
-The fixture-only module process protocol also executes nothing. Valid schema-1
-plans are unauthorized/unattempted read-only offline previews with exact
+The schema-1 module process protocol still authorizes no module execution.
+Valid plans are unauthorized/unattempted read-only offline previews with exact
 receipt-relative executable hashes, public-test-key metadata, cleared
 name-allowlisted environments, least-privilege reads, path redaction, and strict
-time/I/O ceilings. The only valid response is `not_executed`; fabricated success
-is rejected. No child transport, shell, PATH lookup, sandbox, or core execution
-integration exists.
+time/I/O ceilings. The only valid module response is `not_executed`; fabricated
+success is rejected.
+
+An explicit Cargo feature enables integration tests that copy and execute only
+the Cargo-built `rz0-protocol-test-child` under a marked direct OS-temp child.
+The test host uses an absolute exact path with no shell, PATH search, or
+arguments; clears the parent environment; frames bounded JSON; concurrently
+drains bounded output; and kills/reaps the direct helper on timeout. This helper
+is not the inventory module, is not built by default, is not reachable from the
+core/CLI/TUI, and is not a sandbox. Executable replacement races, inherited
+handle proof, descendant process-tree control, and platform capability
+isolation remain unresolved production blockers.
 
 For installed manifests, the loader also verifies explicitly listed files under
 the manifest directory with SHA-256. It rejects absolute paths, traversal,
@@ -205,4 +214,5 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 
 The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, the schema-1 inventory contract, a separately built read-only inventory source package, dry-run placeholders, explicit user-local store initialization, dry-run module
 install planning, module registry contracts, test-only OS-temp transaction
-simulations, and a fixture-only invocation protocol that authorizes no process.
+simulations, an invocation protocol that authorizes no module, and an
+explicit-feature Cargo test-helper transport with no core integration.

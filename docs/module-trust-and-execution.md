@@ -103,11 +103,15 @@ undecided and required before release use.
 
 The initial executable-module design should prefer a separate process and a
 versioned stdin/stdout JSON protocol over in-process dynamic libraries.
-`crates/module-protocol/` now validates a fixture-only invocation preview and
+`crates/module-protocol/` validates a fixture-only invocation preview and
 `not_executed` response: exact receipt-relative executable/digest metadata,
 cleared name-allowlisted environment, least-privilege read grants, mandatory
-redaction, and bounded time/I/O. It sets execution authorization/attempt to false
-and contains no process-spawn code.
+redaction, and bounded time/I/O. Module authorization/attempt remains false.
+Under the non-default `protocol-test-child` feature, integration-test support
+copies and executes only a Cargo-built helper in a marked OS-temp root to test
+framing, exact environment names, concurrent output drains, bounded retention,
+and direct-child timeout kill/reap. The core and inventory module do not use this
+lane.
 
 A future host must:
 
@@ -174,10 +178,14 @@ Implementation may proceed only in bounded stages:
 4. **Implemented as tests only:** receipt-bound quarantine/restore fixture
    execution with verified-copy-before-remove, injected failure, symlink/tamper
    rejection, and occupied-restore refusal.
-5. **Partially implemented:** fixture-only first-party invocation and
-   not-executed response protocol with exact receipt-relative executable
-   binding, capability/environment policy, and I/O/time ceilings. No process is
-   launched. Next: child transport and platform isolation tests.
+5. **Implemented as a native test-helper slice:** fixture-only first-party
+   invocation/not-executed module contract plus an explicit-feature Cargo helper
+   transport. The helper slice proves bounded JSON framing, exact cleared
+   environment names, an explicit working directory, concurrent output drains,
+   fail-closed output ceilings, and direct-child timeout kill/reap. It does not
+   execute a module or provide a core API. Executable-handle pinning, inherited
+   handle proof, process-tree control, and platform sandbox/capability isolation
+   remain open.
 6. Local developer-only signed artifact trial.
 7. Separately approved release/distribution work.
 8. Third-party threat model and governance last.
@@ -185,10 +193,11 @@ Implementation may proceed only in bounded stages:
 See [`module-process-protocol.md`](module-process-protocol.md) for the schema-1
 preview and its no-execution response boundary.
 
-The stage-3/4 filesystem writes exist only in integration-test helpers, require
-marked/prefixed direct OS-temp children, and are removed by test cleanup. No
-library/CLI/core production staging, quarantine, restore, installation, or
-execution function was added. Each stage must preserve a no-execution/no-write
-product mode and stop before the next gate. Destructive cleanup, credential/session handling, persistence, account
+The stage-3/4 filesystem writes and stage-5 helper launch exist only in
+integration-test support, require marked/prefixed direct OS-temp children, and
+are removed by test cleanup. The test-child model is compiled only under an
+explicit feature. No library/CLI/core production staging, quarantine, restore,
+installation, or module-execution function was added. Each stage must preserve a
+no-execution/no-write product mode and stop before the next gate. Destructive cleanup, credential/session handling, persistence, account
 actions, production deployment, and recurring automation remain outside this
 design without explicit approval.

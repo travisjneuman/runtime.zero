@@ -69,7 +69,10 @@ The inventory source package satisfies this handoff gate. It remains planned and
 uninstalled, and real Windows runtime proof is still required. Read-only
 permission validation, test-key-only detached signature verification, and
 OS-temp-root staging/quarantine/restore simulations are now implemented. The
-fixture-only invocation protocol is also implemented without process launch.
-The next trust lane is child transport/capability enforcement/platform
-isolation testing; production mutation, installation, signing, release, and core
-module execution remain separate approval gates.
+fixture-only invocation protocol is also implemented without module execution.
+An explicit-feature Cargo test-helper lane now proves bounded framing,
+environment/cwd setup, concurrent drains, and direct-child timeout kill/reap on
+the native development host. The next trust lane is executable-handle pinning,
+process-tree/handle control, and real Windows/macOS/Linux capability-isolation
+proof; production mutation, installation, signing, release, and core module
+execution remain separate approval gates.

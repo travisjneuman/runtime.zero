@@ -10,7 +10,9 @@ Validated with Rust/Cargo 1.96.0:
 
 - `cargo fmt --check`;
 - `cargo test --workspace`;
-- `cargo clippy --workspace --all-targets -- -D warnings`;
+- `cargo test -p rz0-module-protocol --all-features` for the explicit test-child
+  transport;
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings`;
 - `cargo check --workspace --target x86_64-pc-windows-msvc`;
 - Windows-target clippy with the same `-D warnings` posture;
 - Linux-target workspace check and Clippy with warnings denied;
@@ -18,16 +20,19 @@ Validated with Rust/Cargo 1.96.0:
 - fixture and live-redacted inventory JSON parsing/assertions;
 - opt-in macOS application-bundle smoke with redacted paths;
 - synthetic Linux XDG desktop-entry precedence/parser tests;
-- test-key signature, immutable OS-temp staging, quarantine/restore failure, and
-  no-execution process-protocol fixtures;
+- test-key signature, immutable OS-temp staging, quarantine/restore failure,
+  no-execution module-protocol fixtures, and native test-child framing/output/
+  timeout failure cases;
 - opt-in version-probe smoke with redacted output;
 - pseudo-terminal TUI navigation/help/quit/alternate-screen restoration smoke;
 - static site checks for unsafe JavaScript primitives and missing local links;
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The Windows target check compiles the read-only `winreg` adapters but is not a
-Windows runtime test. A real Windows smoke remains required.
+The default workspace suite passed 163 tests. The all-features suite passed 170,
+including seven native macOS test-child transport cases. Windows and Linux
+all-feature target checks compile that lane but are not runtime evidence. Real
+Windows/Linux transport and inventory smokes remain required.
 
 ## RustSec advisory scan
 
@@ -79,8 +84,10 @@ normal cross-platform dependencies are Serde, serde_json, and time; Windows adds
 The separate module-trust crate uses `ed25519-dalek` 3.0 with default features
 disabled for strict, local test-key signature verification. It does not expose a
 runtime signer, generate keys, fetch trust metadata, or join the core runtime
-dependency graph. The module-protocol crate adds only Serde and remains a
-fixture validator with no process-spawn dependency.
+dependency graph. The module-protocol crate uses Serde for its default fixture
+validator. Its non-default test-child feature adds Serde JSON framing; SHA-256
+in that lane is a dev dependency. Process spawn code exists only in integration-
+test support, not the library, core, CLI, or TUI.
 
 The core Ratatui graph contains two `hashbrown` versions through Ratatui's
 internal `kasuari`/`lru` graph. The audit found one crossterm backend version and
@@ -93,8 +100,10 @@ no duplicate terminal-control stack.
   macOS terminal compatibility beyond the current inventory smoke.
 - Artifact-level license/notice and reproducibility checks.
 - Signed provenance/key lifecycle and revocation design implementation.
-- Capability enforcement, production transaction/receipt durability, and
-  process/platform isolation; immutable staging/quarantine/restore currently
-  exist only as OS-temp integration-test simulations.
+- Executable-handle/file-ID pinning, inherited-handle and descendant-process
+  control, production capability enforcement, and Windows/macOS/Linux sandbox
+  runtime proof; current process evidence executes only the Cargo test helper.
+- Production transaction/receipt durability; immutable staging/quarantine/
+  restore currently exist only as OS-temp integration-test simulations.
 - Separately approved release, package publishing, bootstrap, deployment, and
   recurring automation.

@@ -120,9 +120,11 @@ signatures with public test keys only. It does not provide signing, production
 keys, installation, activation, or module execution. Schema-1 staging plans and
 integration-test-only OS-temp helpers now exercise atomic staging and
 quarantine/restore failure semantics without adding a production filesystem
-mover. A separate schema-1 process protocol validates a least-privilege
-inventory invocation preview and `not_executed` response without spawning a
-child. See [`docs/signature-verification.md`](docs/signature-verification.md),
+mover. A separate schema-1 process protocol keeps module execution unauthorized.
+An explicit-feature integration lane executes only a Cargo-built test helper to
+exercise bounded JSON framing, environment clearing, output draining, timeout
+kill/reap, and fail-closed errors; it is not linked to the core or inventory
+module. See [`docs/signature-verification.md`](docs/signature-verification.md),
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md), and
 [`docs/module-process-protocol.md`](docs/module-process-protocol.md).
 
@@ -267,7 +269,7 @@ the bounded test-key contract in
 [`docs/signature-verification.md`](docs/signature-verification.md). Test-only
 staging/quarantine/restore behavior is documented in
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md), and the
-no-execution child contract in
+no-execution module contract and explicit-feature test-helper transport in
 [`docs/module-process-protocol.md`](docs/module-process-protocol.md). Future
 update/uninstall/quarantine boundaries are in
 [`docs/action-planning.md`](docs/action-planning.md). The current manual

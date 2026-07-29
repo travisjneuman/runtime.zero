@@ -89,8 +89,12 @@ See [`action-planning.md`](action-planning.md).
 - [x] Fixture-only first-party inventory invocation/not-executed response
   protocol with exact receipt path, least-privilege grants, cleared environment,
   and timeout/I/O ceilings.
-- [ ] Mutating/network capability schema, child-process transport, and platform
-  isolation tests.
+- [x] Explicit-feature Cargo test-child transport with bounded JSON framing,
+  concurrent output drains, timeout kill/reap, environment/cwd proof, and
+  fail-closed fixture tests; no module/core execution.
+- [ ] Executable-handle pinning, inherited-handle/process-tree proof,
+  mutating/network capability schema, and Windows/macOS/Linux sandbox/isolation
+  runtime tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote
   feeds, third-party modules, deployment automation, and production actions only
   after their separate explicit approvals.

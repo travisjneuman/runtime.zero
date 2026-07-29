@@ -1,9 +1,15 @@
 # Module Process Protocol Preview
 
-`crates/module-protocol/` defines a versioned, fixture-only host/module process
-contract without launching a process. Schema version `1` authorizes nothing: a
-valid plan is read-only, dry-run, offline, path-redacted, and explicitly sets
-both `execution_authorized` and `execution_attempted` to `false`.
+`crates/module-protocol/` defines a versioned host/module process contract while
+keeping product execution blocked. Schema version `1` authorizes nothing: a
+valid module plan is read-only, dry-run, offline, path-redacted, and explicitly
+sets both `execution_authorized` and `execution_attempted` to `false`.
+
+An explicit Cargo feature now enables a separate integration-test transport and
+Cargo-built helper. That outer test contract authorizes only
+`rz0-protocol-test-child`; it does not authorize `rz0-inventory`, a staged module,
+or any caller-selected executable. The core, CLI, TUI, and default protocol
+build do not depend on or invoke the helper.
 
 ## Invocation plan
 
@@ -46,13 +52,13 @@ allowlists are:
 - Linux: required `HOME` and `PATH`, optional `XDG_DATA_HOME` and
   `XDG_DATA_DIRS`.
 
-This is contract policy, not evidence that those variables can yet be passed
-safely to an executable on every platform.
+This remains contract policy, not evidence that environment values are safe for
+an arbitrary module on every platform.
 
-## Response boundary
+## Product response boundary
 
-Because execution is unauthorized, the only valid schema-1 response is
-`not_executed` with:
+Because module execution is unauthorized, the only valid schema-1 module
+response is `not_executed` with:
 
 - matching request/module identity;
 - no exit code, timeout, payload digest, stdout, or stderr;
@@ -60,19 +66,64 @@ Because execution is unauthorized, the only valid schema-1 response is
 - `execution_not_authorized` as the bounded error code.
 
 Tests reject fabricated success/output and unknown fields. Success/partial/
-failure/timeout enum values are reserved for a later schema/gate and cannot
-validate against the current preview plan.
+failure/timeout enum values remain reserved for a later schema/gate and cannot
+validate against the current module preview plan.
 
-## Remaining gate
+## Explicit-feature test-child transport
 
-There is no process spawn, helper executable, stdin/stdout transport, handle
-inheritance policy, kill-on-timeout implementation, sandbox, capability broker,
-receipt loader, or core/TUI/CLI integration. Before any child-process test, the
-host needs a dedicated test helper and platform-specific proof for exact-path
-open/execute race resistance, minimal environment behavior, working directory,
-handle closure, output draining/truncation, timeout kill/reap, protocol framing,
-and sandbox limitations.
+`cargo test -p rz0-module-protocol --all-features` enables a private test lane.
+The test setup copies the Cargo-built helper into a marked, prefixed direct child
+of the canonical OS temp root and constructs a receipt-like `bin/` path. Before
+spawn, the test host requires:
 
-A process boundary is not a sandbox. Production execution, dynamic libraries,
-WASM, scripts, hooks, third-party code, elevated operations, and network access
-remain blocked by [`module-trust-and-execution.md`](module-trust-and-execution.md).
+- an outer `test_only` contract with explicit test-helper authorization;
+- a still-unauthorized valid schema-1 module preview nested inside it;
+- the exact helper identity, copied path, regular-file shape, and SHA-256;
+- no symlink in the receipt-relative executable path;
+- an exact environment-name/value map matching the preview allowlist;
+- a marked direct working directory inside the isolated test root.
+
+The test host invokes the absolute copied helper path directly with no shell,
+PATH search, or arguments. It clears the parent environment, sets only the
+explicit map, pipes only stdin/stdout/stderr, sends one bounded JSON request,
+and requires one strict JSON response. Stdout and stderr are drained
+concurrently while memory retention stays bounded. Tests cover:
+
+- successful framing, exact environment names, zero arguments, and working-dir
+  marker proof;
+- malformed output and nonzero exit rejection;
+- a stderr burst large enough to exercise concurrent draining;
+- stdout/stderr flooding with continued draining and fail-closed byte ceilings;
+- deadline enforcement followed by direct-child kill and reap;
+- authorization, identity, digest, environment, and Unix symlink drift before
+  spawn;
+- response rejection if the helper claims a write.
+
+Cleanup revalidates the canonical temp parent, root prefix, regular marker, and
+exact marker content before removing the isolated test root. The helper source
+contains no filesystem mutation beyond reading the working marker and no
+network operation. This is test evidence only; it is not an execution API.
+
+## Unresolved isolation gates
+
+The test lane deliberately does **not** claim production isolation:
+
+- hash verification and `Command` spawn still have a path
+  verification-to-execution replacement window; executable-handle/file-ID
+  pinning is not implemented;
+- the standard process boundary does not enforce filesystem, registry, process,
+  network, or syscall capabilities;
+- inherited non-standard handle auditing and close-on-exec behavior are not
+  proven on the supported platform matrix;
+- timeout kills/reaps the direct helper only, not a descendant process tree or
+  platform job/process group;
+- readers can still wait on pipes retained by malicious descendants;
+- Windows reparse/File ID, macOS sandbox/code-signing, and Linux namespace/
+  seccomp/landlock behavior have no runtime proof;
+- there is no production receipt loader, capability broker, journal, installed
+  module path, or core/TUI/CLI integration.
+
+A process boundary is not a sandbox. Production module execution, dynamic
+libraries, WASM, scripts, hooks, third-party code, elevated operations, and
+network access remain blocked by
+[`module-trust-and-execution.md`](module-trust-and-execution.md).

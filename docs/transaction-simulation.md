@@ -70,8 +70,9 @@ loss. They add no production mover, installer, registry writer, cleanup command,
 module execution, or permanent deletion path.
 
 A fixture-only invocation/not-executed response protocol now defines exact
-receipt binding, least-privilege read grants, and host/child I/O ceilings without
-launching a process. Before any developer-only installed artifact trial,
-runtime.zero still needs actual child transport, capability enforcement,
-platform isolation proof, production receipt/journal design, and explicit review
-of any non-temporary filesystem mutation.
+receipt binding, least-privilege read grants, and host/child I/O ceilings. An
+explicit-feature lane exercises only a Cargo-built test helper. Before any
+developer-only installed artifact trial, runtime.zero still needs executable-
+handle pinning, process-tree/handle control, capability enforcement, real
+platform isolation proof, production receipt/journal design, and explicit
+review of any non-temporary filesystem mutation.
