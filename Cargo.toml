@@ -21,6 +21,7 @@ members = [
     "crates/inventory-contract",
     "crates/module-protocol",
     "crates/module-trust",
+    "crates/transaction-contract",
     "modules/inventory",
 ]
 

@@ -1,0 +1,16 @@
+[package]
+name = "rz0-transaction-contract"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "Tamper-evident transaction journal and recovery decision contracts for runtime.zero"
+license = "Apache-2.0"
+publish = false
+rust-version = "1.96"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+serde_json = "1.0"
