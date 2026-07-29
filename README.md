@@ -131,17 +131,20 @@ gates while remaining structurally unable to authorize execution. The
 receipt-relative file through the same returned open handle without executing
 it. `crates/capability-contract/` supplies one shared least-privilege vocabulary
 for manifests, protocols, and action plans while granting no authority.
-`crates/transaction-contract/` supplies a bounded hash-chained state machine and
-conservative recovery decisions without filesystem I/O or automatic mutation.
-`crates/error-contract/` supplies stable machine error codes with fail-closed
-privacy and retry semantics. `crates/resource-contract/` centralizes shared
-byte/record/timeout/process ceilings so modules cannot silently expand them.
+`crates/transaction-contract/` supplies a bounded hash-chained state machine,
+exclusive immutable snapshot writer, and conservative recovery decisions without
+automatic action mutation. `crates/error-contract/` supplies stable machine error
+codes with fail-closed privacy and retry semantics. `crates/resource-contract/`
+centralizes shared byte/record/timeout/process ceilings so modules cannot
+silently expand them. `crates/validation-contract/` owns allocation-free bounded
+ID/version/hash/path grammar so parsers cannot silently diverge.
 `crates/release-contract/` generates the exact bounded target × seven-module ×
 12-stage evidence ledger while remaining unable to authorize release. See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),
 [`docs/capability-contract.md`](docs/capability-contract.md),
 [`docs/error-contract.md`](docs/error-contract.md),
 [`docs/resource-contract.md`](docs/resource-contract.md),
+[`docs/validation-contract.md`](docs/validation-contract.md),
 [`docs/release-acceptance.md`](docs/release-acceptance.md),
 [`docs/signature-verification.md`](docs/signature-verification.md),
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md),
@@ -166,7 +169,9 @@ rz0 store init --dry-run
 rz0 store init --yes
 ```
 
-These commands are read-only. `store plan` reports the platform-specific
+`store plan`, `store status`, and `store init --dry-run` are read-only.
+`store init --yes` is separately explicit and write-capable. `store plan` reports
+the platform-specific
 user-local store roots, registry and transaction paths, example
 receipt/quarantine/rollback paths, forbidden path classes, and current CLI/TUI
 launch-routing interpretation. `store status` checks whether those future paths

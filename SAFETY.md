@@ -22,8 +22,10 @@ protocol, and action schemas accept only their explicit subsets. Classification
 does not grant OS authority. Machine error codes are also foundation-owned;
 schema 1 permits no automatic retry and requires accompanying detail to be
 redacted by default. Shared resource ceilings are foundation-owned; a module may
-use smaller limits but may not silently raise artifact, document, collector,
-probe, timeout, or process-I/O bounds.
+use smaller limits but may not silently raise artifact, document, journal,
+collector, probe, timeout, or process-I/O bounds. Lexical ID/version/hash/path
+validation is likewise foundation-owned; a module cannot substitute a more
+permissive path or digest grammar.
 
 Every module manifest must declare:
 
@@ -69,11 +71,13 @@ restore refuses occupied destinations and retains quarantine. Test cleanup may
 remove only its isolated temp root. No production staging, quarantine, restore,
 install, cleanup, or deletion API exists.
 
-The shared transaction contract validates a bounded hash-chained state machine
-and emits conservative recovery decisions. It performs no I/O, its durability
-flags are requirements rather than proof, and every recovery assessment refuses
-to authorize automatic mutation. Modules may not create private transaction or
-recovery engines.
+The shared transaction contract validates a bounded hash-chained state machine,
+publishes and recovers exact immutable snapshots under an exclusive cross-process
+writer lock, and emits conservative recovery decisions. Snapshot publication
+writes only caller-selected transaction roots and does not authorize action-plan
+writes, receipt commits, registry changes, rollback, or automatic recovery.
+Every recovery assessment refuses to authorize automatic mutation. Modules may
+not create private transaction, writer-lock, or recovery engines.
 
 The schema-1 module process protocol still authorizes no module execution.
 Valid plans are unauthorized/unattempted read-only offline previews with exact

@@ -90,6 +90,8 @@ See [`action-planning.md`](action-planning.md).
   schema-1 automatic retry; module protocol rejects free-form error codes.
 - [x] Shared resource contract for artifact/document/collector/probe/process
   ceilings, consumed across foundation and inventory modules.
+- [x] Allocation-free validation contract for canonical IDs, versions, lowercase
+  hashes, evidence references, and platform-neutral relative paths.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
 - [x] Test-key-only detached Ed25519 signature contract and strict verification.
 - [x] Fixture-only immutable staging plan plus atomic temporary-root publication
@@ -112,9 +114,10 @@ See [`action-planning.md`](action-planning.md).
   execution; Unix traversal uses held root-directory handles and no-follow
   component opens.
 - [x] Bounded hash-chained transaction journal state machine with exact write
-  intent/verification pairing, non-authorizing recovery decisions, and guarded
-  immutable-snapshot interruption/corruption tests; no production writer or
-  mutation.
+  intent/verification pairing, non-authorizing recovery decisions, exclusive
+  cross-process writer locks, and atomic immutable snapshot publication/recovery.
+- [ ] Bind durable journal heads to receipts and atomic installed-registry state,
+  then prove safe root handles and process/power-loss recovery on every platform.
 - [ ] Bind the verified open identity to platform execution, close remaining
   descriptor/handle-inheritance and Windows suspended-create races, obtain real
   Windows Job Object runtime proof, enforce every declared capability, and

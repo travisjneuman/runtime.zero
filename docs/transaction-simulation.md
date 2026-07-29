@@ -64,12 +64,12 @@ by the action-plan policy and are not simulation inputs.
 ## Shared journal contract
 
 `crates/transaction-contract/` now defines the shared bounded state machine,
-hash-chained write-intent/verification events, and conservative recovery
-decisions. Its library performs no I/O, and every recovery assessment explicitly
-refuses to authorize automatic mutation. Integration tests now publish immutable
-synchronized OS-temp snapshots, require append-only snapshot prefixes during
-recovery, preserve the prior head when publication is interrupted, and reject
-corruption/symlinks. They are not production journal writers. See
+hash-chained write-intent/verification events, exclusive immutable snapshot
+publication/recovery, and conservative recovery decisions. Every recovery
+assessment explicitly refuses to authorize automatic mutation. Separate
+simulation fixtures preserve the prior head when publication is interrupted and
+exercise corruption/symlink rejection; the reusable writer additionally enforces
+cross-process ownership and exact one-event durable prefixes. See
 [`transaction-journal.md`](transaction-journal.md).
 
 ## Remaining production gates

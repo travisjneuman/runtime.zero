@@ -1,9 +1,9 @@
 # Transaction Journal and Recovery Contract
 
 `crates/transaction-contract/` owns the schema-1 transaction state machine,
-tamper-evident event chain, and deterministic recovery assessment shared by all
-future mutating modules. It performs no filesystem I/O and cannot authorize a
-mutation.
+tamper-evident event chain, deterministic recovery assessment, and immutable
+snapshot writer shared by all future mutating modules. It cannot authorize a
+mutation or perform an action-plan write.
 
 ## Schema-1 journal
 
@@ -39,9 +39,10 @@ header transplantation, impossible state transitions, unsafe paths, malformed
 digests, and state/head disagreement.
 
 This chain detects accidental or uncommitted modification; it is not a
-signature or trust root. A production writer must durably publish the head and
-bind it into an authenticated receipt. Schema-1 durability booleans are required
-intent, not evidence that an operating system actually synchronized data.
+signature or trust root. The foundation writer durably publishes immutable
+snapshot heads, but a committed action still must bind the final head into an
+authenticated receipt. Schema-1 durability booleans require runtime evidence;
+they are not made true merely by serialization.
 
 ## Recovery assessment
 
@@ -57,30 +58,41 @@ An invalid journal produces `refuse_invalid_journal`. Every assessment sets
 `automatic_mutation_authorized: false`; a decision describes required operator
 or future policy handling and never executes it.
 
-## Guarded persistence simulation
+## Durable immutable snapshot writer
 
-Integration-test-only helpers publish immutable, sequence/head-named JSON
-snapshots under a marked direct OS-temp child. They use create-new writes,
-bounded serialization/readback, file synchronization, and Unix parent-directory
-synchronization. Recovery validates every snapshot and requires each to extend
-the prior snapshot by exactly one event. Tests cover latest-head recovery,
-interruption before publication, corrupt/truncated snapshots, and symlink
-rejection. Windows/Linux target builds are compile evidence; this is not a
-production store writer or power-loss proof.
+`publish_journal_snapshot` and `recover_journal_head` provide the first reusable
+write-capable transaction foundation. They:
+
+- acquire a per-transaction cross-process advisory writer lock (`flock` on Unix
+  and `LockFileEx` on Windows);
+- require the first durable head to contain only `prepared` and every later head
+  to append exactly one event;
+- serialize at most 2 MiB under the shared resource contract;
+- create a private pending file, synchronize it, and atomically rename it to an
+  immutable sequence/event-digest-bound head;
+- synchronize containing directories on Unix;
+- reject symlink/reparse/hardlink/wrong-type roots, lock files, directories, and
+  heads, with no-follow snapshot/lock opens;
+- recover only after validating every bounded snapshot as one exact immutable
+  prefix; corruption is never skipped;
+- map durable-writer failures to the shared foundation machine-error vocabulary;
+- make republishing an identical head idempotent.
+
+Unix-created transaction directories are mode `0700` and snapshots/lock files
+are mode `0600`. Windows uses inherited user-local ACLs pending explicit ACL
+runtime evidence. Existing guarded OS-temp simulations remain separate fault
+fixtures for interruption and corruption behavior.
 
 ## Remaining production work
 
-Production use still requires a store writer with safe root handles, create-new
-and atomic-replace semantics, file and parent-directory synchronization,
-exclusive transaction ownership, receipt/head publication ordering, ACL and
-ownership policy, capacity limits, cancellation, fault injection at every
-boundary, and real power/process-loss recovery on Windows, macOS, and Linux.
-Quarantine and rollback need platform-specific locked-file, reparse/symlink,
-cross-filesystem, and metadata-fidelity proof. No module may implement a private
-journal or recovery engine.
-
-The guarded simulation does not weaken the requirement that production use
-still needs an independently reviewed writer.
+The complete store transaction still requires safe opened-root handles across
+all path operations, Windows directory-metadata flush evidence, receipt/final-
+head binding, atomic installed-registry publication, explicit ACL/ownership
+verification, cancellation, fault injection at every boundary, and real
+power/process-loss recovery on Windows, macOS, and Linux. Quarantine and
+rollback need platform-specific locked-file, reparse/symlink, cross-filesystem,
+and metadata-fidelity proof. No module may implement a private journal,
+writer-lock, or recovery engine.
 
 See [`action-planning.md`](action-planning.md),
 [`transaction-simulation.md`](transaction-simulation.md), and

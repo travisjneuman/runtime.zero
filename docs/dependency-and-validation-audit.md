@@ -33,10 +33,12 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 197 tests. The all-features suite passed 206,
-including the shared capability/error/resource semantics and five exact release-
-acceptance cross-product tests, seven transaction-chain/recovery
-unit tests, four guarded immutable-snapshot recovery tests, five opened-artifact identity tests, six production-execution gate
+The default workspace suite passed 209 tests. The all-features suite passed 218,
+including shared capability/error/resource/validation semantics, five exact
+release-acceptance cross-product tests, seven transaction-chain/recovery unit
+tests, four guarded immutable-snapshot simulations, six durable-writer tests,
+two store-init filesystem-hardening tests, five opened-artifact identity tests,
+and six production-execution gate
 tests, and nine native macOS test-child
 transport cases. The transport cases prove
 fail-closed refusal of an observed inheritable descriptor and Unix process-group
@@ -49,7 +51,7 @@ library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 127 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 128 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -57,7 +59,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved twelve local workspace packages and 115
+`cargo metadata --locked` resolved thirteen local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -82,9 +84,10 @@ Git sources, advisories, and licenses outside the current permissive allowlist.
 Workspace path dependencies carry explicit local versions so they do not act as
 wildcard requirements.
 
-The check passes with one warning: Ratatui's internal graph currently resolves
-`hashbrown` 0.16.1 and 0.17.1. The duplicate is visible rather than silently
-excepted and does not duplicate the terminal backend. No recurring workflow was
+The check passes with two warnings: Ratatui's internal graph currently resolves
+`hashbrown` 0.16.1 and 0.17.1, and the alternative `BSD-3-Clause` allowance was
+not selected in the evaluated target graph. The duplicate is visible rather
+than silently excepted and does not duplicate the terminal backend. No recurring workflow was
 added; this remains a manual/release-candidate command.
 
 ## Dependency shape
@@ -94,7 +97,9 @@ The first-party inventory module depends on the small
 normal cross-platform dependencies are Serde, serde_json, and time; Windows adds `winreg`. This avoids pulling Ratatui/Crossterm into
 `rz0-inventory`.
 
-The release-contract crate adds no new external package and bounds the canonical
+The validation-contract crate adds no external package and provides allocation-
+free canonical grammar consumed by foundation ID/version/hash/path parsers. The
+release-contract crate adds no new external package and bounds the canonical
 target × seven-module × 12-stage evidence ledger to 256 targets/21,504 cells
 while remaining unable to authorize release. The resource-contract crate adds no
 new external package and centralizes typed
@@ -102,10 +107,10 @@ process limits plus artifact/document/inventory/probe ceilings reused across
 foundation and inventory packages. The error-contract crate adds no new external
 package and replaces free-form
 module-protocol error codes with stable typed Serde values plus conservative
-privacy/retry classifiers. The transaction-contract crate adds no new external
-package: it reuses Serde and SHA-256 for a bounded domain-separated event chain,
-state validation, and non-authorizing recovery assessment. Its library performs
-no I/O. The separate module-trust
+privacy/retry classifiers. The transaction-contract crate adds no newly resolved external package: it
+reuses Serde, SHA-256, libc, and windows-sys for a bounded domain-separated event
+chain, cross-process writer locking, immutable snapshot publication/recovery,
+and non-authorizing recovery assessment. The separate module-trust
 crate uses `ed25519-dalek` 3.0 with default features
 disabled for strict, local test-key signature verification. It does not expose a
 runtime signer, generate keys, fetch trust metadata, or join the core runtime
@@ -135,7 +140,8 @@ no duplicate terminal-control stack.
   closure, Windows suspended-create and real Job Object runtime proof,
   production capability enforcement, and platform sandbox runtime proof;
   current process evidence executes only the Cargo test helper.
-- Production transaction/receipt durability; immutable staging/quarantine/
-  restore currently exist only as OS-temp integration-test simulations.
+- Safe-root-handle transaction operations, Windows directory-flush evidence,
+  receipt/head binding, atomic registry commit, and real process/power-loss
+  recovery; staging/quarantine/restore remain OS-temp integration simulations.
 - Separately approved release, package publishing, bootstrap, deployment, and
   recurring automation.

@@ -152,8 +152,9 @@ parallel once its shared foundation dependency is stable.
    Canonical acceptance IDs/cross-products now exist; exact RC target census and
    measured budgets remain.
 2. Stabilize the core package/module/store/configuration/error/logging contracts
-   and migration rules. Shared typed error semantics and byte/record/timeout/
-   process ceilings exist; broad adapter migration and measured budgets remain.
+   and migration rules. Shared typed error semantics, byte/record/timeout/process
+   ceilings, and allocation-free ID/version/hash/path grammar exist; remaining
+   adapters and measured budgets must consume the shared policies.
 3. Close package and executable identity races; the same-open-handle artifact
    identity primitive and Unix root-relative no-follow traversal exist, but
    Windows root-handle semantics and platform execution binding remain.
@@ -163,7 +164,9 @@ parallel once its shared foundation dependency is stable.
    sandbox/elevation policy, network policy, cancellation, and resource limits.
 5. Implement crash-safe staging, journals, receipts, atomic state, quarantine,
    rollback, idempotency, and interrupted recovery. The bounded hash-chained
-   journal/recovery state machine exists without a durable writer or mutation.
+   state machine now has exclusive immutable snapshot publication and recovery;
+   safe root handles, receipt-head binding, registry commit, rollback execution,
+   and platform power-loss evidence remain.
 6. Implement foundation-owned module install, activation, invocation,
    deactivation, repair, migration, upgrade, and uninstall.
 7. Complete inventory/environment parity on all platforms; use its normalized

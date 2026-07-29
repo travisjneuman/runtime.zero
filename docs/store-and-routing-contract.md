@@ -25,9 +25,10 @@ The contract names these future paths:
 - `rollback_plan_path`;
 - `quarantine_record_path`.
 
-Current code only computes and reports these paths in dry-run output. It does
-not create the roots, registry, receipts, transactions, rollback plans,
-quarantine records, or module directories.
+Store plan/status only compute and inspect these paths. The separately gated
+`store init --yes` command creates user-local scaffolding and an empty registry;
+it does not create module receipts, transaction heads, rollback plans,
+quarantine records, or installed module version directories.
 
 ## Read-only store inspection command
 
@@ -248,7 +249,11 @@ Safety requirements for initialization:
 - no writes outside the computed runtime.zero store roots;
 - deny symlinks/reparse points for paths being initialized until a later
   cross-platform policy is approved;
-- verify parent directories and permissions before writing;
+- verify direct parents and final filesystem types before and after writing;
+- use one-component directory creation, create-new file writes, file sync, and
+  Unix parent-directory sync rather than recursive or truncating writes;
+- create new Unix directories as `0700` and files as `0600`;
+- stop on the first apply-time failure and retain an exact partial-state report;
 - be idempotent when all expected paths/files already exist and validate;
 - fail closed on partial or mismatched state;
 - on failure, report which paths were created and which rollback steps are safe
