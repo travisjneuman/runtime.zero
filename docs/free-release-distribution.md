@@ -83,6 +83,7 @@ package-channel submission, website deployment, or recurring automation remains
 an explicit external-write/quota event and must record its exact capability
 scope before execution.
 
-See [`support-policy.md`](support-policy.md),
+See [`release-packaging.md`](release-packaging.md),
+[`support-policy.md`](support-policy.md),
 [`production-readiness.md`](production-readiness.md), and
 [`SECURITY.md`](../SECURITY.md).
