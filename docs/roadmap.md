@@ -54,7 +54,8 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [x] Manager-native priority, risk categories, blocked data classes, and
   quarantine/restore design contract.
 - [x] Fixture-only uninstall/quarantine/blocked-data plan schemas and policy tests.
-- [ ] Temporary-root transaction/quarantine/restore simulation tests.
+- [x] Test-only temporary-root transaction/quarantine/restore simulation with
+  verified-copy-before-remove, conflict refusal, failure injection, and receipts.
 - [ ] Platform-specific manager, ownership, ACL, reparse/symlink, locked-file,
   cross-filesystem, and partial-failure proof.
 - [ ] Mutation remains blocked pending explicit approval.
@@ -83,8 +84,13 @@ See [`action-planning.md`](action-planning.md).
   vulnerability/license metadata audit is recorded.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
 - [x] Test-key-only detached Ed25519 signature contract and strict verification.
-- [ ] Mutating/network capability schema, immutable staging, transaction
-  simulation, and process-protocol isolation tests.
+- [x] Fixture-only immutable staging plan plus atomic temporary-root publication
+  simulation bound to successful test-key verification.
+- [x] Fixture-only first-party inventory invocation/not-executed response
+  protocol with exact receipt path, least-privilege grants, cleared environment,
+  and timeout/I/O ceilings.
+- [ ] Mutating/network capability schema, child-process transport, and platform
+  isolation tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote
   feeds, third-party modules, deployment automation, and production actions only
   after their separate explicit approvals.

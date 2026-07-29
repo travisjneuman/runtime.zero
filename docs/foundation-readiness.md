@@ -67,7 +67,9 @@ A first-party module can rely on these invariants:
 
 The inventory source package satisfies this handoff gate. It remains planned and
 uninstalled, and real Windows runtime proof is still required. Read-only
-permission validation and test-key-only detached signature verification are now
-implemented. The next trust lane is immutable staging/transaction simulation;
-mutation, installation, production signing, release, and core module execution
-remain separate approval gates.
+permission validation, test-key-only detached signature verification, and
+OS-temp-root staging/quarantine/restore simulations are now implemented. The
+fixture-only invocation protocol is also implemented without process launch.
+The next trust lane is child transport/capability enforcement/platform
+isolation testing; production mutation, installation, signing, release, and core
+module execution remain separate approval gates.

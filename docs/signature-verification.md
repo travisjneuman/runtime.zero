@@ -58,6 +58,23 @@ References:
 - RFC 8032: https://www.rfc-editor.org/rfc/rfc8032.html
 - `ed25519-dalek` 3.0 documentation: https://docs.rs/ed25519-dalek/3.0.0/ed25519_dalek/
 
+## Immutable staging simulation
+
+The same crate now validates schema-1 `module_staging_plan` fixtures. A valid
+plan is simulation-only/dry-run/no-write, binds the transaction and publication
+roots to package identity/version, requires exactly one manifest whose digest
+matches the signed manifest, bounds 128 regular files to 64 MiB each and 512 MiB total, and
+requires atomic publication plus preservation of failed unpublished stages.
+
+Integration-test helpers bind that plan to a successful test-key verification,
+read each source file once into bounded memory, verify size/digest, write those
+same bytes with create-new semantics, verify the staged copy, and atomically
+rename the staged directory inside one marked OS-temporary fixture root. Tamper,
+symlink, identity/digest drift, existing destinations, and partial staging fail
+closed. These helpers are not exported by the library or core.
+
+See [`transaction-simulation.md`](transaction-simulation.md).
+
 ## Non-goals and next gate
 
 There is intentionally no production key, private key, signing command,
@@ -65,9 +82,10 @@ manifest mutation, signature-file loader, core integration, install/activation
 path, module process launch, network fetch, release workflow, or third-party
 trust decision.
 
-The next bounded trust stage is immutable staging and transaction simulation
-under temporary runtime.zero-owned fixture roots. Before any developer artifact
-trial, the core also needs exact package-file/signature routing, capability
-grant enforcement, receipt binding, process protocol isolation, and a dedicated
-review of production key/revocation policy. Release/distribution work remains a
+A versioned first-party invocation/not-executed response protocol is now
+fixture-validated without process launch. The next bounded trust stage is child
+transport plus capability/platform-isolation tests. Before any developer
+artifact trial, the core also needs production-grade package-file/signature
+routing, receipt binding, platform isolation, and a dedicated review of
+production key/revocation policy. Release/distribution work remains a
 separate explicit approval.

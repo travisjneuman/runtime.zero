@@ -49,8 +49,25 @@ Validation failure must be reported as data, not repaired automatically.
 The separate module-trust crate verifies detached Ed25519 signatures against
 caller-selected public test keys only. It binds package identity/version and an
 exact manifest SHA-256, rejects revoked or unauthorized test keys, and has no
-signer, private/production key, installer integration, activation, or execution
-path. Signature success is not permission to trust or run a package.
+signer, private/production key, installer integration, activation, or execution path. Signature
+success is not permission to trust or run a package.
+
+Filesystem transaction simulations are integration-test-only. They require a
+marked/prefixed direct child of the canonical OS temp root, normalized relative
+paths, create-new destinations, digest/size verification, and symlink rejection.
+Staging atomically publishes only complete fixture bytes. Quarantine verifies a
+copy before removing the fixture original; injected failure keeps both copies;
+restore refuses occupied destinations and retains quarantine. Test cleanup may
+remove only its isolated temp root. No production staging, quarantine, restore,
+install, cleanup, or deletion API exists.
+
+The fixture-only module process protocol also executes nothing. Valid schema-1
+plans are unauthorized/unattempted read-only offline previews with exact
+receipt-relative executable hashes, public-test-key metadata, cleared
+name-allowlisted environments, least-privilege reads, path redaction, and strict
+time/I/O ceilings. The only valid response is `not_executed`; fabricated success
+is rejected. No child transport, shell, PATH lookup, sandbox, or core execution
+integration exists.
 
 For installed manifests, the loader also verifies explicitly listed files under
 the manifest directory with SHA-256. It rejects absolute paths, traversal,
@@ -186,4 +203,6 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 
 ## Current status
 
-The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, the schema-1 inventory contract, a separately built read-only inventory source package, dry-run placeholders, explicit user-local store initialization, dry-run module install planning, and module registry contracts.
+The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, the schema-1 inventory contract, a separately built read-only inventory source package, dry-run placeholders, explicit user-local store initialization, dry-run module
+install planning, module registry contracts, test-only OS-temp transaction
+simulations, and a fixture-only invocation protocol that authorizes no process.

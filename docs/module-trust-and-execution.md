@@ -102,8 +102,14 @@ undecided and required before release use.
 ## Execution isolation
 
 The initial executable-module design should prefer a separate process and a
-versioned stdin/stdout JSON protocol over in-process dynamic libraries. The host
-must:
+versioned stdin/stdout JSON protocol over in-process dynamic libraries.
+`crates/module-protocol/` now validates a fixture-only invocation preview and
+`not_executed` response: exact receipt-relative executable/digest metadata,
+cleared name-allowlisted environment, least-privilege read grants, mandatory
+redaction, and bounded time/I/O. It sets execution authorization/attempt to false
+and contains no process-spawn code.
+
+A future host must:
 
 - invoke an exact receipt-recorded executable path without a shell or PATH
   search;
@@ -163,14 +169,26 @@ Implementation may proceed only in bounded stages:
 1. **Implemented:** permission/capability schema and fixture validation.
 2. **Implemented:** local detached Ed25519 verification with public test keys
    only; no signer, private key, production trust root, or installer integration.
-3. **Next:** immutable staging and transaction simulation.
-4. Receipt/rollback/quarantine fixture execution under temporary roots.
-5. First-party process protocol and platform isolation tests.
+3. **Implemented as tests only:** immutable staging-plan validation and atomic
+   publication simulation under a marked direct child of the OS temp root.
+4. **Implemented as tests only:** receipt-bound quarantine/restore fixture
+   execution with verified-copy-before-remove, injected failure, symlink/tamper
+   rejection, and occupied-restore refusal.
+5. **Partially implemented:** fixture-only first-party invocation and
+   not-executed response protocol with exact receipt-relative executable
+   binding, capability/environment policy, and I/O/time ceilings. No process is
+   launched. Next: child transport and platform isolation tests.
 6. Local developer-only signed artifact trial.
 7. Separately approved release/distribution work.
 8. Third-party threat model and governance last.
 
-Each stage must preserve a no-execution/no-write mode and stop before the next
-gate. Destructive cleanup, credential/session handling, persistence, account
+See [`module-process-protocol.md`](module-process-protocol.md) for the schema-1
+preview and its no-execution response boundary.
+
+The stage-3/4 filesystem writes exist only in integration-test helpers, require
+marked/prefixed direct OS-temp children, and are removed by test cleanup. No
+library/CLI/core production staging, quarantine, restore, installation, or
+execution function was added. Each stage must preserve a no-execution/no-write
+product mode and stop before the next gate. Destructive cleanup, credential/session handling, persistence, account
 actions, production deployment, and recurring automation remain outside this
 design without explicit approval.

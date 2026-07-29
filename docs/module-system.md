@@ -153,7 +153,10 @@ modules should later be signed and explicitly installed or enabled. The
 foundation verifies local SHA-256 checksums, and a separate workspace contract
 can verify detached Ed25519 signatures against caller-selected public test keys.
 That test-only verifier is not integrated with installation and does not make a
-production or network trust decision. Third-party modules are expected eventually, but only
+production or network trust decision. A separate fixture-only process protocol
+requires exact receipt metadata, least-privilege read grants, a cleared bounded
+environment allowlist, and a `not_executed` response; no process launch is
+implemented. Third-party modules are expected eventually, but only
 after a hardened trust model covering signing, provenance, sandboxing,
 permissions, revocation, and abuse cases. The required staged gate is documented
 in [`module-trust-and-execution.md`](module-trust-and-execution.md); current

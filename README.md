@@ -117,8 +117,14 @@ managers, modify the system, or make the module installable through `rz0`.
 
 A separate `crates/module-trust/` contract now verifies local detached Ed25519
 signatures with public test keys only. It does not provide signing, production
-keys, installation, activation, or module execution. See
-[`docs/signature-verification.md`](docs/signature-verification.md).
+keys, installation, activation, or module execution. Schema-1 staging plans and
+integration-test-only OS-temp helpers now exercise atomic staging and
+quarantine/restore failure semantics without adding a production filesystem
+mover. A separate schema-1 process protocol validates a least-privilege
+inventory invocation preview and `not_executed` response without spawning a
+child. See [`docs/signature-verification.md`](docs/signature-verification.md),
+[`docs/transaction-simulation.md`](docs/transaction-simulation.md), and
+[`docs/module-process-protocol.md`](docs/module-process-protocol.md).
 
 The same future store/routing contract can be inspected independently of module
 install planning:
@@ -258,7 +264,11 @@ keyboard behavior, rendering boundaries, and brand/theme structure. See
 and collector contract. Module execution/trust prerequisites are in
 [`docs/module-trust-and-execution.md`](docs/module-trust-and-execution.md), with
 the bounded test-key contract in
-[`docs/signature-verification.md`](docs/signature-verification.md). Future
+[`docs/signature-verification.md`](docs/signature-verification.md). Test-only
+staging/quarantine/restore behavior is documented in
+[`docs/transaction-simulation.md`](docs/transaction-simulation.md), and the
+no-execution child contract in
+[`docs/module-process-protocol.md`](docs/module-process-protocol.md). Future
 update/uninstall/quarantine boundaries are in
 [`docs/action-planning.md`](docs/action-planning.md). The current manual
 dependency/license/validation snapshot is in

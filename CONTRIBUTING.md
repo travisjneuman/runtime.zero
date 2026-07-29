@@ -12,7 +12,8 @@ Issues, design feedback, documentation suggestions, and safety reviews are welco
 - Keep user data and secrets out of examples, tests, issues, and docs. Inventory
   fixtures must use synthetic paths, app names, publishers, and versions.
 - Keep feature modules separate from the core and preserve fixture-first,
-  read-only behavior before proposing platform probes.
+  read-only behavior before proposing platform probes. Filesystem transaction
+  simulations must remain test-only and confined to marked direct OS-temp roots.
 - Run `cargo fmt --check`, `cargo test --workspace`, and workspace Clippy with
   warnings denied for Rust changes. Run the committed `cargo deny check` policy
   when changing dependencies or preparing a release candidate.

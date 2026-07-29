@@ -18,6 +18,8 @@ Validated with Rust/Cargo 1.96.0:
 - fixture and live-redacted inventory JSON parsing/assertions;
 - opt-in macOS application-bundle smoke with redacted paths;
 - synthetic Linux XDG desktop-entry precedence/parser tests;
+- test-key signature, immutable OS-temp staging, quarantine/restore failure, and
+  no-execution process-protocol fixtures;
 - opt-in version-probe smoke with redacted output;
 - pseudo-terminal TUI navigation/help/quit/alternate-screen restoration smoke;
 - static site checks for unsafe JavaScript primitives and missing local links;
@@ -29,7 +31,7 @@ Windows runtime test. A real Windows smoke remains required.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 120 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 121 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -37,7 +39,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved five local workspace packages and 115
+`cargo metadata --locked` resolved six local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -77,7 +79,8 @@ normal cross-platform dependencies are Serde, serde_json, and time; Windows adds
 The separate module-trust crate uses `ed25519-dalek` 3.0 with default features
 disabled for strict, local test-key signature verification. It does not expose a
 runtime signer, generate keys, fetch trust metadata, or join the core runtime
-dependency graph.
+dependency graph. The module-protocol crate adds only Serde and remains a
+fixture validator with no process-spawn dependency.
 
 The core Ratatui graph contains two `hashbrown` versions through Ratatui's
 internal `kasuari`/`lru` graph. The audit found one crossterm backend version and
@@ -90,7 +93,8 @@ no duplicate terminal-control stack.
   macOS terminal compatibility beyond the current inventory smoke.
 - Artifact-level license/notice and reproducibility checks.
 - Signed provenance/key lifecycle and revocation design implementation.
-- Capability enforcement, immutable staging, transaction/rollback simulation,
-  and process isolation.
+- Capability enforcement, production transaction/receipt durability, and
+  process/platform isolation; immutable staging/quarantine/restore currently
+  exist only as OS-temp integration-test simulations.
 - Separately approved release, package publishing, bootstrap, deployment, and
   recurring automation.

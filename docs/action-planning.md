@@ -30,6 +30,7 @@ A future versioned plan should include:
   identity;
 - evidence source IDs and immutable evidence digests;
 - action kind, exact target identity/version, manager/source, and rationale;
+- for quarantine/restore fixtures, exact source-relative path, SHA-256, and size;
 - capability grant and whether elevation/network access is required;
 - exact command executable/arguments or exact runtime.zero-owned write set;
 - risk category and blocked-data classifications;
@@ -106,12 +107,21 @@ and partial failures require platform-specific tests before mutation.
 
 `crates/action-plan/` now supplies the schema-1 fixture-only model and fail-closed
 validator. Synthetic fixtures cover update, uninstall, eligible quarantine,
-blocked credential/session classes, and invalid write/confirmation/executable/
-forbidden-path combinations. Every valid fixture is dry-run-only with
+restore, blocked credential/session classes, and invalid
+write/confirmation/executable/forbidden-path combinations. Quarantine and
+restore plans now bind an exact simulation-relative source path, lowercase
+SHA-256, and bounded size; transaction-shape validation requires the matching
+capabilities and write-set kinds. Every valid fixture is dry-run-only with
 `writes_attempted: false` and every action has `would_write: false`.
 
+Integration-test helpers now exercise quarantine/restore only under a marked,
+prefixed direct child of the OS temporary root. Tests prove verified-copy-before-
+remove, durable fixture record creation, restore without consuming quarantine,
+occupied-destination refusal, tamper/symlink rejection, and a failure after copy
+that retains both source and verified copy. Test cleanup removes only that
+isolated root.
+
 There is intentionally no `rz0` action-plan command, manager adapter, staging
-executor, filesystem mover, or mutation path. The next safe slice is temporary-
-root transaction simulation after the module capability/trust schema is settled;
-real package-manager commands and filesystem mutation still require separate
-approval.
+executor, production filesystem mover, or runtime mutation path. Real
+package-manager commands and non-fixture filesystem mutation still require
+separate approval.
