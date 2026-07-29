@@ -128,6 +128,34 @@ fn modules_validate_accepts_fixture_package_integrity() {
 }
 
 #[test]
+fn inventory_source_manifest_declares_explicit_sensitive_reads() {
+    let (code, out, err) = run([
+        "modules",
+        "validate",
+        "modules/inventory/rz0-module.json",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("manifest JSON");
+    assert_eq!(value["valid"], true);
+    let permissions = &value["manifest"]["permissions"];
+    assert!(
+        permissions["explicit_grants"]
+            .as_array()
+            .is_some_and(|grants| grants.iter().any(|grant| grant == "exact_command_probe"))
+    );
+    assert!(
+        permissions["explicit_grants"]
+            .as_array()
+            .is_some_and(|grants| grants
+                .iter()
+                .any(|grant| grant == "application_registry_read"))
+    );
+}
+
+#[test]
 fn modules_validate_rejects_fixture_hash_mismatch() {
     let (code, out, err) = run([
         "modules",

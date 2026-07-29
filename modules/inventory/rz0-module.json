@@ -1,0 +1,46 @@
+{
+  "manifest_version": 1,
+  "id": "first-party.inventory",
+  "display_name": "System Inventory",
+  "version": "0.1.0",
+  "publisher": "runtime.zero",
+  "kind": "first_party_module",
+  "status": "planned",
+  "summary": "Read-only PATH, known-tool, and platform inventory evidence.",
+  "capabilities": [
+    "process-path-inventory",
+    "persisted-path-inventory",
+    "known-tool-discovery",
+    "optional-version-probes",
+    "windows-application-inventory",
+    "path-redaction"
+  ],
+  "supported_platforms": ["windows", "macos", "linux"],
+  "risk_level": "read_only",
+  "safety": {
+    "mutates_system": false,
+    "requires_confirmation": false,
+    "dry_run_required": false,
+    "quarantine_supported": false,
+    "remote_execution_allowed": false
+  },
+  "permissions": {
+    "schema_version": 1,
+    "declared": [
+      "process_environment_read",
+      "filesystem_metadata_read",
+      "persisted_environment_registry_read",
+      "application_registry_read",
+      "exact_command_probe"
+    ],
+    "default_grants": [
+      "process_environment_read",
+      "filesystem_metadata_read",
+      "persisted_environment_registry_read"
+    ],
+    "explicit_grants": [
+      "application_registry_read",
+      "exact_command_probe"
+    ]
+  }
+}

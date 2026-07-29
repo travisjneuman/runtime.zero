@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "plan_id": "rz0plan-invalid-write",
+  "module_id": "first-party.updater",
+  "created_at": null,
+  "expires_at": null,
+  "dry_run": true,
+  "writes_attempted": false,
+  "evidence_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "actions": [
+    {
+      "action_id": "unsafe-update",
+      "kind": "update",
+      "disposition": "planned",
+      "target": "Example.Tool",
+      "manager": "example-manager",
+      "executable": "example-manager",
+      "arguments": ["update"],
+      "would_write": true,
+      "requires_confirmation": false,
+      "requires_elevation": false,
+      "network_required": false,
+      "risk": "blocked",
+      "capabilities": [],
+      "forbidden_path_classes": ["credentials"],
+      "write_set": [],
+      "rollback": {
+        "supported": false,
+        "quarantine_required": false,
+        "description": "No rollback."
+      }
+    }
+  ],
+  "warnings": []
+}

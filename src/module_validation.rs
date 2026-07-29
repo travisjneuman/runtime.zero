@@ -60,6 +60,7 @@ pub fn validate_manifest(path: &Path, manifest: ModuleManifest) -> ManifestValid
     validate_lists(&manifest, &mut errors, &mut warnings);
     validate_trust(&manifest, &mut errors, &mut warnings);
     validate_safety(&manifest, &mut errors);
+    validate_permissions(&manifest, &mut errors, &mut warnings);
     let integrity = verify_package_integrity(path, &manifest);
     errors.extend(
         integrity
@@ -135,6 +136,70 @@ fn validate_trust(manifest: &ModuleManifest, errors: &mut Vec<String>, warnings:
     }
 }
 
+fn validate_permissions(
+    manifest: &ModuleManifest,
+    errors: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+) {
+    let Some(permissions) = &manifest.permissions else {
+        if manifest.kind == ModuleKind::FirstPartyModule {
+            warnings
+                .push("first-party manifest has no enforceable permission declaration".to_string());
+        }
+        return;
+    };
+    if permissions.schema_version != 1 {
+        errors.push("permissions.schema_version must be 1".to_string());
+    }
+    if manifest.safety.mutates_system {
+        errors.push("permissions schema 1 supports read-only modules only".to_string());
+    }
+
+    let declared = permissions
+        .declared
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    let defaults = permissions
+        .default_grants
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    let explicit = permissions
+        .explicit_grants
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    if declared.len() != permissions.declared.len()
+        || defaults.len() != permissions.default_grants.len()
+        || explicit.len() != permissions.explicit_grants.len()
+    {
+        errors.push("permissions lists must not contain duplicates".to_string());
+    }
+    if !defaults.is_disjoint(&explicit) {
+        errors.push("permission cannot be both default and explicit".to_string());
+    }
+    for permission in defaults.union(&explicit) {
+        if !declared.contains(permission) {
+            errors.push("granted permissions must also appear in declared".to_string());
+            break;
+        }
+    }
+    for permission in &declared {
+        if !defaults.contains(permission) && !explicit.contains(permission) {
+            errors.push("each declared permission must be default or explicit".to_string());
+            break;
+        }
+    }
+    use crate::module_manifest::ModulePermission::{ApplicationRegistryRead, ExactCommandProbe};
+    if defaults.contains(&ExactCommandProbe) || defaults.contains(&ApplicationRegistryRead) {
+        errors.push(
+            "exact command probes and application registry reads must require explicit grants"
+                .to_string(),
+        );
+    }
+}
+
 fn validate_safety(manifest: &ModuleManifest, errors: &mut Vec<String>) {
     if manifest.safety.remote_execution_allowed {
         errors.push("remote_execution_allowed must be false in this foundation".to_string());
@@ -188,7 +253,7 @@ fn is_valid_id(id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::module_manifest::{ModuleSafety, RiskLevel};
+    use crate::module_manifest::{ModulePermission, ModulePermissions, ModuleSafety, RiskLevel};
 
     fn valid_manifest() -> ModuleManifest {
         ModuleManifest::new(
@@ -210,6 +275,36 @@ mod tests {
     fn validates_safe_first_party_manifest() {
         let report = validate_manifest(Path::new("module.json"), valid_manifest());
         assert!(report.valid, "{:?}", report.errors);
+    }
+
+    #[test]
+    fn accepts_bounded_read_only_permissions() {
+        let mut manifest = valid_manifest();
+        manifest.permissions = Some(ModulePermissions {
+            schema_version: 1,
+            declared: vec![
+                ModulePermission::ProcessEnvironmentRead,
+                ModulePermission::ExactCommandProbe,
+            ],
+            default_grants: vec![ModulePermission::ProcessEnvironmentRead],
+            explicit_grants: vec![ModulePermission::ExactCommandProbe],
+        });
+        let report = validate_manifest(Path::new("module.json"), manifest);
+        assert!(report.valid, "{:?}", report.errors);
+    }
+
+    #[test]
+    fn rejects_command_probe_as_default_grant() {
+        let mut manifest = valid_manifest();
+        manifest.permissions = Some(ModulePermissions {
+            schema_version: 1,
+            declared: vec![ModulePermission::ExactCommandProbe],
+            default_grants: vec![ModulePermission::ExactCommandProbe],
+            explicit_grants: Vec::new(),
+        });
+        let report = validate_manifest(Path::new("module.json"), manifest);
+        assert!(!report.valid);
+        assert!(report.errors.iter().any(|error| error.contains("explicit")));
     }
 
     #[test]

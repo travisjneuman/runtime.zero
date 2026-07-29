@@ -154,6 +154,11 @@ fn sections(
                     "accent",
                 ),
                 row(
+                    tui_theme::LABEL_PLAN,
+                    "inventory module source is read-only and not installed",
+                    "accent",
+                ),
+                row(
                     tui_theme::LABEL_DRY_RUN,
                     "install planner remains dry-run only",
                     "dry_run",

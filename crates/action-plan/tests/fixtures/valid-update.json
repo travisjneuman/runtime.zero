@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "plan_id": "rz0plan-update-example",
+  "module_id": "first-party.updater",
+  "created_at": null,
+  "expires_at": null,
+  "dry_run": true,
+  "writes_attempted": false,
+  "evidence_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "actions": [
+    {
+      "action_id": "update-example-tool",
+      "kind": "update",
+      "disposition": "planned",
+      "target": "Example.Tool 1.0.0 -> 2.0.0",
+      "manager": "example-manager",
+      "executable": "C:\\Tools\\example-manager.exe",
+      "arguments": ["update", "--id", "Example.Tool", "--version", "2.0.0"],
+      "would_write": false,
+      "requires_confirmation": true,
+      "requires_elevation": false,
+      "network_required": true,
+      "risk": "medium",
+      "capabilities": ["network_metadata", "manager_execution"],
+      "forbidden_path_classes": [],
+      "write_set": [],
+      "rollback": {
+        "supported": false,
+        "quarantine_required": false,
+        "description": "Manager rollback support is not yet established; execution remains blocked."
+      }
+    }
+  ],
+  "warnings": ["fixture only; no command may execute"]
+}

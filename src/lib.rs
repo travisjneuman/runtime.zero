@@ -100,7 +100,7 @@ pub fn doctor_text() -> String {
         .unwrap_or_else(|_| "unavailable".to_string());
 
     format!(
-        "{title} doctor\n\nstatus: phase-2 inventory-contract start\ncommand: {cmd}\nversion: {version}\nos: {os}\narch: {arch}\ncurrent_dir: {current_dir}\nsafety: {safety}\nmutation_capability: explicit_store_init_only\nmodule_mutation_capability: disabled\ncloudflare_automation: not configured\ngithub_actions: not configured\n",
+        "{title} doctor\n\nstatus: phase-3 inventory-source-package\ncommand: {cmd}\nversion: {version}\nos: {os}\narch: {arch}\ncurrent_dir: {current_dir}\nsafety: {safety}\nmutation_capability: explicit_store_init_only\nmodule_mutation_capability: disabled\ncloudflare_automation: not configured\ngithub_actions: not configured\n",
         title = brand::TITLE,
         cmd = brand::COMMAND,
         version = env!("CARGO_PKG_VERSION"),

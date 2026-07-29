@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "plan_id": "rz0plan-quarantine-example",
+  "module_id": "first-party.leftovers",
+  "created_at": null,
+  "expires_at": null,
+  "dry_run": true,
+  "writes_attempted": false,
+  "evidence_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "actions": [
+    {
+      "action_id": "quarantine-stale-shim",
+      "kind": "quarantine",
+      "disposition": "planned",
+      "target": "synthetic stale shim fixture",
+      "manager": null,
+      "executable": null,
+      "arguments": [],
+      "would_write": false,
+      "requires_confirmation": true,
+      "requires_elevation": false,
+      "network_required": false,
+      "risk": "low",
+      "capabilities": ["runtime_state_write", "quarantine_write"],
+      "forbidden_path_classes": [],
+      "write_set": [
+        {
+          "path": "quarantine/rz0plan-quarantine-example/payload.bin",
+          "kind": "quarantined_payload"
+        },
+        {
+          "path": "quarantine/rz0plan-quarantine-example/quarantine.json",
+          "kind": "quarantine_record"
+        }
+      ],
+      "rollback": {
+        "supported": true,
+        "quarantine_required": true,
+        "description": "Restore only to an unoccupied synthetic original path after digest verification."
+      }
+    }
+  ],
+  "warnings": ["fixture only; no file may move"]
+}

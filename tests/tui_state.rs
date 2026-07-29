@@ -53,6 +53,18 @@ fn shift_tab_cycles_focus_backward() {
 }
 
 #[test]
+fn command_rail_cycles_across_all_preview_entries() {
+    let mut state = TuiState::new(4);
+    let _ = state.apply(TuiInput::FocusNext);
+    let _ = state.apply(TuiInput::FocusNext);
+    assert_eq!(state.focus_region, TuiFocusRegion::CommandRail);
+    for _ in 0..5 {
+        let _ = state.apply(TuiInput::NextItem);
+    }
+    assert_eq!(state.selected_command, 0);
+}
+
+#[test]
 fn enter_space_only_toggle_read_only_preview() {
     let mut state = TuiState::new(4);
     let _ = state.apply(TuiInput::FocusNext);

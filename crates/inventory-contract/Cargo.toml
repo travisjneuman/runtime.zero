@@ -1,0 +1,13 @@
+[package]
+name = "rz0-inventory-contract"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "Shared versioned inventory report contract for runtime.zero"
+license = "Apache-2.0"
+repository = "https://github.com/travisjneuman/runtime.zero"
+rust-version = "1.96"
+publish = false
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }

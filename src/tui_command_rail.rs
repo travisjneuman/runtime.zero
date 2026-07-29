@@ -5,7 +5,7 @@ pub(crate) struct TuiCommandPreview {
     pub preview: &'static str,
 }
 
-pub(crate) const COMMANDS: [TuiCommandPreview; 4] = [
+pub(crate) const COMMANDS: [TuiCommandPreview; 5] = [
     TuiCommandPreview {
         label: "doctor",
         command: "rz0 doctor",
@@ -20,6 +20,11 @@ pub(crate) const COMMANDS: [TuiCommandPreview; 4] = [
         label: "dashboard json",
         command: "rz0 --json",
         preview: "emit stable foundation_dashboard JSON for automation",
+    },
+    TuiCommandPreview {
+        label: "inventory module",
+        command: "rz0-inventory --format json --redact-paths",
+        preview: "optional first-party read-only inventory; never run from this TUI",
     },
     TuiCommandPreview {
         label: "install dry-run",

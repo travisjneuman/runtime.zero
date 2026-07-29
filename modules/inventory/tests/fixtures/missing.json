@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "platform": "windows",
+  "path_entries": [
+    {
+      "path": "C:\\Tools\\Removed",
+      "exists": false,
+      "entry_kind": "missing",
+      "warnings": ["path does not exist"]
+    }
+  ]
+}

@@ -51,7 +51,7 @@ impl TuiState {
             show_help: false,
             preview_open: false,
             section_count,
-            command_count: 4,
+            command_count: crate::tui_command_rail::COMMANDS.len(),
             previous_focus_region: TuiFocusRegion::LeftNavigation,
         }
     }

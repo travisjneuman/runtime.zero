@@ -77,6 +77,8 @@ pub struct ModuleManifest {
     pub risk_level: RiskLevel,
     pub safety: ModuleSafety,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<ModulePermissions>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub integrity: Option<PackageIntegrity>,
 }
 
@@ -108,9 +110,29 @@ impl ModuleManifest {
             supported_platforms: to_strings(supported_platforms),
             risk_level,
             safety,
+            permissions: None,
             integrity: None,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModulePermissions {
+    pub schema_version: u16,
+    pub declared: Vec<ModulePermission>,
+    pub default_grants: Vec<ModulePermission>,
+    pub explicit_grants: Vec<ModulePermission>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModulePermission {
+    ProcessEnvironmentRead,
+    FilesystemMetadataRead,
+    PersistedEnvironmentRegistryRead,
+    ApplicationRegistryRead,
+    ExactCommandProbe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -155,22 +177,17 @@ pub struct PackageFileIntegrity {
     pub role: PackageFileRole,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PackageFileRole {
     Manifest,
+    #[default]
     Payload,
     Docs,
     License,
     Config,
     Data,
     TestFixture,
-}
-
-impl Default for PackageFileRole {
-    fn default() -> Self {
-        Self::Payload
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]

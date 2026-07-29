@@ -6,7 +6,7 @@
       "version": "0.1.0",
       "manifest_path": "../outside/rz0-module.json",
       "receipt_path": "https://example.invalid/receipt.json",
-      "module_dir": "C:/Users/tjn/project"
+      "module_dir": "C:/Users/example/project"
     }
   ]
 }

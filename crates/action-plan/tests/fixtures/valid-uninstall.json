@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "plan_id": "rz0plan-uninstall-example",
+  "module_id": "first-party.uninstall",
+  "created_at": null,
+  "expires_at": null,
+  "dry_run": true,
+  "writes_attempted": false,
+  "evidence_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "actions": [
+    {
+      "action_id": "uninstall-example-tool",
+      "kind": "uninstall",
+      "disposition": "planned",
+      "target": "Example.Tool 2.0.0",
+      "manager": "example-manager",
+      "executable": "C:\\Tools\\example-manager.exe",
+      "arguments": ["uninstall", "--id", "Example.Tool"],
+      "would_write": false,
+      "requires_confirmation": true,
+      "requires_elevation": false,
+      "network_required": false,
+      "risk": "high",
+      "capabilities": ["manager_execution"],
+      "forbidden_path_classes": [],
+      "write_set": [],
+      "rollback": {
+        "supported": false,
+        "quarantine_required": false,
+        "description": "Native manager uninstall has no proven rollback; execution remains blocked."
+      }
+    }
+  ],
+  "warnings": ["fixture only; no uninstaller may execute"]
+}

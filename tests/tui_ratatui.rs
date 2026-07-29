@@ -112,6 +112,19 @@ fn read_only_previews_do_not_claim_execution() {
 }
 
 #[test]
+fn inventory_module_is_previewed_without_install_or_execution_claims() {
+    let mut state = TuiState::new(4);
+    state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
+    state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
+    state.selected_command = 3;
+    state.apply(runtime_zero::tui_state::TuiInput::Activate);
+    let text = render_text(118, 34, &state, false);
+    assert!(text.contains("rz0-inventory --format json --redact-paths"));
+    assert!(text.contains("never run from this TUI"));
+    assert!(!text.contains("module activated"));
+}
+
+#[test]
 fn polished_shell_uses_component_labels_without_color_dependency() {
     let text = render_text(118, 34, &TuiState::new(4), false);
     assert!(text.contains("RZ0 // FOUNDATION CONTROL SURFACE"));

@@ -93,7 +93,7 @@ fn store_status_json_accepts_read_only_store_root_fixture() {
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
     let json: Value = serde_json::from_str(&out).expect("store status should be JSON");
-    assert_eq!(json["store_root_override"].is_string(), true);
+    assert!(json["store_root_override"].is_string());
     assert_eq!(json["registry"]["status"], "valid");
     assert_eq!(json["registry"]["installed_module_count"], 1);
     assert_eq!(json["receipts"]["overall_state"], "valid");

@@ -16,7 +16,7 @@
   },
   "write_set": [
     {
-      "path": "C:/Users/tjn/outside",
+      "path": "C:/Users/example/outside",
       "kind": "file",
       "size_bytes": 999999999
     }

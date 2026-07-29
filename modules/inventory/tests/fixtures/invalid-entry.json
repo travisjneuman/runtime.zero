@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "platform": "windows",
+  "path_entries": [
+    {
+      "path": "",
+      "exists": true,
+      "entry_kind": "directory"
+    }
+  ]
+}

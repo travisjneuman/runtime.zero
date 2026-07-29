@@ -28,9 +28,11 @@ limited to items that belong at the top of a public Rust CLI repository:
 Place everything else in the narrowest appropriate folder:
 
 - product/design docs in `docs/`
-- Rust source in `src/`
+- foundation Rust source in `src/`
+- small shared workspace contract libraries in `crates/`
+- separately built first-party feature-module source in `modules/`
 - website/source landing page material in `site/`
-- tests in `tests/` when integration tests are added
+- foundation tests in `tests/`; package-local tests/fixtures beside their crate
 - scripts/helpers in `scripts/` when needed
 - fixtures/examples/assets in clearly named subfolders
 - brand source/candidate assets in `assets/brand/`
