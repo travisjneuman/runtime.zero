@@ -52,6 +52,8 @@ semantics; human messages are not policy. `crates/resource-contract/` owns
 shared byte/record/timeout/process ceilings so modules can narrow but not expand
 foundation budgets. `crates/validation-contract/` owns allocation-free lexical
 validation for contract IDs, versions, hashes, references, and relative paths.
+`crates/secure-fs/` owns held-directory-relative Unix create/open/sync/no-replace
+publication primitives and explicitly blocks weaker Windows mutation emulation.
 `crates/release-contract/` owns the bounded canonical target
 × module × lifecycle evidence-ledger shape and cannot authorize release.
 `crates/artifact-identity/` opens, bounds, hashes, identifies, revalidates, and

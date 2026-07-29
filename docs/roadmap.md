@@ -94,6 +94,10 @@ See [`action-planning.md`](action-planning.md).
   hashes, evidence references, and platform-neutral relative paths.
 - [x] Deterministic validated action-plan/write-set digests and five-minute exact
   interactive confirmation with single-use transaction-consumption evidence.
+- [x] Unix held-directory-relative no-follow create/open/lock/sync/no-replace
+  publication primitives consumed by store initialization and journal writes.
+- [ ] Implement equivalent reviewed Windows NT root-relative operations and real
+  client/server reparse/File-ID/ACL/flush runtime proof.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
 - [x] Test-key-only detached Ed25519 signature contract and strict verification.
 - [x] Fixture-only immutable staging plan plus atomic temporary-root publication

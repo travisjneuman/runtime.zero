@@ -141,7 +141,8 @@ codes with fail-closed privacy and retry semantics. `crates/resource-contract/`
 centralizes shared byte/record/timeout/process ceilings so modules cannot
 silently expand them. `crates/validation-contract/` owns allocation-free bounded
 ID/version/hash/path grammar so parsers cannot silently diverge.
-`crates/release-contract/` generates the exact bounded target × seven-module ×
+`crates/secure-fs/` owns Unix held-directory-relative no-follow state operations
+and blocks weaker Windows mutation emulation. `crates/release-contract/` generates the exact bounded target × seven-module ×
 12-stage evidence ledger while remaining unable to authorize release. See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),
 [`docs/capability-contract.md`](docs/capability-contract.md),
@@ -149,6 +150,7 @@ ID/version/hash/path grammar so parsers cannot silently diverge.
 [`docs/error-contract.md`](docs/error-contract.md),
 [`docs/resource-contract.md`](docs/resource-contract.md),
 [`docs/validation-contract.md`](docs/validation-contract.md),
+[`docs/secure-filesystem.md`](docs/secure-filesystem.md),
 [`docs/release-acceptance.md`](docs/release-acceptance.md),
 [`docs/signature-verification.md`](docs/signature-verification.md),
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md),
@@ -194,24 +196,25 @@ reports missing roots as absent and wrong filesystem types as invalid; it never
 initializes, repairs, migrates, or writes the supplied path.
 
 `store init --dry-run` reports the exact user-local store scaffolding that a
-future-ready local store needs. `store init --yes` is the only write-capable
-foundation command today: it creates runtime.zero-owned user-local directories,
-an empty schema-1 registry, and a store initialization marker. It is idempotent
-and refuses to repair or overwrite invalid existing registry state. It does not
+future-ready local store needs. On Unix, `store init --yes` creates runtime.zero-
+owned user-local directories, an empty schema-1 registry, and an initialization
+marker through held-parent no-follow operations. It is idempotent and refuses to
+repair or overwrite invalid existing state. Windows apply currently fails closed
+until equivalent reviewed NT root-relative mutation and runtime evidence exist. It does not
 install modules, copy packages, execute code, fetch remote content, edit PATH,
 or create services, tasks, registry entries, persistence, releases, or
 bootstrap hooks.
 
 ## Platform target
 
-The initial support target is modern Windows, macOS, and mainstream Linux distributions.
-
-- Windows 10 / 11 and Windows Server 2016+
-- current macOS on Apple Silicon and Intel where Rust supports it
-- mainstream Linux x86_64 / aarch64
-- best-effort expansion for older or niche systems over time
-
-The long-term goal is broad terminal compatibility. The public compatibility promise will stay honest: old OS releases and niche distributions will be treated as best-effort until specifically tested.
+Windows, macOS, and Linux are equal release priorities. The explicit matrix
+includes Windows 11/10/8.1/8/7 and Server 2008–2025 real variants, macOS Tahoe 26
+through Ventura 13 as the initial backward set, and rolling Ubuntu, Debian, RHEL,
+and Arch generations across architectures that actually existed. Vendor-retired
+systems are compatibility investigations, not current security-support claims.
+No platform cell becomes supported without final-artifact runtime evidence. See
+[`docs/support-policy.md`](docs/support-policy.md) and
+[`docs/windows-compatibility.md`](docs/windows-compatibility.md).
 
 ## Development
 

@@ -73,7 +73,10 @@ install, cleanup, or deletion API exists.
 
 The shared transaction contract validates a bounded hash-chained state machine,
 publishes and recovers exact immutable snapshots under an exclusive cross-process
-writer lock, and emits conservative recovery decisions. Snapshot publication
+writer lock, and emits conservative recovery decisions. Unix journal/store
+creation and publication use foundation-owned held-directory-relative no-follow
+operations; Windows mutation fails closed where equivalent root-handle semantics
+are not yet implemented. Snapshot publication
 writes only caller-selected transaction roots and does not authorize action-plan
 writes, receipt commits, registry changes, rollback, or automatic recovery. The
 commit-receipt contract binds exact plan, write-set, confirmation-consumption,

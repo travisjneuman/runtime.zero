@@ -68,11 +68,11 @@ write-capable transaction foundation. They:
 - require the first durable head to contain only `prepared` and every later head
   to append exactly one event;
 - serialize at most 2 MiB under the shared resource contract;
-- create a private pending file, synchronize it, and atomically rename it to an
-  immutable sequence/event-digest-bound head;
+- create a private pending file, synchronize it, and publish an immutable
+  sequence/event-digest-bound head without replacement;
 - synchronize containing directories on Unix;
 - reject symlink/reparse/hardlink/wrong-type roots, lock files, directories, and
-  heads, with no-follow snapshot/lock opens;
+  heads, with Unix opened-directory-relative snapshot/lock/publication operations;
 - recover only after validating every bounded snapshot as one exact immutable
   prefix; corruption is never skipped;
 - map durable-writer failures to the shared foundation machine-error vocabulary;
@@ -103,8 +103,9 @@ registry documents remains the next coordinator layer.
 
 ## Remaining production work
 
-The complete store transaction still requires safe opened-root handles across
-all path operations, Windows directory-metadata flush evidence, durable commit-
+The complete store transaction still requires one retained Unix root handle
+across the complete multi-document commit, equivalent Windows NT root-relative
+operations, Windows directory-metadata flush evidence, durable commit-
 receipt publication, atomic installed-registry publication, explicit ACL/ownership
 verification, cancellation, fault injection at every boundary, and real
 power/process-loss recovery on Windows, macOS, and Linux. Quarantine and

@@ -33,9 +33,10 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 225 tests. The all-features suite passed 234,
+The default workspace suite passed 230 tests. The all-features suite passed 239,
 including shared capability/error/resource/validation/confirmation semantics,
-three deterministic plan/write-set digest tests, five exact
+three deterministic plan/write-set digest tests, five opened-directory-relative
+filesystem adversarial tests, five exact
 release-acceptance cross-product tests, seven transaction-chain/recovery unit
 tests, four guarded immutable-snapshot simulations, six durable-writer tests,
 five commit-receipt binding tests, two store-init filesystem-hardening tests,
@@ -53,7 +54,7 @@ library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 129 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 130 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -61,7 +62,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved fourteen local workspace packages and 115
+`cargo metadata --locked` resolved fifteen local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -99,6 +100,9 @@ The first-party inventory module depends on the small
 normal cross-platform dependencies are Serde, serde_json, and time; Windows adds `winreg`. This avoids pulling Ratatui/Crossterm into
 `rz0-inventory`.
 
+The secure-fs crate adds no newly resolved external package; it reuses libc and
+windows-sys, provides held-directory-relative Unix operations, and returns an
+explicit unsupported result rather than emulate weaker Windows child mutation.
 The confirmation-contract crate adds no newly resolved external package and
 binds exact plan/dry-run/write-set/state digests to short-lived interactive
 responses and single-use consumption evidence without execution authority. The
