@@ -191,12 +191,15 @@ fn validate_permissions(
             break;
         }
     }
-    use crate::module_manifest::ModulePermission::{
-        ApplicationFilesystemRead, ApplicationRegistryRead, ExactCommandProbe,
-    };
-    if defaults.contains(&ExactCommandProbe)
-        || defaults.contains(&ApplicationRegistryRead)
-        || defaults.contains(&ApplicationFilesystemRead)
+    if declared
+        .iter()
+        .any(|permission| !permission.is_schema1_manifest_permission())
+    {
+        errors.push("permission is outside read-only manifest schema 1".to_string());
+    }
+    if defaults
+        .iter()
+        .any(|permission| permission.requires_explicit_manifest_grant())
     {
         errors.push(
             "command probes and application inventory reads must require explicit grants"
@@ -316,6 +319,25 @@ mod tests {
             assert!(!report.valid);
             assert!(report.errors.iter().any(|error| error.contains("explicit")));
         }
+    }
+
+    #[test]
+    fn rejects_action_capabilities_in_read_only_permission_schema() {
+        let mut manifest = valid_manifest();
+        manifest.permissions = Some(ModulePermissions {
+            schema_version: 1,
+            declared: vec![ModulePermission::ManagerExecution],
+            default_grants: Vec::new(),
+            explicit_grants: vec![ModulePermission::ManagerExecution],
+        });
+        let report = validate_manifest(Path::new("module.json"), manifest);
+        assert!(!report.valid);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.contains("outside read-only"))
+        );
     }
 
     #[test]

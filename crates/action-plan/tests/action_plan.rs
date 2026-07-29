@@ -1,4 +1,4 @@
-use rz0_action_plan::{ActionPlan, validate_action_plan};
+use rz0_action_plan::{ActionCapability, ActionPlan, validate_action_plan};
 
 #[test]
 fn valid_update_fixture_is_dry_run_only() {
@@ -103,6 +103,23 @@ fn blocked_sensitive_finding_is_valid_report_only_evidence() {
         rz0_action_plan::ActionDisposition::Blocked
     );
     assert!(plan.actions[0].write_set.is_empty());
+}
+
+#[test]
+fn read_only_protocol_capabilities_are_rejected_by_action_schema() {
+    let mut plan: ActionPlan =
+        serde_json::from_str(include_str!("fixtures/valid-update.json")).expect("fixture");
+    plan.actions[0]
+        .capabilities
+        .insert(0, ActionCapability::ProcessEnvironmentRead);
+    let validation = validate_action_plan(&plan);
+    assert!(!validation.valid);
+    assert!(
+        validation
+            .errors
+            .iter()
+            .any(|error| error.contains("outside action-plan schema"))
+    );
 }
 
 #[test]

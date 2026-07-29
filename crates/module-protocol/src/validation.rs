@@ -207,6 +207,12 @@ fn validate_capabilities(plan: &InvocationPlan, errors: &mut Vec<String>) {
     {
         errors.push("capability grant must be unique, sorted, and bounded".to_string());
     }
+    if capabilities
+        .iter()
+        .any(|capability| !capability.is_schema1_protocol_capability())
+    {
+        errors.push("schema-1 protocol grant includes a non-read capability".to_string());
+    }
     for required in [
         ProtocolCapability::ProcessEnvironmentRead,
         ProtocolCapability::FilesystemMetadataRead,

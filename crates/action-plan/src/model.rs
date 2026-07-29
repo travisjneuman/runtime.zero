@@ -1,3 +1,4 @@
+pub use rz0_capability_contract::Capability as ActionCapability;
 use serde::{Deserialize, Serialize};
 
 pub const ACTION_PLAN_SCHEMA_VERSION: u16 = 1;
@@ -67,17 +68,6 @@ pub enum ActionRisk {
     Medium,
     High,
     Blocked,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ActionCapability {
-    NetworkMetadata,
-    ManagerExecution,
-    ElevatedManagerAction,
-    RuntimeStateWrite,
-    QuarantineWrite,
-    RestoreWrite,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]

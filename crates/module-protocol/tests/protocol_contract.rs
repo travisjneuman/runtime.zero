@@ -68,6 +68,19 @@ fn platform_options_require_exact_least_privilege_grants() {
     ];
     assert!(validate_invocation_plan(&windows).valid);
 
+    let mut over_granted = windows.clone();
+    over_granted
+        .capabilities
+        .push(ProtocolCapability::ManagerExecution);
+    let validation = validate_invocation_plan(&over_granted);
+    assert!(!validation.valid);
+    assert!(
+        validation
+            .errors
+            .iter()
+            .any(|error| error.contains("non-read capability"))
+    );
+
     windows.inventory.probe_versions = true;
     let validation = validate_invocation_plan(&windows);
     assert!(!validation.valid);

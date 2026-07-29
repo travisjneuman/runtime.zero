@@ -178,9 +178,24 @@ fn validate_capabilities(action: &PlanAction, validation: &mut ActionPlanValidat
             action.action_id
         ));
     }
+    if capabilities
+        .iter()
+        .any(|capability| !capability.is_schema1_action_capability())
+    {
+        validation.fail(format!(
+            "action '{}' includes a capability outside action-plan schema 1",
+            action.action_id
+        ));
+    }
     if action.network_required && !capabilities.contains(&ActionCapability::NetworkMetadata) {
         validation.fail(format!(
             "action '{}' requires the network_metadata capability",
+            action.action_id
+        ));
+    }
+    if !action.network_required && capabilities.contains(&ActionCapability::NetworkMetadata) {
+        validation.fail(format!(
+            "action '{}' grants network_metadata without a network requirement",
             action.action_id
         ));
     }
@@ -188,6 +203,22 @@ fn validate_capabilities(action: &PlanAction, validation: &mut ActionPlanValidat
     {
         validation.fail(format!(
             "action '{}' requires the elevated_manager_action capability",
+            action.action_id
+        ));
+    }
+    if !action.requires_elevation && capabilities.contains(&ActionCapability::ElevatedManagerAction)
+    {
+        validation.fail(format!(
+            "action '{}' grants elevation without an elevation requirement",
+            action.action_id
+        ));
+    }
+    if matches!(action.kind, ActionKind::Update | ActionKind::Uninstall)
+        && action.disposition == ActionDisposition::Planned
+        && !capabilities.contains(&ActionCapability::ManagerExecution)
+    {
+        validation.fail(format!(
+            "action '{}' requires the manager_execution capability",
             action.action_id
         ));
     }

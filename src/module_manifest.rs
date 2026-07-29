@@ -1,3 +1,4 @@
+pub use rz0_capability_contract::Capability as ModulePermission;
 use serde::{Deserialize, Serialize};
 
 pub const MODULE_SCHEMA_VERSION: u16 = 1;
@@ -123,17 +124,6 @@ pub struct ModulePermissions {
     pub declared: Vec<ModulePermission>,
     pub default_grants: Vec<ModulePermission>,
     pub explicit_grants: Vec<ModulePermission>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ModulePermission {
-    ProcessEnvironmentRead,
-    FilesystemMetadataRead,
-    PersistedEnvironmentRegistryRead,
-    ApplicationRegistryRead,
-    ApplicationFilesystemRead,
-    ExactCommandProbe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]

@@ -691,6 +691,7 @@ version = "0.1.0"
 dependencies = [
  "crossterm",
  "ratatui",
+ "rz0-capability-contract",
  "rz0-inventory-contract",
  "serde",
  "serde_json",
@@ -735,6 +736,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 name = "rz0-action-plan"
 version = "0.1.0"
 dependencies = [
+ "rz0-capability-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -747,6 +749,13 @@ dependencies = [
  "libc",
  "sha2 0.10.9",
  "windows-sys",
+]
+
+[[package]]
+name = "rz0-capability-contract"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -773,6 +782,7 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "rz0-artifact-identity",
+ "rz0-capability-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",

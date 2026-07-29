@@ -1,3 +1,4 @@
+pub use rz0_capability_contract::Capability as ProtocolCapability;
 use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_SCHEMA_VERSION: u16 = 1;
@@ -81,17 +82,6 @@ pub struct EnvironmentPolicy {
     pub clear_parent: bool,
     pub inherit_parent: bool,
     pub allowed_names: Vec<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProtocolCapability {
-    ProcessEnvironmentRead,
-    FilesystemMetadataRead,
-    PersistedEnvironmentRegistryRead,
-    ApplicationRegistryRead,
-    ApplicationFilesystemRead,
-    ExactCommandProbe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
