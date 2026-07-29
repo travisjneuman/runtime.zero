@@ -29,9 +29,9 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 177 tests. The all-features suite passed 186,
-including the shared capability-family tests, five opened-artifact identity
-tests, six production-execution gate
+The default workspace suite passed 185 tests. The all-features suite passed 194,
+including the shared capability-family tests, seven transaction-chain/recovery
+tests, five opened-artifact identity tests, six production-execution gate
 tests, and nine native macOS test-child
 transport cases. The transport cases prove
 fail-closed refusal of an observed inheritable descriptor and Unix process-group
@@ -42,7 +42,7 @@ all-feature target checks are not runtime evidence.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 123 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 124 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -50,7 +50,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved eight local workspace packages and 115
+`cargo metadata --locked` resolved nine local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -87,7 +87,10 @@ The first-party inventory module depends on the small
 normal cross-platform dependencies are Serde, serde_json, and time; Windows adds `winreg`. This avoids pulling Ratatui/Crossterm into
 `rz0-inventory`.
 
-The separate module-trust crate uses `ed25519-dalek` 3.0 with default features
+The transaction-contract crate adds no new external package: it reuses Serde and
+SHA-256 for a bounded domain-separated event chain, state validation, and non-
+authorizing recovery assessment. It performs no I/O. The separate module-trust
+crate uses `ed25519-dalek` 3.0 with default features
 disabled for strict, local test-key signature verification. It does not expose a
 runtime signer, generate keys, fetch trust metadata, or join the core runtime
 dependency graph. The capability-contract crate adds only Serde and centralizes

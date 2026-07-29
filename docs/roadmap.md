@@ -107,6 +107,9 @@ See [`action-planning.md`](action-planning.md).
   revalidates, rewinds, and returns the same bounded file handle without
   execution; Unix traversal uses held root-directory handles and no-follow
   component opens.
+- [x] Bounded hash-chained transaction journal state machine with exact write
+  intent/verification pairing and non-authorizing recovery decisions; no durable
+  writer or production mutation.
 - [ ] Bind the verified open identity to platform execution, close remaining
   descriptor/handle-inheritance and Windows suspended-create races, obtain real
   Windows Job Object runtime proof, enforce every declared capability, and

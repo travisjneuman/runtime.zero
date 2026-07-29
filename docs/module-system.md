@@ -57,7 +57,10 @@ The JSON output uses schema version `1` and separates:
 - `installed_modules`;
 - `planned_module_families`.
 
-An empty `installed_modules` list is valid and expected for the foundation-only build.
+An empty `installed_modules` list is valid and expected for the foundation-only
+build. The planned registry is pinned by test to the frozen seven-family 1.0
+catalog: inventory/environment, updater, uninstall, leftovers, cache management,
+security/integrity, and report/export. Planned entries are not implementations.
 
 `rz0 modules validate` reads one local JSON manifest and reports whether it
 passes the foundation contract. `rz0 modules --from <directory>` reads JSON

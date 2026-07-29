@@ -130,11 +130,15 @@ gates while remaining structurally unable to authorize execution. The
 `crates/artifact-identity/` foundation primitive hashes and identifies one
 receipt-relative file through the same returned open handle without executing
 it. `crates/capability-contract/` supplies one shared least-privilege vocabulary
-for manifests, protocols, and action plans while granting no authority. See
+for manifests, protocols, and action plans while granting no authority.
+`crates/transaction-contract/` supplies a bounded hash-chained state machine and
+conservative recovery decisions without filesystem I/O or automatic mutation.
+See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),
 [`docs/capability-contract.md`](docs/capability-contract.md),
 [`docs/signature-verification.md`](docs/signature-verification.md),
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md),
+[`docs/transaction-journal.md`](docs/transaction-journal.md),
 [`docs/module-process-protocol.md`](docs/module-process-protocol.md), and the
 equal-platform/equal-module completion contract in
 [`docs/production-readiness.md`](docs/production-readiness.md).

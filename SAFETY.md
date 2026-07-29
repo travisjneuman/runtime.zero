@@ -65,6 +65,12 @@ restore refuses occupied destinations and retains quarantine. Test cleanup may
 remove only its isolated temp root. No production staging, quarantine, restore,
 install, cleanup, or deletion API exists.
 
+The shared transaction contract validates a bounded hash-chained state machine
+and emits conservative recovery decisions. It performs no I/O, its durability
+flags are requirements rather than proof, and every recovery assessment refuses
+to authorize automatic mutation. Modules may not create private transaction or
+recovery engines.
+
 The schema-1 module process protocol still authorizes no module execution.
 Valid plans are unauthorized/unattempted read-only offline previews with exact
 receipt-relative executable hashes, public-test-key metadata, cleared

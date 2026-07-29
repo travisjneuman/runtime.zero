@@ -61,6 +61,14 @@ symlinked source, and occupied restore destinations. Credentials, sessions,
 browser profiles, projects, backups, shared data, and unknown data remain blocked
 by the action-plan policy and are not simulation inputs.
 
+## Shared journal contract
+
+`crates/transaction-contract/` now defines the shared bounded state machine,
+hash-chained write-intent/verification events, and conservative recovery
+decisions. It performs no I/O, and every recovery assessment explicitly refuses
+to authorize automatic mutation. The OS-temp helpers are not yet journal writers.
+See [`transaction-journal.md`](transaction-journal.md).
+
 ## Remaining production gates
 
 The simulations do not establish crash durability, ACL/ownership fidelity,

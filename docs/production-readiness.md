@@ -144,7 +144,8 @@ parallel once its shared foundation dependency is stable.
 4. Implement platform process/handle/tree containment, capability enforcement,
    sandbox/elevation policy, network policy, cancellation, and resource limits.
 5. Implement crash-safe staging, journals, receipts, atomic state, quarantine,
-   rollback, idempotency, and interrupted recovery.
+   rollback, idempotency, and interrupted recovery. The bounded hash-chained
+   journal/recovery state machine exists without a durable writer or mutation.
 6. Implement foundation-owned module install, activation, invocation,
    deactivation, repair, migration, upgrade, and uninstall.
 7. Complete inventory/environment parity on all platforms; use its normalized
