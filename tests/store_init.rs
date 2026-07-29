@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use runtime_zero::installed_registry::InstalledRegistryState;
@@ -98,12 +99,15 @@ fn invalid_existing_init_marker_blocks_without_repair() {
 }
 
 fn unique_temp_root() -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock should be after epoch")
         .as_nanos();
+    let sequence = COUNTER.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
-        "rz0-store-init-test-{}-{nanos}",
+        "rz0-store-init-test-{}-{nanos}-{sequence}",
         std::process::id()
     ))
 }
