@@ -171,17 +171,7 @@ fn validate_trusted_key(key: &TrustedTestKey, errors: &mut Vec<String>) {
 }
 
 fn validate_id(value: &str, label: &str, errors: &mut Vec<String>) {
-    let valid = !value.is_empty()
-        && value.len() <= 80
-        && !value.starts_with(['.', '-'])
-        && !value.ends_with(['.', '-'])
-        && !value.contains("..")
-        && value.chars().all(|character| {
-            character.is_ascii_lowercase()
-                || character.is_ascii_digit()
-                || matches!(character, '.' | '-')
-        });
-    if !valid {
+    if !rz0_validation_contract::valid_module_id(value) {
         errors.push(format!(
             "{label} must use bounded lowercase letters, digits, dots, or hyphens"
         ));
@@ -189,19 +179,11 @@ fn validate_id(value: &str, label: &str, errors: &mut Vec<String>) {
 }
 
 fn is_valid_version(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 40
-        && value.chars().all(|character| {
-            character.is_ascii_alphanumeric() || matches!(character, '.' | '+' | '-')
-        })
+    rz0_validation_contract::valid_version(value)
 }
 
 fn validate_lower_hex(value: &str, length: usize, label: &str, errors: &mut Vec<String>) {
-    if value.len() != length
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    {
+    if !rz0_validation_contract::valid_lower_hex(value, length) {
         errors.push(format!(
             "{label} must contain exactly {length} lowercase hexadecimal characters"
         ));

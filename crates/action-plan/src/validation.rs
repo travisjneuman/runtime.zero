@@ -295,17 +295,7 @@ fn write_path_matches_kind(path: &str, kind: WriteKind) -> bool {
 }
 
 fn validate_id(value: &str, field: &str, validation: &mut ActionPlanValidation) {
-    if value.is_empty()
-        || value.len() > 100
-        || value.starts_with(['.', '-'])
-        || value.ends_with(['.', '-'])
-        || value.contains("..")
-        || !value.chars().all(|character| {
-            character.is_ascii_lowercase()
-                || character.is_ascii_digit()
-                || matches!(character, '.' | '-')
-        })
-    {
+    if !rz0_validation_contract::valid_dotted_id(value, 100) {
         validation.fail(format!(
             "{field} must use lowercase letters, digits, dots, or hyphens"
         ));
@@ -321,8 +311,5 @@ fn validate_text(value: &str, field: &str, max_len: usize, validation: &mut Acti
 }
 
 fn is_absolute_local_path(value: &str) -> bool {
-    value.starts_with('/')
-        || (value.len() >= 3
-            && value.as_bytes()[1] == b':'
-            && matches!(value.as_bytes()[2], b'\\' | b'/'))
+    rz0_validation_contract::is_absolute_local_path(value)
 }

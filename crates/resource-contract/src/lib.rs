@@ -2,13 +2,15 @@ use serde::{Deserialize, Serialize};
 
 pub const MAX_ARTIFACT_BYTES: u64 = 64 * 1024 * 1024;
 pub const MAX_SMALL_DOCUMENT_BYTES: u64 = 64 * 1024;
+pub const MAX_JOURNAL_SNAPSHOT_BYTES: u64 = 2 * 1024 * 1024;
 pub const MAX_INVENTORY_PATH_ENTRIES: usize = 512;
 pub const MAX_INVENTORY_APP_RECORDS: usize = 4096;
 pub const MAX_VERSION_OUTPUT_BYTES: usize = 64 * 1024;
 pub const VERSION_PROBE_TIMEOUT_MS: u64 = 2_000;
 pub const VERSION_PROBE_READER_GRACE_MS: u64 = 250;
 
-const _: () = assert!(MAX_SMALL_DOCUMENT_BYTES < MAX_ARTIFACT_BYTES);
+const _: () = assert!(MAX_SMALL_DOCUMENT_BYTES < MAX_JOURNAL_SNAPSHOT_BYTES);
+const _: () = assert!(MAX_JOURNAL_SNAPSHOT_BYTES < MAX_ARTIFACT_BYTES);
 const _: () = assert!(MAX_INVENTORY_PATH_ENTRIES < MAX_INVENTORY_APP_RECORDS);
 const _: () =
     assert!(VERSION_PROBE_TIMEOUT_MS <= ProcessLimitCeilings::MODULE_SCHEMA_ONE.timeout_ms);

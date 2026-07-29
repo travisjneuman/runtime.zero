@@ -175,18 +175,11 @@ fn validate_hash(value: Option<&str>, name: &str, errors: &mut Vec<String>) {
     let Some(value) = value else {
         return;
     };
-    if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+    if !rz0_validation_contract::valid_sha256(value) {
         errors.push(format!("{name} must be a SHA-256 hex digest"));
     }
 }
 
 fn is_valid_module_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= 80
-        && !id.starts_with(['.', '-'])
-        && !id.ends_with(['.', '-'])
-        && !id.contains("..")
-        && id
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-')
+    rz0_validation_contract::valid_module_id(id)
 }

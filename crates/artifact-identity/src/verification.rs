@@ -193,11 +193,7 @@ pub fn open_verified_artifact(
 
 fn validate_expectation(expectation: &ArtifactExpectation) -> Result<(), ArtifactIdentityError> {
     if expectation.size_bytes > MAX_ARTIFACT_BYTES
-        || expectation.sha256.len() != 64
-        || !expectation
-            .sha256
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        || !rz0_validation_contract::valid_sha256(&expectation.sha256)
     {
         return Err(ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::InvalidExpectation,

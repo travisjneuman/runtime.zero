@@ -384,14 +384,7 @@ fn validate_id(value: &str, field: &str, errors: &mut Vec<String>) {
 }
 
 fn valid_id(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 180
-        && !value.starts_with(['.', '-', '_'])
-        && !value.ends_with(['.', '-', '_'])
-        && !value.contains("..")
-        && value.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-' | b'_')
-        })
+    rz0_validation_contract::valid_ledger_id(value, 180)
 }
 
 fn validate_detail(value: &str, field: &str, maximum: usize, errors: &mut Vec<String>) {
@@ -401,12 +394,9 @@ fn validate_detail(value: &str, field: &str, maximum: usize, errors: &mut Vec<St
 }
 
 fn valid_ascii_detail(value: &str, maximum: usize) -> bool {
-    !value.trim().is_empty()
-        && value.len() <= maximum
-        && value.is_ascii()
-        && !value.chars().any(char::is_control)
+    rz0_validation_contract::valid_ascii_text(value, maximum)
 }
 
 fn valid_reference(value: &str) -> bool {
-    valid_id(value) && value.len() <= 120
+    rz0_validation_contract::valid_ledger_id(value, 120)
 }

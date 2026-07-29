@@ -694,6 +694,7 @@ dependencies = [
  "rz0-capability-contract",
  "rz0-inventory-contract",
  "rz0-resource-contract",
+ "rz0-validation-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -739,6 +740,7 @@ version = "0.1.0"
 dependencies = [
  "rz0-capability-contract",
  "rz0-resource-contract",
+ "rz0-validation-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -750,6 +752,7 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "rz0-resource-contract",
+ "rz0-validation-contract",
  "sha2 0.10.9",
  "windows-sys",
 ]
@@ -797,6 +800,7 @@ dependencies = [
  "rz0-capability-contract",
  "rz0-error-contract",
  "rz0-resource-contract",
+ "rz0-validation-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -809,6 +813,7 @@ version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
  "rz0-resource-contract",
+ "rz0-validation-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -818,6 +823,7 @@ dependencies = [
 name = "rz0-release-contract"
 version = "0.1.0"
 dependencies = [
+ "rz0-validation-contract",
  "serde",
  "serde_json",
 ]
@@ -833,10 +839,19 @@ dependencies = [
 name = "rz0-transaction-contract"
 version = "0.1.0"
 dependencies = [
+ "libc",
+ "rz0-error-contract",
+ "rz0-resource-contract",
+ "rz0-validation-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "windows-sys",
 ]
+
+[[package]]
+name = "rz0-validation-contract"
+version = "0.1.0"
 
 [[package]]
 name = "scopeguard"

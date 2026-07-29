@@ -4,33 +4,15 @@ use std::io::{self, Read};
 use std::path::{Component, Path};
 
 pub(crate) fn validate_relative_path(path: &str) -> Result<(), &'static str> {
-    if path.trim().is_empty() {
-        return Err("path must not be empty");
+    if rz0_validation_contract::valid_contract_relative_path(path) {
+        Ok(())
+    } else {
+        Err("path must be bounded, normalized, platform-neutral, and relative")
     }
-    if looks_url_like(path) {
-        return Err("URL-like paths are not supported");
-    }
-    if path.contains('\\') {
-        return Err("backslash paths are not supported");
-    }
-    let path = Path::new(path);
-    if path.is_absolute() {
-        return Err("absolute paths are not supported");
-    }
-    for component in path.components() {
-        match component {
-            Component::Normal(_) | Component::CurDir => {}
-            Component::ParentDir => return Err(".. traversal is not supported"),
-            Component::RootDir | Component::Prefix(_) => {
-                return Err("absolute paths are not supported");
-            }
-        }
-    }
-    Ok(())
 }
 
 pub(crate) fn is_valid_sha256(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    rz0_validation_contract::valid_sha256(value)
 }
 
 pub(crate) fn sha256_file(path: &Path) -> io::Result<String> {
@@ -79,14 +61,6 @@ pub(crate) fn path_contains_reparse_or_symlink(
         }
     }
     Ok(false)
-}
-
-fn looks_url_like(path: &str) -> bool {
-    let lower = path.to_ascii_lowercase();
-    lower.contains("://")
-        || lower.starts_with("file:")
-        || lower.starts_with("http:")
-        || lower.starts_with("https:")
 }
 
 fn to_lower_hex(bytes: &[u8]) -> String {

@@ -248,14 +248,7 @@ fn check_unique(values: &[String], name: &str, warnings: &mut Vec<String>) {
 }
 
 fn is_valid_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= 80
-        && !id.starts_with(['.', '-'])
-        && !id.ends_with(['.', '-'])
-        && !id.contains("..")
-        && id
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-')
+    rz0_validation_contract::valid_module_id(id)
 }
 
 #[cfg(test)]

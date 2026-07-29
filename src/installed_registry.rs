@@ -229,14 +229,7 @@ fn validate_text_field(value: &str, name: &str, max_len: usize, errors: &mut Vec
 }
 
 fn is_valid_module_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= 80
-        && !id.starts_with(['.', '-'])
-        && !id.ends_with(['.', '-'])
-        && !id.contains("..")
-        && id
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-')
+    rz0_validation_contract::valid_module_id(id)
 }
 
 fn empty_report(path: &Path) -> InstalledRegistryReport {

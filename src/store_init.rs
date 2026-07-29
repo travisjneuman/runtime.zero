@@ -1,4 +1,7 @@
-use std::fs;
+#[cfg(unix)]
+use std::fs::File;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -98,7 +101,7 @@ fn file(role: StoreInitRole, path: &str) -> StoreInitStep {
 
 fn inspect_step(role: StoreInitRole, path: &str, kind: StoreInitKind) -> StoreInitStep {
     let (state, detail) = match fs::symlink_metadata(path) {
-        Ok(metadata) if metadata.file_type().is_symlink() => (
+        Ok(metadata) if unsafe_link_type(&metadata) => (
             StoreInitStepState::Blocked,
             "path is a symlink and is not accepted for initialization".to_string(),
         ),
@@ -212,32 +215,119 @@ fn apply_steps(store: &ModuleStorePlan, marker: &Path, steps: &mut [StoreInitSte
             }
             _ => {}
         }
+        if step.state == StoreInitStepState::Blocked {
+            break;
+        }
     }
 }
 
 fn create_dir_step(step: &mut StoreInitStep) {
-    match fs::create_dir_all(&step.path) {
+    let path = Path::new(&step.path);
+    let result = verify_direct_parent(path)
+        .and_then(|()| create_private_directory(path))
+        .and_then(|()| verify_direct_kind(path, StoreInitKind::Directory))
+        .and_then(|()| sync_parent(path));
+    match result {
         Ok(()) => {
             step.state = StoreInitStepState::Created;
-            step.detail = "directory created".to_string();
+            step.detail = "private directory created and verified".to_string();
         }
-        Err(err) => block_step(step, format!("create_dir_all failed: {err}")),
+        Err(err) => block_step(step, format!("create directory failed closed: {err}")),
     }
 }
 
 fn write_file_step(store: &ModuleStorePlan, marker: &Path, step: &mut StoreInitStep) {
-    let result = if step.role == StoreInitRole::RegistryPath {
-        fs::write(&step.path, empty_registry_json())
+    let content = if step.role == StoreInitRole::RegistryPath {
+        empty_registry_json()
     } else {
-        fs::write(&step.path, init_marker_json(store, marker))
+        init_marker_json(store, marker)
     };
+    let path = Path::new(&step.path);
+    let result = verify_direct_parent(path)
+        .and_then(|()| write_new_private_file(path, content.as_bytes()))
+        .and_then(|()| verify_direct_kind(path, StoreInitKind::File))
+        .and_then(|()| sync_parent(path));
     match result {
         Ok(()) => {
             step.state = StoreInitStepState::Written;
-            step.detail = "file written".to_string();
+            step.detail = "create-new private file written, synced, and verified".to_string();
         }
-        Err(err) => block_step(step, format!("write failed: {err}")),
+        Err(err) => block_step(step, format!("write failed closed: {err}")),
     }
+}
+
+#[cfg(unix)]
+fn create_private_directory(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+
+    let mut builder = fs::DirBuilder::new();
+    builder.mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_directory(path: &Path) -> std::io::Result<()> {
+    fs::create_dir(path)
+}
+
+fn write_new_private_file(path: &Path, content: &[u8]) -> std::io::Result<()> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
+    file.write_all(content)?;
+    file.sync_all()
+}
+
+fn verify_direct_parent(path: &Path) -> std::io::Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("created path has no parent"))?;
+    verify_direct_kind(parent, StoreInitKind::Directory)
+}
+
+fn verify_direct_kind(path: &Path, kind: StoreInitKind) -> std::io::Result<()> {
+    let metadata = fs::symlink_metadata(path)?;
+    let valid = !unsafe_link_type(&metadata)
+        && match kind {
+            StoreInitKind::Directory => metadata.is_dir(),
+            StoreInitKind::File => metadata.is_file(),
+        };
+    if valid {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(
+            "created path identity or filesystem type changed",
+        ))
+    }
+}
+
+#[cfg(windows)]
+fn unsafe_link_type(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+
+    metadata.file_type().is_symlink() || metadata.file_attributes() & 0x0400 != 0
+}
+
+#[cfg(not(windows))]
+fn unsafe_link_type(metadata: &fs::Metadata) -> bool {
+    metadata.file_type().is_symlink()
+}
+
+#[cfg(unix)]
+fn sync_parent(path: &Path) -> std::io::Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("created path has no parent"))?;
+    File::open(parent)?.sync_all()
+}
+
+#[cfg(not(unix))]
+fn sync_parent(_path: &Path) -> std::io::Result<()> {
+    Ok(())
 }
 
 fn block_step(step: &mut StoreInitStep, detail: String) {

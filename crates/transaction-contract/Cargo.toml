@@ -9,8 +9,19 @@ publish = false
 rust-version = "1.96"
 
 [dependencies]
+rz0-error-contract = { version = "0.1.0", path = "../error-contract" }
+rz0-resource-contract = { version = "0.1.0", path = "../resource-contract" }
+rz0-validation-contract = { version = "0.1.0", path = "../validation-contract" }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 sha2 = "0.10"
 
-[dev-dependencies]
-serde_json = "1.0"
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+] }

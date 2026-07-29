@@ -1,5 +1,3 @@
-use std::path::{Component, Path};
-
 pub(crate) fn validate_registry_path(
     value: &str,
     field: &str,
@@ -31,18 +29,11 @@ pub(crate) fn validate_store_relative_path(path: &str) -> Result<(), &'static st
     if path.contains('\\') {
         return Err("backslash paths are not supported");
     }
-    let path = Path::new(path);
-    if path.is_absolute() {
+    if rz0_validation_contract::is_absolute_local_path(path) {
         return Err("absolute paths are not supported");
     }
-    for component in path.components() {
-        match component {
-            Component::Normal(_) | Component::CurDir => {}
-            Component::ParentDir => return Err(".. traversal is not supported"),
-            Component::RootDir | Component::Prefix(_) => {
-                return Err("absolute paths are not supported");
-            }
-        }
+    if !rz0_validation_contract::valid_contract_relative_path(path) {
+        return Err("path must be bounded and normalized without traversal");
     }
     Ok(())
 }

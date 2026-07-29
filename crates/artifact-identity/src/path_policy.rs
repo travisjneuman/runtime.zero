@@ -72,22 +72,7 @@ pub(crate) fn checked_artifact_path(
 }
 
 fn valid_relative_path(value: &str) -> bool {
-    if value.is_empty()
-        || value.len() > 1024
-        || value.contains('\\')
-        || value.contains(':')
-        || value.chars().any(char::is_control)
-        || value
-            .split('/')
-            .any(|component| component.is_empty() || matches!(component, "." | ".."))
-    {
-        return false;
-    }
-    let path = Path::new(value);
-    !path.is_absolute()
-        && path
-            .components()
-            .all(|component| matches!(component, Component::Normal(_)))
+    rz0_validation_contract::valid_contract_relative_path(value)
 }
 
 #[cfg(windows)]

@@ -1,5 +1,8 @@
 use std::collections::BTreeSet;
 
+mod durable;
+
+pub use durable::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -428,35 +431,17 @@ fn event_kind_name(kind: TransactionEventKind) -> &'static str {
 }
 
 fn validate_id(value: &str, field: &str, errors: &mut Vec<String>) {
-    if value.is_empty()
-        || value.len() > 96
-        || value.starts_with(['.', '-'])
-        || value.ends_with(['.', '-'])
-        || value.contains("..")
-        || !value.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-' | b'_')
-        })
-    {
+    if !rz0_validation_contract::valid_ledger_id(value, 96) {
         errors.push(format!("{field} is invalid"));
     }
 }
 
 fn valid_hash(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    rz0_validation_contract::valid_sha256(value)
 }
 
 fn valid_relative_path(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 1024
-        && !value.starts_with(['/', '\\', '.'])
-        && !value.contains(['\\', '\0'])
-        && !value.contains("://")
-        && value
-            .split('/')
-            .all(|component| !component.is_empty() && component != "." && component != "..")
+    !value.starts_with('.') && rz0_validation_contract::valid_contract_relative_path(value)
 }
 
 #[cfg(test)]

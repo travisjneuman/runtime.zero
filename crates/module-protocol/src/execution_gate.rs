@@ -205,20 +205,9 @@ fn validate_gate_set(gates: &[ExecutionGateEvidence], errors: &mut Vec<String>) 
 }
 
 fn valid_detail(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 160
-        && !value.chars().any(char::is_control)
-        && value.is_ascii()
+    rz0_validation_contract::valid_ascii_text(value, 160)
 }
 
 fn valid_reference(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 120
-        && !value.starts_with(['.', '-'])
-        && !value.ends_with(['.', '-'])
-        && value.chars().all(|character| {
-            character.is_ascii_lowercase()
-                || character.is_ascii_digit()
-                || matches!(character, '.' | '-' | '_' | ':')
-        })
+    rz0_validation_contract::valid_evidence_reference(value, 120)
 }

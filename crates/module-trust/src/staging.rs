@@ -237,17 +237,7 @@ fn validate_root(value: &str, field: &str, prefix: &str, errors: &mut Vec<String
 }
 
 fn validate_id(value: &str, field: &str, errors: &mut Vec<String>) {
-    let valid = !value.is_empty()
-        && value.len() <= 100
-        && !value.starts_with(['.', '-'])
-        && !value.ends_with(['.', '-'])
-        && !value.contains("..")
-        && value.chars().all(|character| {
-            character.is_ascii_lowercase()
-                || character.is_ascii_digit()
-                || matches!(character, '.' | '-')
-        });
-    if !valid {
+    if !rz0_validation_contract::valid_dotted_id(value, 100) {
         errors.push(format!(
             "{field} must use bounded lowercase letters, digits, dots, or hyphens"
         ));
@@ -255,22 +245,13 @@ fn validate_id(value: &str, field: &str, errors: &mut Vec<String>) {
 }
 
 fn validate_version(value: &str, errors: &mut Vec<String>) {
-    if value.is_empty()
-        || value.len() > 40
-        || !value.chars().all(|character| {
-            character.is_ascii_alphanumeric() || matches!(character, '.' | '+' | '-')
-        })
-    {
+    if !rz0_validation_contract::valid_version(value) {
         errors.push("package_version must use bounded ASCII version characters".to_string());
     }
 }
 
 fn validate_sha256(value: &str, field: &str, errors: &mut Vec<String>) {
-    if value.len() != 64
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    {
+    if !rz0_validation_contract::valid_sha256(value) {
         errors.push(format!(
             "{field} must be 64 lowercase hexadecimal characters"
         ));

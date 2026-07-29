@@ -36,6 +36,57 @@ fn apply_creates_only_store_scaffold_under_temp_root() {
     cleanup(root);
 }
 
+#[cfg(unix)]
+#[test]
+fn apply_uses_private_unix_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = unique_temp_root();
+    let report = store_init_report(
+        &["init".to_string(), "--yes".to_string()],
+        StoreInitOptions::with_store_root(StoreInitMode::Apply, root.clone()),
+    );
+    assert_eq!(report.status, StoreInitStatus::Applied);
+    assert_eq!(
+        fs::metadata(&root)
+            .expect("root metadata")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o700
+    );
+    assert_eq!(
+        fs::metadata(root.join("state").join("installed-modules.json"))
+            .expect("registry metadata")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+    cleanup(root);
+}
+
+#[cfg(unix)]
+#[test]
+fn symlinked_intermediate_directory_blocks_all_writes() {
+    use std::os::unix::fs::symlink;
+
+    let root = unique_temp_root();
+    let external = unique_temp_root();
+    fs::create_dir(&root).expect("store root");
+    fs::create_dir(&external).expect("external root");
+    symlink(&external, root.join("state")).expect("symlink state");
+    let report = store_init_report(
+        &["init".to_string(), "--yes".to_string()],
+        StoreInitOptions::with_store_root(StoreInitMode::Apply, root.clone()),
+    );
+    assert_eq!(report.status, StoreInitStatus::Blocked);
+    assert!(!report.writes_attempted);
+    assert!(!external.join("installed-modules.json").exists());
+    cleanup(root);
+    cleanup(external);
+}
+
 #[test]
 fn apply_is_idempotent_after_valid_initialization() {
     let root = unique_temp_root();
