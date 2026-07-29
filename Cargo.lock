@@ -694,6 +694,7 @@ dependencies = [
  "rz0-capability-contract",
  "rz0-inventory-contract",
  "rz0-resource-contract",
+ "rz0-secure-fs",
  "rz0-validation-contract",
  "serde",
  "serde_json",
@@ -847,12 +848,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rz0-secure-fs"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "rz0-error-contract",
+ "windows-sys",
+]
+
+[[package]]
 name = "rz0-transaction-contract"
 version = "0.1.0"
 dependencies = [
  "libc",
  "rz0-error-contract",
  "rz0-resource-contract",
+ "rz0-secure-fs",
  "rz0-validation-contract",
  "serde",
  "serde_json",

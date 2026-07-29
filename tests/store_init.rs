@@ -3,11 +3,13 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(unix)]
 use runtime_zero::installed_registry::InstalledRegistryState;
 use runtime_zero::store_init::{
     StoreInitMode, StoreInitOptions, StoreInitStatus, StoreInitStepState, store_init_report,
 };
 
+#[cfg(unix)]
 #[test]
 fn dry_run_does_not_create_temp_store_root() {
     let root = unique_temp_root();
@@ -20,6 +22,7 @@ fn dry_run_does_not_create_temp_store_root() {
     assert!(!root.exists());
 }
 
+#[cfg(unix)]
 #[test]
 fn apply_creates_only_store_scaffold_under_temp_root() {
     let root = unique_temp_root();
@@ -87,6 +90,7 @@ fn symlinked_intermediate_directory_blocks_all_writes() {
     cleanup(external);
 }
 
+#[cfg(unix)]
 #[test]
 fn apply_is_idempotent_after_valid_initialization() {
     let root = unique_temp_root();
@@ -103,6 +107,19 @@ fn apply_is_idempotent_after_valid_initialization() {
     assert!(!second.writes_attempted);
     assert_eq!(second.registry_status, InstalledRegistryState::Valid);
     cleanup(root);
+}
+
+#[cfg(not(unix))]
+#[test]
+fn unsupported_platform_blocks_store_creation_without_writes() {
+    let root = unique_temp_root();
+    let report = store_init_report(
+        &["init".to_string(), "--yes".to_string()],
+        StoreInitOptions::with_store_root(StoreInitMode::Apply, root.clone()),
+    );
+    assert_eq!(report.status, StoreInitStatus::Blocked);
+    assert!(!report.writes_attempted);
+    assert!(!root.exists());
 }
 
 #[test]

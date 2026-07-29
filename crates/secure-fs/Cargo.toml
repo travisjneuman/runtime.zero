@@ -1,0 +1,21 @@
+[package]
+name = "rz0-secure-fs"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "Opened-directory relative filesystem primitives for runtime.zero"
+license = "Apache-2.0"
+publish = false
+rust-version = "1.96"
+
+[dependencies]
+rz0-error-contract = { version = "0.1.0", path = "../error-contract" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+] }

@@ -1,10 +1,12 @@
 use std::{
     fmt,
-    fs::{self, File, OpenOptions},
-    io::{Read, Write},
+    fs::{self, File},
+    io::Read,
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
+#[cfg(not(unix))]
+use std::{fs::OpenOptions, io::Write};
 
 use rz0_resource_contract::MAX_JOURNAL_SNAPSHOT_BYTES;
 
@@ -22,6 +24,7 @@ pub enum DurableJournalErrorCode {
     HistoryConflict,
     SnapshotLimitExceeded,
     CorruptSnapshot,
+    RecoveryRequired,
     Io,
 }
 
@@ -52,6 +55,7 @@ impl DurableJournalError {
                 Foundation::Conflict
             }
             DurableJournalErrorCode::SnapshotLimitExceeded => Foundation::InputLimitExceeded,
+            DurableJournalErrorCode::RecoveryRequired => Foundation::RecoveryRequired,
             DurableJournalErrorCode::Io => Foundation::IoUnavailable,
         }
     }
@@ -144,10 +148,7 @@ pub fn publish_journal_snapshot(
     ));
     write_new_synced_file(&temporary, &bytes)?;
     let final_path = heads.join(&snapshot_name);
-    if let Err(error) = fs::rename(&temporary, &final_path) {
-        let _ = fs::remove_file(&temporary);
-        return Err(io_error("publish immutable journal snapshot", error));
-    }
+    publish_pending_file(&temporary, &heads, &snapshot_name)?;
     sync_directory(&heads)?;
     verify_direct_regular_file(&final_path)?;
 
@@ -379,15 +380,31 @@ fn snapshot_name(sequence: u32, event_sha256: &str) -> String {
     format!("{sequence:04}-{event_sha256}.json")
 }
 
+#[cfg(unix)]
 fn write_new_synced_file(path: &Path, bytes: &[u8]) -> Result<(), DurableJournalError> {
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options
+    let parent = path.parent().ok_or_else(|| {
+        DurableJournalError::new(
+            DurableJournalErrorCode::UnsafeRoot,
+            "pending path has no parent",
+        )
+    })?;
+    let name = path.file_name().ok_or_else(|| {
+        DurableJournalError::new(
+            DurableJournalErrorCode::UnsafeRoot,
+            "pending path has no name",
+        )
+    })?;
+    rz0_secure_fs::SecureDirectory::open(parent)
+        .and_then(|directory| directory.write_new_child(name, bytes, MAX_JOURNAL_SNAPSHOT_BYTES))
+        .map(|_| ())
+        .map_err(|error| secure_error("write pending journal snapshot", error))
+}
+
+#[cfg(not(unix))]
+fn write_new_synced_file(path: &Path, bytes: &[u8]) -> Result<(), DurableJournalError> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
         .open(path)
         .map_err(|error| io_error("create pending journal snapshot", error))?;
     file.write_all(bytes)
@@ -398,10 +415,16 @@ fn write_new_synced_file(path: &Path, bytes: &[u8]) -> Result<(), DurableJournal
 
 #[cfg(unix)]
 fn create_private_directory(path: &Path) -> std::io::Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-
-    let mut builder = fs::DirBuilder::new();
-    builder.mode(0o700).create(path)
+    let parent = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("journal directory has no parent"))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| std::io::Error::other("journal directory has no name"))?;
+    rz0_secure_fs::SecureDirectory::open(parent)
+        .and_then(|directory| directory.create_child_directory(name))
+        .map(|_| ())
+        .map_err(|error| std::io::Error::other(error.to_string()))
 }
 
 #[cfg(not(unix))]
@@ -426,14 +449,31 @@ fn verify_direct_regular_file(path: &Path) -> Result<(), DurableJournalError> {
     open_direct_snapshot(path).map(|_| ())
 }
 
+#[cfg(unix)]
+fn open_direct_snapshot(path: &Path) -> Result<(File, fs::Metadata), DurableJournalError> {
+    let parent = path.parent().ok_or_else(|| {
+        DurableJournalError::new(
+            DurableJournalErrorCode::UnsafeRoot,
+            "snapshot has no parent",
+        )
+    })?;
+    let name = path.file_name().ok_or_else(|| {
+        DurableJournalError::new(DurableJournalErrorCode::UnsafeRoot, "snapshot has no name")
+    })?;
+    let opened = rz0_secure_fs::SecureDirectory::open(parent)
+        .and_then(|directory| directory.open_child_file(name))
+        .map_err(|error| secure_error("open journal snapshot", error))?;
+    let metadata = opened
+        .file()
+        .metadata()
+        .map_err(|error| io_error("inspect root-relative opened journal snapshot", error))?;
+    Ok((opened.into_file(), metadata))
+}
+
+#[cfg(not(unix))]
 fn open_direct_snapshot(path: &Path) -> Result<(File, fs::Metadata), DurableJournalError> {
     let mut options = OpenOptions::new();
     options.read(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW);
-    }
     #[cfg(windows)]
     {
         use std::os::windows::fs::OpenOptionsExt;
@@ -453,13 +493,6 @@ fn open_direct_snapshot(path: &Path) -> Result<(File, fs::Metadata), DurableJour
         ));
     }
     Ok((file, metadata))
-}
-
-#[cfg(unix)]
-fn has_single_link(_file: &File, metadata: &fs::Metadata) -> Result<bool, DurableJournalError> {
-    use std::os::unix::fs::MetadataExt;
-
-    Ok(metadata.nlink() == 1)
 }
 
 #[cfg(windows)]
@@ -501,14 +534,76 @@ fn unsafe_link_type(metadata: &fs::Metadata) -> bool {
 
 #[cfg(unix)]
 fn sync_directory(path: &Path) -> Result<(), DurableJournalError> {
-    File::open(path)
-        .and_then(|directory| directory.sync_all())
-        .map_err(|error| io_error("sync journal directory", error))
+    rz0_secure_fs::SecureDirectory::open(path)
+        .and_then(|directory| directory.sync())
+        .map_err(|error| secure_error("sync journal directory", error))
 }
 
 #[cfg(not(unix))]
 fn sync_directory(_path: &Path) -> Result<(), DurableJournalError> {
     Ok(())
+}
+
+#[cfg(unix)]
+fn publish_pending_file(
+    temporary: &Path,
+    heads: &Path,
+    snapshot_name: &str,
+) -> Result<(), DurableJournalError> {
+    let source_parent = temporary.parent().ok_or_else(|| {
+        DurableJournalError::new(
+            DurableJournalErrorCode::UnsafeRoot,
+            "pending path has no parent",
+        )
+    })?;
+    let pending_name = temporary.file_name().ok_or_else(|| {
+        DurableJournalError::new(
+            DurableJournalErrorCode::UnsafeRoot,
+            "pending path has no name",
+        )
+    })?;
+    let source = rz0_secure_fs::SecureDirectory::open(source_parent)
+        .map_err(|error| secure_error("open pending snapshot directory", error))?;
+    let destination = rz0_secure_fs::SecureDirectory::open(heads)
+        .map_err(|error| secure_error("open snapshot heads directory", error))?;
+    source
+        .publish_child_noreplace(
+            pending_name,
+            &destination,
+            std::ffi::OsStr::new(snapshot_name),
+        )
+        .map(|_| ())
+        .map_err(|error| secure_error("publish immutable journal snapshot", error))
+}
+
+#[cfg(not(unix))]
+fn publish_pending_file(
+    temporary: &Path,
+    heads: &Path,
+    snapshot_name: &str,
+) -> Result<(), DurableJournalError> {
+    let final_path = heads.join(snapshot_name);
+    if let Err(error) = fs::rename(temporary, &final_path) {
+        let _ = fs::remove_file(temporary);
+        return Err(io_error("publish immutable journal snapshot", error));
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn secure_error(context: &str, error: rz0_secure_fs::SecureFsError) -> DurableJournalError {
+    use rz0_error_contract::FoundationErrorCode as Foundation;
+
+    let code = match error.foundation_code() {
+        Foundation::Conflict => DurableJournalErrorCode::HistoryConflict,
+        Foundation::ArtifactIdentityChanged | Foundation::PermissionDenied => {
+            DurableJournalErrorCode::UnsafeFilesystemType
+        }
+        Foundation::InputLimitExceeded => DurableJournalErrorCode::SnapshotLimitExceeded,
+        Foundation::RecoveryRequired => DurableJournalErrorCode::RecoveryRequired,
+        _ => DurableJournalErrorCode::Io,
+    };
+    DurableJournalError::new(code, format!("{context}: {error}"))
 }
 
 fn io_error(context: &str, error: std::io::Error) -> DurableJournalError {
@@ -530,24 +625,26 @@ impl WriterLock {
                 "journal writer lock is a symlink or reparse point",
             ));
         }
-        let mut options = OpenOptions::new();
-        options.read(true).write(true).create(true);
         #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
+        let file = rz0_secure_fs::SecureDirectory::open(root)
+            .and_then(|directory| {
+                directory.open_or_create_lock_file(path.file_name().unwrap_or_default())
+            })
+            .map_err(|error| secure_error("open journal writer lock", error))?;
+        #[cfg(not(unix))]
+        let file = {
+            let mut options = OpenOptions::new();
+            options.read(true).write(true).create(true);
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::OpenOptionsExt;
+                use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT;
+                options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+            }
             options
-                .mode(0o600)
-                .custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW);
-        }
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::OpenOptionsExt;
-            use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT;
-            options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
-        }
-        let file = options
-            .open(&path)
-            .map_err(|error| io_error("open journal writer lock", error))?;
+                .open(&path)
+                .map_err(|error| io_error("open journal writer lock", error))?
+        };
         let metadata = file
             .metadata()
             .map_err(|error| io_error("inspect opened journal writer lock", error))?;

@@ -1,10 +1,3 @@
-#[cfg(unix)]
-use std::fs::File;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use crate::installed_registry::{InstalledRegistryState, installed_registry_report};
 use crate::launch_routing::{LaunchEnvironment, resolve_launch_mode};
 use crate::module_store::{
@@ -14,6 +7,9 @@ pub use crate::store_init_model::{
     StoreInitKind, StoreInitMode, StoreInitOptions, StoreInitReport, StoreInitRole,
     StoreInitStatus, StoreInitStep, StoreInitStepState,
 };
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const INIT_MARKER_FILE: &str = "store-init.json";
 const INIT_SEED: &str = "store init";
@@ -38,6 +34,7 @@ fn run_init(args: &[String], store: ModuleStorePlan, mode: StoreInitMode) -> Sto
     let mut registry_status = registry.status;
     apply_registry_state(&mut steps, registry_status);
     apply_marker_state(&mut steps, &marker);
+    apply_platform_write_support(&mut steps);
     let mut status = init_status(&steps);
     let mut writes_attempted = false;
     if mode == StoreInitMode::Apply
@@ -190,6 +187,22 @@ fn valid_marker(value: &serde_json::Value) -> bool {
             == Some(u64::from(STORE_SCHEMA_VERSION))
 }
 
+#[cfg(unix)]
+fn apply_platform_write_support(_steps: &mut [StoreInitStep]) {}
+
+#[cfg(not(unix))]
+fn apply_platform_write_support(steps: &mut [StoreInitStep]) {
+    for step in steps.iter_mut().filter(|step| {
+        matches!(
+            step.state,
+            StoreInitStepState::WouldCreate | StoreInitStepState::WouldWrite
+        )
+    }) {
+        step.state = StoreInitStepState::Blocked;
+        step.detail = "opened-root store mutation is not implemented for this platform".to_string();
+    }
+}
+
 fn init_status(steps: &[StoreInitStep]) -> StoreInitStatus {
     if steps
         .iter()
@@ -225,8 +238,7 @@ fn create_dir_step(step: &mut StoreInitStep) {
     let path = Path::new(&step.path);
     let result = verify_direct_parent(path)
         .and_then(|()| create_private_directory(path))
-        .and_then(|()| verify_direct_kind(path, StoreInitKind::Directory))
-        .and_then(|()| sync_parent(path));
+        .and_then(|()| verify_direct_kind(path, StoreInitKind::Directory));
     match result {
         Ok(()) => {
             step.state = StoreInitStepState::Created;
@@ -245,8 +257,7 @@ fn write_file_step(store: &ModuleStorePlan, marker: &Path, step: &mut StoreInitS
     let path = Path::new(&step.path);
     let result = verify_direct_parent(path)
         .and_then(|()| write_new_private_file(path, content.as_bytes()))
-        .and_then(|()| verify_direct_kind(path, StoreInitKind::File))
-        .and_then(|()| sync_parent(path));
+        .and_then(|()| verify_direct_kind(path, StoreInitKind::File));
     match result {
         Ok(()) => {
             step.state = StoreInitStepState::Written;
@@ -258,28 +269,54 @@ fn write_file_step(store: &ModuleStorePlan, marker: &Path, step: &mut StoreInitS
 
 #[cfg(unix)]
 fn create_private_directory(path: &Path) -> std::io::Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-
-    let mut builder = fs::DirBuilder::new();
-    builder.mode(0o700).create(path)
+    let parent = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("created path has no parent"))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| std::io::Error::other("created path has no child name"))?;
+    let directory = rz0_secure_fs::SecureDirectory::open(parent)
+        .map_err(|error| std::io::Error::other(error.to_string()))?;
+    directory
+        .create_child_directory(name)
+        .map(|_| ())
+        .map_err(|error| std::io::Error::other(error.to_string()))
 }
 
 #[cfg(not(unix))]
-fn create_private_directory(path: &Path) -> std::io::Result<()> {
-    fs::create_dir(path)
+fn create_private_directory(_path: &Path) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "opened-root directory creation is unsupported on this platform",
+    ))
 }
 
+#[cfg(unix)]
 fn write_new_private_file(path: &Path, content: &[u8]) -> std::io::Result<()> {
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options.open(path)?;
-    file.write_all(content)?;
-    file.sync_all()
+    let parent = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("created path has no parent"))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| std::io::Error::other("created path has no child name"))?;
+    let directory = rz0_secure_fs::SecureDirectory::open(parent)
+        .map_err(|error| std::io::Error::other(error.to_string()))?;
+    directory
+        .write_new_child(
+            name,
+            content,
+            rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
+        )
+        .map(|_| ())
+        .map_err(|error| std::io::Error::other(error.to_string()))
+}
+
+#[cfg(not(unix))]
+fn write_new_private_file(_path: &Path, _content: &[u8]) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "opened-root file creation is unsupported on this platform",
+    ))
 }
 
 fn verify_direct_parent(path: &Path) -> std::io::Result<()> {
@@ -315,19 +352,6 @@ fn unsafe_link_type(metadata: &fs::Metadata) -> bool {
 #[cfg(not(windows))]
 fn unsafe_link_type(metadata: &fs::Metadata) -> bool {
     metadata.file_type().is_symlink()
-}
-
-#[cfg(unix)]
-fn sync_parent(path: &Path) -> std::io::Result<()> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| std::io::Error::other("created path has no parent"))?;
-    File::open(parent)?.sync_all()
-}
-
-#[cfg(not(unix))]
-fn sync_parent(_path: &Path) -> std::io::Result<()> {
-    Ok(())
 }
 
 fn block_step(step: &mut StoreInitStep, detail: String) {
