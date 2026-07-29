@@ -135,6 +135,24 @@ pub fn planned_module_family_manifests() -> Vec<ModuleManifest> {
             "Report-first leftover classification before quarantine design.",
             RiskLevel::DryRunOnly,
         ),
+        planned_family(
+            "first-party.cache",
+            "Cache management modules",
+            "Ownership-aware cache evidence and explicitly approved quarantine or cleanup.",
+            RiskLevel::MutatingGated,
+        ),
+        planned_family(
+            "first-party.security-integrity",
+            "Security and integrity modules",
+            "Evidence-based integrity and security checks without unsupported assurance claims.",
+            RiskLevel::ReadOnly,
+        ),
+        planned_family(
+            "first-party.report-export",
+            "Report and export modules",
+            "Privacy-reviewed deterministic reports, exports, and support bundles.",
+            RiskLevel::ReadOnly,
+        ),
     ]
 }
 
@@ -247,5 +265,28 @@ mod tests {
         let report = ModuleRegistryReport::empty_installed();
         assert_eq!(report.installed_modules.len(), 0);
         assert_eq!(report.summary.validation_error_count, 0);
+    }
+
+    #[test]
+    fn planned_registry_matches_the_frozen_seven_family_catalog() {
+        let report = ModuleRegistryReport::empty_installed();
+        let ids = report
+            .planned_module_families
+            .iter()
+            .map(|manifest| manifest.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(report.summary.planned_family_count, 7);
+        assert_eq!(
+            ids,
+            [
+                "first-party.inventory",
+                "first-party.updater",
+                "first-party.uninstall",
+                "first-party.leftovers",
+                "first-party.cache",
+                "first-party.security-integrity",
+                "first-party.report-export",
+            ]
+        );
     }
 }
