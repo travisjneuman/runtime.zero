@@ -66,7 +66,8 @@ response is `not_executed` with:
 - matching request/module identity;
 - no exit code, timeout, payload digest, stdout, or stderr;
 - no writes or network attempts;
-- `execution_not_authorized` as the bounded error code.
+- the shared typed foundation error code serialized as
+  `execution_not_authorized`; free-form error codes are rejected.
 
 Tests reject fabricated success/output and unknown fields. Success/partial/
 failure/timeout enum values remain reserved for a later schema/gate and cannot

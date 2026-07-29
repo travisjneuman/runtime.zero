@@ -19,7 +19,9 @@
 
 Capability names are foundation-owned through one shared contract; manifest,
 protocol, and action schemas accept only their explicit subsets. Classification
-does not grant OS authority.
+does not grant OS authority. Machine error codes are also foundation-owned;
+schema 1 permits no automatic retry and requires accompanying detail to be
+redacted by default.
 
 Every module manifest must declare:
 

@@ -86,6 +86,8 @@ See [`action-planning.md`](action-planning.md).
   vulnerability/license metadata audit is recorded.
 - [x] Shared foundation capability vocabulary with disjoint read-only protocol/
   manifest and action-plan schema subsets; classification grants no authority.
+- [x] Shared typed machine-error vocabulary with redacted-detail defaults and no
+  schema-1 automatic retry; module protocol rejects free-form error codes.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
 - [x] Test-key-only detached Ed25519 signature contract and strict verification.
 - [x] Fixture-only immutable staging plan plus atomic temporary-root publication

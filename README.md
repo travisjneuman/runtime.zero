@@ -133,9 +133,11 @@ it. `crates/capability-contract/` supplies one shared least-privilege vocabulary
 for manifests, protocols, and action plans while granting no authority.
 `crates/transaction-contract/` supplies a bounded hash-chained state machine and
 conservative recovery decisions without filesystem I/O or automatic mutation.
-See
+`crates/error-contract/` supplies stable machine error codes with fail-closed
+privacy and retry semantics. See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),
 [`docs/capability-contract.md`](docs/capability-contract.md),
+[`docs/error-contract.md`](docs/error-contract.md),
 [`docs/signature-verification.md`](docs/signature-verification.md),
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md),
 [`docs/transaction-journal.md`](docs/transaction-journal.md),

@@ -135,7 +135,8 @@ parallel once its shared foundation dependency is stable.
 1. Freeze 1.0 requirements, OS/architecture/manager/install-channel tables,
    schemas, compatibility policy, acceptance IDs, and measurable budgets.
 2. Stabilize the core package/module/store/configuration/error/logging contracts
-   and migration rules.
+   and migration rules. The shared typed error vocabulary and conservative
+   retry/privacy semantics exist; broad adapter migration remains.
 3. Close package and executable identity races; the same-open-handle artifact
    identity primitive and Unix root-relative no-follow traversal exist, but
    Windows root-handle semantics and platform execution binding remain.
