@@ -30,9 +30,19 @@ cargo run -p rz0-module-inventory -- --include-apps --format json --redact-paths
 
 `--probe-versions` executes exact known executable paths discovered from PATH
 with symlink/reparse-component rejection, static version-only arguments, a
-two-second timeout, bounded output, and no shell. Script-based probes remain disabled. `--include-apps` is Windows-only and
-reads standard uninstall registry views; it omits raw registry key names and
-does not invoke package managers or uninstallers.
+two-second timeout, bounded output, and no shell. Script-based probes remain
+disabled. `--include-apps` is available on supported platforms and remains
+explicit:
+
+- Windows reads standard uninstall registry views and omits raw key names;
+- macOS enumerates only direct `.app` directories under known system/user roots
+  and does not open bundle contents, so version and publisher remain unknown;
+- Linux parses only regular XDG `.desktop` files up to 64 KiB, honors user-root
+  and `Hidden=true` precedence, emits only `Type=Application` names/paths, and
+  never emits or executes `Exec` values.
+
+The collectors reject symlinked roots/records, cap entry inspection and output at 4,096 applications,
+and do not invoke package managers, applications, scripts, or uninstallers.
 
 ## Privacy
 

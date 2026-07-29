@@ -13,6 +13,8 @@ Issues, design feedback, documentation suggestions, and safety reviews are welco
   fixtures must use synthetic paths, app names, publishers, and versions.
 - Keep feature modules separate from the core and preserve fixture-first,
   read-only behavior before proposing platform probes.
-- Run `cargo fmt --check` and `cargo test --workspace` for Rust changes.
+- Run `cargo fmt --check`, `cargo test --workspace`, and workspace Clippy with
+  warnings denied for Rust changes. Run the committed `cargo deny check` policy
+  when changing dependencies or preparing a release candidate.
 
 The repository currently uses Apache-2.0. Premium or commercial modules may use separate licenses later.

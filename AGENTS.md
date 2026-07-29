@@ -74,7 +74,9 @@ Before handing off code changes, run the smallest relevant checks first:
 - `cargo run -- doctor`
 - `cargo run -- scan --dry-run`
 
-Use heavier checks only when they add value for the change. Do not add GitHub
+For dependency or release-candidate changes, also run the committed manual
+`cargo deny check` policy when the separately installed tool is available. Use
+heavier checks only when they add value for the change. Do not add GitHub
 Actions, release automation, package publishing, Cloudflare deployment, or
 other recurring/quota-impacting automation without explicit approval.
 

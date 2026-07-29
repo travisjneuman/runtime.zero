@@ -63,8 +63,8 @@ account capabilities.
 
 Manifest permission schema 1 now implements the read-only subset for process
 environment, filesystem metadata, persisted environment registry, application
-registry, and exact command probes. It requires app-registry and command-probe
-permissions to be explicit. This validates declarations only; it is not yet a
+registry, bounded application filesystem reads, and exact command probes. It
+requires application inventory and command-probe permissions to be explicit. This validates declarations only; it is not yet a
 core runtime grant or execution mechanism. Mutating/network capabilities remain
 outside schema 1.
 
@@ -87,9 +87,17 @@ A future installer must verify in this order:
    quarantine plan.
 8. Require explicit confirmation for any write or elevated capability.
 
-The concrete signature scheme and key lifecycle remain undecided. Selection
-must include offline verification, key rotation, compromise response, recovery,
-and reproducible public verification instructions before release use.
+`crates/module-trust/` now implements local detached Ed25519 verification with
+RFC-derived public test fixtures. Its canonical message binds scheme, key ID,
+package ID/version, and exact manifest SHA-256. The caller must select a matching
+non-revoked test key that explicitly authorizes the package ID; the envelope
+cannot self-authorize a key. See
+[`signature-verification.md`](signature-verification.md).
+
+This settles only the bounded test-key scheme. Production key custody, release
+authorization, rotation, compromise response, recovery, provenance,
+transparency/freshness, and reproducible public verification instructions remain
+undecided and required before release use.
 
 ## Execution isolation
 
@@ -152,14 +160,15 @@ exist and are manually exercised.
 
 Implementation may proceed only in bounded stages:
 
-1. permission/capability schema and fixture validation;
-2. local detached-signature verification with test keys only;
-3. immutable staging and transaction simulation;
-4. receipt/rollback/quarantine fixture execution under temporary roots;
-5. first-party process protocol and platform isolation tests;
-6. local developer-only signed artifact trial;
-7. separately approved release/distribution work;
-8. third-party threat model and governance last.
+1. **Implemented:** permission/capability schema and fixture validation.
+2. **Implemented:** local detached Ed25519 verification with public test keys
+   only; no signer, private key, production trust root, or installer integration.
+3. **Next:** immutable staging and transaction simulation.
+4. Receipt/rollback/quarantine fixture execution under temporary roots.
+5. First-party process protocol and platform isolation tests.
+6. Local developer-only signed artifact trial.
+7. Separately approved release/distribution work.
+8. Third-party threat model and governance last.
 
 Each stage must preserve a no-execution/no-write mode and stop before the next
 gate. Destructive cleanup, credential/session handling, persistence, account

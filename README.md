@@ -109,9 +109,16 @@ The first feature-module source package lives at
 [`modules/inventory/`](modules/inventory/). It reads process PATH on supported
 platforms, reads persisted User/Machine PATH on Windows, detects a bounded set
 of known executables, supports opt-in timeout-bounded version probes, and can
-read normalized Windows application evidence when explicitly requested. Use
-`--redact-paths` before sharing its local output. It does not run package
+read normalized platform application evidence when explicitly requested.
+Windows uses read-only uninstall registry views, macOS enumerates only direct
+`.app` bundles under known roots, and Linux parses bounded XDG desktop entries.
+Use `--redact-paths` before sharing its local output. It does not run package
 managers, modify the system, or make the module installable through `rz0`.
+
+A separate `crates/module-trust/` contract now verifies local detached Ed25519
+signatures with public test keys only. It does not provide signing, production
+keys, installation, activation, or module execution. See
+[`docs/signature-verification.md`](docs/signature-verification.md).
 
 The same future store/routing contract can be inspected independently of module
 install planning:
@@ -188,7 +195,12 @@ cargo run -- scan --dry-run
 cargo run -- scan --dry-run --format json
 cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
 cargo run -p rz0-module-inventory -- --format json --redact-paths
+cargo run -p rz0-module-inventory -- --include-apps --format json --redact-paths
+cargo deny check
 ```
+
+`cargo deny check` is an optional manual dependency-policy check and requires a
+separately installed `cargo-deny`; the project does not auto-install it.
 
 ## Local install for development
 
@@ -244,8 +256,10 @@ contract.
 keyboard behavior, rendering boundaries, and brand/theme structure. See
 [`docs/inventory-schema.md`](docs/inventory-schema.md) for the inventory report
 and collector contract. Module execution/trust prerequisites are in
-[`docs/module-trust-and-execution.md`](docs/module-trust-and-execution.md), and
-future update/uninstall/quarantine boundaries are in
+[`docs/module-trust-and-execution.md`](docs/module-trust-and-execution.md), with
+the bounded test-key contract in
+[`docs/signature-verification.md`](docs/signature-verification.md). Future
+update/uninstall/quarantine boundaries are in
 [`docs/action-planning.md`](docs/action-planning.md). The current manual
 dependency/license/validation snapshot is in
 [`docs/dependency-and-validation-audit.md`](docs/dependency-and-validation-audit.md).

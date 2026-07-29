@@ -123,7 +123,7 @@ SHA-256 package integrity checks, dry-run install planning, store plan/status,
 registry/receipt validation, stable JSON output, and read-only TUI surfacing.
 
 Starting module work does not approve module execution, real install/update/
-uninstall behavior, third-party trust, signing, release/package publishing,
+uninstall behavior, third-party trust, production signing, release/package publishing,
 remote fetch, bootstrap/direct-run commands, cleanup, repair, or broad system
 mutation. See [`foundation-readiness.md`](foundation-readiness.md) for the
 handoff gate and acceptance checklist.
@@ -149,9 +149,11 @@ for development, not a published/installed artifact. See
 ## Trust model
 
 The initial implementation does not execute optional modules. First-party
-modules should later be signed and explicitly installed or enabled. This
-foundation slice only verifies local SHA-256 checksums; it does not make a
-network trust decision. Third-party modules are expected eventually, but only
+modules should later be signed and explicitly installed or enabled. The
+foundation verifies local SHA-256 checksums, and a separate workspace contract
+can verify detached Ed25519 signatures against caller-selected public test keys.
+That test-only verifier is not integrated with installation and does not make a
+production or network trust decision. Third-party modules are expected eventually, but only
 after a hardened trust model covering signing, provenance, sandboxing,
 permissions, revocation, and abuse cases. The required staged gate is documented
 in [`module-trust-and-execution.md`](module-trust-and-execution.md); current

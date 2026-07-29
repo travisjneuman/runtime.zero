@@ -39,7 +39,7 @@ Schema version `1` includes:
 - `sources`: independent evidence-source reports;
 - `path_entries`: normalized process/user/machine/fixture PATH evidence;
 - `tools`: normalized known executable evidence;
-- `apps`: normalized opt-in Windows application evidence;
+- `apps`: normalized opt-in Windows/macOS/Linux application evidence;
 - `events`: generic structured source lifecycle events that do not include raw
   evidence values;
 - `warnings`: top-level warnings;
@@ -81,11 +81,16 @@ are never emitted.
 | Known executable discovery | On | Exact allowlisted filenames under PATH only |
 | Known executable version probes | Off | Explicit `--probe-versions`; exact path, symlink/reparse-component rejection, static arguments, no shell, 2-second timeout, 64 KiB capture |
 | Windows installed applications | Off | Explicit `--include-apps`; standard uninstall views, read only, 4,096-record cap |
+| macOS application bundles | Off | Explicit `--include-apps`; direct `.app` directories under five known roots, metadata only, no bundle-content reads |
+| Linux desktop entries | Off | Explicit `--include-apps`; regular XDG `.desktop` files up to 64 KiB, user/hidden precedence, no `Exec` output or execution |
 | Package-manager listings/catalogs | Off | Deferred because behavior can vary by version, locale, source agreements, and network access |
 
-Script-based executable probes remain disabled. The module detects package
-manager executables but does not invoke manager list/update/install/uninstall
-commands.
+Script-based executable probes remain disabled. The module detects package manager executables but does not invoke manager
+list/update/install/uninstall commands. Application collectors reject symlinked
+roots and records and cap entry inspection and normalized output at 4,096 records. Linux desktop
+files use XDG data-root precedence; a higher-priority `Hidden=true` entry blocks
+the same lower-priority desktop ID. The parser does not treat the desktop-spec
+`Version` key as an application version.
 
 ## Privacy and sharing
 
@@ -116,6 +121,9 @@ third-party modules.
 - Microsoft registry access rights (`KEY_READ` / `KEY_QUERY_VALUE`): https://learn.microsoft.com/windows/win32/sysinfo/registry-key-security-and-access-rights
 - Microsoft registry value types: https://learn.microsoft.com/windows/win32/sysinfo/registry-value-types
 - `winreg` crate documentation: https://docs.rs/winreg
+- Apple bundle structures: https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFBundles/BundleTypes/BundleTypes.html
+- Desktop Entry Specification keys: https://specifications.freedesktop.org/desktop-entry-spec/latest/recognized-keys.html
+- XDG Base Directory Specification: https://specifications.freedesktop.org/basedir-spec/latest/
 
 These references describe APIs; they do not replace fixture/runtime verification.
 
@@ -124,5 +132,8 @@ These references describe APIs; they do not replace fixture/runtime verification
 The code is fixture-tested on macOS and cross-checked for the Windows MSVC
 target. Before claiming Windows support, it still needs a real Windows runtime
 smoke covering persisted PATH, registry views, app normalization, timeout
-behavior, redaction, and the installed terminal experience. macOS/Linux package
-manager and service inventory remain later adapter work.
+behavior, redaction, and the installed terminal experience. The macOS app
+adapter was exercised on the development host and Linux parser behavior is
+fixture-tested plus Linux-target compiled, but a real Linux runtime and broader
+macOS/Linux package-manager, service, and persistence inventory remain later
+adapter work.

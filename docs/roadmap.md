@@ -24,6 +24,7 @@ path, production support, or permission to cross a later gate.
 - [x] Structured source status, duration, warnings, and generic events.
 - [x] Report-local path redaction for share-oriented output.
 - [x] Opt-in normalized Windows application registry evidence.
+- [x] Opt-in bounded macOS `.app` and Linux XDG desktop-entry evidence.
 - [ ] Real Windows runtime smoke for persisted PATH, registry views, apps,
   version-probe timeout, and redaction.
 - [ ] Package-manager listing adapters; intentionally deferred until each
@@ -75,13 +76,15 @@ See [`action-planning.md`](action-planning.md).
 - [x] Generic process-PATH inventory compiles for supported platform families.
 - [x] Public module threat model, capability, signing, isolation, transaction,
   revocation, and staged-approval design.
-- [ ] macOS/Linux package-manager, application, service, and persistence
-  inventory adapters.
-- [ ] Windows runtime and full cross-platform compatibility matrix.
-- [ ] Dependency vulnerability, license, supply-chain, and reproducibility audit.
+- [x] Bounded macOS application-bundle and Linux desktop-entry adapters.
+- [ ] macOS/Linux package-manager, service, and persistence inventory adapters.
+- [ ] Real Linux application runtime and Windows/full cross-platform compatibility matrix.
+- [ ] Artifact-level license/notice and reproducibility audit; source dependency
+  vulnerability/license metadata audit is recorded.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
-- [ ] Mutating/network capability schema, test-key signature verification,
-  immutable staging, transaction simulation, and process-protocol isolation tests.
+- [x] Test-key-only detached Ed25519 signature contract and strict verification.
+- [ ] Mutating/network capability schema, immutable staging, transaction
+  simulation, and process-protocol isolation tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote
   feeds, third-party modules, deployment automation, and production actions only
   after their separate explicit approvals.

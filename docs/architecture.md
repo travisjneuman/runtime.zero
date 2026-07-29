@@ -36,13 +36,18 @@ so the feature package does not depend on the CLI/TUI core or pull its terminal
 stack into the module binary. The module uses deterministic fixtures, bounded
 process-PATH collection on
 Windows/macOS/Linux, read-only persisted PATH and optional app registry reads on
-Windows, allowlisted direct executable discovery, opt-in timeout-bounded version
-probes, report-local path redaction, and structured source events. It does not
-invoke package managers or recursively scan drives. See
+Windows, bounded opt-in `.app`/XDG desktop-entry evidence on macOS/Linux,
+allowlisted direct executable discovery, opt-in timeout-bounded version probes,
+report-local path redaction, and structured source events. It does not invoke
+package managers, execute desktop entries, inspect macOS bundle contents, or
+recursively scan drives. See
 [`inventory-schema.md`](inventory-schema.md).
 
-Future execution, signing, capability, transaction, and distribution work is
-gated by [`module-trust-and-execution.md`](module-trust-and-execution.md).
+`crates/module-trust/` supplies a test-key-only detached Ed25519 verification
+contract without adding a signer, key store, installer, execution path, or
+production trust root. Future immutable staging, execution, production signing,
+capability enforcement, transaction, and distribution work is gated by
+[`module-trust-and-execution.md`](module-trust-and-execution.md).
 Update/uninstall/quarantine semantics are gated by
 [`action-planning.md`](action-planning.md).
 

@@ -2,7 +2,7 @@
 
 This document defines the foundation handoff gate for starting the first first-party module without reopening settled core decisions.
 
-The foundation is ready for first-module planning when the first module stays inside the boundaries below. This is not a public production-ready claim and does not approve module mutation, installation, execution, remote distribution, third-party trust, signing, release automation, or bootstrap/direct-run behavior.
+The foundation is ready for first-module planning when the first module stays inside the boundaries below. This is not a public production-ready claim and does not approve module mutation, installation, execution, remote distribution, third-party trust, production signing, release automation, or bootstrap/direct-run behavior.
 
 ## Complete foundation surfaces
 
@@ -13,6 +13,8 @@ The current foundation provides these module-facing contracts:
 - stable foundation dashboard JSON with `schema_version: 1`, `contract: "foundation_dashboard"`, `read_only: true`, and `writes_attempted: false`;
 - read-only module manifest validation with capability, risk, lifecycle, dry-run, mutation, rollback, quarantine, and remote-execution fields;
 - local SHA-256 package integrity validation for explicitly listed manifest files;
+- read-only module permission declarations and a separate detached Ed25519
+  verifier constrained to public test keys;
 - dry-run-only module install planning that reports proposed state without writing, fetching, trusting, or executing;
 - local store contract, `store plan`, `store status`, fixture `--store-root` inspection, installed registry parsing, and receipt validation;
 - explicit `store init --dry-run` and `store init --yes` scaffolding limited to runtime.zero-owned user-local store paths;
@@ -35,7 +37,8 @@ The first module must not:
 - fetch remote packages or metadata;
 - trust third-party authors or package sources;
 - mutate PATH, registry, services, tasks, shell profiles, browser profiles, credentials, sessions, backups, unknown user data, or project workspaces;
-- publish a release, bootstrap path, direct-run command, signing path, package feed, or automation.
+- publish a release, bootstrap path, direct-run command, production signing
+  path, package feed, or automation.
 
 ## Module-facing invariants
 
@@ -57,13 +60,14 @@ A first-party module can rely on these invariants:
 - [x] Test fixtures cover valid, duplicate, missing, malformed, invalid-entry,
   and unsupported-platform paths.
 - [x] Safety docs name every blocked mutation/trust boundary.
-- [x] No website, release, bootstrap, package publishing, signing, Cloudflare,
-  GitHub Actions, or external automation change is required.
+- [x] No website, release, bootstrap, package publishing, production signing,
+  Cloudflare, GitHub Actions, or external automation change is required.
 
 ## Current handoff outcome
 
 The inventory source package satisfies this handoff gate. It remains planned and
-uninstalled, and real Windows runtime proof is still required. The next trust
-lane is read-only permission validation followed by test-only signing/staging/
-transaction work; mutation, installation, release, and core module execution
+uninstalled, and real Windows runtime proof is still required. Read-only
+permission validation and test-key-only detached signature verification are now
+implemented. The next trust lane is immutable staging/transaction simulation;
+mutation, installation, production signing, release, and core module execution
 remain separate approval gates.

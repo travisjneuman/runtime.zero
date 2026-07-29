@@ -46,6 +46,12 @@ listing. That loader is intentionally narrow:
 
 Validation failure must be reported as data, not repaired automatically.
 
+The separate module-trust crate verifies detached Ed25519 signatures against
+caller-selected public test keys only. It binds package identity/version and an
+exact manifest SHA-256, rejects revoked or unauthorized test keys, and has no
+signer, private/production key, installer integration, activation, or execution
+path. Signature success is not permission to trust or run a package.
+
 For installed manifests, the loader also verifies explicitly listed files under
 the manifest directory with SHA-256. It rejects absolute paths, traversal,
 URL-like paths, symlinks, reparse points, files over 64 MiB, and manifests with
@@ -132,9 +138,13 @@ PATH entries, and omits hostname/current-user identity and raw registry keys.
 Version probes require explicit `--probe-versions`; they invoke an exact
 discovered path without a shell, use static version-only arguments, cap captured
 output, and kill the child after two seconds. Script-based probes remain
-disabled. Windows application evidence requires explicit `--include-apps`, is
-bounded, and reads standard uninstall views only. `--redact-paths` replaces path
-values before sharing. Package-manager list/update/install/uninstall commands,
+disabled. Platform application evidence requires explicit `--include-apps` and
+is bounded. Windows reads standard uninstall views only; macOS enumerates direct
+`.app` directories under known roots without reading bundle contents; Linux
+reads only bounded XDG desktop-entry files, honors hidden user overrides, and
+never emits command lines. Symlinked roots and application records fail closed.
+`--redact-paths` replaces path values before sharing. Package-manager
+list/update/install/uninstall commands,
 network access, credentials/sessions/browser profiles/workspaces/backups/unknown
 data, and all writes remain outside the module.
 

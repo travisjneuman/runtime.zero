@@ -58,11 +58,12 @@ for read-only modules. It separates all `declared` permissions into
 - `filesystem_metadata_read`;
 - `persisted_environment_registry_read`;
 - `application_registry_read`;
+- `application_filesystem_read`;
 - `exact_command_probe`.
 
 Lists must be duplicate-free, default and explicit grants must be disjoint, and
-every grant must be declared. Application registry reads and exact command
-probes must be explicit, never default. Schema 1 rejects mutating modules and
+every grant must be declared. Application registry/filesystem reads and exact
+command probes must be explicit, never default. Schema 1 rejects mutating modules and
 unknown future permissions. First-party manifests without permissions remain
 valid for compatibility but receive a warning that they have no enforceable
 permission declaration.
@@ -115,7 +116,7 @@ modules, updates modules, or removes modules.
 - First-party modules must be published by `runtime.zero`.
 - Third-party modules are rejected until the trust model exists.
 - `remote_execution_allowed` must be `false`.
-- Permission schema 1 is read-only; app-registry reads and command probes must be explicit.
+- Permission schema 1 is read-only; application inventory reads and command probes must be explicit.
 - Mutating modules must require confirmation and dry-run support.
 - Destructive-gated modules must support quarantine or rollback.
 - Installed manifests must include integrity metadata.
@@ -174,6 +175,9 @@ registry, receipt, transaction, staging, rollback, quarantine, or module files.
 
 ## Safety non-goals
 
-This validation layer does not yet provide signature verification, revocation,
-module installation, remote distribution, update orchestration, sandboxing, or
-third-party trust. Those require separate approval and threat modeling.
+This core manifest-validation layer does not perform signature verification,
+revocation, module installation, remote distribution, update orchestration,
+sandboxing, or third-party trust. The separate `crates/module-trust/` library
+verifies detached signatures against caller-selected public test keys only; it
+is not wired into core validation or installation. Later stages require separate
+approval and threat modeling.
