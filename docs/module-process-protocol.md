@@ -123,7 +123,9 @@ concurrently while memory retention stays bounded. Tests cover:
 - a deliberately inheritable Unix descriptor rejected before spawn;
 - authorization, identity, digest, environment, and Unix symlink drift before
   spawn;
-- response rejection if the helper claims a write.
+- response rejection if the helper claims a write;
+- post-use digest, size, link-count, held identity, and current-path identity
+  revalidation through the original artifact handle.
 
 Cleanup revalidates the canonical temp parent, root prefix, regular marker, and
 exact marker content before removing the isolated test root. The helper source

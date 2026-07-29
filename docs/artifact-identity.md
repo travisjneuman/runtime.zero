@@ -3,8 +3,10 @@
 `crates/artifact-identity/` is a foundation library for opening one
 receipt-relative artifact, hashing the bytes from that open handle, recording
 platform file identity, revalidating the path, and returning the same rewound
-handle. It performs no execution, installation, staging, trust decision, or
-system mutation.
+handle. `revalidate_verified_artifact` can rehash that held handle after use,
+recheck identity/link count/size and current-path identity, then rewind it on
+success. The crate performs no execution, installation, staging, trust decision,
+or system mutation.
 
 ## Contract
 
@@ -39,8 +41,8 @@ it does not rely on unstable standard-library by-handle metadata methods. This
 Windows behavior is target-compiled but still needs adversarial runtime proof.
 
 Native tests prove digest/size/path rejection, symlinked root/artifact rejection,
-hardlink rejection, and that the returned Unix handle continues to expose the
-original verified bytes after the path is replaced. Windows and Linux target
+hardlink rejection, and that post-use revalidation detects a Unix path
+replacement while the returned handle continues to expose the original bytes. Windows and Linux target
 checks are compile evidence until real runtime tests exist.
 
 ## Security boundary
