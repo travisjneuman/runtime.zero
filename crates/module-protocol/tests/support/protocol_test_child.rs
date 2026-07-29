@@ -2,12 +2,11 @@ use std::{
     env, fs,
     io::{self, Read, Write},
     path::Path,
-    process, thread,
+    process,
+    process::{Command, Stdio},
+    thread,
     time::Duration,
 };
-
-#[cfg(unix)]
-use std::process::{Command, Stdio};
 
 use rz0_module_protocol::test_transport::{
     MAX_TEST_FRAME_BYTES, TEST_HELPER_ID, TEST_TRANSPORT_RESPONSE_CONTRACT,
@@ -127,7 +126,6 @@ fn response_for(request: &TestTransportRequest) -> Result<TestTransportResponse,
     })
 }
 
-#[cfg(unix)]
 fn spawn_sleeping_descendant() -> Result<(), String> {
     let executable = env::current_exe().map_err(|error| format!("resolve test helper: {error}"))?;
     Command::new(executable)
@@ -144,11 +142,6 @@ fn spawn_sleeping_descendant() -> Result<(), String> {
     io::stderr()
         .flush()
         .map_err(|error| format!("flush descendant marker: {error}"))
-}
-
-#[cfg(not(unix))]
-fn spawn_sleeping_descendant() -> Result<(), String> {
-    Err("test descendant behavior is unsupported on this platform".to_string())
 }
 
 fn write_repeated(mut writer: impl Write, byte: u8, count: usize) -> Result<(), String> {

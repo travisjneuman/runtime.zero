@@ -17,7 +17,7 @@ use super::{
     capture::{Capture, drain_bounded},
     outcome::{TransportFailure, TransportSuccess, failure, failure_with_state},
     preflight::validate_preflight,
-    process_isolation::{configure_test_process, terminate_test_process},
+    process_isolation::{configure_test_process, contain_test_process, terminate_test_process},
     temp_root::{TestRoot, sha256_file},
 };
 
@@ -88,6 +88,14 @@ fn run_test_transport_inner(
     let mut child = command
         .spawn()
         .map_err(|error| failure("spawn_failed", error.to_string()))?;
+    let containment = match contain_test_process(&child) {
+        Ok(containment) => containment,
+        Err(error) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(failure("containment_failed", error.to_string()));
+        }
+    };
     let mut child_stdin = child.stdin.take().expect("piped child stdin");
     let child_stdout = child.stdout.take().expect("piped child stdout");
     let child_stderr = child.stderr.take().expect("piped child stderr");
@@ -109,13 +117,13 @@ fn run_test_transport_inner(
             Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(5)),
             Ok(None) => {
                 timed_out = true;
-                let _ = terminate_test_process(&mut child);
+                let _ = terminate_test_process(&mut child, &containment);
                 break child.wait().map_err(|error| {
                     failure_with_state("reap_failed", error.to_string(), true, None, 0, 0)
                 })?;
             }
             Err(error) => {
-                let _ = terminate_test_process(&mut child);
+                let _ = terminate_test_process(&mut child, &containment);
                 let _ = child.wait();
                 return Err(failure("wait_failed", error.to_string()));
             }

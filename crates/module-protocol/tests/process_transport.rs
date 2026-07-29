@@ -96,9 +96,8 @@ fn timeout_kills_and_reaps_direct_test_child() {
     assert!(failure.timed_out);
 }
 
-#[cfg(unix)]
 #[test]
-fn timeout_terminates_descendant_process_group_and_closes_pipes() {
+fn timeout_terminates_descendant_process_tree_and_closes_pipes() {
     let root = TestRoot::new(compiled_helper());
     let mut request = request(&root, TestChildBehavior::DescendantSleep);
     request.preview.limits.timeout_ms = 500;
