@@ -29,10 +29,11 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 163 tests. The all-features suite passed 170,
-including seven native macOS test-child transport cases. Windows and Linux
-all-feature target checks compile that lane but are not runtime evidence. Real
-Windows/Linux transport and inventory smokes remain required.
+The default workspace suite passed 163 tests. The all-features suite passed 172,
+including nine native macOS test-child transport cases. The added cases prove
+fail-closed refusal of an observed inheritable descriptor and Unix process-group
+teardown of a sleeping descendant with inherited pipes. Windows and Linux all-
+feature target checks compile that lane but are not runtime evidence.
 
 ## RustSec advisory scan
 
@@ -100,9 +101,10 @@ no duplicate terminal-control stack.
   macOS terminal compatibility beyond the current inventory smoke.
 - Artifact-level license/notice and reproducibility checks.
 - Signed provenance/key lifecycle and revocation design implementation.
-- Executable-handle/file-ID pinning, inherited-handle and descendant-process
-  control, production capability enforcement, and Windows/macOS/Linux sandbox
-  runtime proof; current process evidence executes only the Cargo test helper.
+- Executable-handle/file-ID pinning, descriptor-audit race closure, Windows
+  inherited-handle/job-object control, production capability enforcement, and
+  platform sandbox runtime proof; current process evidence executes only the
+  Cargo test helper.
 - Production transaction/receipt durability; immutable staging/quarantine/
   restore currently exist only as OS-temp integration-test simulations.
 - Separately approved release, package publishing, bootstrap, deployment, and

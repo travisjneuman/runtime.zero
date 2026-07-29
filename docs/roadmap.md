@@ -92,9 +92,11 @@ See [`action-planning.md`](action-planning.md).
 - [x] Explicit-feature Cargo test-child transport with bounded JSON framing,
   concurrent output drains, timeout kill/reap, environment/cwd proof, and
   fail-closed fixture tests; no module/core execution.
-- [ ] Executable-handle pinning, inherited-handle/process-tree proof,
-  mutating/network capability schema, and Windows/macOS/Linux sandbox/isolation
-  runtime tests.
+- [x] Native Unix test-helper preflight for observed inheritable descriptors and
+  process-group timeout teardown including a sleeping descendant.
+- [ ] Executable-handle pinning, descriptor-audit race closure, Windows handle/
+  job-object proof, mutating/network capability schema, and platform sandbox/
+  isolation runtime tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote
   feeds, third-party modules, deployment automation, and production actions only
   after their separate explicit approvals.

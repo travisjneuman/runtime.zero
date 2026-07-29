@@ -110,7 +110,9 @@ redaction, and bounded time/I/O. Module authorization/attempt remains false.
 Under the non-default `protocol-test-child` feature, integration-test support
 copies and executes only a Cargo-built helper in a marked OS-temp root to test
 framing, exact environment names, concurrent output drains, bounded retention,
-and direct-child timeout kill/reap. The core and inventory module do not use this
+and timeout teardown. Native Unix tests now reject an observed inheritable
+non-standard descriptor before spawn and terminate a helper-spawned descendant
+through a fresh process group. The core and inventory module do not use this
 lane.
 
 A future host must:
@@ -182,10 +184,11 @@ Implementation may proceed only in bounded stages:
    invocation/not-executed module contract plus an explicit-feature Cargo helper
    transport. The helper slice proves bounded JSON framing, exact cleared
    environment names, an explicit working directory, concurrent output drains,
-   fail-closed output ceilings, and direct-child timeout kill/reap. It does not
-   execute a module or provide a core API. Executable-handle pinning, inherited
-   handle proof, process-tree control, and platform sandbox/capability isolation
-   remain open.
+   fail-closed output ceilings, Unix inheritable-descriptor refusal, and Unix
+   process-group timeout teardown including a sleeping descendant. It does not
+   execute a module or provide a core API. Executable-handle pinning, descriptor-
+   audit races, Windows handle/job control, and platform sandbox/capability
+   isolation remain open.
 6. Local developer-only signed artifact trial.
 7. Separately approved release/distribution work.
 8. Third-party threat model and governance last.

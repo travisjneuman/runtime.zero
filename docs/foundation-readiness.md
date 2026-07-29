@@ -71,8 +71,9 @@ permission validation, test-key-only detached signature verification, and
 OS-temp-root staging/quarantine/restore simulations are now implemented. The
 fixture-only invocation protocol is also implemented without module execution.
 An explicit-feature Cargo test-helper lane now proves bounded framing,
-environment/cwd setup, concurrent drains, and direct-child timeout kill/reap on
-the native development host. The next trust lane is executable-handle pinning,
-process-tree/handle control, and real Windows/macOS/Linux capability-isolation
-proof; production mutation, installation, signing, release, and core module
-execution remain separate approval gates.
+environment/cwd setup, concurrent drains, Unix inheritable-descriptor refusal,
+and Unix process-group timeout teardown of a sleeping descendant on the native
+development host. The next trust lane is executable-handle pinning, descriptor-
+audit race closure, Windows handle/job control, and real platform capability-
+isolation proof; production mutation, installation, signing, release, and core
+module execution remain separate approval gates.

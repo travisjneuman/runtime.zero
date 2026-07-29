@@ -81,7 +81,8 @@ spawn, the test host requires:
 - the exact helper identity, copied path, regular-file shape, and SHA-256;
 - no symlink in the receipt-relative executable path;
 - an exact environment-name/value map matching the preview allowlist;
-- a marked direct working directory inside the isolated test root.
+- a marked direct working directory inside the isolated test root;
+- on Unix, no observed non-standard descriptor whose `FD_CLOEXEC` bit is clear.
 
 The test host invokes the absolute copied helper path directly with no shell,
 PATH search, or arguments. It clears the parent environment, sets only the
@@ -95,6 +96,9 @@ concurrently while memory retention stays bounded. Tests cover:
 - a stderr burst large enough to exercise concurrent draining;
 - stdout/stderr flooding with continued draining and fail-closed byte ceilings;
 - deadline enforcement followed by direct-child kill and reap;
+- a Unix process-group timeout that terminates a helper-spawned sleeping
+  descendant and closes its inherited pipes;
+- a deliberately inheritable Unix descriptor rejected before spawn;
 - authorization, identity, digest, environment, and Unix symlink drift before
   spawn;
 - response rejection if the helper claims a write.
@@ -113,11 +117,14 @@ The test lane deliberately does **not** claim production isolation:
   pinning is not implemented;
 - the standard process boundary does not enforce filesystem, registry, process,
   network, or syscall capabilities;
-- inherited non-standard handle auditing and close-on-exec behavior are not
-  proven on the supported platform matrix;
-- timeout kills/reaps the direct helper only, not a descendant process tree or
-  platform job/process group;
-- readers can still wait on pipes retained by malicious descendants;
+- Unix preflight enumeration rejects currently observed descriptors with
+  `FD_CLOEXEC` clear, but a descriptor created after that audit remains a race;
+  Windows inherited-handle auditing is not implemented;
+- Unix tests assign the helper to a fresh process group and kill the group on
+  timeout, but the host reaps only its direct child; Windows job-object/process-
+  tree containment is not implemented;
+- descendants that escape the assigned group or retain pipes through another
+  process could still delay reader completion;
 - Windows reparse/File ID, macOS sandbox/code-signing, and Linux namespace/
   seccomp/landlock behavior have no runtime proof;
 - there is no production receipt loader, capability broker, journal, installed

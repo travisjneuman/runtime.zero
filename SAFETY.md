@@ -71,12 +71,13 @@ success is rejected.
 An explicit Cargo feature enables integration tests that copy and execute only
 the Cargo-built `rz0-protocol-test-child` under a marked direct OS-temp child.
 The test host uses an absolute exact path with no shell, PATH search, or
-arguments; clears the parent environment; frames bounded JSON; concurrently
-drains bounded output; and kills/reaps the direct helper on timeout. This helper
-is not the inventory module, is not built by default, is not reachable from the
-core/CLI/TUI, and is not a sandbox. Executable replacement races, inherited
-handle proof, descendant process-tree control, and platform capability
-isolation remain unresolved production blockers.
+arguments; clears the parent environment; frames bounded JSON; and concurrently
+drains bounded output. Unix test preflight refuses observed non-standard
+inheritable descriptors, assigns a new process group, and kills that group on
+timeout before reaping the direct helper. This helper is not the inventory
+module, is not built by default, is not reachable from the core/CLI/TUI, and is
+not a sandbox. Executable replacement/audit races, Windows handle/job control,
+and platform capability isolation remain unresolved production blockers.
 
 For installed manifests, the loader also verifies explicitly listed files under
 the manifest directory with SHA-256. It rejects absolute paths, traversal,
