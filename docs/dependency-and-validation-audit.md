@@ -33,8 +33,8 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 191 tests. The all-features suite passed 200,
-including the shared capability/error-semantics tests, seven transaction-chain/recovery
+The default workspace suite passed 192 tests. The all-features suite passed 201,
+including the shared capability/error/resource-semantics tests, seven transaction-chain/recovery
 unit tests, four guarded immutable-snapshot recovery tests, five opened-artifact identity tests, six production-execution gate
 tests, and nine native macOS test-child
 transport cases. The transport cases prove
@@ -48,7 +48,7 @@ library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 125 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 126 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -56,7 +56,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved ten local workspace packages and 115
+`cargo metadata --locked` resolved eleven local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -93,7 +93,10 @@ The first-party inventory module depends on the small
 normal cross-platform dependencies are Serde, serde_json, and time; Windows adds `winreg`. This avoids pulling Ratatui/Crossterm into
 `rz0-inventory`.
 
-The error-contract crate adds no new external package and replaces free-form
+The resource-contract crate adds no new external package and centralizes typed
+process limits plus artifact/document/inventory/probe ceilings reused across
+foundation and inventory packages. The error-contract crate adds no new external
+package and replaces free-form
 module-protocol error codes with stable typed Serde values plus conservative
 privacy/retry classifiers. The transaction-contract crate adds no new external
 package: it reuses Serde and SHA-256 for a bounded domain-separated event chain,

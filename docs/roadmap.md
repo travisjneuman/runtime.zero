@@ -88,6 +88,8 @@ See [`action-planning.md`](action-planning.md).
   manifest and action-plan schema subsets; classification grants no authority.
 - [x] Shared typed machine-error vocabulary with redacted-detail defaults and no
   schema-1 automatic retry; module protocol rejects free-form error codes.
+- [x] Shared resource contract for artifact/document/collector/probe/process
+  ceilings, consumed across foundation and inventory modules.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
 - [x] Test-key-only detached Ed25519 signature contract and strict verification.
 - [x] Fixture-only immutable staging plan plus atomic temporary-root publication

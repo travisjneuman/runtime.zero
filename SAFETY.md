@@ -21,7 +21,9 @@ Capability names are foundation-owned through one shared contract; manifest,
 protocol, and action schemas accept only their explicit subsets. Classification
 does not grant OS authority. Machine error codes are also foundation-owned;
 schema 1 permits no automatic retry and requires accompanying detail to be
-redacted by default.
+redacted by default. Shared resource ceilings are foundation-owned; a module may
+use smaller limits but may not silently raise artifact, document, collector,
+probe, timeout, or process-I/O bounds.
 
 Every module manifest must declare:
 

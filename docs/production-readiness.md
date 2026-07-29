@@ -27,7 +27,8 @@ module. The foundation owns:
 - privacy/redaction, sensitive-data deny policy, audit events, and support
   evidence;
 - shared performance budgets, bounded I/O, deterministic output, test harnesses,
-  and release gates.
+  and release gates. The shared resource contract owns current safety ceilings;
+  modules may narrow but not expand them.
 
 The shared capability vocabulary is centralized in
 `crates/capability-contract/`; each versioned manifest/protocol/action schema
@@ -146,8 +147,8 @@ parallel once its shared foundation dependency is stable.
    signing posture, and final-artifact-only compatibility-host rule are now
    defined; exact edition census, acceptance IDs, and measured budgets remain.
 2. Stabilize the core package/module/store/configuration/error/logging contracts
-   and migration rules. The shared typed error vocabulary and conservative
-   retry/privacy semantics exist; broad adapter migration remains.
+   and migration rules. Shared typed error semantics and byte/record/timeout/
+   process ceilings exist; broad adapter migration and measured budgets remain.
 3. Close package and executable identity races; the same-open-handle artifact
    identity primitive and Unix root-relative no-follow traversal exist, but
    Windows root-handle semantics and platform execution binding remain.
