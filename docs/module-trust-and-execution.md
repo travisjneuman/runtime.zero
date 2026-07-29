@@ -82,7 +82,10 @@ A future installer must verify in this order:
    identity/version binding.
 5. Verify provenance/release metadata and freshness/revocation policy.
 6. Re-open or stage verified bytes without trusting mutable source paths; defend
-   against validation-to-use replacement.
+   against validation-to-use replacement. `crates/artifact-identity/` now
+   provides the bounded same-open-handle identity/digest primitive and Unix
+   held-root no-follow component traversal, but Windows root-handle semantics
+   and platform execution binding remain gated.
 7. Display capabilities, destination, write set, risk, receipt, rollback, and
    quarantine plan.
 8. Require explicit confirmation for any write or elevated capability.
@@ -131,7 +134,11 @@ A future host must:
   rather than claiming portable isolation prematurely.
 
 A process boundary alone is not a sandbox. Module execution remains blocked
-until capability enforcement and platform isolation are tested.
+until capability enforcement and platform isolation are tested. The schema-1
+production execution assessment makes that block machine-checkable across the
+canonical artifact/capability/identity/process/runtime/transaction gate set; it
+has no authorization decision. See
+[`production-readiness.md`](production-readiness.md).
 
 ## Transaction, receipt, and rollback rules
 
@@ -188,7 +195,10 @@ Implementation may proceed only in bounded stages:
    process-group timeout teardown including a sleeping descendant. It does not
    execute a module or provide a core API. Executable-handle pinning, descriptor-
    audit races, Windows handle/job control, and platform sandbox/capability
-   isolation remain open.
+   isolation remain open. A separate schema-1 production assessment now records
+   the complete gate set but cannot authorize execution. The opened-artifact
+   identity primitive is implemented, but no platform host executes from that
+   verified identity yet.
 6. Local developer-only signed artifact trial.
 7. Separately approved release/distribution work.
 8. Third-party threat model and governance last.

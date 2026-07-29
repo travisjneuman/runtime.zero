@@ -43,9 +43,12 @@ package managers, execute desktop entries, inspect macOS bundle contents, or
 recursively scan drives. See
 [`inventory-schema.md`](inventory-schema.md).
 
-`crates/module-trust/` supplies a test-key-only detached Ed25519 verification
-contract without adding a signer, key store, installer, execution path, or
-production trust root. Schema-1 staging plans and OS-temp integration tests also
+`crates/artifact-identity/` opens, bounds, hashes, identifies, revalidates, and
+returns the same receipt-relative file handle without execution; platform
+execution binding remains a later gate. `crates/module-trust/` supplies a
+test-key-only detached Ed25519 verification contract without adding a signer,
+key store, installer, execution path, or production trust root. Schema-1
+staging plans and OS-temp integration tests also
 exercise immutable publication and quarantine/restore failure semantics without
 a production mover. `crates/module-protocol/` validates a read-only/offline
 invocation preview and not-executed response with exact-path/digest metadata,
@@ -58,7 +61,11 @@ execution, production signing, capability enforcement, durable transactions,
 and distribution work is gated by
 [`module-trust-and-execution.md`](module-trust-and-execution.md).
 Update/uninstall/quarantine semantics are gated by
-[`action-planning.md`](action-planning.md).
+[`action-planning.md`](action-planning.md). Equal Windows/macOS/Linux release
+requirements, the frozen module catalog, and the rule that shared stability,
+security, transaction, observability, and efficiency behavior belongs in the
+foundation are defined by
+[`production-readiness.md`](production-readiness.md).
 
 ## Non-goals for Phase 1
 

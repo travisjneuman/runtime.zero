@@ -17,7 +17,8 @@ The schema binds:
 
 - request ID and exact `first-party.inventory` identity/version;
 - target platform and the single `collect_inventory` operation;
-- a receipt-relative `bin/` executable path and lowercase SHA-256;
+- a receipt-relative `bin/` executable path, lowercase SHA-256, and bounded
+  exact size;
 - successful public-test-key metadata and exact manifest SHA-256;
 - a cleared, non-inherited environment with names (not values) selected from a
   platform allowlist;
@@ -69,6 +70,22 @@ Tests reject fabricated success/output and unknown fields. Success/partial/
 failure/timeout enum values remain reserved for a later schema/gate and cannot
 validate against the current module preview plan.
 
+## Production execution assessment
+
+Schema-1 `production_execution_assessment` is a separate fail-closed foundation
+contract. It requires the exact canonical set of 27 artifact, capability,
+executable-identity, process, runtime, and transaction gates for one
+module/platform assessment. Proven gates require bounded mechanism and evidence
+identifiers; missing/unsupported gates cannot masquerade as proof. Gates must be
+unique and canonically ordered.
+
+The assessment's only decision value is `blocked`, and
+`product_execution_authorized` must be `false`. Even an assessment containing
+synthetic proof for every gate cannot authorize product execution under schema
+1. This keeps future readiness accounting separate from the no-execution module
+protocol and prevents test-helper evidence from becoming production authority.
+See [`production-readiness.md`](production-readiness.md).
+
 ## Explicit-feature test-child transport
 
 `cargo test -p rz0-module-protocol --all-features` enables a private test lane.
@@ -78,7 +95,8 @@ spawn, the test host requires:
 
 - an outer `test_only` contract with explicit test-helper authorization;
 - a still-unauthorized valid schema-1 module preview nested inside it;
-- the exact helper identity, copied path, regular-file shape, and SHA-256;
+- the exact helper identity, copied path, regular-file shape, size, and SHA-256,
+  verified through the shared opened-artifact identity primitive;
 - no symlink in the receipt-relative executable path;
 - an exact environment-name/value map matching the preview allowlist;
 - a marked direct working directory inside the isolated test root;

@@ -79,6 +79,14 @@ module, is not built by default, is not reachable from the core/CLI/TUI, and is
 not a sandbox. Executable replacement/audit races, Windows handle/job control,
 and platform capability isolation remain unresolved production blockers.
 
+The schema-1 production execution assessment records the exact canonical gate
+set for readiness review but has only a `blocked` decision and requires
+`product_execution_authorized: false`. No test, fixture, signature report, or
+fully populated assessment can authorize product execution through schema 1.
+The opened-artifact identity crate may return a verified same-file handle, but
+it contains no spawn function and is not evidence that platform execution is
+bound to that handle.
+
 For installed manifests, the loader also verifies explicitly listed files under
 the manifest directory with SHA-256. It rejects absolute paths, traversal,
 URL-like paths, symlinks, reparse points, files over 64 MiB, and manifests with

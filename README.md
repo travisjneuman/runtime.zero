@@ -124,9 +124,17 @@ mover. A separate schema-1 process protocol keeps module execution unauthorized.
 An explicit-feature integration lane executes only a Cargo-built test helper to
 exercise bounded JSON framing, environment clearing, output draining, timeout
 kill/reap, and fail-closed errors; it is not linked to the core or inventory
-module. See [`docs/signature-verification.md`](docs/signature-verification.md),
-[`docs/transaction-simulation.md`](docs/transaction-simulation.md), and
-[`docs/module-process-protocol.md`](docs/module-process-protocol.md).
+module. A separate schema-1 production execution assessment enumerates all
+artifact, capability, executable-identity, process, runtime, and transaction
+gates while remaining structurally unable to authorize execution. The
+`crates/artifact-identity/` foundation primitive hashes and identifies one
+receipt-relative file through the same returned open handle without executing
+it. See [`docs/artifact-identity.md`](docs/artifact-identity.md),
+[`docs/signature-verification.md`](docs/signature-verification.md),
+[`docs/transaction-simulation.md`](docs/transaction-simulation.md),
+[`docs/module-process-protocol.md`](docs/module-process-protocol.md), and the
+equal-platform/equal-module completion contract in
+[`docs/production-readiness.md`](docs/production-readiness.md).
 
 The same future store/routing contract can be inspected independently of module
 install planning:
@@ -275,6 +283,9 @@ update/uninstall/quarantine boundaries are in
 [`docs/action-planning.md`](docs/action-planning.md). The current manual
 dependency/license/validation snapshot is in
 [`docs/dependency-and-validation-audit.md`](docs/dependency-and-validation-audit.md).
+The finite production definition, foundation/module ownership boundary, and
+Windows/macOS/Linux module acceptance matrix are in
+[`docs/production-readiness.md`](docs/production-readiness.md).
 Website TUI
 parity is tracked in [`docs/website-tui-parity-backlog.md`](docs/website-tui-parity-backlog.md)
 so the static site can later follow the real terminal TUI without drifting.

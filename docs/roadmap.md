@@ -2,7 +2,9 @@
 
 The roadmap is ordered by safety and contract dependency. A checked item means
 the documented source/contract exists; it does not imply a release, installation
-path, production support, or permission to cross a later gate.
+path, production support, or permission to cross a later gate. Windows, macOS,
+Linux, and every frozen 1.0 module family are equal release requirements; see
+[`production-readiness.md`](production-readiness.md).
 
 ## Phase 1 — foundation baseline (complete)
 
@@ -94,11 +96,39 @@ See [`action-planning.md`](action-planning.md).
   fail-closed fixture tests; no module/core execution.
 - [x] Native Unix test-helper preflight for observed inheritable descriptors and
   process-group timeout teardown including a sleeping descendant.
-- [ ] Executable-handle pinning, descriptor-audit race closure, Windows handle/
-  job-object proof, mutating/network capability schema, and platform sandbox/
-  isolation runtime tests.
+- [x] Canonical schema-1 production execution assessment that enumerates every
+  artifact/capability/identity/process/runtime/transaction gate while remaining
+  incapable of authorization.
+- [x] Cross-platform opened-artifact identity primitive that hashes, identifies,
+  revalidates, rewinds, and returns the same bounded file handle without
+  execution; Unix traversal uses held root-directory handles and no-follow
+  component opens.
+- [ ] Bind the verified open identity to platform execution, close remaining
+  descriptor-audit/Windows path races, prove Windows handle/
+  Job Object behavior, add mutating/network capability schema, and complete
+  platform sandbox/isolation runtime tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote
   feeds, third-party modules, deployment automation, and production actions only
   after their separate explicit approvals.
 
 See [`module-trust-and-execution.md`](module-trust-and-execution.md).
+
+## Phase 8 — equal-platform, equal-module production 1.0
+
+- [ ] Freeze supported OS versions, architectures, package/service managers,
+  terminals, installers, release channels, schemas, budgets, and acceptance IDs.
+- [ ] Complete every lifecycle stage for inventory/environment, updater,
+  uninstall, leftovers, cache, security/integrity, and report/export on Windows,
+  macOS, and Linux.
+- [ ] Complete foundation-owned trust, isolation, capabilities, durable
+  transactions, module lifecycle, configuration, diagnostics, recovery, and
+  compatibility/migrations.
+- [ ] Complete end-to-end/fuzz/race/fault/performance/soak/security/privacy/
+  accessibility testing and real runtime matrices.
+- [ ] Produce reproducible signed/notarized artifacts, SBOM/notices, installers,
+  package channels, offline/update/rollback paths, support/incident runbooks,
+  and final release evidence.
+- [ ] Declare production readiness only after every required acceptance matrix
+  cell passes or has an approved tested not-applicable outcome.
+
+See [`production-readiness.md`](production-readiness.md).

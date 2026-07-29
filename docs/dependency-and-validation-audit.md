@@ -21,23 +21,25 @@ Validated with Rust/Cargo 1.96.0:
 - opt-in macOS application-bundle smoke with redacted paths;
 - synthetic Linux XDG desktop-entry precedence/parser tests;
 - test-key signature, immutable OS-temp staging, quarantine/restore failure,
-  no-execution module-protocol fixtures, and native test-child framing/output/
-  timeout failure cases;
+  no-execution module-protocol fixtures, canonical blocked production-execution
+  assessments, and native test-child framing/output/timeout failure cases;
 - opt-in version-probe smoke with redacted output;
 - pseudo-terminal TUI navigation/help/quit/alternate-screen restoration smoke;
 - static site checks for unsafe JavaScript primitives and missing local links;
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 163 tests. The all-features suite passed 172,
-including nine native macOS test-child transport cases. The added cases prove
+The default workspace suite passed 174 tests. The all-features suite passed 183,
+including five opened-artifact identity tests, six production-execution gate
+tests, and nine native macOS test-child
+transport cases. The transport cases prove
 fail-closed refusal of an observed inheritable descriptor and Unix process-group
 teardown of a sleeping descendant with inherited pipes. Windows and Linux all-
 feature target checks compile that lane but are not runtime evidence.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 121 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 122 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -45,7 +47,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved six local workspace packages and 115
+`cargo metadata --locked` resolved seven local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -85,7 +87,10 @@ normal cross-platform dependencies are Serde, serde_json, and time; Windows adds
 The separate module-trust crate uses `ed25519-dalek` 3.0 with default features
 disabled for strict, local test-key signature verification. It does not expose a
 runtime signer, generate keys, fetch trust metadata, or join the core runtime
-dependency graph. The module-protocol crate uses Serde for its default fixture
+dependency graph. The artifact-identity crate uses SHA-256 plus the existing
+Windows system bindings only on Windows to obtain stable opened-handle file
+identity; it has no spawn or installer API. The module-protocol crate uses Serde
+for its default fixture
 validator. Its non-default test-child feature adds Serde JSON framing; SHA-256
 in that lane is a dev dependency. Process spawn code exists only in integration-
 test support, not the library, core, CLI, or TUI.
