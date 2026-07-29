@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core stays intentionally small: it owns the CLI, policy, output contracts, and module registry primitives while substantial capabilities ship as explicit modules instead of being bundled by default.
 
-> Status: pre-alpha Phase 1 bootstrap. This repository is public early so the design and safety model are visible from the start. Destructive modules are intentionally not implemented yet.
+> Status: pre-alpha foundation baseline with the Phase 2 inventory output contract now starting. This repository is public early so the design and safety model are visible from the start. Destructive modules are intentionally not implemented yet.
 
 ## The promise
 
@@ -40,6 +40,7 @@ rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-re
 rz0 store init --dry-run
 rz0 store init --yes
 rz0 scan --dry-run
+rz0 scan --dry-run --format json
 ```
 
 Bare `rz0` opens the read-only TUI dashboard shell in an interactive terminal.
@@ -70,7 +71,10 @@ module surfaces.
 
 Current commands are read-only, dry-run, or explicit user-local store
 scaffolding. They exist to prove the binary, brand metadata, test harness,
-documentation foundation, TUI shell, and module contract surface.
+documentation foundation, TUI shell, module contract surface, and the first
+versioned inventory output contract. `scan --dry-run --format json` currently
+emits an intentionally empty schema-1 report; it does not collect PATH,
+registry, package-manager, application, or executable evidence yet.
 
 ## Core vs modules
 
@@ -172,6 +176,7 @@ cargo run -- store status --store-root tests/fixtures/store-roots/valid-registry
 cargo run -- store init --dry-run
 cargo run -- store init --dry-run --format json
 cargo run -- scan --dry-run
+cargo run -- scan --dry-run --format json
 ```
 
 ## Local install for development
@@ -225,7 +230,9 @@ the local module store, store initialization, and CLI/TUI launch-routing
 contract.
 
 [`docs/tui.md`](docs/tui.md) for the read-only terminal UI foundation,
-keyboard behavior, rendering boundaries, and brand/theme structure. Website TUI
+keyboard behavior, rendering boundaries, and brand/theme structure. See
+[`docs/inventory-schema.md`](docs/inventory-schema.md) for the schema-first
+Phase 2 inventory report contract. Website TUI
 parity is tracked in [`docs/website-tui-parity-backlog.md`](docs/website-tui-parity-backlog.md)
 so the static site can later follow the real terminal TUI without drifting.
 

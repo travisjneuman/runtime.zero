@@ -244,5 +244,25 @@ fn scan_dry_run_attempts_no_changes() {
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
     assert!(out.contains("mode: dry-run"));
+    assert!(out.contains("contract: inventory_report"));
+    assert!(out.contains("writes_attempted: no"));
     assert!(out.contains("no system changes were attempted"));
+}
+
+#[test]
+fn scan_json_exposes_empty_read_only_inventory_contract() {
+    let (code, out, err) = run(["scan", "--dry-run", "--format", "json"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+
+    let value: serde_json::Value = serde_json::from_str(&out).expect("inventory json");
+    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["contract"], "inventory_report");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["host"]["hostname_included"], false);
+    assert_eq!(value["host"]["current_user_included"], false);
+    assert_eq!(value["sources"].as_array().map(Vec::len), Some(0));
+    assert_eq!(value["summary"]["warning_count"], 1);
+    assert!(!out.contains("\u{1b}["));
 }

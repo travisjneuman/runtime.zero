@@ -7,6 +7,7 @@ pub mod install_receipt;
 mod install_receipt_schema;
 pub mod installed_registry;
 mod installed_registry_path;
+pub mod inventory;
 pub mod launch_routing;
 pub mod module_cli;
 pub mod module_install_plan;
@@ -85,7 +86,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--format json]\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
@@ -99,7 +100,7 @@ pub fn doctor_text() -> String {
         .unwrap_or_else(|_| "unavailable".to_string());
 
     format!(
-        "{title} doctor\n\nstatus: phase-1 bootstrap\ncommand: {cmd}\nversion: {version}\nos: {os}\narch: {arch}\ncurrent_dir: {current_dir}\nsafety: {safety}\nmutation_capability: explicit_store_init_only\nmodule_mutation_capability: disabled\ncloudflare_automation: not configured\ngithub_actions: not configured\n",
+        "{title} doctor\n\nstatus: phase-2 inventory-contract start\ncommand: {cmd}\nversion: {version}\nos: {os}\narch: {arch}\ncurrent_dir: {current_dir}\nsafety: {safety}\nmutation_capability: explicit_store_init_only\nmodule_mutation_capability: disabled\ncloudflare_automation: not configured\ngithub_actions: not configured\n",
         title = brand::TITLE,
         cmd = brand::COMMAND,
         version = env!("CARGO_PKG_VERSION"),
@@ -115,49 +116,48 @@ fn unknown_command(command: &str) -> (ExitCode, String, String) {
         ExitCode::Usage,
         String::new(),
         format!(
-            "unknown command '{command}'\n\nRun '{} help' for safe Phase 1 commands.\n",
+            "unknown command '{command}'\n\nRun '{} help' for safe foundation commands.\n",
             brand::COMMAND
         ),
     )
 }
 
 fn scan_command(args: &[String]) -> (ExitCode, String, String) {
-    let dry_run = args.iter().any(|arg| arg == "--dry-run");
-    let unsupported: Vec<&str> = args
-        .iter()
-        .map(String::as_str)
-        .filter(|arg| *arg != "--dry-run")
-        .collect();
+    let format = match args {
+        [dry_run] if dry_run == "--dry-run" => ScanOutputFormat::Text,
+        [dry_run, format, value]
+            if dry_run == "--dry-run" && format == "--format" && value == "json" =>
+        {
+            ScanOutputFormat::Json
+        }
+        _ => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!(
+                    "scan is report-only and requires dry-run mode\n\nUsage: {} scan --dry-run [--format json]\n",
+                    brand::COMMAND
+                ),
+            );
+        }
+    };
 
-    if !unsupported.is_empty() {
-        return (
-            ExitCode::Usage,
+    let report = inventory::contract_report();
+    match format {
+        ScanOutputFormat::Text => (
+            ExitCode::Ok,
+            inventory::contract_text(&report),
             String::new(),
-            format!(
-                "unsupported scan option(s): {}\n\nPhase 1 only supports '{} scan --dry-run'.\n",
-                unsupported.join(", "),
-                brand::COMMAND
-            ),
-        );
-    }
-
-    if !dry_run {
-        return (
-            ExitCode::Usage,
-            String::new(),
-            format!(
-                "scan is report-only in Phase 1 and must be run as '{} scan --dry-run'.\n",
-                brand::COMMAND
-            ),
-        );
-    }
-
-    (
-        ExitCode::Ok,
-        format!(
-            "{} scan plan\n\nmode: dry-run\nmutation_capability: disabled\nresult: no system changes were attempted\nnext: platform adapters will add read-only inventory in a later phase\n",
-            brand::TITLE
         ),
-        String::new(),
-    )
+        ScanOutputFormat::Json => match inventory::contract_json(&report) {
+            Ok(json) => (ExitCode::Ok, json, String::new()),
+            Err(err) => (ExitCode::Usage, String::new(), err),
+        },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScanOutputFormat {
+    Text,
+    Json,
 }

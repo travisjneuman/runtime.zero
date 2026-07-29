@@ -122,6 +122,15 @@ Color is never required for understanding state. Human-readable output accepts
 the global `--color=auto|always|never` flag, respects `NO_COLOR` in auto mode,
 and keeps JSON ANSI-free. Status labels remain the authority.
 
+`rz0 scan --dry-run --format json` exposes the schema-1 inventory report
+contract without collecting local evidence yet. The contract output is
+read-only, reports `writes_attempted: false`, and omits hostname/current-user
+identity by default. Future inventory collectors must remain local and
+read-only, use fixture-backed normalization, avoid credentials/sessions/browser
+profiles/workspaces/backups/unknown data, and stop at a separate approval gate
+before persisted PATH registry reads, package-manager commands, app registry
+evidence, network access, or executable version probes are added.
+
 ## Local development install boundary
 
 The repository may provide local-only scripts under `scripts/` so Travis can
@@ -160,4 +169,4 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 
 ## Current status
 
-The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, dry-run placeholders, explicit user-local store initialization, dry-run module install planning, and module registry contracts.
+The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, the empty schema-1 inventory output contract, dry-run placeholders, explicit user-local store initialization, dry-run module install planning, and module registry contracts.

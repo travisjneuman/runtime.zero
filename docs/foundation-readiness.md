@@ -18,6 +18,12 @@ The current foundation provides these module-facing contracts:
 - explicit `store init --dry-run` and `store init --yes` scaffolding limited to runtime.zero-owned user-local store paths;
 - read-only Ratatui TUI dashboard with focus regions, command previews, status panels, compact/standard/wide layout tiers, and no command execution from TUI.
 
+Phase 2 has now started with the empty, versioned `inventory_report` emitted by
+`rz0 scan --dry-run --format json`. This is a core output contract for fixtures
+and future module parity, not an installed or executable module. No live PATH,
+registry, package-manager, application, or executable collector is enabled by
+that contract slice.
+
 ## First-module starting boundary
 
 The first first-party module should begin as a read-only module that exercises the contracts above without adding mutation. It may provide local discovery, reporting, fixture-backed validation, dry-run planning, and dashboard/CLI surfacing.

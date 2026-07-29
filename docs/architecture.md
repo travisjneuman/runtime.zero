@@ -24,6 +24,18 @@ install anything, enable anything, or run module entry points.
 
 Windows is the first practical target because the original need came from a Windows CLI/tool-manager workflow. The Rust core is cross-platform from day one so macOS and Linux adapters can be added without a rewrite.
 
+## Inventory contract boundary
+
+Phase 2 starts schema-first. `rz0 scan --dry-run --format json` emits a
+versioned, empty `inventory_report` before any live platform adapter is added.
+That report defines read-only evidence shapes for sources, PATH entries, tools,
+and applications while omitting hostname/current-user identity by default.
+
+This core output contract is not an embedded feature module and does not execute
+module code. The next first-party Windows inventory implementation should target
+the contract through deterministic fixtures, then add narrow read-only adapters
+behind separate gates. See [`inventory-schema.md`](inventory-schema.md).
+
 ## Non-goals for Phase 1
 
 - no update execution;

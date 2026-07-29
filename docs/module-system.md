@@ -127,6 +127,12 @@ uninstall behavior, third-party trust, signing, release/package publishing,
 remote fetch, bootstrap/direct-run commands, cleanup, repair, or broad system
 mutation. See [`foundation-readiness.md`](foundation-readiness.md) for the
 handoff gate and acceptance checklist.
+
+The schema-1 output from `rz0 scan --dry-run --format json` is the core inventory
+contract that fixture-backed discovery and the future first-party Windows
+inventory module should target. It is not an installed module and currently
+collects no local evidence. See [`inventory-schema.md`](inventory-schema.md).
+
 ## Planned module families
 
 - tool/package updater modules;
