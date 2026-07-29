@@ -1,3 +1,4 @@
+mod execution_gate;
 mod model;
 mod policy;
 mod validation;
@@ -5,5 +6,6 @@ mod validation;
 #[cfg(feature = "protocol-test-child")]
 pub mod test_transport;
 
+pub use execution_gate::*;
 pub use model::*;
 pub use validation::{validate_invocation_plan, validate_invocation_response};
