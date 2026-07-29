@@ -104,6 +104,10 @@ Every module must reach the same lifecycle bar on every supported platform:
 
 ## Required lifecycle for every module-platform cell
 
+`crates/release-contract/` now generates and validates the exact bounded target
+× seven-module × 12-stage ledger described below. Schema 1 tracks evidence but
+is structurally unable to authorize release.
+
 A cell is complete only when all applicable stages have reviewed implementation
 and runtime evidence:
 
@@ -144,8 +148,9 @@ parallel once its shared foundation dependency is stable.
    schemas, compatibility policy, acceptance IDs, and measurable budgets. The
    Windows-generation/Server-2008-through-2025 matrix, macOS/Linux current-plus-
    three starting matrix, shell/terminal census, initial manager order, no-paid-
-   signing posture, and final-artifact-only compatibility-host rule are now
-   defined; exact edition census, acceptance IDs, and measured budgets remain.
+   signing posture, and final-artifact-only compatibility-host rule are defined.
+   Canonical acceptance IDs/cross-products now exist; exact RC target census and
+   measured budgets remain.
 2. Stabilize the core package/module/store/configuration/error/logging contracts
    and migration rules. Shared typed error semantics and byte/record/timeout/
    process ceilings exist; broad adapter migration and measured budgets remain.

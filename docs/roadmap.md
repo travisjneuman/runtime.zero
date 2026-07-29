@@ -131,8 +131,10 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
   macOS/Linux current-plus-three starting matrices, exhaustive shell/terminal
   research lanes, artifact-only host policy, manager order, architecture
   expansion, and no-paid-signing GitHub distribution posture.
-- [ ] Freeze the exact RC snapshot of that rolling matrix plus schemas, measured
-  budgets, and acceptance IDs.
+- [x] Add a bounded canonical target × seven-module × 12-stage acceptance-ledger
+  contract with deterministic IDs and blocked-only schema-1 release posture.
+- [ ] Freeze the exact RC target snapshot and measured budgets, then populate
+  every acceptance ID with reviewed evidence or evidence-backed not-applicable.
 - [ ] Complete every lifecycle stage for inventory/environment, updater,
   uninstall, leftovers, cache, security/integrity, and report/export on Windows,
   macOS, and Linux.

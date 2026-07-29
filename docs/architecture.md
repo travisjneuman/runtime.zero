@@ -48,7 +48,8 @@ used by manifests, protocols, and plans while granting no authority.
 `crates/error-contract/` owns stable machine codes and conservative privacy/retry
 semantics; human messages are not policy. `crates/resource-contract/` owns
 shared byte/record/timeout/process ceilings so modules can narrow but not expand
-foundation budgets.
+foundation budgets. `crates/release-contract/` owns the bounded canonical target
+× module × lifecycle evidence-ledger shape and cannot authorize release.
 `crates/artifact-identity/` opens, bounds, hashes, identifies, revalidates, and
 returns the same receipt-relative file handle without execution; platform
 execution binding remains a later gate. `crates/module-trust/` supplies a

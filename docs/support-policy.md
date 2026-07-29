@@ -140,7 +140,9 @@ elevation.
 
 Long-term additions are recorded from primary vendor documentation. A target is
 promoted only when its exact version, architecture, artifact format, manager,
-terminal, fixture set, host identity, and evidence location are known. Discovery
+terminal, fixture set, host identity, and evidence location are known. Promotion
+adds the target to the canonical release-contract cross-product; it does not
+bypass any module or lifecycle stage. Discovery
 never silently expands a 1.0 release blocker after RC freeze.
 
 Primary baseline sources:

@@ -135,11 +135,14 @@ for manifests, protocols, and action plans while granting no authority.
 conservative recovery decisions without filesystem I/O or automatic mutation.
 `crates/error-contract/` supplies stable machine error codes with fail-closed
 privacy and retry semantics. `crates/resource-contract/` centralizes shared
-byte/record/timeout/process ceilings so modules cannot silently expand them. See
+byte/record/timeout/process ceilings so modules cannot silently expand them.
+`crates/release-contract/` generates the exact bounded target × seven-module ×
+12-stage evidence ledger while remaining unable to authorize release. See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),
 [`docs/capability-contract.md`](docs/capability-contract.md),
 [`docs/error-contract.md`](docs/error-contract.md),
 [`docs/resource-contract.md`](docs/resource-contract.md),
+[`docs/release-acceptance.md`](docs/release-acceptance.md),
 [`docs/signature-verification.md`](docs/signature-verification.md),
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md),
 [`docs/transaction-journal.md`](docs/transaction-journal.md),
