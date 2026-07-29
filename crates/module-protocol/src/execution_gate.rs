@@ -56,6 +56,8 @@ pub enum ExecutionGate {
     ArtifactProvenance,
     ArtifactReceiptBinding,
     ArtifactRevocation,
+    ConfirmationExactPlanBinding,
+    ConfirmationSingleUseConsumption,
     CapabilityDeclaration,
     CapabilityFilesystemEnforcement,
     CapabilityNetworkEnforcement,
@@ -79,13 +81,15 @@ pub enum ExecutionGate {
     TransactionRollback,
 }
 
-pub const ALL_EXECUTION_GATES: [ExecutionGate; 27] = [
+pub const ALL_EXECUTION_GATES: [ExecutionGate; 29] = [
     ExecutionGate::ArtifactImmutableStaging,
     ExecutionGate::ArtifactPackageIntegrity,
     ExecutionGate::ArtifactProductionSignature,
     ExecutionGate::ArtifactProvenance,
     ExecutionGate::ArtifactReceiptBinding,
     ExecutionGate::ArtifactRevocation,
+    ExecutionGate::ConfirmationExactPlanBinding,
+    ExecutionGate::ConfirmationSingleUseConsumption,
     ExecutionGate::CapabilityDeclaration,
     ExecutionGate::CapabilityFilesystemEnforcement,
     ExecutionGate::CapabilityNetworkEnforcement,

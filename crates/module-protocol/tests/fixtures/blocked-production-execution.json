@@ -14,6 +14,8 @@
     { "gate": "artifact_provenance", "status": "missing", "mechanism": null, "evidence_reference": null },
     { "gate": "artifact_receipt_binding", "status": "missing", "mechanism": "receipt schema validation only", "evidence_reference": null },
     { "gate": "artifact_revocation", "status": "missing", "mechanism": "test-key revocation only", "evidence_reference": null },
+    { "gate": "confirmation_exact_plan_binding", "status": "missing", "mechanism": "contract evidence is not product integration", "evidence_reference": null },
+    { "gate": "confirmation_single_use_consumption", "status": "missing", "mechanism": "durable create-new consumption is not integrated", "evidence_reference": null },
     { "gate": "capability_declaration", "status": "proven", "mechanism": "schema-1 read-only permission declarations", "evidence_reference": "manifest-permission-tests" },
     { "gate": "capability_filesystem_enforcement", "status": "missing", "mechanism": null, "evidence_reference": null },
     { "gate": "capability_network_enforcement", "status": "missing", "mechanism": null, "evidence_reference": null },

@@ -18,7 +18,7 @@ fn current_production_execution_assessment_is_valid_and_blocked() {
         validation
             .warnings
             .iter()
-            .any(|warning| warning.contains("25 production gates"))
+            .any(|warning| warning.contains("27 production gates"))
     );
 }
 

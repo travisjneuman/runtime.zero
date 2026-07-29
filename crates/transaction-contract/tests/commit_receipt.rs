@@ -45,6 +45,9 @@ fn registry_plan_and_write_set_tampering_breaks_the_binding_digest() {
         |receipt: &mut TransactionCommitReceipt| {
             receipt.registry_after_sha256 = DIGEST_A.to_string()
         },
+        |receipt: &mut TransactionCommitReceipt| {
+            receipt.confirmation_response_sha256 = DIGEST_C.to_string()
+        },
     ] {
         let mut receipt = receipt(&journal);
         mutate(&mut receipt);
@@ -64,6 +67,7 @@ fn ordering_claims_and_automatic_mutation_fail_closed() {
     let journal = committed_journal();
     let mut receipt = receipt(&journal);
     receipt.publication.registry_published_last = false;
+    receipt.confirmation_consumed = false;
     receipt.automatic_mutation_authorized = true;
     seal_commit_receipt(&mut receipt);
     let validation = validate_commit_receipt(&receipt, &journal);
@@ -73,6 +77,12 @@ fn ordering_claims_and_automatic_mutation_fail_closed() {
             .errors
             .iter()
             .any(|error| error.contains("ordering"))
+    );
+    assert!(
+        validation
+            .errors
+            .iter()
+            .any(|error| error.contains("consumption"))
     );
     assert!(
         validation
@@ -107,6 +117,10 @@ fn receipt(journal: &TransactionJournal) -> TransactionCommitReceipt {
         journal_snapshot_name: format!("{:04}-{}.json", head.sequence, head.event_sha256),
         action_plan_sha256: DIGEST_A.to_string(),
         write_set_sha256: DIGEST_B.to_string(),
+        confirmation_challenge_sha256: DIGEST_A.to_string(),
+        confirmation_response_sha256: DIGEST_B.to_string(),
+        confirmation_consumption_sha256: DIGEST_C.to_string(),
+        confirmation_consumed: true,
         registry_before_sha256: None,
         registry_after_sha256: DIGEST_C.to_string(),
         publication: CommitPublicationRequirements::schema_one(),

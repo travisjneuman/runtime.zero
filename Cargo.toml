@@ -18,6 +18,7 @@ members = [
     "crates/action-plan",
     "crates/artifact-identity",
     "crates/capability-contract",
+    "crates/confirmation-contract",
     "crates/error-contract",
     "crates/inventory-contract",
     "crates/module-protocol",

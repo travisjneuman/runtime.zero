@@ -1,4 +1,4 @@
-use rz0_action_plan::{ActionCapability, ActionPlan, validate_action_plan};
+use rz0_action_plan::{ActionCapability, ActionPlan, action_plan_digests, validate_action_plan};
 
 #[test]
 fn valid_update_fixture_is_dry_run_only() {
@@ -120,6 +120,49 @@ fn read_only_protocol_capabilities_are_rejected_by_action_schema() {
             .iter()
             .any(|error| error.contains("outside action-plan schema"))
     );
+}
+
+#[test]
+fn plan_and_write_set_digests_are_deterministic_and_domain_separated() {
+    let plan: ActionPlan =
+        serde_json::from_str(include_str!("fixtures/valid-update.json")).expect("fixture");
+    let first = action_plan_digests(&plan).expect("digests");
+    let second = action_plan_digests(&plan).expect("digests");
+    assert_eq!(first, second);
+    assert_ne!(first.plan_sha256, first.write_set_sha256);
+    assert_eq!(first.plan_sha256.len(), 64);
+}
+
+#[test]
+fn plan_metadata_and_write_set_drift_have_distinct_digest_effects() {
+    let plan: ActionPlan =
+        serde_json::from_str(include_str!("fixtures/valid-update.json")).expect("fixture");
+    let baseline = action_plan_digests(&plan).expect("baseline");
+
+    let mut warning_drift = plan.clone();
+    warning_drift
+        .warnings
+        .push("operator-visible warning".to_string());
+    let warning = action_plan_digests(&warning_drift).expect("warning digest");
+    assert_ne!(warning.plan_sha256, baseline.plan_sha256);
+    assert_eq!(warning.write_set_sha256, baseline.write_set_sha256);
+
+    let write_plan: ActionPlan =
+        serde_json::from_str(include_str!("fixtures/valid-quarantine.json")).expect("fixture");
+    let write_baseline = action_plan_digests(&write_plan).expect("write baseline");
+    let mut write_drift = write_plan;
+    write_drift.actions[0].write_set[0].path = "quarantine/other-stale-shim.bin".to_string();
+    let write = action_plan_digests(&write_drift).expect("write digest");
+    assert_ne!(write.plan_sha256, write_baseline.plan_sha256);
+    assert_ne!(write.write_set_sha256, write_baseline.write_set_sha256);
+}
+
+#[test]
+fn invalid_plans_cannot_receive_foundation_digests() {
+    let mut plan: ActionPlan =
+        serde_json::from_str(include_str!("fixtures/valid-update.json")).expect("fixture");
+    plan.writes_attempted = true;
+    assert!(action_plan_digests(&plan).is_err());
 }
 
 #[test]

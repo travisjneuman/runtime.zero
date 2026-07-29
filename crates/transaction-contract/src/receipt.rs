@@ -21,6 +21,10 @@ pub struct TransactionCommitReceipt {
     pub journal_snapshot_name: String,
     pub action_plan_sha256: String,
     pub write_set_sha256: String,
+    pub confirmation_challenge_sha256: String,
+    pub confirmation_response_sha256: String,
+    pub confirmation_consumption_sha256: String,
+    pub confirmation_consumed: bool,
     pub registry_before_sha256: Option<String>,
     pub registry_after_sha256: String,
     pub publication: CommitPublicationRequirements,
@@ -94,6 +98,18 @@ pub fn validate_commit_receipt(
         ("action_plan_sha256", Some(&receipt.action_plan_sha256)),
         ("write_set_sha256", Some(&receipt.write_set_sha256)),
         (
+            "confirmation_challenge_sha256",
+            Some(&receipt.confirmation_challenge_sha256),
+        ),
+        (
+            "confirmation_response_sha256",
+            Some(&receipt.confirmation_response_sha256),
+        ),
+        (
+            "confirmation_consumption_sha256",
+            Some(&receipt.confirmation_consumption_sha256),
+        ),
+        (
             "registry_before_sha256",
             receipt.registry_before_sha256.as_ref(),
         ),
@@ -106,6 +122,9 @@ pub fn validate_commit_receipt(
         if value.is_some_and(|value| !rz0_validation_contract::valid_sha256(value)) {
             errors.push(format!("receipt {name} is not canonical SHA-256"));
         }
+    }
+    if !receipt.confirmation_consumed {
+        errors.push("receipt requires durable single-use confirmation consumption".to_string());
     }
     if receipt.publication != CommitPublicationRequirements::schema_one() {
         errors.push("receipt publication ordering requirements must all be enabled".to_string());
@@ -135,6 +154,10 @@ fn commit_receipt_digest(receipt: &TransactionCommitReceipt) -> String {
     put(&mut digest, &receipt.journal_snapshot_name);
     put(&mut digest, &receipt.action_plan_sha256);
     put(&mut digest, &receipt.write_set_sha256);
+    put(&mut digest, &receipt.confirmation_challenge_sha256);
+    put(&mut digest, &receipt.confirmation_response_sha256);
+    put(&mut digest, &receipt.confirmation_consumption_sha256);
+    digest.update([u8::from(receipt.confirmation_consumed)]);
     put_optional(&mut digest, receipt.registry_before_sha256.as_deref());
     put(&mut digest, &receipt.registry_after_sha256);
     for enabled in [
