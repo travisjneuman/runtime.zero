@@ -16,6 +16,8 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo check --workspace --target x86_64-pc-windows-msvc`;
 - Windows modern-baseline x86, x86-64, and ARM64 target checks/Clippy with the
   same `-D warnings` posture;
+- pinned `nightly-2026-07-29` build-std workspace checks for the Tier-3
+  Windows-7-baseline x86 and x86-64 MSVC targets;
 - Linux GNU x86-64 and ARM64 target checks/Clippy with warnings denied;
 - macOS Apple Silicon native evidence plus Intel target check/Clippy;
 - `cargo run -- doctor` and `cargo run -- scan --dry-run`;
@@ -41,7 +43,8 @@ teardown of a sleeping descendant with inherited pipes. The Windows-target lane
 also compiles private kill-on-close Job Object assignment, a two-process
 ceiling, descendant creation, and timeout job termination. Windows x86/x86-64/ARM64, Linux x86-64/ARM64, and macOS Intel all-feature target
 checks are not runtime evidence. Ordinary Rust Windows targets require Windows
-10/Server 2016; they are not proof for the separate legacy Windows matrix.
+10/Server 2016. The Tier-3 legacy checks compile crates and a custom standard
+library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 

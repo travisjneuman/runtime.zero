@@ -43,9 +43,10 @@ The normal Rust `*-pc-windows-*` targets built with Rust 1.96 require Windows 10
 or Server 2016. They cannot establish legacy compatibility.
 
 Rust defines Tier-3 `x86_64-win7-windows-msvc` and
-`i686-win7-windows-msvc` targets. They are not distributed by rustup, so a
-controlled nightly/build-std Windows build runner with an appropriate SDK/linker
-must produce candidate artifacts. These artifacts must retain the same source,
+`i686-win7-windows-msvc` targets. Their standard libraries are not distributed
+by rustup. The repository now pins `nightly-2026-07-29`, builds `std` from
+`rust-src`, and has cross-target workspace check evidence for both. A Windows
+MSVC/SDK build runner must still link candidate artifacts. These artifacts must retain the same source,
 contracts, tests, package manifest, and security review as modern artifacts.
 They may not pin the entire project to an obsolete Rust release.
 

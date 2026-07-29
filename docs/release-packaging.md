@@ -10,6 +10,17 @@ scripts/build-package.sh aarch64-apple-darwin /path/to/output
 ./scripts/build-package.ps1 -Target x86_64-pc-windows-msvc -OutputDirectory C:\output
 ```
 
+The separate legacy Windows build-runner lane is:
+
+```powershell
+./scripts/build-legacy-windows.ps1 -Target x86_64-win7-windows-msvc -ProvisionPinnedToolchain
+```
+
+It pins `nightly-2026-07-29`, builds the Tier-3 standard library from `rust-src`,
+and accepts only the Rust Windows-7-baseline x86/x86-64 targets. It still needs
+a Windows MSVC/SDK linker and final-artifact tests on every legacy OS; it does
+not make the ordinary artifact legacy-compatible.
+
 They require a clean Git worktree, locked dependencies, a Rust toolchain, and a
 linker capable of producing the selected target. Build runners use them; clean
 compatibility hosts do not.
@@ -32,8 +43,9 @@ The wrapper builds `rz0` in release mode and calls
 
 The current native Apple Silicon package was independently generated twice with
 identical ZIP bytes, checksum-verified, extracted into a clean temporary root,
-and exercised with `rz0 --version` and `rz0 doctor`. Other targets—including the non-rustup Windows-7-baseline targets—still require
-link-capable build runners and artifact-only runtime hosts; `cargo check` is not
+and exercised with `rz0 --version` and `rz0 doctor`. The Windows-7-baseline crates and custom standard library pass cross-target
+workspace checks for x86 and x86-64; linked EXEs still require the Windows build
+runner. Other targets still require link-capable build runners and artifact-only runtime hosts; `cargo check` is not
 an executable artifact.
 
 The portable ZIP is the first artifact contract. DMG, installer, DEB, RPM, and
