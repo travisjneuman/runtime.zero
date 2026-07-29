@@ -106,7 +106,10 @@ and partial failures require platform-specific tests before mutation.
 ## Current implementation boundary
 
 `crates/action-plan/` now supplies the schema-1 fixture-only model and fail-closed
-validator. Synthetic fixtures cover update, uninstall, eligible quarantine,
+validator. It uses the shared foundation capability vocabulary while rejecting
+read-only protocol permissions; network, elevation, and manager grants must
+match the exact plan flags/kind. Synthetic fixtures cover update, uninstall,
+eligible quarantine,
 restore, blocked credential/session classes, and invalid
 write/confirmation/executable/forbidden-path combinations. Quarantine and
 restore plans now bind an exact simulation-relative source path, lowercase

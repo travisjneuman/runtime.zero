@@ -29,6 +29,10 @@ module. The foundation owns:
 - shared performance budgets, bounded I/O, deterministic output, test harnesses,
   and release gates.
 
+The shared capability vocabulary is centralized in
+`crates/capability-contract/`; each versioned manifest/protocol/action schema
+accepts only its exact subset, and classification never grants authority.
+
 A module owns only its intended domain logic. It may collect domain evidence,
 normalize findings, and propose or perform its exact approved action through
 foundation services. It must not invent its own trust root, process host,

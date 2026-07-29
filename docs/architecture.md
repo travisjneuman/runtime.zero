@@ -43,6 +43,8 @@ package managers, execute desktop entries, inspect macOS bundle contents, or
 recursively scan drives. See
 [`inventory-schema.md`](inventory-schema.md).
 
+`crates/capability-contract/` owns the shared read/action capability vocabulary
+used by manifests, protocols, and plans while granting no authority.
 `crates/artifact-identity/` opens, bounds, hashes, identifies, revalidates, and
 returns the same receipt-relative file handle without execution; platform
 execution binding remains a later gate. `crates/module-trust/` supplies a

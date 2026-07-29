@@ -84,6 +84,8 @@ See [`action-planning.md`](action-planning.md).
 - [ ] Real Linux application runtime and Windows/full cross-platform compatibility matrix.
 - [ ] Artifact-level license/notice and reproducibility audit; source dependency
   vulnerability/license metadata audit is recorded.
+- [x] Shared foundation capability vocabulary with disjoint read-only protocol/
+  manifest and action-plan schema subsets; classification grants no authority.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
 - [x] Test-key-only detached Ed25519 signature contract and strict verification.
 - [x] Fixture-only immutable staging plan plus atomic temporary-root publication

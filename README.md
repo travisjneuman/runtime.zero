@@ -129,7 +129,10 @@ artifact, capability, executable-identity, process, runtime, and transaction
 gates while remaining structurally unable to authorize execution. The
 `crates/artifact-identity/` foundation primitive hashes and identifies one
 receipt-relative file through the same returned open handle without executing
-it. See [`docs/artifact-identity.md`](docs/artifact-identity.md),
+it. `crates/capability-contract/` supplies one shared least-privilege vocabulary
+for manifests, protocols, and action plans while granting no authority. See
+[`docs/artifact-identity.md`](docs/artifact-identity.md),
+[`docs/capability-contract.md`](docs/capability-contract.md),
 [`docs/signature-verification.md`](docs/signature-verification.md),
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md),
 [`docs/module-process-protocol.md`](docs/module-process-protocol.md), and the

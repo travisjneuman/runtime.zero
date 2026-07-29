@@ -17,6 +17,10 @@
 
 ## Module safety metadata
 
+Capability names are foundation-owned through one shared contract; manifest,
+protocol, and action schemas accept only their explicit subsets. Classification
+does not grant OS authority.
+
 Every module manifest must declare:
 
 - capability class;

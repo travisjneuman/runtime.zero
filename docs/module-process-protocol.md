@@ -35,7 +35,9 @@ arguments, arbitrary JSON, or filesystem write request.
 
 ## Least-privilege validation
 
-Every plan requires process-environment and filesystem-metadata reads. Platform
+Every plan uses the shared foundation vocabulary but schema 1 accepts only its
+read-only protocol subset. Process-environment and filesystem-metadata reads are
+required; action/network/write/elevation capabilities are rejected. Platform
 and option grants must match exactly:
 
 - Windows requires persisted-environment registry read; opt-in apps require

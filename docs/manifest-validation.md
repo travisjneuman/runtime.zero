@@ -51,7 +51,10 @@ behavior.
 ## Read-only permission metadata
 
 The optional schema-1 `permissions` object is the first enforceable declaration
-for read-only modules. It separates all `declared` permissions into
+for read-only modules. Permission names come from the shared foundation
+capability vocabulary in [`capability-contract.md`](capability-contract.md),
+while this schema accepts only its read-only subset. It separates all `declared`
+permissions into
 `default_grants` and `explicit_grants`. Current known permissions are:
 
 - `process_environment_read`;
@@ -64,7 +67,8 @@ for read-only modules. It separates all `declared` permissions into
 Lists must be duplicate-free, default and explicit grants must be disjoint, and
 every grant must be declared. Application registry/filesystem reads and exact
 command probes must be explicit, never default. Schema 1 rejects mutating modules and
-unknown future permissions. First-party manifests without permissions remain
+action/mutation capabilities and unknown future permissions. First-party
+manifests without permissions remain
 valid for compatibility but receive a warning that they have no enforceable
 permission declaration.
 
