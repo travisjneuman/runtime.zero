@@ -1,0 +1,15 @@
+[package]
+name = "rz0-release-contract"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "Finite module-platform-lifecycle acceptance matrix for runtime.zero releases"
+license = "Apache-2.0"
+publish = false
+rust-version = "1.96"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"

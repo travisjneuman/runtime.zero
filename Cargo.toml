@@ -22,6 +22,7 @@ members = [
     "crates/inventory-contract",
     "crates/module-protocol",
     "crates/module-trust",
+    "crates/release-contract",
     "crates/resource-contract",
     "crates/transaction-contract",
     "modules/inventory",

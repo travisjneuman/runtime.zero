@@ -815,6 +815,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rz0-release-contract"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rz0-resource-contract"
 version = "0.1.0"
 dependencies = [
