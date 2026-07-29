@@ -1,8 +1,10 @@
 use std::collections::BTreeSet;
 
 mod durable;
+mod receipt;
 
 pub use durable::*;
+pub use receipt::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
