@@ -1,0 +1,164 @@
+use std::fs;
+use std::io;
+use std::path::PathBuf;
+use std::time::Instant;
+
+use rz0_inventory_contract::{AppRecord, InventorySource};
+
+#[cfg(any(target_os = "linux", test))]
+mod desktop_entry;
+#[cfg(any(target_os = "linux", test))]
+mod linux;
+#[cfg(any(target_os = "macos", test))]
+mod macos;
+
+pub(super) const MAX_APP_RECORDS: usize = 4096;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlatformAppCollection {
+    pub source: InventorySource,
+    pub apps: Vec<AppRecord>,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct RootSpec {
+    pub path: PathBuf,
+    pub label: String,
+}
+
+#[cfg(target_os = "macos")]
+pub fn collect_installed_apps() -> PlatformAppCollection {
+    macos::collect_installed_apps()
+}
+
+#[cfg(target_os = "linux")]
+pub fn collect_installed_apps() -> PlatformAppCollection {
+    linux::collect_installed_apps()
+}
+
+pub(super) fn open_root(root: &RootSpec, warnings: &mut Vec<String>) -> Option<Vec<fs::DirEntry>> {
+    let metadata = match fs::symlink_metadata(&root.path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return None,
+        Err(_) => {
+            warnings.push(format!("application root '{}' was unavailable", root.label));
+            return None;
+        }
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        warnings.push(format!(
+            "application root '{}' was not a direct directory and was skipped",
+            root.label
+        ));
+        return None;
+    }
+    let entries = match fs::read_dir(&root.path) {
+        Ok(entries) => entries
+            .take(MAX_APP_RECORDS.saturating_add(1))
+            .filter_map(Result::ok)
+            .collect(),
+        Err(_) => {
+            warnings.push(format!(
+                "application root '{}' could not be enumerated",
+                root.label
+            ));
+            return None;
+        }
+    };
+    Some(entries)
+}
+
+pub(super) fn finish_collection(
+    source_id: &str,
+    source_kind: &str,
+    started: Instant,
+    opened_roots: usize,
+    mut apps: Vec<AppRecord>,
+    warnings: Vec<String>,
+) -> PlatformAppCollection {
+    apps.sort_by(|left, right| {
+        left.name
+            .to_ascii_lowercase()
+            .cmp(&right.name.to_ascii_lowercase())
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    let status = if opened_roots == 0 {
+        "unavailable"
+    } else if warnings.is_empty() {
+        "ok"
+    } else {
+        "partial"
+    };
+    PlatformAppCollection {
+        source: InventorySource {
+            id: source_id.to_string(),
+            kind: source_kind.to_string(),
+            status: status.to_string(),
+            duration_ms: Some(elapsed_ms(started)),
+            read_only: true,
+            warnings,
+        },
+        apps,
+    }
+}
+
+pub(super) fn has_extension(path: &std::path::Path, expected: &str) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| value.eq_ignore_ascii_case(expected))
+}
+
+pub(super) fn sanitize_text(value: &str, max_len: usize) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.chars().any(char::is_control) {
+        return None;
+    }
+    Some(trimmed.chars().take(max_len).collect())
+}
+
+pub(super) fn fnv1a(value: &[u8]) -> u64 {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in value {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+fn elapsed_ms(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::symlink;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn symlinked_application_roots_fail_closed() {
+        let temp = temp_root();
+        let target = temp.join("target");
+        fs::create_dir_all(&target).expect("target");
+        let link = temp.join("link");
+        symlink(&target, &link).expect("symlink");
+        let root = RootSpec {
+            path: link,
+            label: "fixture-link".to_string(),
+        };
+        let mut warnings = Vec::new();
+        assert!(open_root(&root, &mut warnings).is_none());
+        assert!(warnings[0].contains("direct directory"));
+        fs::remove_dir_all(temp).expect("cleanup");
+    }
+
+    fn temp_root() -> PathBuf {
+        let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "rz0-platform-apps-link-{}-{sequence}",
+            std::process::id()
+        ))
+    }
+}

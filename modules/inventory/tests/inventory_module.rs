@@ -67,15 +67,15 @@ fn redaction_reuses_report_local_tokens_without_original_paths() {
     assert!(!json.contains("\u{1b}["));
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
 #[test]
-fn windows_app_inventory_fails_closed_on_other_platforms() {
+fn application_inventory_fails_closed_on_unsupported_platforms() {
     let error = collect_inventory(&InventoryOptions {
         include_apps: true,
         ..InventoryOptions::default()
     })
-    .expect_err("Windows-only option");
-    assert!(error.contains("only on Windows"));
+    .expect_err("unsupported option");
+    assert!(error.contains("not supported"));
 }
 
 fn collect_fixture(

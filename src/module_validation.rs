@@ -191,10 +191,15 @@ fn validate_permissions(
             break;
         }
     }
-    use crate::module_manifest::ModulePermission::{ApplicationRegistryRead, ExactCommandProbe};
-    if defaults.contains(&ExactCommandProbe) || defaults.contains(&ApplicationRegistryRead) {
+    use crate::module_manifest::ModulePermission::{
+        ApplicationFilesystemRead, ApplicationRegistryRead, ExactCommandProbe,
+    };
+    if defaults.contains(&ExactCommandProbe)
+        || defaults.contains(&ApplicationRegistryRead)
+        || defaults.contains(&ApplicationFilesystemRead)
+    {
         errors.push(
-            "exact command probes and application registry reads must require explicit grants"
+            "command probes and application inventory reads must require explicit grants"
                 .to_string(),
         );
     }
@@ -294,17 +299,23 @@ mod tests {
     }
 
     #[test]
-    fn rejects_command_probe_as_default_grant() {
-        let mut manifest = valid_manifest();
-        manifest.permissions = Some(ModulePermissions {
-            schema_version: 1,
-            declared: vec![ModulePermission::ExactCommandProbe],
-            default_grants: vec![ModulePermission::ExactCommandProbe],
-            explicit_grants: Vec::new(),
-        });
-        let report = validate_manifest(Path::new("module.json"), manifest);
-        assert!(!report.valid);
-        assert!(report.errors.iter().any(|error| error.contains("explicit")));
+    fn rejects_sensitive_read_as_default_grant() {
+        for permission in [
+            ModulePermission::ExactCommandProbe,
+            ModulePermission::ApplicationRegistryRead,
+            ModulePermission::ApplicationFilesystemRead,
+        ] {
+            let mut manifest = valid_manifest();
+            manifest.permissions = Some(ModulePermissions {
+                schema_version: 1,
+                declared: vec![permission],
+                default_grants: vec![permission],
+                explicit_grants: Vec::new(),
+            });
+            let report = validate_manifest(Path::new("module.json"), manifest);
+            assert!(!report.valid);
+            assert!(report.errors.iter().any(|error| error.contains("explicit")));
+        }
     }
 
     #[test]

@@ -153,6 +153,13 @@ fn inventory_source_manifest_declares_explicit_sensitive_reads() {
                 .iter()
                 .any(|grant| grant == "application_registry_read"))
     );
+    assert!(
+        permissions["explicit_grants"]
+            .as_array()
+            .is_some_and(|grants| grants
+                .iter()
+                .any(|grant| grant == "application_filesystem_read"))
+    );
 }
 
 #[test]

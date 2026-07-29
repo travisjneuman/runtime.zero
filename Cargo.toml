@@ -17,13 +17,14 @@ resolver = "3"
 members = [
     "crates/action-plan",
     "crates/inventory-contract",
+    "crates/module-trust",
     "modules/inventory",
 ]
 
 [dependencies]
 crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm_0_29"] }
-rz0-inventory-contract = { path = "crates/inventory-contract" }
+rz0-inventory-contract = { version = "0.1.0", path = "crates/inventory-contract" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"

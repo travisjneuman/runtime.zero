@@ -1,6 +1,8 @@
 mod command_probe;
 mod fixture;
 mod path_inventory;
+#[cfg(any(target_os = "macos", target_os = "linux", test))]
+mod platform_apps;
 mod redaction;
 mod render;
 mod tool_specs;
@@ -60,9 +62,13 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
         report.tools.extend(tools.tools);
     }
 
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
     if options.include_apps {
+        #[cfg(windows)]
         let apps = windows_registry::collect_installed_apps();
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        let apps = platform_apps::collect_installed_apps();
+
         record_source_event(&mut report, &apps.source);
         report.sources.push(apps.source);
         report.apps.extend(apps.apps);
@@ -86,9 +92,9 @@ fn validate_options(options: &InventoryOptions) -> Result<(), String> {
     if options.fixture.is_some() && options.include_apps {
         return Err("--include-apps cannot be combined with --fixture".to_string());
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     if options.include_apps {
-        return Err("--include-apps is currently supported only on Windows".to_string());
+        return Err("--include-apps is not supported on this platform".to_string());
     }
     Ok(())
 }

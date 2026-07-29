@@ -83,7 +83,7 @@ fn parse_args(args: &[String]) -> Result<ParsedCommand, String> {
 }
 
 fn usage() -> String {
-    "Usage: rz0-inventory [--format text|json] [--redact-paths]\n       rz0-inventory --fixture <local.json> [--format text|json] [--redact-paths]\n       rz0-inventory --probe-versions [--format text|json] [--redact-paths]\n       rz0-inventory --include-apps [--format text|json] [--redact-paths]\n\nSafety:\n  Read-only local inventory. PATH and registry values are never changed.\n  Version probes are opt-in, timeout-bounded, and run exact discovered paths.\n  Windows app evidence is opt-in; raw registry keys are never emitted.\n  Use --redact-paths and review opt-in app names before sharing output.\n"
+    "Usage: rz0-inventory [--format text|json] [--redact-paths]\n       rz0-inventory --fixture <local.json> [--format text|json] [--redact-paths]\n       rz0-inventory --probe-versions [--format text|json] [--redact-paths]\n       rz0-inventory --include-apps [--format text|json] [--redact-paths]\n\nSafety:\n  Read-only local inventory. PATH and registry values are never changed.\n  Version probes are opt-in, timeout-bounded, and run exact discovered paths.\n  Platform app evidence is opt-in; raw registry keys are never emitted.\n  Use --redact-paths and review opt-in app names before sharing output.\n"
         .to_string()
 }
 

@@ -132,6 +132,7 @@ pub enum ModulePermission {
     FilesystemMetadataRead,
     PersistedEnvironmentRegistryRead,
     ApplicationRegistryRead,
+    ApplicationFilesystemRead,
     ExactCommandProbe,
 }
 

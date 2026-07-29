@@ -13,6 +13,8 @@
     "known-tool-discovery",
     "optional-version-probes",
     "windows-application-inventory",
+    "macos-application-inventory",
+    "linux-desktop-entry-inventory",
     "path-redaction"
   ],
   "supported_platforms": ["windows", "macos", "linux"],
@@ -31,6 +33,7 @@
       "filesystem_metadata_read",
       "persisted_environment_registry_read",
       "application_registry_read",
+      "application_filesystem_read",
       "exact_command_probe"
     ],
     "default_grants": [
@@ -40,6 +43,7 @@
     ],
     "explicit_grants": [
       "application_registry_read",
+      "application_filesystem_read",
       "exact_command_probe"
     ]
   }
