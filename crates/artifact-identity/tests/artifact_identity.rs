@@ -5,10 +5,14 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+#[cfg(unix)]
+use rz0_artifact_identity::revalidate_verified_artifact;
 use rz0_artifact_identity::{
     ArtifactExpectation, ArtifactIdentityErrorCode, open_verified_artifact,
 };
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::io::{Seek, SeekFrom};
 
 const ROOT_PREFIX: &str = "rz0-artifact-identity-sim-";
 const ROOT_MARKER: &str = ".rz0-artifact-identity-test-v1";
@@ -95,9 +99,9 @@ fn symlinked_roots_and_artifacts_are_rejected() {
 
 #[cfg(unix)]
 #[test]
-fn verified_open_handle_keeps_original_bytes_after_path_replacement() {
+fn verified_open_handle_keeps_original_bytes_and_detects_path_replacement() {
     let root = TestRoot::new();
-    let verified = open_verified_artifact(root.path(), "bin/module.bin", &expectation(PAYLOAD))
+    let mut verified = open_verified_artifact(root.path(), "bin/module.bin", &expectation(PAYLOAD))
         .expect("verified artifact");
     fs::rename(
         root.path().join("bin/module.bin"),
@@ -110,7 +114,10 @@ fn verified_open_handle_keeps_original_bytes_after_path_replacement() {
     )
     .expect("replacement fixture");
 
+    let error = revalidate_verified_artifact(&mut verified).unwrap_err();
+    assert_eq!(error.code, ArtifactIdentityErrorCode::IdentityChanged);
     let mut held = verified.into_file();
+    held.seek(SeekFrom::Start(0)).expect("rewind held artifact");
     let mut bytes = Vec::new();
     held.read_to_end(&mut bytes).expect("read held artifact");
     assert_eq!(bytes, PAYLOAD);

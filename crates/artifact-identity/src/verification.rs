@@ -14,6 +14,84 @@ use crate::{
     platform_open::open_artifact,
 };
 
+pub fn revalidate_verified_artifact(
+    artifact: &mut VerifiedArtifact,
+) -> Result<(), ArtifactIdentityError> {
+    let metadata = artifact
+        .file
+        .metadata()
+        .map_err(|error| io_error("re-read held artifact metadata", error))?;
+    let identity = identity_from_file(&artifact.file, &metadata)?;
+    if identity != artifact.identity || !has_single_link(&identity) {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::IdentityChanged,
+            "held artifact identity or link count changed",
+        ));
+    }
+    if metadata.len() != artifact.size_bytes || metadata.len() > MAX_ARTIFACT_BYTES {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::SizeMismatch,
+            "held artifact size changed",
+        ));
+    }
+    artifact
+        .file
+        .seek(SeekFrom::Start(0))
+        .map_err(|error| io_error("rewind held artifact", error))?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    (&mut artifact.file)
+        .take(MAX_ARTIFACT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| io_error("re-read held artifact", error))?;
+    if bytes.len() as u64 != artifact.size_bytes {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::SizeMismatch,
+            "held artifact bytes changed size",
+        ));
+    }
+    if format!("{:x}", Sha256::digest(&bytes)) != artifact.sha256 {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::DigestMismatch,
+            "held artifact digest changed",
+        ));
+    }
+    let current_metadata = fs::symlink_metadata(&artifact.canonical_path).map_err(|_| {
+        ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::IdentityChanged,
+            "artifact path disappeared after use",
+        )
+    })?;
+    if current_metadata.file_type().is_symlink() {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::IdentityChanged,
+            "artifact path became a symbolic link",
+        ));
+    }
+    let current_file = fs::File::open(&artifact.canonical_path).map_err(|_| {
+        ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::IdentityChanged,
+            "artifact path could not be reopened after use",
+        )
+    })?;
+    let current_metadata = current_file.metadata().map_err(|_| {
+        ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::IdentityChanged,
+            "artifact path metadata changed after use",
+        )
+    })?;
+    if identity_from_file(&current_file, &current_metadata)? != artifact.identity {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::IdentityChanged,
+            "artifact path no longer identifies the held file",
+        ));
+    }
+    artifact
+        .file
+        .seek(SeekFrom::Start(0))
+        .map_err(|error| io_error("rewind revalidated artifact", error))?;
+    Ok(())
+}
+
 pub fn open_verified_artifact(
     root: &Path,
     relative_path: &str,

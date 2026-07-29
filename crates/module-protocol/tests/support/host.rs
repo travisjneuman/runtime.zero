@@ -9,6 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use rz0_artifact_identity::revalidate_verified_artifact;
 use rz0_module_protocol::test_transport::{
     TestTransportRequest, TestTransportResponse, validate_test_transport_response,
 };
@@ -18,7 +19,7 @@ use super::{
     outcome::{TransportFailure, TransportSuccess, failure, failure_with_state},
     preflight::validate_preflight,
     process_isolation::{configure_test_process, contain_test_process, terminate_test_process},
-    temp_root::{TestRoot, sha256_file},
+    temp_root::TestRoot,
 };
 
 static PROCESS_TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -58,7 +59,7 @@ fn run_test_transport_inner(
     request: &TestTransportRequest,
     environment: &BTreeMap<String, OsString>,
 ) -> Result<TransportSuccess, TransportFailure> {
-    let _verified_artifact = validate_preflight(root, request, environment)
+    let mut verified_artifact = validate_preflight(root, request, environment)
         .map_err(|detail| failure("preflight_failed", detail))?;
     let mut input = serde_json::to_vec(request)
         .map_err(|error| failure("request_serialization_failed", error.to_string()))?;
@@ -220,14 +221,12 @@ fn run_test_transport_inner(
             stderr.total_bytes,
         ));
     }
-    let final_digest = sha256_file(root.executable())
-        .map_err(|detail| failure("post_spawn_verification_failed", detail))?;
-    if final_digest != request.preview.executable.sha256 {
-        return Err(failure(
+    revalidate_verified_artifact(&mut verified_artifact).map_err(|error| {
+        failure(
             "post_spawn_verification_failed",
-            "test helper digest changed across execution".to_string(),
-        ));
-    }
+            format!("test helper identity changed across execution: {error}"),
+        )
+    })?;
     Ok(TransportSuccess {
         response,
         exit_code: status.code(),
