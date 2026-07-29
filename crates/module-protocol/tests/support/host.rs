@@ -58,7 +58,7 @@ fn run_test_transport_inner(
     request: &TestTransportRequest,
     environment: &BTreeMap<String, OsString>,
 ) -> Result<TransportSuccess, TransportFailure> {
-    validate_preflight(root, request, environment)
+    let _verified_artifact = validate_preflight(root, request, environment)
         .map_err(|detail| failure("preflight_failed", detail))?;
     let mut input = serde_json::to_vec(request)
         .map_err(|error| failure("request_serialization_failed", error.to_string()))?;

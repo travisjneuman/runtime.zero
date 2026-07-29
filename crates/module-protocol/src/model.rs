@@ -48,6 +48,7 @@ pub struct ExecutableBinding {
     pub source: ExecutablePathSource,
     pub relative_path: String,
     pub sha256: String,
+    pub size_bytes: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]

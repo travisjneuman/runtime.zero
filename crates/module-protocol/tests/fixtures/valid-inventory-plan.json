@@ -15,7 +15,8 @@
   "executable": {
     "source": "verified_receipt",
     "relative_path": "bin/rz0-inventory",
-    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "size_bytes": 4096
   },
   "signature": {
     "verified": true,

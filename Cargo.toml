@@ -16,6 +16,7 @@ rust-version = "1.96"
 resolver = "3"
 members = [
     "crates/action-plan",
+    "crates/artifact-identity",
     "crates/inventory-contract",
     "crates/module-protocol",
     "crates/module-trust",

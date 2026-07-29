@@ -32,6 +32,9 @@ fn request(root: &TestRoot, behavior: TestChildBehavior) -> TestTransportRequest
     preview.request_id = format!("transport-{}", behavior_name(behavior));
     preview.executable.relative_path = root.executable_relative_path();
     preview.executable.sha256 = sha256_file(root.executable()).expect("helper digest");
+    preview.executable.size_bytes = std::fs::metadata(root.executable())
+        .expect("helper metadata")
+        .len();
     preview.limits.timeout_ms = 2_000;
     preview.limits.stdout_bytes = 64 * 1024;
     preview.limits.stderr_bytes = 64 * 1024;

@@ -7,6 +7,7 @@ use crate::model::{
 };
 use crate::policy::{valid_error_code, valid_id, valid_relative_path, valid_sha256, valid_version};
 
+const MAX_EXECUTABLE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_TIMEOUT_MS: u64 = 10_000;
 const MAX_STDIN_BYTES: u64 = 64 * 1024;
 const MAX_STDOUT_BYTES: u64 = 1024 * 1024;
@@ -118,6 +119,11 @@ fn validate_executable(plan: &InvocationPlan, errors: &mut Vec<String>) {
     }
     if !valid_sha256(&plan.executable.sha256) {
         errors.push("executable sha256 is invalid".to_string());
+    }
+    if plan.executable.size_bytes == 0 || plan.executable.size_bytes > MAX_EXECUTABLE_BYTES {
+        errors.push(format!(
+            "executable size_bytes must be between 1 and {MAX_EXECUTABLE_BYTES}"
+        ));
     }
 }
 

@@ -741,6 +741,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rz0-artifact-identity"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "sha2 0.10.9",
+ "windows-sys",
+]
+
+[[package]]
 name = "rz0-inventory-contract"
 version = "0.1.0"
 dependencies = [
@@ -763,6 +772,7 @@ name = "rz0-module-protocol"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "rz0-artifact-identity",
  "serde",
  "serde_json",
  "sha2 0.10.9",
