@@ -125,8 +125,11 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
 
 ## Phase 8 — equal-platform, equal-module production 1.0
 
-- [ ] Freeze supported OS versions, architectures, package/service managers,
-  terminals, installers, release channels, schemas, budgets, and acceptance IDs.
+- [x] Define rolling current-plus-three Windows/macOS/Server/Linux version and
+  artifact-only compatibility-host policy, initial manager order, architecture
+  expansion, and no-paid-signing GitHub distribution posture.
+- [ ] Freeze the exact RC snapshot of that rolling matrix plus schemas, measured
+  budgets, and acceptance IDs.
 - [ ] Complete every lifecycle stage for inventory/environment, updater,
   uninstall, leftovers, cache, security/integrity, and report/export on Windows,
   macOS, and Linux.

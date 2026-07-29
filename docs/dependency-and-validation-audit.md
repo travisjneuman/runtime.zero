@@ -14,8 +14,10 @@ Validated with Rust/Cargo 1.96.0:
   transport;
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`;
 - `cargo check --workspace --target x86_64-pc-windows-msvc`;
-- Windows-target clippy with the same `-D warnings` posture;
-- Linux-target workspace check and Clippy with warnings denied;
+- Windows x86-64 and ARM64 target checks/Clippy with the same `-D warnings`
+  posture;
+- Linux GNU x86-64 and ARM64 target checks/Clippy with warnings denied;
+- macOS Apple Silicon native evidence plus Intel target check/Clippy;
 - `cargo run -- doctor` and `cargo run -- scan --dry-run`;
 - fixture and live-redacted inventory JSON parsing/assertions;
 - opt-in macOS application-bundle smoke with redacted paths;
@@ -37,8 +39,8 @@ transport cases. The transport cases prove
 fail-closed refusal of an observed inheritable descriptor and Unix process-group
 teardown of a sleeping descendant with inherited pipes. The Windows-target lane
 also compiles private kill-on-close Job Object assignment, a two-process
-ceiling, descendant creation, and timeout job termination. Windows and Linux
-all-feature target checks are not runtime evidence.
+ceiling, descendant creation, and timeout job termination. Windows/Linux x86-64/ARM64 and macOS Intel all-feature target checks are not
+runtime evidence.
 
 ## RustSec advisory scan
 

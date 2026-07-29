@@ -66,14 +66,20 @@ requirements as every other module.
 
 ## Equal platform matrix
 
-The final supported OS-version, architecture, terminal, package-manager, and
-installer sets must be frozen before release. Current broad targets are:
+[`support-policy.md`](support-policy.md) freezes a rolling newest-to-oldest
+policy: current plus three previous generations where safe artifacts and test
+images are practically available, with vendor-retired systems demoted to
+compatibility-only rather than represented as secure. Apple Silicon, Intel,
+x86-64, and ARM64 are required where the OS/vendor pair supports them; other
+architectures enter through the same research-to-runtime promotion gate.
+
+Current broad targets are:
 
 | Platform | Required production scope | Current evidence |
 | --- | --- | --- |
-| Windows | Supported Windows 10/11 and Server releases; architecture set to be frozen; registry, reparse, ACL, locked-file, handle, Job Object, service, package-manager, installer, terminal, recovery, and elevation behavior | Target compilation, fixture contracts, and compile-only test Job Object support; real runtime matrix incomplete |
-| macOS | Supported current Intel/Apple Silicon releases; bundle, launch/service, package-manager, code identity, sandbox, ACL, filesystem, terminal, installer/notarization, recovery, and privilege behavior | Native inventory and guarded Unix test-helper evidence; production runtime incomplete |
-| Linux | Supported distribution/kernel/libc/architecture set to be frozen; XDG, package/service/persistence managers, namespace/seccomp/landlock availability, filesystem, terminal, package formats, recovery, and privilege behavior | Target compilation and fixtures; real runtime matrix incomplete |
+| Windows | Windows 11 rolling generations and Server LTSC 2025/2022/2019/2016; x86-64/ARM64 where supported; registry, reparse, ACL, locked-file, handle, Job Object, service, manager, installer, terminal, recovery, and elevation behavior | Target compilation, fixture contracts, and compile-only test Job Object support; artifact-only runtime matrix incomplete |
+| macOS | Tahoe 26, Sequoia 15, Sonoma 14, Ventura 13 across supported Apple Silicon/Intel pairs; bundle, launch/service, manager, code identity, sandbox, ACL, filesystem, terminal, packaging, recovery, and privilege behavior | Native newest-generation inventory and guarded Unix test-helper evidence; older/final-artifact runtime incomplete |
+| Linux | Ubuntu LTS 26.04/24.04/22.04/20.04, Debian 13/12/11/10, RHEL 10/9/8/7, and current Arch rolling plus snapshot regression evidence; x86-64/ARM64 first; XDG, managers, services, namespaces/seccomp/landlock, filesystems, terminals, packages, recovery, and privilege | Target compilation and fixtures; final-artifact distro runtime matrix incomplete |
 
 No platform may ship a module merely because another platform passed. A feature
 may be explicitly unsupported only when the frozen 1.0 scope says so before
@@ -133,7 +139,10 @@ These workstreams are dependency-ordered. Platform-specific work proceeds in
 parallel once its shared foundation dependency is stable.
 
 1. Freeze 1.0 requirements, OS/architecture/manager/install-channel tables,
-   schemas, compatibility policy, acceptance IDs, and measurable budgets.
+   schemas, compatibility policy, acceptance IDs, and measurable budgets. The
+   rolling current-plus-three platform policy, initial manager order, no-paid-
+   signing posture, and final-artifact-only compatibility-host rule are now
+   defined; acceptance IDs and measured budgets remain.
 2. Stabilize the core package/module/store/configuration/error/logging contracts
    and migration rules. The shared typed error vocabulary and conservative
    retry/privacy semantics exist; broad adapter migration remains.
@@ -157,9 +166,12 @@ parallel once its shared foundation dependency is stable.
    help, manual pages, completions, recovery UX, and support diagnostics.
 10. Complete dependency/supply-chain review, unsafe-code review, fuzzing,
     performance/soak/fault testing, external security review, and release audit.
-11. Produce reproducible signed/notarized artifacts, SBOMs/notices, installers,
+11. Produce reproducible artifacts, checksums, SBOMs/notices, installers,
     package channels, offline paths, updates, rollback, and compromised-release
-    response for every platform.
+    response for every platform. Paid Apple notarization and Windows
+    Authenticode are not required; public claims and warning UX must reflect
+    unsigned/ad-hoc artifacts. See
+    [`free-release-distribution.md`](free-release-distribution.md).
 12. Complete beta/RC runtime matrices, documentation/site/brand parity,
     vulnerability response, support runbooks, go-live criteria, and rollback.
 
@@ -213,7 +225,9 @@ Optimization means bounded, measured behavior rather than premature complexity:
 - the final cross-platform secret, safety, compatibility, accessibility,
   performance, recovery, supply-chain, and remote-artifact audit passes.
 
-Production keys, publishing, deployment, external accounts, paid services,
-recurring automation, third-party execution, host provisioning, and real
-system mutation remain separately scoped consequential actions even though they
-appear in the completion plan.
+Production write-path implementation and disposable-host testing are approved
+under the repository safety contracts. Paid Apple/Windows signing is excluded.
+Any actual GitHub workflow creation, public release, package-channel submission,
+website deployment, recurring automation, third-party execution, production
+credential use, or mutation of a non-disposable host still requires an exact
+external-write capability record before execution.
