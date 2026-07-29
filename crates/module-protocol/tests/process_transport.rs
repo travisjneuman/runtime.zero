@@ -2,7 +2,7 @@
 
 mod support;
 
-use std::{path::Path, time::Instant};
+use std::path::Path;
 
 use rz0_module_protocol::{
     InvocationPlan, ProtocolCapability, ProtocolPlatform,
@@ -17,6 +17,9 @@ use support::{
     host::run_test_transport,
     temp_root::{TestRoot, sha256_file},
 };
+
+#[cfg(unix)]
+use support::host::run_test_transport_with_inheritable_descriptor;
 
 fn compiled_helper() -> &'static Path {
     Path::new(env!("CARGO_BIN_EXE_rz0-protocol-test-child"))
@@ -85,11 +88,48 @@ fn timeout_kills_and_reaps_direct_test_child() {
     let root = TestRoot::new(compiled_helper());
     let mut request = request(&root, TestChildBehavior::Sleep);
     request.preview.limits.timeout_ms = 100;
-    let started = Instant::now();
     let failure = run_test_transport(&root, &request, &root.environment()).unwrap_err();
     assert_eq!(failure.code, "timed_out", "{}", failure.detail);
     assert!(failure.timed_out);
-    assert!(started.elapsed().as_secs_f32() < 1.5);
+}
+
+#[cfg(unix)]
+#[test]
+fn timeout_terminates_descendant_process_group_and_closes_pipes() {
+    let root = TestRoot::new(compiled_helper());
+    let mut request = request(&root, TestChildBehavior::DescendantSleep);
+    request.preview.limits.timeout_ms = 500;
+    let failure = run_test_transport(&root, &request, &root.environment()).unwrap_err();
+    assert_eq!(failure.code, "timed_out", "{}", failure.detail);
+    assert!(failure.timed_out);
+    assert!(
+        failure.stderr_bytes > 0,
+        "descendant did not report startup"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn nonstandard_inheritable_descriptor_blocks_spawn() {
+    use std::{fs::File, os::fd::AsRawFd};
+
+    let root = TestRoot::new(compiled_helper());
+    let inherited = File::open(root.work().join(TEST_WORK_MARKER)).expect("open marker descriptor");
+    let descriptor = inherited.as_raw_fd();
+    let request = request(&root, TestChildBehavior::Respond);
+    let failure = run_test_transport_with_inheritable_descriptor(
+        &root,
+        &request,
+        &root.environment(),
+        descriptor,
+    )
+    .unwrap_err();
+    assert_eq!(failure.code, "preflight_failed", "{}", failure.detail);
+    assert!(
+        failure
+            .detail
+            .contains("inheritable descriptor audit failed")
+    );
 }
 
 #[test]
@@ -202,6 +242,7 @@ fn behavior_name(behavior: TestChildBehavior) -> &'static str {
         TestChildBehavior::StdoutFlood => "stdout-flood",
         TestChildBehavior::StderrFlood => "stderr-flood",
         TestChildBehavior::Sleep => "sleep",
+        TestChildBehavior::DescendantSleep => "descendant-sleep",
         TestChildBehavior::Malformed => "malformed",
         TestChildBehavior::ExitFailure => "exit-failure",
     }

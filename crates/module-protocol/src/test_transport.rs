@@ -39,6 +39,7 @@ pub enum TestChildBehavior {
     StdoutFlood,
     StderrFlood,
     Sleep,
+    DescendantSleep,
     Malformed,
     ExitFailure,
 }
