@@ -60,8 +60,9 @@ key store, installer, execution path, or production trust root. Schema-1
 staging plans and OS-temp integration tests also exercise immutable publication
 and quarantine/restore failure semantics without a production mover.
 `crates/transaction-contract/` owns the bounded hash-chained transaction state
-machine, exclusive immutable snapshot publication/recovery, and non-authorizing
-recovery assessment; receipt/registry commit integration remains gated.
+machine, exclusive immutable snapshot publication/recovery, exact commit-receipt
+binding, and non-authorizing recovery assessment; durable receipt/registry
+publication remains gated.
 `crates/module-protocol/` validates a read-only/offline
 invocation preview and not-executed response with exact-path/digest metadata,
 least-privilege grants, a cleared environment-name allowlist, and bounded I/O.

@@ -33,11 +33,12 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 209 tests. The all-features suite passed 218,
+The default workspace suite passed 214 tests. The all-features suite passed 223,
 including shared capability/error/resource/validation semantics, five exact
 release-acceptance cross-product tests, seven transaction-chain/recovery unit
 tests, four guarded immutable-snapshot simulations, six durable-writer tests,
-two store-init filesystem-hardening tests, five opened-artifact identity tests,
+five commit-receipt binding tests, two store-init filesystem-hardening tests,
+five opened-artifact identity tests,
 and six production-execution gate
 tests, and nine native macOS test-child
 transport cases. The transport cases prove
@@ -110,7 +111,8 @@ module-protocol error codes with stable typed Serde values plus conservative
 privacy/retry classifiers. The transaction-contract crate adds no newly resolved external package: it
 reuses Serde, SHA-256, libc, and windows-sys for a bounded domain-separated event
 chain, cross-process writer locking, immutable snapshot publication/recovery,
-and non-authorizing recovery assessment. The separate module-trust
+committed-head/plan/write-set/registry receipt binding, and non-authorizing
+recovery assessment. The separate module-trust
 crate uses `ed25519-dalek` 3.0 with default features
 disabled for strict, local test-key signature verification. It does not expose a
 runtime signer, generate keys, fetch trust metadata, or join the core runtime

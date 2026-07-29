@@ -132,8 +132,9 @@ receipt-relative file through the same returned open handle without executing
 it. `crates/capability-contract/` supplies one shared least-privilege vocabulary
 for manifests, protocols, and action plans while granting no authority.
 `crates/transaction-contract/` supplies a bounded hash-chained state machine,
-exclusive immutable snapshot writer, and conservative recovery decisions without
-automatic action mutation. `crates/error-contract/` supplies stable machine error
+exclusive immutable snapshot writer, committed-head/plan/write-set/registry
+receipt binding, and conservative recovery decisions without automatic action
+mutation. `crates/error-contract/` supplies stable machine error
 codes with fail-closed privacy and retry semantics. `crates/resource-contract/`
 centralizes shared byte/record/timeout/process ceilings so modules cannot
 silently expand them. `crates/validation-contract/` owns allocation-free bounded

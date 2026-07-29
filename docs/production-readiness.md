@@ -164,9 +164,10 @@ parallel once its shared foundation dependency is stable.
    sandbox/elevation policy, network policy, cancellation, and resource limits.
 5. Implement crash-safe staging, journals, receipts, atomic state, quarantine,
    rollback, idempotency, and interrupted recovery. The bounded hash-chained
-   state machine now has exclusive immutable snapshot publication and recovery;
-   safe root handles, receipt-head binding, registry commit, rollback execution,
-   and platform power-loss evidence remain.
+   state machine now has exclusive immutable snapshot publication/recovery and a
+   commit-receipt contract binding journal head, plan, write set, and before/after
+   registry digests; safe root handles, receipt/registry publication, rollback
+   execution, and platform power-loss evidence remain.
 6. Implement foundation-owned module install, activation, invocation,
    deactivation, repair, migration, upgrade, and uninstall.
 7. Complete inventory/environment parity on all platforms; use its normalized

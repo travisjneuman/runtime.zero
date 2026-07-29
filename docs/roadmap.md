@@ -116,8 +116,10 @@ See [`action-planning.md`](action-planning.md).
 - [x] Bounded hash-chained transaction journal state machine with exact write
   intent/verification pairing, non-authorizing recovery decisions, exclusive
   cross-process writer locks, and atomic immutable snapshot publication/recovery.
-- [ ] Bind durable journal heads to receipts and atomic installed-registry state,
-  then prove safe root handles and process/power-loss recovery on every platform.
+- [x] Add a tamper-evident commit receipt binding the committed journal head,
+  action plan, write set, and prior/next installed-registry digests.
+- [ ] Durably publish commit receipts and atomic installed-registry state, then
+  prove safe root handles and process/power-loss recovery on every platform.
 - [ ] Bind the verified open identity to platform execution, close remaining
   descriptor/handle-inheritance and Windows suspended-create races, obtain real
   Windows Job Object runtime proof, enforce every declared capability, and

@@ -75,8 +75,10 @@ The shared transaction contract validates a bounded hash-chained state machine,
 publishes and recovers exact immutable snapshots under an exclusive cross-process
 writer lock, and emits conservative recovery decisions. Snapshot publication
 writes only caller-selected transaction roots and does not authorize action-plan
-writes, receipt commits, registry changes, rollback, or automatic recovery.
-Every recovery assessment refuses to authorize automatic mutation. Modules may
+writes, receipt commits, registry changes, rollback, or automatic recovery. The
+commit-receipt contract binds evidence to a committed journal head and registry
+digests but performs no publication. Every recovery assessment and receipt
+refuses to authorize automatic mutation. Modules may
 not create private transaction, writer-lock, or recovery engines.
 
 The schema-1 module process protocol still authorizes no module execution.

@@ -83,11 +83,28 @@ are mode `0600`. Windows uses inherited user-local ACLs pending explicit ACL
 runtime evidence. Existing guarded OS-temp simulations remain separate fault
 fixtures for interruption and corruption behavior.
 
+## Commit receipt binding
+
+`transaction_commit_receipt` binds one valid committed journal head to the exact
+action-plan digest, write-set digest, prior registry digest (or verified
+absence), and next registry digest. Its domain-separated binding digest also
+commits to the journal snapshot name and required publication order:
+
+1. synchronize the committed journal head;
+2. synchronize the commit receipt;
+3. atomically publish the registry last.
+
+Tampering with any identity, head, plan, write set, registry state, or ordering
+claim invalidates the receipt. Schema 1 explicitly sets
+`automatic_mutation_authorized: false`; the receipt is evidence and never an
+instruction to finish or repeat a write. Filesystem publication of receipt and
+registry documents remains the next coordinator layer.
+
 ## Remaining production work
 
 The complete store transaction still requires safe opened-root handles across
-all path operations, Windows directory-metadata flush evidence, receipt/final-
-head binding, atomic installed-registry publication, explicit ACL/ownership
+all path operations, Windows directory-metadata flush evidence, durable commit-
+receipt publication, atomic installed-registry publication, explicit ACL/ownership
 verification, cancellation, fault injection at every boundary, and real
 power/process-loss recovery on Windows, macOS, and Linux. Quarantine and
 rollback need platform-specific locked-file, reparse/symlink, cross-filesystem,
