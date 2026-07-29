@@ -35,8 +35,10 @@ tests, six production-execution gate
 tests, and nine native macOS test-child
 transport cases. The transport cases prove
 fail-closed refusal of an observed inheritable descriptor and Unix process-group
-teardown of a sleeping descendant with inherited pipes. Windows and Linux all-
-feature target checks compile that lane but are not runtime evidence.
+teardown of a sleeping descendant with inherited pipes. The Windows-target lane
+also compiles private kill-on-close Job Object assignment, a two-process
+ceiling, descendant creation, and timeout job termination. Windows and Linux
+all-feature target checks are not runtime evidence.
 
 ## RustSec advisory scan
 
@@ -93,11 +95,11 @@ the vocabulary/classifiers reused by core manifests, process protocols, and
 action plans; it grants no authority. The artifact-identity crate uses SHA-256
 plus the existing Windows system bindings only on Windows to obtain stable
 opened-handle file identity; it has no spawn or installer API. The
-module-protocol crate uses Serde
-for its default fixture
-validator. Its non-default test-child feature adds Serde JSON framing; SHA-256
-in that lane is a dev dependency. Process spawn code exists only in integration-
-test support, not the library, core, CLI, or TUI.
+module-protocol crate uses Serde for its default fixture validator. Its
+non-default test-child feature adds Serde JSON framing; SHA-256 is a dev
+dependency, and Windows test builds use the already-resolved `windows-sys`
+Job Object APIs. Process spawn code exists only in integration-test support, not
+the library, core, CLI, or TUI.
 
 The core Ratatui graph contains two `hashbrown` versions through Ratatui's
 internal `kasuari`/`lru` graph. The audit found one crossterm backend version and
@@ -110,10 +112,10 @@ no duplicate terminal-control stack.
   macOS terminal compatibility beyond the current inventory smoke.
 - Artifact-level license/notice and reproducibility checks.
 - Signed provenance/key lifecycle and revocation design implementation.
-- Executable-handle/file-ID pinning, descriptor-audit race closure, Windows
-  inherited-handle/job-object control, production capability enforcement, and
-  platform sandbox runtime proof; current process evidence executes only the
-  Cargo test helper.
+- Verified-handle-to-execution binding, descriptor/handle-inheritance race
+  closure, Windows suspended-create and real Job Object runtime proof,
+  production capability enforcement, and platform sandbox runtime proof;
+  current process evidence executes only the Cargo test helper.
 - Production transaction/receipt durability; immutable staging/quarantine/
   restore currently exist only as OS-temp integration-test simulations.
 - Separately approved release, package publishing, bootstrap, deployment, and

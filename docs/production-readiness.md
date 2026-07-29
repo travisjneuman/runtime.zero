@@ -71,7 +71,7 @@ installer sets must be frozen before release. Current broad targets are:
 
 | Platform | Required production scope | Current evidence |
 | --- | --- | --- |
-| Windows | Supported Windows 10/11 and Server releases; architecture set to be frozen; registry, reparse, ACL, locked-file, handle, Job Object, service, package-manager, installer, terminal, recovery, and elevation behavior | Target compilation and fixture contracts; real runtime matrix incomplete |
+| Windows | Supported Windows 10/11 and Server releases; architecture set to be frozen; registry, reparse, ACL, locked-file, handle, Job Object, service, package-manager, installer, terminal, recovery, and elevation behavior | Target compilation, fixture contracts, and compile-only test Job Object support; real runtime matrix incomplete |
 | macOS | Supported current Intel/Apple Silicon releases; bundle, launch/service, package-manager, code identity, sandbox, ACL, filesystem, terminal, installer/notarization, recovery, and privilege behavior | Native inventory and guarded Unix test-helper evidence; production runtime incomplete |
 | Linux | Supported distribution/kernel/libc/architecture set to be frozen; XDG, package/service/persistence managers, namespace/seccomp/landlock availability, filesystem, terminal, package formats, recovery, and privilege behavior | Target compilation and fixtures; real runtime matrix incomplete |
 

@@ -98,6 +98,8 @@ See [`action-planning.md`](action-planning.md).
   fail-closed fixture tests; no module/core execution.
 - [x] Native Unix test-helper preflight for observed inheritable descriptors and
   process-group timeout teardown including a sleeping descendant.
+- [x] Windows-target test-helper Job Object assignment, kill-on-close, bounded
+  active-process count, and timeout tree termination; compile evidence only.
 - [x] Canonical schema-1 production execution assessment that enumerates every
   artifact/capability/identity/process/runtime/transaction gate while remaining
   incapable of authorization.
@@ -106,9 +108,9 @@ See [`action-planning.md`](action-planning.md).
   execution; Unix traversal uses held root-directory handles and no-follow
   component opens.
 - [ ] Bind the verified open identity to platform execution, close remaining
-  descriptor-audit/Windows path races, prove Windows handle/
-  Job Object behavior, add mutating/network capability schema, and complete
-  platform sandbox/isolation runtime tests.
+  descriptor/handle-inheritance and Windows suspended-create races, obtain real
+  Windows Job Object runtime proof, enforce every declared capability, and
+  complete platform sandbox/isolation runtime tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote
   feeds, third-party modules, deployment automation, and production actions only
   after their separate explicit approvals.

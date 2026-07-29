@@ -116,8 +116,10 @@ concurrently while memory retention stays bounded. Tests cover:
 - a stderr burst large enough to exercise concurrent draining;
 - stdout/stderr flooding with continued draining and fail-closed byte ceilings;
 - deadline enforcement followed by direct-child kill and reap;
-- a Unix process-group timeout that terminates a helper-spawned sleeping
-  descendant and closes its inherited pipes;
+- process-tree timeout teardown that terminates a helper-spawned sleeping
+  descendant and closes its inherited pipes: a fresh process group on Unix and
+  a private kill-on-close Job Object with a bounded active-process count on
+  Windows;
 - a deliberately inheritable Unix descriptor rejected before spawn;
 - authorization, identity, digest, environment, and Unix symlink drift before
   spawn;
@@ -132,17 +134,20 @@ network operation. This is test evidence only; it is not an execution API.
 
 The test lane deliberately does **not** claim production isolation:
 
-- hash verification and `Command` spawn still have a path
-  verification-to-execution replacement window; executable-handle/file-ID
-  pinning is not implemented;
+- same-open-handle executable identity is pinned during preflight, but
+  `Command` still spawns by canonical path, leaving verification-to-execution
+  binding unresolved;
 - the standard process boundary does not enforce filesystem, registry, process,
   network, or syscall capabilities;
 - Unix preflight enumeration rejects currently observed descriptors with
   `FD_CLOEXEC` clear, but a descriptor created after that audit remains a race;
   Windows inherited-handle auditing is not implemented;
 - Unix tests assign the helper to a fresh process group and kill the group on
-  timeout, but the host reaps only its direct child; Windows job-object/process-
-  tree containment is not implemented;
+  timeout, but the host reaps only its direct child;
+- Windows-target test support assigns the stdin-blocked helper to a private
+  kill-on-close Job Object before behavior dispatch and terminates that job on
+  timeout, but this has compile evidence only: it is not real Windows runtime
+  proof, suspended-create race closure, a product process host, or a sandbox;
 - descendants that escape the assigned group or retain pipes through another
   process could still delay reader completion;
 - Windows reparse/File ID, macOS sandbox/code-signing, and Linux namespace/
