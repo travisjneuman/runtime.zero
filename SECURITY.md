@@ -14,4 +14,4 @@ Do not include real secrets, private tokens, OAuth cookies, or sensitive persona
 
 This project will not intentionally implement malware behavior, stealth persistence, credential theft, evasion, unauthorized account actions, or destructive cleanup without explicit user confirmation and rollback planning.
 
-Security and cleanup modules must preserve the safety model in `SAFETY.md`.
+Security, inventory, update, uninstall, and cleanup modules must preserve the safety model in `SAFETY.md`. Module execution remains blocked until the capability, signing, isolation, transaction, revocation, and rollback gates in `docs/module-trust-and-execution.md` are implemented and reviewed.

@@ -72,7 +72,9 @@ The dashboard is read-only and may show only foundation state:
 - receipt validation state;
 - installed module count;
 - planned first-party module family count;
-- dry-run-only module install posture.
+- dry-run-only module install posture;
+- the separate first-party inventory source package as read-only and not
+  installed, plus a preview-only `rz0-inventory` command.
 
 The dashboard must not claim planned modules are installed or active, must not
 run module code, and must not trigger installs, updates, cleanup, remote
@@ -92,8 +94,9 @@ now renders the existing dashboard data model through Ratatui widgets:
 - foundation state cards for store, registry, receipt, and installed-module
   posture with reusable status-pair formatting;
 - a command rail that supports selection and read-only previews of equivalent
-  scriptable CLI commands without running them, with explicit `PREVIEW ONLY`
-  copy;
+  scriptable CLI commands without running them, including the separate
+  `rz0-inventory --format json --redact-paths` source-package surface, with
+  explicit `PREVIEW ONLY` copy;
 - a persistent safety footer and optional help overlay.
 
 Interactive rendering applies Dossier Navy / Burnished Brass status tones to

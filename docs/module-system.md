@@ -129,9 +129,11 @@ mutation. See [`foundation-readiness.md`](foundation-readiness.md) for the
 handoff gate and acceptance checklist.
 
 The schema-1 output from `rz0 scan --dry-run --format json` is the core inventory
-contract that fixture-backed discovery and the future first-party Windows
-inventory module should target. It is not an installed module and currently
-collects no local evidence. See [`inventory-schema.md`](inventory-schema.md).
+contract. The `modules/inventory/` workspace package now targets it with
+fixture-backed and live read-only collectors while remaining absent from the
+core dependency and execution paths. Its manifest stays `planned`: it is source
+for development, not a published/installed artifact. See
+[`inventory-schema.md`](inventory-schema.md).
 
 ## Planned module families
 
@@ -151,4 +153,6 @@ modules should later be signed and explicitly installed or enabled. This
 foundation slice only verifies local SHA-256 checksums; it does not make a
 network trust decision. Third-party modules are expected eventually, but only
 after a hardened trust model covering signing, provenance, sandboxing,
-permissions, revocation, and abuse cases.
+permissions, revocation, and abuse cases. The required staged gate is documented
+in [`module-trust-and-execution.md`](module-trust-and-execution.md); current
+source packages do not bypass it.

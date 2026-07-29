@@ -1,79 +1,128 @@
 # Inventory Report Contract
 
-`runtime.zero` is beginning the Phase 2 inventory lane with a versioned output
-contract before adding platform probes. The first surface is:
+`runtime.zero` uses a versioned inventory contract so platform evidence remains
+deterministic, privacy-explicit, and separate from future action planning.
+
+The foundation surface remains an empty contract preview:
 
 ```bash
 rz0 scan --dry-run --format json
 ```
 
-This command currently emits an empty schema-1 `inventory_report`. It does not
-read PATH, registry, package-manager, application, or executable evidence yet.
-That deliberately small contract-first slice gives fixture tests and the future
-first-party Windows inventory module a deterministic target without bundling a
-feature module into the core or enabling module execution.
+The separately built first-party workspace module implements local collection:
+
+```bash
+cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
+cargo run -p rz0-module-inventory -- --format json --redact-paths
+```
+
+The source package is not installed, published, loaded, or executed by the `rz0`
+core. Core and module share only the small serializable model in
+`crates/inventory-contract/`; the module does not depend on the TUI/CLI crate.
+See [`../modules/inventory/README.md`](../modules/inventory/README.md).
 
 ## Top-level schema
 
-Schema version `1` has these fields:
+Schema version `1` includes:
 
 - `schema_version`: currently `1`;
 - `contract`: `"inventory_report"`;
-- `read_only`: always `true` in this lane;
+- `read_only`: always `true`;
 - `writes_attempted`: always `false`;
-- `generated_at`: `null` until a real collector runs; future reports may use an
-  ISO-8601 timestamp supplied through a testable clock boundary;
+- `generated_at`: RFC 3339 UTC for live collection and `null` for deterministic
+  fixture reports;
+- `path_values_redacted`: whether path values use report-local placeholders;
+- `raw_registry_keys_included`: always `false` in the current module;
 - `host`: OS/architecture plus explicit hostname/current-user privacy flags;
-- `runtime`: runtime.zero identity, dry-run mode, disabled mutation capability,
-  and module-schema version;
+- `runtime`: runtime.zero identity, mode, mutation posture, module-schema
+  version, and optional first-party module ID;
 - `sources`: independent evidence-source reports;
-- `path_entries`: normalized process/user/machine PATH evidence;
-- `tools`: normalized executable/tool evidence;
-- `apps`: normalized application/package evidence;
-- `warnings`: top-level unavailable/partial/privacy warnings;
-- `summary`: deterministic source, PATH, tool, app, and warning counts.
+- `path_entries`: normalized process/user/machine/fixture PATH evidence;
+- `tools`: normalized known executable evidence;
+- `apps`: normalized opt-in Windows application evidence;
+- `events`: generic structured source lifecycle events that do not include raw
+  evidence values;
+- `warnings`: top-level warnings;
+- `summary`: deterministic source, PATH, tool, app, event, and total warning
+  counts.
 
 JSON field order follows the Rust structure for readable fixtures, but consumers
-must use field names rather than object order. Contract changes should be
-additive within schema version `1`; incompatible changes require a new schema
-version.
+must use field names rather than object order. Changes should be additive within
+schema version `1`; incompatible changes require a new schema version.
 
-## Planned evidence records
+## Evidence records
 
-A source record will identify its `id`, `kind`, independent `status`, optional
-`duration_ms`, `read_only` posture, and warnings. Source statuses should be one
-of `ok`, `partial`, `unavailable`, `skipped`, or `error` once collectors exist.
-One unavailable source must not invalidate evidence from another source.
+A source record identifies its `id`, `kind`, independent `status`, optional
+`duration_ms`, `read_only` posture, and warnings. Statuses are `ok`, `partial`,
+`unavailable`, `skipped`, or `error`. One unavailable source does not invalidate
+evidence from another source.
 
-PATH records reserve `path`, `scope`, `order`, `exists`, `entry_kind`, and
-warnings. Tool records reserve normalized identity/category, optional local
-executable path/version, source IDs, confidence, and warnings. Application
-records reserve normalized identity, source, optional version/publisher/install
-location, and warnings.
+PATH records contain `path`, `scope`, `order`, `exists`, `entry_kind`, and
+warnings. Windows duplicate comparison is case-insensitive and slash-normalized.
+Inputs are bounded to 512 entries per source. Empty/control-character entries,
+unsupported kinds, malformed fixture JSON, unknown fixture fields, symlinked
+fixture files, and fixtures over 64 KiB fail closed.
 
-These are evidence records, not instructions. They do not authorize command
-execution, updates, installs, removals, PATH edits, registry writes, cleanup, or
-module activation.
+Tool records contain normalized identity/category, an exact discovered path,
+optional version, source IDs, confidence, and warnings. Discovery checks only a
+small allowlist of names directly under PATH entries; it does not recursively
+walk drives.
 
-## Privacy and safety
+Application records contain normalized name, optional version/publisher/install
+location, and a non-secret deterministic ID. Raw uninstall-registry key names
+are never emitted.
 
-- Hostname and current user are omitted by default.
-- No credentials, sessions, browser profiles, project workspaces, backups, or
-  unknown user data may be inspected.
-- Raw Windows registry keys are not part of the default report.
-- Local executable/install paths may be useful in local output, but sanitized
-  fixtures and a redaction/export policy are required before share-oriented
-  output is added.
-- Collectors must be read-only, independently optional, timeout-bounded where
-  commands are eventually involved, and fixture-tested.
-- No network access, package-manager list command, persisted PATH registry read,
-  or live executable version probe is part of this contract-only slice.
+## Current collectors
 
-## Next implementation gate
+| Collector | Default | Boundary |
+| --- | --- | --- |
+| Process PATH | On | Environment read only; bounded and normalized |
+| Windows User/Machine PATH | On for Windows module | `KEY_READ` registry access only |
+| Known executable discovery | On | Exact allowlisted filenames under PATH only |
+| Known executable version probes | Off | Explicit `--probe-versions`; exact path, symlink/reparse-component rejection, static arguments, no shell, 2-second timeout, 64 KiB capture |
+| Windows installed applications | Off | Explicit `--include-apps`; standard uninstall views, read only, 4,096-record cap |
+| Package-manager listings/catalogs | Off | Deferred because behavior can vary by version, locale, source agreements, and network access |
 
-The next safe slice is fixture-backed Windows process-PATH parsing and
-normalization. Valid, duplicate, missing, malformed, and unsupported-platform
-fixtures should prove deterministic output and fail-closed behavior before live
-Windows probes are added. Persisted PATH, executable-version probes,
-package-manager listings, and app registry evidence remain later independent
-gates.
+Script-based executable probes remain disabled. The module detects package
+manager executables but does not invoke manager list/update/install/uninstall
+commands.
+
+## Privacy and sharing
+
+- Hostname and current user are omitted.
+- Raw registry keys are omitted.
+- Local paths can contain usernames or private project names. Use
+  `--redact-paths` before sharing output.
+- Redaction replaces PATH entries, executable paths, and app install locations
+  with stable report-local placeholders. It does not redact application names,
+  versions, or publishers; opt-in app reports require separate review before
+  sharing.
+- Structured events contain source IDs/status only, never raw path/app values.
+- Credentials, OAuth sessions, browser profiles, project contents, backups, and
+  unknown user data are outside the inventory contract.
+- Public examples and fixtures use synthetic paths only.
+
+## Non-goals
+
+Inventory evidence is not an instruction or trust decision. This layer does not
+write PATH/registry state, install/update/uninstall software, clean files, run
+package managers, fetch remote metadata, load module code into `rz0`, or approve
+third-party modules.
+
+## Implementation references
+
+- Rust `std::env::split_paths`: https://doc.rust-lang.org/std/env/fn.split_paths.html
+- Rust `std::process::Command`: https://doc.rust-lang.org/std/process/struct.Command.html
+- Microsoft registry access rights (`KEY_READ` / `KEY_QUERY_VALUE`): https://learn.microsoft.com/windows/win32/sysinfo/registry-key-security-and-access-rights
+- Microsoft registry value types: https://learn.microsoft.com/windows/win32/sysinfo/registry-value-types
+- `winreg` crate documentation: https://docs.rs/winreg
+
+These references describe APIs; they do not replace fixture/runtime verification.
+
+## Remaining proof gates
+
+The code is fixture-tested on macOS and cross-checked for the Windows MSVC
+target. Before claiming Windows support, it still needs a real Windows runtime
+smoke covering persisted PATH, registry views, app normalization, timeout
+behavior, redaction, and the installed terminal experience. macOS/Linux package
+manager and service inventory remain later adapter work.

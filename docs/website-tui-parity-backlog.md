@@ -12,6 +12,8 @@ This backlog intentionally does not edit `site/`. Website work remains a separat
 - selected dossier/details panel with visible focus state;
 - foundation state cards for store, registry, receipts, and installed modules;
 - command rail that is explicitly preview-only and does not run commands;
+- the separate inventory module shown as read-only/not installed, with its
+  `rz0-inventory --format json --redact-paths` command only as a preview;
 - persistent `SAFETY // LOCKED` footer;
 - help/focus guidance that reinforces CLI/JSON escape hatches.
 
@@ -20,6 +22,7 @@ This backlog intentionally does not edit `site/`. Website work remains a separat
 - [ ] Update the website TUI mock/screens so labels, panel titles, and safety posture match the real terminal TUI.
 - [ ] Represent compact/standard/wide behavior without implying unsupported website interactivity.
 - [ ] Keep copy honest: the TUI is a read-only foundation dashboard and command preview surface, not a feature-module runner.
+- [ ] Show inventory as a separate source package, not a bundled/installed module; do not display local evidence or machine paths in public mockups.
 - [ ] Preserve `BRAND.md` color semantics: Dossier Navy / Burnished Brass, red only for danger/error/destructive states.
 - [ ] Run static-site safety checks for `innerHTML`, `document.write`, `eval(`, `new Function`, rejected red/rust/copper accents, footer/link integrity, and viewport rendering.
 - [ ] Avoid Cloudflare, release, bootstrap, or dependency changes unless separately approved.

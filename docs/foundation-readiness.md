@@ -18,15 +18,15 @@ The current foundation provides these module-facing contracts:
 - explicit `store init --dry-run` and `store init --yes` scaffolding limited to runtime.zero-owned user-local store paths;
 - read-only Ratatui TUI dashboard with focus regions, command previews, status panels, compact/standard/wide layout tiers, and no command execution from TUI.
 
-Phase 2 has now started with the empty, versioned `inventory_report` emitted by
-`rz0 scan --dry-run --format json`. This is a core output contract for fixtures
-and future module parity, not an installed or executable module. No live PATH,
-registry, package-manager, application, or executable collector is enabled by
-that contract slice.
+The core now emits the empty, versioned `inventory_report` through
+`rz0 scan --dry-run --format json`. The first-party `modules/inventory/` source
+package targets that contract with bounded read-only collectors, but it remains
+neither installed nor executable through the core. TUI content identifies it as
+read-only/not installed and previews its separate command without running it.
 
 ## First-module starting boundary
 
-The first first-party module should begin as a read-only module that exercises the contracts above without adding mutation. It may provide local discovery, reporting, fixture-backed validation, dry-run planning, and dashboard/CLI surfacing.
+The first first-party module has begun as the separate read-only `modules/inventory/` source package. It exercises the contracts above through local discovery, reporting, fixture-backed validation, optional bounded probes, and preview-only TUI/CLI surfacing without adding core module execution or mutation.
 
 The first module must not:
 
@@ -51,13 +51,19 @@ A first-party module can rely on these invariants:
 
 ## Acceptance checklist before module implementation starts
 
-- [ ] Module scope is read-only and first-party.
-- [ ] CLI output and JSON output are specified before implementation.
-- [ ] TUI presentation is a review surface only and does not imply activation.
-- [ ] Test fixtures cover valid and fail-closed paths.
-- [ ] Safety docs name every blocked mutation/trust boundary.
-- [ ] No website, release, bootstrap, package publishing, signing, Cloudflare, GitHub Actions, or external automation change is required.
+- [x] Module scope is read-only and first-party.
+- [x] CLI output and JSON output are specified before implementation.
+- [x] TUI presentation is a review surface only and does not imply activation.
+- [x] Test fixtures cover valid, duplicate, missing, malformed, invalid-entry,
+  and unsupported-platform paths.
+- [x] Safety docs name every blocked mutation/trust boundary.
+- [x] No website, release, bootstrap, package publishing, signing, Cloudflare,
+  GitHub Actions, or external automation change is required.
 
-## Next approved module lane candidate
+## Current handoff outcome
 
-A safe first candidate is a read-only Windows inventory/discovery module that reports evidence from already-approved sources and emits deterministic text/JSON/TUI summaries. It should start with fixtures and local read-only probes only, then stop for a separate approval before any mutation or installation capability.
+The inventory source package satisfies this handoff gate. It remains planned and
+uninstalled, and real Windows runtime proof is still required. The next trust
+lane is read-only permission validation followed by test-only signing/staging/
+transaction work; mutation, installation, release, and core module execution
+remain separate approval gates.

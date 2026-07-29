@@ -34,6 +34,7 @@ Schema version `1` currently expects:
 - `supported_platforms`;
 - `risk_level`;
 - `safety`;
+- optional schema-1 `permissions`;
 - optional `integrity`.
 
 The `safety` object declares:
@@ -46,6 +47,28 @@ The `safety` object declares:
 
 Unknown fields are rejected so module authors cannot rely on undeclared
 behavior.
+
+## Read-only permission metadata
+
+The optional schema-1 `permissions` object is the first enforceable declaration
+for read-only modules. It separates all `declared` permissions into
+`default_grants` and `explicit_grants`. Current known permissions are:
+
+- `process_environment_read`;
+- `filesystem_metadata_read`;
+- `persisted_environment_registry_read`;
+- `application_registry_read`;
+- `exact_command_probe`.
+
+Lists must be duplicate-free, default and explicit grants must be disjoint, and
+every grant must be declared. Application registry reads and exact command
+probes must be explicit, never default. Schema 1 rejects mutating modules and
+unknown future permissions. First-party manifests without permissions remain
+valid for compatibility but receive a warning that they have no enforceable
+permission declaration.
+
+This is validation metadata, not an execution grant: the core still does not
+load or execute module code.
 
 ## Package integrity metadata
 
@@ -92,6 +115,7 @@ modules, updates modules, or removes modules.
 - First-party modules must be published by `runtime.zero`.
 - Third-party modules are rejected until the trust model exists.
 - `remote_execution_allowed` must be `false`.
+- Permission schema 1 is read-only; app-registry reads and command probes must be explicit.
 - Mutating modules must require confirmation and dry-run support.
 - Destructive-gated modules must support quarantine or rollback.
 - Installed manifests must include integrity metadata.

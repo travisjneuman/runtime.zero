@@ -9,6 +9,10 @@ Issues, design feedback, documentation suggestions, and safety reviews are welco
 - Do not submit code that performs destructive cleanup, persistence, credential access, evasion, or account actions.
 - Keep modules report-first and dry-run-first.
 - Do not add GitHub Actions, scheduled jobs, deployment automation, package publishing, or external service writes without maintainer approval.
-- Keep user data and secrets out of examples, tests, issues, and docs.
+- Keep user data and secrets out of examples, tests, issues, and docs. Inventory
+  fixtures must use synthetic paths, app names, publishers, and versions.
+- Keep feature modules separate from the core and preserve fixture-first,
+  read-only behavior before proposing platform probes.
+- Run `cargo fmt --check` and `cargo test --workspace` for Rust changes.
 
 The repository currently uses Apache-2.0. Premium or commercial modules may use separate licenses later.

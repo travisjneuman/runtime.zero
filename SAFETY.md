@@ -122,14 +122,21 @@ Color is never required for understanding state. Human-readable output accepts
 the global `--color=auto|always|never` flag, respects `NO_COLOR` in auto mode,
 and keeps JSON ANSI-free. Status labels remain the authority.
 
-`rz0 scan --dry-run --format json` exposes the schema-1 inventory report
-contract without collecting local evidence yet. The contract output is
-read-only, reports `writes_attempted: false`, and omits hostname/current-user
-identity by default. Future inventory collectors must remain local and
-read-only, use fixture-backed normalization, avoid credentials/sessions/browser
-profiles/workspaces/backups/unknown data, and stop at a separate approval gate
-before persisted PATH registry reads, package-manager commands, app registry
-evidence, network access, or executable version probes are added.
+`rz0 scan --dry-run --format json` exposes the empty schema-1 inventory report
+contract. The separate `modules/inventory/` workspace package implements bounded
+read-only collection without making it part of the core execution surface. It
+uses fixture-first PATH normalization, reads process PATH, uses `KEY_READ` for
+persisted Windows PATH, detects only allowlisted executable names directly under
+PATH entries, and omits hostname/current-user identity and raw registry keys.
+
+Version probes require explicit `--probe-versions`; they invoke an exact
+discovered path without a shell, use static version-only arguments, cap captured
+output, and kill the child after two seconds. Script-based probes remain
+disabled. Windows application evidence requires explicit `--include-apps`, is
+bounded, and reads standard uninstall views only. `--redact-paths` replaces path
+values before sharing. Package-manager list/update/install/uninstall commands,
+network access, credentials/sessions/browser profiles/workspaces/backups/unknown
+data, and all writes remain outside the module.
 
 ## Local development install boundary
 
@@ -169,4 +176,4 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 
 ## Current status
 
-The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, the empty schema-1 inventory output contract, dry-run placeholders, explicit user-local store initialization, dry-run module install planning, and module registry contracts.
+The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, the schema-1 inventory contract, a separately built read-only inventory source package, dry-run placeholders, explicit user-local store initialization, dry-run module install planning, and module registry contracts.

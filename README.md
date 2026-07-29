@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core stays intentionally small: it owns the CLI, policy, output contracts, and module registry primitives while substantial capabilities ship as explicit modules instead of being bundled by default.
 
-> Status: pre-alpha foundation baseline with the Phase 2 inventory output contract now starting. This repository is public early so the design and safety model are visible from the start. Destructive modules are intentionally not implemented yet.
+> Status: pre-alpha foundation plus a separately built, read-only first-party inventory source package. This repository is public early so the design and safety model are visible from the start. The core does not install or execute modules, and destructive modules are intentionally absent.
 
 ## The promise
 
@@ -72,9 +72,10 @@ module surfaces.
 Current commands are read-only, dry-run, or explicit user-local store
 scaffolding. They exist to prove the binary, brand metadata, test harness,
 documentation foundation, TUI shell, module contract surface, and the first
-versioned inventory output contract. `scan --dry-run --format json` currently
-emits an intentionally empty schema-1 report; it does not collect PATH,
-registry, package-manager, application, or executable evidence yet.
+versioned inventory output contract. Core `scan --dry-run --format json` emits
+an intentionally empty schema-1 report. The separate `modules/inventory/`
+workspace package now supplies fixture-backed and live read-only collectors; it
+is not installed, loaded, or executed by the core.
 
 ## Core vs modules
 
@@ -103,6 +104,14 @@ install, update, fetch, trust, enable, or run modules.
 The dry-run planner also reports future local store and CLI/TUI routing
 contract metadata in JSON output. These fields describe where future state would
 live and why explicit subcommands remain scriptable; they do not create files.
+
+The first feature-module source package lives at
+[`modules/inventory/`](modules/inventory/). It reads process PATH on supported
+platforms, reads persisted User/Machine PATH on Windows, detects a bounded set
+of known executables, supports opt-in timeout-bounded version probes, and can
+read normalized Windows application evidence when explicitly requested. Use
+`--redact-paths` before sharing its local output. It does not run package
+managers, modify the system, or make the module installable through `rz0`.
 
 The same future store/routing contract can be inspected independently of module
 install planning:
@@ -158,7 +167,7 @@ The long-term goal is broad terminal compatibility. The public compatibility pro
 ## Development
 
 ```bash
-cargo test
+cargo test --workspace
 cargo run --
 cargo run -- --no-tui
 cargo run -- --json
@@ -177,6 +186,8 @@ cargo run -- store init --dry-run
 cargo run -- store init --dry-run --format json
 cargo run -- scan --dry-run
 cargo run -- scan --dry-run --format json
+cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
+cargo run -p rz0-module-inventory -- --format json --redact-paths
 ```
 
 ## Local install for development
@@ -231,8 +242,14 @@ contract.
 
 [`docs/tui.md`](docs/tui.md) for the read-only terminal UI foundation,
 keyboard behavior, rendering boundaries, and brand/theme structure. See
-[`docs/inventory-schema.md`](docs/inventory-schema.md) for the schema-first
-Phase 2 inventory report contract. Website TUI
+[`docs/inventory-schema.md`](docs/inventory-schema.md) for the inventory report
+and collector contract. Module execution/trust prerequisites are in
+[`docs/module-trust-and-execution.md`](docs/module-trust-and-execution.md), and
+future update/uninstall/quarantine boundaries are in
+[`docs/action-planning.md`](docs/action-planning.md). The current manual
+dependency/license/validation snapshot is in
+[`docs/dependency-and-validation-audit.md`](docs/dependency-and-validation-audit.md).
+Website TUI
 parity is tracked in [`docs/website-tui-parity-backlog.md`](docs/website-tui-parity-backlog.md)
 so the static site can later follow the real terminal TUI without drifting.
 
@@ -249,10 +266,11 @@ They are candidates, not final locked identity assets.
 
 ## Repository hygiene
 
-The project root is intentionally kept small and conventional. Source belongs in
-`src/`, product docs in `docs/`, site material in `site/`, brand assets in
-`assets/brand/`, and future tests, scripts, fixtures, or other assets should
-live in clearly named subfolders. Durable planning and session artifacts belong
+The project root is intentionally kept small and conventional. Foundation source
+belongs in `src/`, shared contract libraries in `crates/`, separately built
+feature modules in `modules/`, product docs in `docs/`, site material in `site/`,
+brand assets in `assets/brand/`, and tests/fixtures beside the narrowest owning
+package. Durable planning and session artifacts belong
 in `_meta.notes`, not as loose root files.
 
 ## Website

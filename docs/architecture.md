@@ -26,15 +26,25 @@ Windows is the first practical target because the original need came from a Wind
 
 ## Inventory contract boundary
 
-Phase 2 starts schema-first. `rz0 scan --dry-run --format json` emits a
-versioned, empty `inventory_report` before any live platform adapter is added.
-That report defines read-only evidence shapes for sources, PATH entries, tools,
-and applications while omitting hostname/current-user identity by default.
+Core `rz0 scan --dry-run --format json` emits the versioned, empty
+`inventory_report`. The first feature implementation is a separate workspace
+package under `modules/inventory/`; the core does not depend on, install, load,
+or execute it.
 
-This core output contract is not an embedded feature module and does not execute
-module code. The next first-party Windows inventory implementation should target
-the contract through deterministic fixtures, then add narrow read-only adapters
-behind separate gates. See [`inventory-schema.md`](inventory-schema.md).
+A small `crates/inventory-contract/` library owns the shared serializable model
+so the feature package does not depend on the CLI/TUI core or pull its terminal
+stack into the module binary. The module uses deterministic fixtures, bounded
+process-PATH collection on
+Windows/macOS/Linux, read-only persisted PATH and optional app registry reads on
+Windows, allowlisted direct executable discovery, opt-in timeout-bounded version
+probes, report-local path redaction, and structured source events. It does not
+invoke package managers or recursively scan drives. See
+[`inventory-schema.md`](inventory-schema.md).
+
+Future execution, signing, capability, transaction, and distribution work is
+gated by [`module-trust-and-execution.md`](module-trust-and-execution.md).
+Update/uninstall/quarantine semantics are gated by
+[`action-planning.md`](action-planning.md).
 
 ## Non-goals for Phase 1
 
