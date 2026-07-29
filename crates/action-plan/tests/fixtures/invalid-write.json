@@ -13,6 +13,7 @@
       "kind": "update",
       "disposition": "planned",
       "target": "Example.Tool",
+      "source": null,
       "manager": "example-manager",
       "executable": "example-manager",
       "arguments": ["update"],

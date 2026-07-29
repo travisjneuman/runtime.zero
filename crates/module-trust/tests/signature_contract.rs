@@ -2,6 +2,7 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use rz0_module_trust::{
     SignatureEnvelope, TrustedTestKey, canonical_message, verify_detached_signature,
 };
+use sha2::{Digest, Sha256};
 
 fn envelope() -> SignatureEnvelope {
     serde_json::from_str(include_str!("fixtures/valid-envelope.json")).expect("valid envelope")
@@ -17,8 +18,17 @@ fn verifies_canonical_detached_signature_with_test_key() {
     let report = verify_detached_signature(&envelope, &trusted_key());
     assert!(report.verified, "{:?}", report.errors);
     assert!(report.test_key_only);
+    assert_eq!(
+        envelope.manifest_sha256,
+        format!(
+            "{:x}",
+            Sha256::digest(include_bytes!(
+                "fixtures/staging/input/package/rz0-module.json"
+            ))
+        )
+    );
     assert!(report.errors.is_empty());
-    let expected = "runtime.zero.package-signature.v1\nscheme=ed25519\nkey_id=test.rfc8032.1\npackage_id=first-party.fixture\npackage_version=0.1.0\nmanifest_sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n";
+    let expected = "runtime.zero.package-signature.v1\nscheme=ed25519\nkey_id=test.rfc8032.1\npackage_id=first-party.fixture\npackage_version=0.1.0\nmanifest_sha256=3f1b86a31e02c5f029bd9472418dc718d75bacd8757823f2a798aacf59320b9b\n";
     assert_eq!(
         canonical_message(&envelope).expect("canonical message"),
         expected

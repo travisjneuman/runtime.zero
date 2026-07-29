@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "contract": "module_staging_plan",
+  "transaction_id": "tx-stage-fixture",
+  "package_id": "first-party.fixture",
+  "package_version": "0.1.0",
+  "manifest_sha256": "3f1b86a31e02c5f029bd9472418dc718d75bacd8757823f2a798aacf59320b9b",
+  "signature_proof": {
+    "verified": true,
+    "test_key_only": true,
+    "key_id": "test.rfc8032.1"
+  },
+  "simulation_only": true,
+  "dry_run": true,
+  "writes_attempted": false,
+  "root_class": "temporary_fixture",
+  "source_root": "input/package",
+  "staging_root": "staging/tx-stage-fixture",
+  "publication_root": "published/first-party.fixture/0.1.0",
+  "files": [
+    {
+      "path": "rz0-module.json",
+      "sha256": "3f1b86a31e02c5f029bd9472418dc718d75bacd8757823f2a798aacf59320b9b",
+      "size_bytes": 140,
+      "role": "manifest"
+    },
+    {
+      "path": "payload.txt",
+      "sha256": "b40b88a588e9de336343d53475b79820bc0f86f3e6ddd0ba06efee2eea214382",
+      "size_bytes": 37,
+      "role": "payload"
+    }
+  ],
+  "atomic_publish": true,
+  "rollback": {
+    "supported": true,
+    "unpublished_stage_only": true,
+    "preserve_failed_stage_for_review": true
+  }
+}

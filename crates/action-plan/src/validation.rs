@@ -2,8 +2,10 @@ use std::collections::BTreeSet;
 
 use crate::model::{
     ACTION_PLAN_SCHEMA_VERSION, ActionCapability, ActionDisposition, ActionKind, ActionPlan,
-    ActionPlanValidation, ActionRisk, MAX_ACTIONS, MAX_ARGUMENTS, MAX_WRITE_SET, PlanAction,
+    ActionPlanValidation, ActionRisk, MAX_ACTION_SOURCE_BYTES, MAX_ACTIONS, MAX_ARGUMENTS,
+    MAX_WRITE_SET, PlanAction, WriteKind,
 };
+use crate::path_policy::{valid_sha256, validate_simulation_relative_path};
 
 pub fn validate_action_plan(plan: &ActionPlan) -> ActionPlanValidation {
     let mut validation = ActionPlanValidation {
@@ -47,6 +49,7 @@ pub fn validate_action_plan(plan: &ActionPlan) -> ActionPlanValidation {
 fn validate_action(action: &PlanAction, validation: &mut ActionPlanValidation) {
     validate_id(&action.action_id, "action_id", validation);
     validate_text(&action.target, "target", 240, validation);
+    validate_source(action, validation);
     if action.would_write {
         validation.fail(format!(
             "action '{}' must set would_write false",
@@ -74,6 +77,7 @@ fn validate_action(action: &PlanAction, validation: &mut ActionPlanValidation) {
     }
     validate_command(action, validation);
     validate_capabilities(action, validation);
+    validate_transaction_shape(action, validation);
     validate_write_set(action, validation);
     validate_text(
         &action.rollback.description,
@@ -86,6 +90,55 @@ fn validate_action(action: &PlanAction, validation: &mut ActionPlanValidation) {
     {
         validation.fail(format!(
             "action '{}' requires rollback support",
+            action.action_id
+        ));
+    }
+}
+
+fn validate_source(action: &PlanAction, validation: &mut ActionPlanValidation) {
+    let requires_source = action.disposition == ActionDisposition::Planned
+        && matches!(action.kind, ActionKind::Quarantine | ActionKind::Restore);
+    let Some(source) = &action.source else {
+        if requires_source {
+            validation.fail(format!(
+                "action '{}' requires exact source evidence",
+                action.action_id
+            ));
+        }
+        return;
+    };
+    if !matches!(action.kind, ActionKind::Quarantine | ActionKind::Restore) {
+        validation.fail(format!(
+            "action '{}' must not attach filesystem source evidence",
+            action.action_id
+        ));
+    }
+    if validate_simulation_relative_path(&source.path).is_err() {
+        validation.fail(format!(
+            "action '{}' has an unsafe simulation source path",
+            action.action_id
+        ));
+    }
+    let expected_prefix = match action.kind {
+        ActionKind::Quarantine => "workspace/",
+        ActionKind::Restore => "quarantine/",
+        _ => "",
+    };
+    if !source.path.starts_with(expected_prefix) {
+        validation.fail(format!(
+            "action '{}' source path must use the expected fixture root",
+            action.action_id
+        ));
+    }
+    if !valid_sha256(&source.sha256) {
+        validation.fail(format!(
+            "action '{}' source sha256 must be lowercase hexadecimal",
+            action.action_id
+        ));
+    }
+    if source.size_bytes > MAX_ACTION_SOURCE_BYTES {
+        validation.fail(format!(
+            "action '{}' source exceeds {MAX_ACTION_SOURCE_BYTES} bytes",
             action.action_id
         ));
     }
@@ -140,6 +193,44 @@ fn validate_capabilities(action: &PlanAction, validation: &mut ActionPlanValidat
     }
 }
 
+fn validate_transaction_shape(action: &PlanAction, validation: &mut ActionPlanValidation) {
+    if action.disposition != ActionDisposition::Planned {
+        return;
+    }
+    let capabilities = action.capabilities.iter().copied().collect::<BTreeSet<_>>();
+    let write_kinds = action
+        .write_set
+        .iter()
+        .map(|entry| entry.kind)
+        .collect::<BTreeSet<_>>();
+    match action.kind {
+        ActionKind::Quarantine => {
+            if !capabilities.contains(&ActionCapability::RuntimeStateWrite)
+                || !capabilities.contains(&ActionCapability::QuarantineWrite)
+                || !write_kinds.contains(&WriteKind::QuarantinedPayload)
+                || !write_kinds.contains(&WriteKind::QuarantineRecord)
+                || !action.rollback.quarantine_required
+            {
+                validation.fail(format!(
+                    "action '{}' lacks quarantine capabilities, write records, or rollback posture",
+                    action.action_id
+                ));
+            }
+        }
+        ActionKind::Restore => {
+            if !capabilities.contains(&ActionCapability::RestoreWrite)
+                || !write_kinds.contains(&WriteKind::RestoredPayload)
+            {
+                validation.fail(format!(
+                    "action '{}' lacks restore capability or restored payload write",
+                    action.action_id
+                ));
+            }
+        }
+        ActionKind::Update | ActionKind::Uninstall => {}
+    }
+}
+
 fn validate_write_set(action: &PlanAction, validation: &mut ActionPlanValidation) {
     if action.write_set.len() > MAX_WRITE_SET {
         validation.fail(format!(
@@ -150,12 +241,25 @@ fn validate_write_set(action: &PlanAction, validation: &mut ActionPlanValidation
     let mut paths = BTreeSet::new();
     for entry in action.write_set.iter().take(MAX_WRITE_SET) {
         validate_text(&entry.path, "write_set.path", 1024, validation);
-        if entry.path.contains("://") || !paths.insert(entry.path.clone()) {
+        if validate_simulation_relative_path(&entry.path).is_err()
+            || !write_path_matches_kind(&entry.path, entry.kind)
+            || !paths.insert(entry.path.clone())
+        {
             validation.fail(format!(
-                "action '{}' has an unsafe or duplicate write-set path",
+                "action '{}' has an unsafe, mismatched, or duplicate write-set path",
                 action.action_id
             ));
         }
+    }
+}
+
+fn write_path_matches_kind(path: &str, kind: WriteKind) -> bool {
+    match kind {
+        WriteKind::RuntimeState => path.starts_with("state/"),
+        WriteKind::QuarantineRecord | WriteKind::QuarantinedPayload => {
+            path.starts_with("quarantine/")
+        }
+        WriteKind::RestoredPayload => path.starts_with("workspace/"),
     }
 }
 
@@ -183,13 +287,6 @@ fn validate_text(value: &str, field: &str, max_len: usize, validation: &mut Acti
             "{field} is empty, too long, or contains control characters"
         ));
     }
-}
-
-fn valid_sha256(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .chars()
-            .all(|character| character.is_ascii_digit() || matches!(character, 'a'..='f'))
 }
 
 fn is_absolute_local_path(value: &str) -> bool {

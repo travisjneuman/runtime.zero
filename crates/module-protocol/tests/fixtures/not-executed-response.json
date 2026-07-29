@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "contract": "module_invocation_response",
+  "request_id": "request-inventory-fixture",
+  "module_id": "first-party.inventory",
+  "status": "not_executed",
+  "read_only": true,
+  "writes_attempted": false,
+  "network_attempted": false,
+  "timed_out": false,
+  "exit_code": null,
+  "stdout_bytes": 0,
+  "stderr_bytes": 0,
+  "output_truncated": false,
+  "payload_sha256": null,
+  "error_code": "execution_not_authorized"
+}

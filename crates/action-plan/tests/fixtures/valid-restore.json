@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "plan_id": "rz0plan-restore-example",
+  "module_id": "first-party.leftovers",
+  "created_at": null,
+  "expires_at": null,
+  "dry_run": true,
+  "writes_attempted": false,
+  "evidence_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+  "actions": [
+    {
+      "action_id": "restore-stale-shim",
+      "kind": "restore",
+      "disposition": "planned",
+      "target": "synthetic original path",
+      "source": {
+        "path": "quarantine/rz0plan-quarantine-example/payload.bin",
+        "sha256": "f7a205e7f1d656b47b649cd8e55e805f7901ca2571c1f8ca8f013a15f233e070",
+        "size_bytes": 30
+      },
+      "manager": null,
+      "executable": null,
+      "arguments": [],
+      "would_write": false,
+      "requires_confirmation": true,
+      "requires_elevation": false,
+      "network_required": false,
+      "risk": "low",
+      "capabilities": ["runtime_state_write", "restore_write"],
+      "forbidden_path_classes": [],
+      "write_set": [
+        {
+          "path": "workspace/stale-shim.bin",
+          "kind": "restored_payload"
+        }
+      ],
+      "rollback": {
+        "supported": true,
+        "quarantine_required": false,
+        "description": "Refuse occupied destinations and preserve the verified quarantine payload."
+      }
+    }
+  ],
+  "warnings": ["fixture only; no production file may move"]
+}

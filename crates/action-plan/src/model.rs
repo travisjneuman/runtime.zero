@@ -4,6 +4,7 @@ pub const ACTION_PLAN_SCHEMA_VERSION: u16 = 1;
 pub const MAX_ACTIONS: usize = 128;
 pub const MAX_ARGUMENTS: usize = 64;
 pub const MAX_WRITE_SET: usize = 256;
+pub const MAX_ACTION_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -27,6 +28,7 @@ pub struct PlanAction {
     pub kind: ActionKind,
     pub disposition: ActionDisposition,
     pub target: String,
+    pub source: Option<ActionSource>,
     pub manager: Option<String>,
     pub executable: Option<String>,
     pub arguments: Vec<String>,
@@ -91,12 +93,20 @@ pub enum ForbiddenPathClass {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
+pub struct ActionSource {
+    pub path: String,
+    pub sha256: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct WriteSetEntry {
     pub path: String,
     pub kind: WriteKind,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WriteKind {
     RuntimeState,

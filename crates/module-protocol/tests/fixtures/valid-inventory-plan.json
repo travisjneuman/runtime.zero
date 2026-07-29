@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "contract": "module_invocation_plan",
+  "request_id": "request-inventory-fixture",
+  "module_id": "first-party.inventory",
+  "module_version": "0.1.0",
+  "platform": "macos",
+  "operation": "collect_inventory",
+  "dry_run": true,
+  "read_only": true,
+  "execution_authorized": false,
+  "execution_attempted": false,
+  "mutation_allowed": false,
+  "network_allowed": false,
+  "executable": {
+    "source": "verified_receipt",
+    "relative_path": "bin/rz0-inventory",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "signature": {
+    "verified": true,
+    "test_key_only": true,
+    "key_id": "test.rfc8032.1",
+    "manifest_sha256": "3f1b86a31e02c5f029bd9472418dc718d75bacd8757823f2a798aacf59320b9b"
+  },
+  "limits": {
+    "timeout_ms": 5000,
+    "stdin_bytes": 65536,
+    "stdout_bytes": 1048576,
+    "stderr_bytes": 65536
+  },
+  "environment": {
+    "clear_parent": true,
+    "inherit_parent": false,
+    "allowed_names": ["HOME", "PATH"]
+  },
+  "capabilities": [
+    "process_environment_read",
+    "filesystem_metadata_read",
+    "application_filesystem_read"
+  ],
+  "inventory": {
+    "include_apps": true,
+    "probe_versions": false,
+    "redact_paths": true
+  }
+}

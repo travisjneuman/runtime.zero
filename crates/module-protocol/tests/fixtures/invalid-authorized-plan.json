@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "contract": "module_invocation_plan",
+  "request_id": "request-invalid-fixture",
+  "module_id": "first-party.inventory",
+  "module_version": "0.1.0",
+  "platform": "linux",
+  "operation": "collect_inventory",
+  "dry_run": false,
+  "read_only": false,
+  "execution_authorized": true,
+  "execution_attempted": true,
+  "mutation_allowed": true,
+  "network_allowed": true,
+  "executable": {
+    "source": "verified_receipt",
+    "relative_path": "../rz0-inventory",
+    "sha256": "invalid"
+  },
+  "signature": {
+    "verified": false,
+    "test_key_only": false,
+    "key_id": "INVALID",
+    "manifest_sha256": "invalid"
+  },
+  "limits": {
+    "timeout_ms": 60000,
+    "stdin_bytes": 1000000,
+    "stdout_bytes": 9000000,
+    "stderr_bytes": 9000000
+  },
+  "environment": {
+    "clear_parent": false,
+    "inherit_parent": true,
+    "allowed_names": ["PATH", "PATH", "SECRET_TOKEN"]
+  },
+  "capabilities": [
+    "process_environment_read",
+    "application_registry_read"
+  ],
+  "inventory": {
+    "include_apps": true,
+    "probe_versions": true,
+    "redact_paths": false
+  }
+}

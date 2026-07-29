@@ -16,6 +16,7 @@ fn uninstall_and_quarantine_fixtures_remain_plans_only() {
     for source in [
         include_str!("fixtures/valid-uninstall.json"),
         include_str!("fixtures/valid-quarantine.json"),
+        include_str!("fixtures/valid-restore.json"),
     ] {
         let plan: ActionPlan = serde_json::from_str(source).expect("valid plan fixture");
         let validation = validate_action_plan(&plan);
@@ -23,6 +24,39 @@ fn uninstall_and_quarantine_fixtures_remain_plans_only() {
         assert!(plan.dry_run);
         assert!(!plan.writes_attempted);
         assert!(plan.actions.iter().all(|action| !action.would_write));
+    }
+}
+
+#[test]
+fn quarantine_fixture_binds_exact_source_evidence() {
+    let plan: ActionPlan =
+        serde_json::from_str(include_str!("fixtures/valid-quarantine.json")).expect("fixture");
+    let validation = validate_action_plan(&plan);
+    assert!(validation.valid, "{:?}", validation.errors);
+    let source = plan.actions[0].source.as_ref().expect("source evidence");
+    assert_eq!(source.path, "workspace/stale-shim.bin");
+    assert_eq!(source.size_bytes, 30);
+}
+
+#[test]
+fn quarantine_source_evidence_fails_closed_on_drift() {
+    let mut plan: ActionPlan =
+        serde_json::from_str(include_str!("fixtures/valid-quarantine.json")).expect("fixture");
+    let source = plan.actions[0].source.as_mut().expect("source");
+    source.path = "../outside".to_string();
+    source.sha256 = "A".repeat(64);
+    source.size_bytes = 64 * 1024 * 1024 + 1;
+    let validation = validate_action_plan(&plan);
+    assert!(!validation.valid);
+    for expected in ["source path", "source sha256", "source exceeds"] {
+        assert!(
+            validation
+                .errors
+                .iter()
+                .any(|error| error.contains(expected)),
+            "missing {expected}: {:?}",
+            validation.errors
+        );
     }
 }
 

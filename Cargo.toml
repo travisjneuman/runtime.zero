@@ -17,6 +17,7 @@ resolver = "3"
 members = [
     "crates/action-plan",
     "crates/inventory-contract",
+    "crates/module-protocol",
     "crates/module-trust",
     "modules/inventory",
 ]

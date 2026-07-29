@@ -13,6 +13,7 @@
       "kind": "uninstall",
       "disposition": "planned",
       "target": "Example.Tool 2.0.0",
+      "source": null,
       "manager": "example-manager",
       "executable": "C:\\Tools\\example-manager.exe",
       "arguments": ["uninstall", "--id", "Example.Tool"],

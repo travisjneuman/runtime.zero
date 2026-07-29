@@ -4,6 +4,6 @@
   "key_id": "test.rfc8032.1",
   "package_id": "first-party.fixture",
   "package_version": "0.1.0",
-  "manifest_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-  "signature_hex": "fef178266ac49dc55dee6ec59efae80c62a1e806b31471bee39c9f4b1a9ad1370c2697d1a9220fa1bb79bdc75596055703454a67a5a07b5036c07c2ef7a4a201"
+  "manifest_sha256": "3f1b86a31e02c5f029bd9472418dc718d75bacd8757823f2a798aacf59320b9b",
+  "signature_hex": "61f608e3f116b26ac3312559987ba7929c40f5661ddc74aa6437a1db9794cd5a87478a047354e200607f995a58f5567f0dc9cecc022bbaabb582cda9eccbf400"
 }

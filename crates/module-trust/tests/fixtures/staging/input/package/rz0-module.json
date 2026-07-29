@@ -1,0 +1,7 @@
+{
+  "manifest_version": 1,
+  "id": "first-party.fixture",
+  "version": "0.1.0",
+  "publisher": "runtime.zero",
+  "status": "fixture-only"
+}

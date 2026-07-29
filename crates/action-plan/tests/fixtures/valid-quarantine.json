@@ -13,6 +13,11 @@
       "kind": "quarantine",
       "disposition": "planned",
       "target": "synthetic stale shim fixture",
+      "source": {
+        "path": "workspace/stale-shim.bin",
+        "sha256": "f7a205e7f1d656b47b649cd8e55e805f7901ca2571c1f8ca8f013a15f233e070",
+        "size_bytes": 30
+      },
       "manager": null,
       "executable": null,
       "arguments": [],
