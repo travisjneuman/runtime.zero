@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use crate::path_inventory::{PathCandidate, PathCollection, normalize_candidates};
 
-const MAX_FIXTURE_BYTES: u64 = 64 * 1024;
+const MAX_FIXTURE_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]

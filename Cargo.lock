@@ -693,6 +693,7 @@ dependencies = [
  "ratatui",
  "rz0-capability-contract",
  "rz0-inventory-contract",
+ "rz0-resource-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -737,6 +738,7 @@ name = "rz0-action-plan"
 version = "0.1.0"
 dependencies = [
  "rz0-capability-contract",
+ "rz0-resource-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -747,6 +749,7 @@ name = "rz0-artifact-identity"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "rz0-resource-contract",
  "sha2 0.10.9",
  "windows-sys",
 ]
@@ -778,6 +781,7 @@ name = "rz0-module-inventory"
 version = "0.1.0"
 dependencies = [
  "rz0-inventory-contract",
+ "rz0-resource-contract",
  "serde",
  "serde_json",
  "time",
@@ -792,6 +796,7 @@ dependencies = [
  "rz0-artifact-identity",
  "rz0-capability-contract",
  "rz0-error-contract",
+ "rz0-resource-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -803,9 +808,17 @@ name = "rz0-module-trust"
 version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
+ "rz0-resource-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
+]
+
+[[package]]
+name = "rz0-resource-contract"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

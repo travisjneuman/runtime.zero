@@ -9,6 +9,7 @@ publish = false
 rust-version = "1.96"
 
 [dependencies]
+rz0-resource-contract = { version = "0.1.0", path = "../resource-contract" }
 sha2 = "0.10"
 
 [target.'cfg(unix)'.dependencies]

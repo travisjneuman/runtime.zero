@@ -12,7 +12,7 @@ use crate::package_integrity_io::{
     validate_relative_path,
 };
 
-pub const MAX_PACKAGE_FILE_BYTES: u64 = 64 * 1024 * 1024;
+pub const MAX_PACKAGE_FILE_BYTES: u64 = rz0_resource_contract::MAX_ARTIFACT_BYTES;
 pub const MAX_PACKAGE_FILE_COUNT: usize = 128;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

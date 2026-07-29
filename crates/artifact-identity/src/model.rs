@@ -1,6 +1,6 @@
 use std::{fmt, fs::File, path::PathBuf};
 
-pub const MAX_ARTIFACT_BYTES: u64 = 64 * 1024 * 1024;
+pub use rz0_resource_contract::MAX_ARTIFACT_BYTES;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtifactExpectation {

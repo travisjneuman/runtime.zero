@@ -1,0 +1,12 @@
+[package]
+name = "rz0-resource-contract"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "Shared bounded resource ceilings for runtime.zero foundation services"
+license = "Apache-2.0"
+publish = false
+rust-version = "1.96"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }

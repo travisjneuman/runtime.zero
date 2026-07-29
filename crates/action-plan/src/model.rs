@@ -5,7 +5,7 @@ pub const ACTION_PLAN_SCHEMA_VERSION: u16 = 1;
 pub const MAX_ACTIONS: usize = 128;
 pub const MAX_ARGUMENTS: usize = 64;
 pub const MAX_WRITE_SET: usize = 256;
-pub const MAX_ACTION_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
+pub const MAX_ACTION_SOURCE_BYTES: u64 = rz0_resource_contract::MAX_ARTIFACT_BYTES;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

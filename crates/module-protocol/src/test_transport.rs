@@ -14,7 +14,7 @@ pub const TEST_TRANSPORT_RESPONSE_CONTRACT: &str = "module_process_test_response
 pub const TEST_HELPER_ID: &str = "rz0-protocol-test-child";
 pub const TEST_WORK_MARKER: &str = ".rz0-protocol-test-work-v1";
 pub const TEST_WORK_MARKER_CONTENT: &[u8] = b"schema_version=1\ntest_only=true\n";
-pub const MAX_TEST_FRAME_BYTES: u64 = 64 * 1024;
+pub const MAX_TEST_FRAME_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

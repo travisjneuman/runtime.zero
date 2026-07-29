@@ -8,7 +8,7 @@ use crate::staging_path::validate_relative_path;
 pub const STAGING_SCHEMA_VERSION: u16 = 1;
 pub const STAGING_CONTRACT: &str = "module_staging_plan";
 pub const MAX_STAGING_FILES: usize = 128;
-pub const MAX_STAGING_FILE_BYTES: u64 = 64 * 1024 * 1024;
+pub const MAX_STAGING_FILE_BYTES: u64 = rz0_resource_contract::MAX_ARTIFACT_BYTES;
 pub const MAX_STAGING_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]

@@ -2,7 +2,7 @@ pub use rz0_capability_contract::Capability as ModulePermission;
 use serde::{Deserialize, Serialize};
 
 pub const MODULE_SCHEMA_VERSION: u16 = 1;
-pub const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
+pub const MAX_MANIFEST_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]

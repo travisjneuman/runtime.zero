@@ -16,6 +16,7 @@ protocol-test-child = ["dep:libc", "dep:serde_json"]
 libc = { version = "0.2", optional = true }
 rz0-capability-contract = { version = "0.1.0", path = "../capability-contract" }
 rz0-error-contract = { version = "0.1.0", path = "../error-contract" }
+rz0-resource-contract = { version = "0.1.0", path = "../resource-contract" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
 

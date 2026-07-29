@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 
+use rz0_resource_contract::{ProcessLimitCeilings, ProcessLimitField};
+
 use crate::model::{
     INVOCATION_PLAN_CONTRACT, INVOCATION_RESPONSE_CONTRACT, InvocationPlan, InvocationResponse,
     InvocationStatus, PROTOCOL_SCHEMA_VERSION, ProtocolCapability, ProtocolErrorCode,
@@ -7,11 +9,7 @@ use crate::model::{
 };
 use crate::policy::{valid_id, valid_relative_path, valid_sha256, valid_version};
 
-const MAX_EXECUTABLE_BYTES: u64 = 64 * 1024 * 1024;
-const MAX_TIMEOUT_MS: u64 = 10_000;
-const MAX_STDIN_BYTES: u64 = 64 * 1024;
-const MAX_STDOUT_BYTES: u64 = 1024 * 1024;
-const MAX_STDERR_BYTES: u64 = 64 * 1024;
+const MAX_EXECUTABLE_BYTES: u64 = rz0_resource_contract::MAX_ARTIFACT_BYTES;
 const MAX_ENV_NAMES: usize = 16;
 const MAX_CAPABILITIES: usize = 16;
 
@@ -133,24 +131,15 @@ fn validate_signature(plan: &InvocationPlan, errors: &mut Vec<String>) {
 }
 
 fn validate_limits(plan: &InvocationPlan, errors: &mut Vec<String>) {
-    let limits = &plan.limits;
-    if limits.timeout_ms == 0 || limits.timeout_ms > MAX_TIMEOUT_MS {
-        errors.push(format!("timeout_ms must be between 1 and {MAX_TIMEOUT_MS}"));
-    }
-    if limits.stdin_bytes == 0 || limits.stdin_bytes > MAX_STDIN_BYTES {
-        errors.push(format!(
-            "stdin_bytes must be between 1 and {MAX_STDIN_BYTES}"
-        ));
-    }
-    if limits.stdout_bytes == 0 || limits.stdout_bytes > MAX_STDOUT_BYTES {
-        errors.push(format!(
-            "stdout_bytes must be between 1 and {MAX_STDOUT_BYTES}"
-        ));
-    }
-    if limits.stderr_bytes == 0 || limits.stderr_bytes > MAX_STDERR_BYTES {
-        errors.push(format!(
-            "stderr_bytes must be between 1 and {MAX_STDERR_BYTES}"
-        ));
+    let ceilings = ProcessLimitCeilings::MODULE_SCHEMA_ONE;
+    for field in plan.limits.violations(ceilings) {
+        let (name, maximum) = match field {
+            ProcessLimitField::TimeoutMs => ("timeout_ms", ceilings.timeout_ms),
+            ProcessLimitField::StdinBytes => ("stdin_bytes", ceilings.stdin_bytes),
+            ProcessLimitField::StdoutBytes => ("stdout_bytes", ceilings.stdout_bytes),
+            ProcessLimitField::StderrBytes => ("stderr_bytes", ceilings.stderr_bytes),
+        };
+        errors.push(format!("{name} must be between 1 and {maximum}"));
     }
 }
 

@@ -5,9 +5,11 @@ use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
-const READER_GRACE: Duration = Duration::from_millis(250);
-const MAX_CAPTURE_BYTES: usize = 64 * 1024;
+const PROBE_TIMEOUT: Duration =
+    Duration::from_millis(rz0_resource_contract::VERSION_PROBE_TIMEOUT_MS);
+const READER_GRACE: Duration =
+    Duration::from_millis(rz0_resource_contract::VERSION_PROBE_READER_GRACE_MS);
+const MAX_CAPTURE_BYTES: usize = rz0_resource_contract::MAX_VERSION_OUTPUT_BYTES;
 
 pub(crate) fn run_version_probe(path: &Path, args: &[&str]) -> Result<String, String> {
     let mut child = Command::new(path)

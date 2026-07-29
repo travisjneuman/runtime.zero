@@ -3,7 +3,7 @@ use std::path::Path;
 
 use super::sanitize_text;
 
-const MAX_DESKTOP_ENTRY_BYTES: u64 = 64 * 1024;
+const MAX_DESKTOP_ENTRY_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum DesktopEntry {

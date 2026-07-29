@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use rz0_inventory_contract::{InventorySource, PathEntry};
 
-pub const MAX_PATH_ENTRIES: usize = 512;
+pub const MAX_PATH_ENTRIES: usize = rz0_resource_contract::MAX_INVENTORY_PATH_ENTRIES;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PathCandidate {

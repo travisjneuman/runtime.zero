@@ -10,6 +10,7 @@ rust-version = "1.96"
 
 [dependencies]
 ed25519-dalek = { version = "3.0", default-features = false }
+rz0-resource-contract = { version = "0.1.0", path = "../resource-contract" }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]

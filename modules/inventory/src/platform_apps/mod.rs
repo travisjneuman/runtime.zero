@@ -12,7 +12,7 @@ mod linux;
 #[cfg(any(target_os = "macos", test))]
 mod macos;
 
-pub(super) const MAX_APP_RECORDS: usize = 4096;
+pub(super) const MAX_APP_RECORDS: usize = rz0_resource_contract::MAX_INVENTORY_APP_RECORDS;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlatformAppCollection {
