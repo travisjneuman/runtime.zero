@@ -1,4 +1,5 @@
 pub use rz0_capability_contract::Capability as ProtocolCapability;
+pub use rz0_error_contract::FoundationErrorCode as ProtocolErrorCode;
 use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_SCHEMA_VERSION: u16 = 1;
@@ -109,7 +110,7 @@ pub struct InvocationResponse {
     pub stderr_bytes: u64,
     pub output_truncated: bool,
     pub payload_sha256: Option<String>,
-    pub error_code: Option<String>,
+    pub error_code: Option<ProtocolErrorCode>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]

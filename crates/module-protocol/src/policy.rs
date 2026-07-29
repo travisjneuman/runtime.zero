@@ -49,13 +49,3 @@ pub(crate) fn valid_relative_path(value: &str) -> bool {
             )
         })
 }
-
-pub(crate) fn valid_error_code(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 80
-        && value.chars().all(|character| {
-            character.is_ascii_lowercase()
-                || character.is_ascii_digit()
-                || matches!(character, '_' | '.')
-        })
-}

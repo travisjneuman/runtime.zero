@@ -2,10 +2,10 @@ use std::collections::BTreeSet;
 
 use crate::model::{
     INVOCATION_PLAN_CONTRACT, INVOCATION_RESPONSE_CONTRACT, InvocationPlan, InvocationResponse,
-    InvocationStatus, PROTOCOL_SCHEMA_VERSION, ProtocolCapability, ProtocolPlatform,
-    ProtocolValidation,
+    InvocationStatus, PROTOCOL_SCHEMA_VERSION, ProtocolCapability, ProtocolErrorCode,
+    ProtocolPlatform, ProtocolValidation,
 };
-use crate::policy::{valid_error_code, valid_id, valid_relative_path, valid_sha256, valid_version};
+use crate::policy::{valid_id, valid_relative_path, valid_sha256, valid_version};
 
 const MAX_EXECUTABLE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_TIMEOUT_MS: u64 = 10_000;
@@ -93,19 +93,12 @@ pub fn validate_invocation_response(
         || response.stderr_bytes != 0
         || response.output_truncated
         || response.payload_sha256.is_some()
-        || response.error_code.as_deref() != Some("execution_not_authorized")
+        || response.error_code != Some(ProtocolErrorCode::ExecutionNotAuthorized)
     {
         errors.push(
             "schema-1 response must report that execution was not authorized or attempted"
                 .to_string(),
         );
-    }
-    if response
-        .error_code
-        .as_deref()
-        .is_some_and(|value| !valid_error_code(value))
-    {
-        errors.push("response error_code is invalid".to_string());
     }
     validation.valid = validation.errors.is_empty();
     validation
