@@ -66,18 +66,19 @@ requirements as every other module.
 
 ## Equal platform matrix
 
-[`support-policy.md`](support-policy.md) freezes a rolling newest-to-oldest
-policy: current plus three previous generations where safe artifacts and test
-images are practically available, with vendor-retired systems demoted to
-compatibility-only rather than represented as secure. Apple Silicon, Intel,
-x86-64, and ARM64 are required where the OS/vendor pair supports them; other
-architectures enter through the same research-to-runtime promotion gate.
+[`support-policy.md`](support-policy.md) freezes a newest-to-oldest policy. The
+Windows client generations are explicitly 11, 10, 8.1, 8, and 7 across real
+editions; Windows Server covers 2008 through 2025. Vendor-retired systems require
+compatibility outcomes but are never represented as secure. macOS and the named
+Linux families begin with current plus three prior releases and continue
+backwards through research. Apple Silicon, Intel, x86-64, ARM64, and legacy x86
+are required where the OS/vendor/toolchain combination actually exists.
 
 Current broad targets are:
 
 | Platform | Required production scope | Current evidence |
 | --- | --- | --- |
-| Windows | Windows 11 rolling generations and Server LTSC 2025/2022/2019/2016; x86-64/ARM64 where supported; registry, reparse, ACL, locked-file, handle, Job Object, service, manager, installer, terminal, recovery, and elevation behavior | Target compilation, fixture contracts, and compile-only test Job Object support; artifact-only runtime matrix incomplete |
+| Windows | Client 11/10/8.1/8/7 and Server 2025/2022/2019/2016/2012 R2/2012/2008 R2/2008 across real editions, Core/Desktop forms, and x86-64/ARM64/x86 where available; complete PowerShell/console/obtainable Terminal matrix; registry, reparse, ACL, locked-file, handle, Job Object, manager, installer, recovery, and elevation behavior | Modern x86-64/ARM64 target compilation, fixtures, and compile-only Job Object support; Rust's normal baseline is Windows 10/Server 2016, so legacy target/artifact runtime proof is incomplete |
 | macOS | Tahoe 26, Sequoia 15, Sonoma 14, Ventura 13 across supported Apple Silicon/Intel pairs; bundle, launch/service, manager, code identity, sandbox, ACL, filesystem, terminal, packaging, recovery, and privilege behavior | Native newest-generation inventory and guarded Unix test-helper evidence; older/final-artifact runtime incomplete |
 | Linux | Ubuntu LTS 26.04/24.04/22.04/20.04, Debian 13/12/11/10, RHEL 10/9/8/7, and current Arch rolling plus snapshot regression evidence; x86-64/ARM64 first; XDG, managers, services, namespaces/seccomp/landlock, filesystems, terminals, packages, recovery, and privilege | Target compilation and fixtures; final-artifact distro runtime matrix incomplete |
 
@@ -140,9 +141,10 @@ parallel once its shared foundation dependency is stable.
 
 1. Freeze 1.0 requirements, OS/architecture/manager/install-channel tables,
    schemas, compatibility policy, acceptance IDs, and measurable budgets. The
-   rolling current-plus-three platform policy, initial manager order, no-paid-
+   Windows-generation/Server-2008-through-2025 matrix, macOS/Linux current-plus-
+   three starting matrix, shell/terminal census, initial manager order, no-paid-
    signing posture, and final-artifact-only compatibility-host rule are now
-   defined; acceptance IDs and measured budgets remain.
+   defined; exact edition census, acceptance IDs, and measured budgets remain.
 2. Stabilize the core package/module/store/configuration/error/logging contracts
    and migration rules. The shared typed error vocabulary and conservative
    retry/privacy semantics exist; broad adapter migration remains.

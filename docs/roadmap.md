@@ -125,8 +125,9 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
 
 ## Phase 8 — equal-platform, equal-module production 1.0
 
-- [x] Define rolling current-plus-three Windows/macOS/Server/Linux version and
-  artifact-only compatibility-host policy, initial manager order, architecture
+- [x] Define Windows 11/10/8.1/8/7 and Server 2008-through-2025 compatibility,
+  macOS/Linux current-plus-three starting matrices, exhaustive shell/terminal
+  research lanes, artifact-only host policy, manager order, architecture
   expansion, and no-paid-signing GitHub distribution posture.
 - [ ] Freeze the exact RC snapshot of that rolling matrix plus schemas, measured
   budgets, and acceptance IDs.

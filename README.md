@@ -144,7 +144,8 @@ privacy and retry semantics. See
 [`docs/module-process-protocol.md`](docs/module-process-protocol.md), and the
 equal-platform/equal-module completion contract in
 [`docs/production-readiness.md`](docs/production-readiness.md), rolling
-[`docs/support-policy.md`](docs/support-policy.md), and no-paid-signing
+[`docs/support-policy.md`](docs/support-policy.md), explicit
+[`docs/windows-compatibility.md`](docs/windows-compatibility.md), and no-paid-signing
 [`docs/free-release-distribution.md`](docs/free-release-distribution.md).
 
 The same future store/routing contract can be inspected independently of module
