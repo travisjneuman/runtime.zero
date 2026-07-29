@@ -17,7 +17,8 @@ compatibility hosts do not.
 The wrapper builds `rz0` in release mode and calls
 `scripts/package_release.py`. The packager:
 
-- accepts only the six initial macOS/Windows/Linux x86-64/ARM64 Rust targets;
+- accepts the seven initial macOS/Windows/Linux x86-64/ARM64 targets plus the
+  modern Windows x86 target;
 - requires a full source commit and bounded version;
 - rejects symlinked/non-regular or oversized binary/document inputs;
 - embeds only `rz0`, README, license, safety/security policy, and a strict
@@ -31,7 +32,7 @@ The wrapper builds `rz0` in release mode and calls
 
 The current native Apple Silicon package was independently generated twice with
 identical ZIP bytes, checksum-verified, extracted into a clean temporary root,
-and exercised with `rz0 --version` and `rz0 doctor`. Other targets still require
+and exercised with `rz0 --version` and `rz0 doctor`. Other targets—including the non-rustup Windows-7-baseline targets—still require
 link-capable build runners and artifact-only runtime hosts; `cargo check` is not
 an executable artifact.
 

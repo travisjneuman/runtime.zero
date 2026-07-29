@@ -6,7 +6,7 @@ target="${1:-$(rustc -vV | awk '/^host:/ {print $2}')}"
 output="${2:-$repo/dist}"
 
 case "$target" in
-  aarch64-apple-darwin|x86_64-apple-darwin|aarch64-pc-windows-msvc|x86_64-pc-windows-msvc|aarch64-unknown-linux-gnu|x86_64-unknown-linux-gnu) ;;
+  aarch64-apple-darwin|x86_64-apple-darwin|aarch64-pc-windows-msvc|i686-pc-windows-msvc|x86_64-pc-windows-msvc|aarch64-unknown-linux-gnu|x86_64-unknown-linux-gnu) ;;
   *) printf 'unsupported release target: %s\n' "$target" >&2; exit 2 ;;
 esac
 

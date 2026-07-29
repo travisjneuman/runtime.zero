@@ -19,6 +19,7 @@ TARGETS = {
     "aarch64-apple-darwin": "rz0",
     "x86_64-apple-darwin": "rz0",
     "aarch64-pc-windows-msvc": "rz0.exe",
+    "i686-pc-windows-msvc": "rz0.exe",
     "x86_64-pc-windows-msvc": "rz0.exe",
     "aarch64-unknown-linux-gnu": "rz0",
     "x86_64-unknown-linux-gnu": "rz0",
