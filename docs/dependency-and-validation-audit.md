@@ -29,9 +29,9 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 185 tests. The all-features suite passed 194,
+The default workspace suite passed 189 tests. The all-features suite passed 198,
 including the shared capability-family tests, seven transaction-chain/recovery
-tests, five opened-artifact identity tests, six production-execution gate
+unit tests, four guarded immutable-snapshot recovery tests, five opened-artifact identity tests, six production-execution gate
 tests, and nine native macOS test-child
 transport cases. The transport cases prove
 fail-closed refusal of an observed inheritable descriptor and Unix process-group

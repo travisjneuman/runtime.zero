@@ -57,6 +57,17 @@ An invalid journal produces `refuse_invalid_journal`. Every assessment sets
 `automatic_mutation_authorized: false`; a decision describes required operator
 or future policy handling and never executes it.
 
+## Guarded persistence simulation
+
+Integration-test-only helpers publish immutable, sequence/head-named JSON
+snapshots under a marked direct OS-temp child. They use create-new writes,
+bounded serialization/readback, file synchronization, and Unix parent-directory
+synchronization. Recovery validates every snapshot and requires each to extend
+the prior snapshot by exactly one event. Tests cover latest-head recovery,
+interruption before publication, corrupt/truncated snapshots, and symlink
+rejection. Windows/Linux target builds are compile evidence; this is not a
+production store writer or power-loss proof.
+
 ## Remaining production work
 
 Production use still requires a store writer with safe root handles, create-new
@@ -67,6 +78,9 @@ boundary, and real power/process-loss recovery on Windows, macOS, and Linux.
 Quarantine and rollback need platform-specific locked-file, reparse/symlink,
 cross-filesystem, and metadata-fidelity proof. No module may implement a private
 journal or recovery engine.
+
+The guarded simulation does not weaken the requirement that production use
+still needs an independently reviewed writer.
 
 See [`action-planning.md`](action-planning.md),
 [`transaction-simulation.md`](transaction-simulation.md), and
