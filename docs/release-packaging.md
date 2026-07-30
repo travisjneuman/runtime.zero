@@ -60,11 +60,14 @@ only from direct package roots, bounded, hashed, and deduplicated. Missing text
 remains explicit rather than being silently invented. This is evidence for
 release/legal review, not legal advice.
 
-Native Apple Silicon and Intel/Rosetta final ZIPs and DMGs have been built and
-exercised locally. The Apple Silicon package was independently generated twice
-with identical ZIP, SBOM, and notices bytes, checksum-verified, extracted into a clean
-temporary root, and exercised with `rz0 --version`, `rz0 doctor`, and the dry-run
-scan. The Windows-7-baseline crates and custom standard library pass cross-target
+Native Apple Silicon, Intel/Rosetta, and universal2 final ZIPs and DMGs have been
+built and exercised locally. The universal ZIP was generated twice with
+identical bytes and both ARM64 and x86-64 slices ran version, private diagnostics,
+and dry-run scan commands explicitly through `arch`. Its mounted DMG likewise
+ran both slices. The Apple Silicon package was independently generated twice
+with identical ZIP, SBOM, and notices bytes, checksum-verified, extracted into a
+clean temporary root, and exercised with `rz0 --version`, `rz0 doctor`, and the
+dry-run scan. Rosetta execution is not Intel hardware or older-macOS proof. The Windows-7-baseline crates and custom standard library pass cross-target
 workspace checks for x86 and x86-64; linked EXEs still require the Windows build
 runner. Other targets still require link-capable build runners and artifact-only runtime hosts; `cargo check` is not
 an executable artifact.

@@ -19,7 +19,9 @@ Validated with Rust/Cargo 1.96.0:
 - pinned `nightly-2026-07-29` build-std workspace checks for the Tier-3
   Windows-7-baseline x86 and x86-64 MSVC targets;
 - Linux GNU x86-64 and ARM64 target checks/Clippy with warnings denied;
-- macOS Apple Silicon native evidence plus Intel target check/Clippy;
+- macOS Apple Silicon native evidence, Intel target checks, Intel final-artifact
+  Rosetta execution, and deterministic universal2 ZIP execution through both
+  slices;
 - `cargo run -- doctor` and `cargo run -- scan --dry-run`;
 - fixture and live-redacted inventory JSON parsing/assertions;
 - opt-in macOS application-bundle smoke with redacted paths;
@@ -167,7 +169,8 @@ no duplicate terminal-control stack.
 
 - Real Windows registry/app/version-timeout/redaction runtime tests.
 - Real Linux desktop-entry/application and terminal runtime smoke; broader
-  macOS terminal compatibility beyond the current inventory smoke.
+  macOS terminal compatibility beyond current inventory and universal/Rosetta
+  artifact smoke; Rosetta is not Intel hardware or older-macOS proof.
 - Final legal review of generated artifact-level license/notice evidence and
   reproducibility checks on every target; native target-filtered generation is
   deterministic local evidence only.

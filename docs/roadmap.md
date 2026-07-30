@@ -186,10 +186,11 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
   compatibility/migrations.
 - [ ] Complete end-to-end/fuzz/race/fault/performance/soak/security/privacy/
   accessibility testing and real runtime matrices.
-- [x] Add a local non-publishing unsigned macOS DMG builder that consumes the
-  canonical portable ZIP, verifies exact entries/checksum/content, binds an
-  honest non-reproducible-container manifest, and has adversarial preparation
-  tests.
+- [x] Add local non-publishing native and deterministic universal2 ZIP builders
+  plus an unsigned macOS DMG builder that consumes the canonical ZIP, verifies
+  exact entries/checksum/content/SBOM/notices, binds honest variable-container
+  metadata, and has adversarial preparation tests. Both universal slices execute
+  natively/Rosetta on the current Mac.
 - [ ] Produce release-reviewed signed/notarized artifacts, SBOM/notices,
   installers, package channels, offline/update/rollback paths, support/incident runbooks,
   and final release evidence.
