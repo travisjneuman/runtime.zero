@@ -4,8 +4,9 @@
 `foundation_diagnostics` schema used by `rz0 doctor`.
 
 Schema 1 is read-only, reports `writes_attempted: false`, and cannot authorize
-production execution. It contains exactly eight ordered checks for runtime and
-platform identity, safety posture, store mutation policy, module execution,
+production execution. It binds the exact canonical configuration SHA-256 and
+contains exactly nine ordered checks for runtime identity, platform identity,
+configuration policy, safety posture, store mutation policy, module execution,
 network policy, external automation, and privacy defaults. Passing checks cannot
 carry error codes; blocked or unavailable checks require a shared typed
 foundation error. Summaries must exactly match the check list, and the foundation

@@ -154,9 +154,10 @@ parallel once its shared foundation dependency is stable.
 2. Stabilize the core package/module/store/configuration/error/logging contracts
    and migration rules. Shared typed error semantics, byte/record/timeout/process
    ceilings, allocation-free ID/version/hash/path grammar, bounded privacy
-   redaction, exact private diagnostics, and short-lived single-use plan-
-   confirmation contracts exist; remaining adapters and measured budgets must
-   consume the shared policies.
+   redaction, immutable offline/default-deny schema-1 configuration, config-
+   digest-bound private diagnostics, and short-lived single-use plan-confirmation
+   contracts exist; future configurable schemas, remaining adapters, and
+   measured budgets must consume the shared policies.
 3. Close package and executable identity races; the same-open-handle artifact
    identity primitive, Unix no-follow traversal, and compile-checked Windows NT
    root-relative state operations exist. Borrow-scoped Linux `/proc` and Windows

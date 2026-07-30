@@ -33,9 +33,10 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 261 tests. The all-features suite passed 271.
+The default workspace suite passed 265 tests. The all-features suite passed 275.
 Coverage includes shared capability/error/resource/validation/confirmation,
-four privacy-redaction tests, four strict diagnostic tests, two process-host
+four privacy-redaction tests, four fail-closed configuration tests, four strict
+config-digest-bound diagnostic tests, two process-host
 capture/descriptor tests, action-plan digests, opened-directory adversarial
 tests, canonical registries, release ledgers, transaction/recovery chains,
 durable writers, commit receipts, default and fault-enabled commit coordination,
@@ -54,7 +55,7 @@ library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 136 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 137 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -62,7 +63,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved 21 local workspace packages and 115
+`cargo metadata --locked` resolved 22 local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -144,7 +145,8 @@ fail-closed unsupported behavior on macOS; it grants no execution authority and
 has no installer API. The
 privacy-contract crate adds no new external package and uses shared SHA-256 for
 bounded domain-separated report-local placeholders without retaining raw values.
-The diagnostics-contract crate adds no new external package and owns the strict
+The configuration-contract crate adds no new external package and owns canonical
+immutable offline/default-deny schema-1 settings and their digest. The diagnostics-contract crate adds no new external package and owns the strict
 private text/JSON doctor model. The process-host crate adds no new external
 package, centralizes bounded capture plus Unix descriptor auditing, and places
 process-group/Job Object helper containment behind `test-support`; it exposes no

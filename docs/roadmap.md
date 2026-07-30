@@ -92,6 +92,10 @@ See [`action-planning.md`](action-planning.md).
   redaction, and diagnostics ceilings, consumed across foundation and modules.
 - [x] Bounded privacy contract using domain-separated report-local tokens without
   retaining raw strings; inventory paths are redacted by default.
+- [x] Immutable schema-1 configuration defaults enforce privacy, offline/network-
+  deny, disabled execution/automation, one-process concurrency, dry-run,
+  confirmation, quarantine, and no implicit lifecycle work; diagnostics bind the
+  canonical configuration digest.
 - [x] Strict privacy-safe text/JSON foundation diagnostics with exact typed checks
   and no host, user, current-directory, environment-value, or raw-path output.
 - [x] Allocation-free validation contract for canonical IDs, versions, lowercase

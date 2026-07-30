@@ -138,8 +138,9 @@ for manifests, protocols, and action plans while granting no authority.
 and monotonic-deadline primitive. `crates/module-lifecycle/` owns dry-run,
 digest-bound install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall
 transitions and their exact foundation gates. `crates/privacy-contract/` owns
-bounded report-local redaction, `crates/diagnostics-contract/` owns privacy-safe
-`doctor` output, and `crates/process-host/` owns bounded process I/O plus
+bounded report-local redaction, `crates/configuration-contract/` owns immutable
+fail-closed defaults, `crates/diagnostics-contract/` binds that policy into
+privacy-safe `doctor` output, and `crates/process-host/` owns bounded process I/O plus
 fail-closed handle/descriptor and test-containment primitives.
 `crates/confirmation-contract/`
 binds validated plan/dry-run/write-set/state
@@ -163,6 +164,7 @@ canonical installed-state shape and digest. `crates/release-contract/` generates
 [`docs/capability-contract.md`](docs/capability-contract.md),
 [`docs/cancellation-contract.md`](docs/cancellation-contract.md),
 [`docs/privacy-contract.md`](docs/privacy-contract.md),
+[`docs/configuration-contract.md`](docs/configuration-contract.md),
 [`docs/diagnostics-contract.md`](docs/diagnostics-contract.md),
 [`docs/process-host-foundation.md`](docs/process-host-foundation.md),
 [`docs/module-lifecycle-contract.md`](docs/module-lifecycle-contract.md),
