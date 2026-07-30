@@ -830,8 +830,10 @@ dependencies = [
 name = "rz0-module-inventory"
 version = "0.1.0"
 dependencies = [
+ "rz0-cancellation-contract",
  "rz0-inventory-contract",
  "rz0-privacy-contract",
+ "rz0-process-host",
  "rz0-resource-contract",
  "serde",
  "serde_json",

@@ -1,10 +1,15 @@
-use std::{fmt, io::Read};
+use std::{
+    fmt,
+    io::Read,
+    process::{Child, Command},
+};
 
 use rz0_error_contract::FoundationErrorCode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessHostErrorCode {
     UnsupportedHandleAudit,
+    UnsupportedContainment,
     InheritableHandle,
     LimitExceeded,
     PlatformIo,
@@ -26,7 +31,8 @@ impl ProcessHostError {
 
     pub const fn foundation_code(&self) -> FoundationErrorCode {
         match self.code {
-            ProcessHostErrorCode::UnsupportedHandleAudit => {
+            ProcessHostErrorCode::UnsupportedHandleAudit
+            | ProcessHostErrorCode::UnsupportedContainment => {
                 FoundationErrorCode::UnsupportedOperation
             }
             ProcessHostErrorCode::InheritableHandle => FoundationErrorCode::PermissionDenied,
@@ -142,6 +148,48 @@ pub fn audit_inheritable_process_handles() -> Result<(), ProcessHostError> {
     Err(ProcessHostError::new(
         ProcessHostErrorCode::UnsupportedHandleAudit,
         "complete Windows inherited-handle auditing is not implemented",
+    ))
+}
+
+/// Assigns a future Unix child to a dedicated process group before exec.
+/// Non-Unix platforms fail closed until a race-free production primitive exists.
+#[cfg(unix)]
+pub fn configure_child_process_group(command: &mut Command) -> Result<(), ProcessHostError> {
+    use std::os::unix::process::CommandExt as _;
+    command.process_group(0);
+    Ok(())
+}
+
+#[cfg(not(unix))]
+pub fn configure_child_process_group(_command: &mut Command) -> Result<(), ProcessHostError> {
+    Err(ProcessHostError::new(
+        ProcessHostErrorCode::UnsupportedContainment,
+        "race-free production process-group containment is not implemented on this platform",
+    ))
+}
+
+/// Terminates the complete dedicated Unix process group. This does not prevent
+/// a hostile child from creating a new session and is not a sandbox.
+#[cfg(unix)]
+pub fn terminate_child_process_group(child: &mut Child) -> Result<(), ProcessHostError> {
+    let process_group = -(child.id() as i32);
+    // SAFETY: configure_child_process_group assigned the child to its own group.
+    if unsafe { libc::kill(process_group, libc::SIGKILL) } == -1 {
+        child.kill().map_err(|error| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                format!("terminate child process: {error}"),
+            )
+        })?;
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+pub fn terminate_child_process_group(_child: &mut Child) -> Result<(), ProcessHostError> {
+    Err(ProcessHostError::new(
+        ProcessHostErrorCode::UnsupportedContainment,
+        "race-free production process-tree termination is not implemented on this platform",
     ))
 }
 
