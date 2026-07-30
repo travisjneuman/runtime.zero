@@ -149,6 +149,13 @@ core dependency and execution paths. Its manifest stays `planned`: it is source
 for development, not a published/installed artifact. See
 [`inventory-schema.md`](inventory-schema.md).
 
+`modules/report-export/` is also a development-only `planned` source package. It
+accepts a strict bounded report envelope on stdin and delegates privacy,
+validation, digests, bounds, and authority refusal to
+`crates/support-contract/`; it owns only report-selection and text/JSON format
+behavior. It is not installed or executed by core. See
+[`support-report-contract.md`](support-report-contract.md).
+
 ## Planned module families
 
 - tool/package updater modules;

@@ -100,7 +100,7 @@ Every module must reach the same lifecycle bar on every supported platform:
 | Leftovers | Required | Required | Required | Policy and quarantine fixtures only |
 | Cache management | Required | Required | Required | Named family only |
 | Security/integrity | Required | Required | Required | Named family only |
-| Report/export | Required | Required | Required | Named family only |
+| Report/export | Required | Required | Required | Strict summary-only foundation contract and stdin/stdout source module; lifecycle/core/final-artifact runtime proof open |
 
 ## Required lifecycle for every module-platform cell
 

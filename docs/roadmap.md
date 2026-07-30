@@ -104,6 +104,9 @@ See [`action-planning.md`](action-planning.md).
   canonical configuration digest.
 - [x] Strict privacy-safe text/JSON foundation diagnostics with exact typed checks
   and no host, user, current-directory, environment-value, or raw-path output.
+- [x] Add a deterministic foundation support-report contract and separate
+  stdin/stdout report/export source module that omit raw inputs and authority;
+  signed lifecycle/core integration/final-artifact platform proof remain open.
 - [x] Allocation-free validation contract for canonical IDs, versions, lowercase
   hashes, evidence references, and platform-neutral relative paths.
 - [x] Deterministic validated action-plan/write-set digests and five-minute exact

@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core stays intentionally small: it owns the CLI, policy, output contracts, and module registry primitives while substantial capabilities ship as explicit modules instead of being bundled by default.
 
-> Status: pre-alpha foundation plus a separately built, read-only first-party inventory source package. This repository is public early so the design and safety model are visible from the start. The core does not install or execute modules, and destructive modules are intentionally absent.
+> Status: pre-alpha foundation plus separately built, read-only first-party inventory and report/export source packages. This repository is public early so the design and safety model are visible from the start. The core does not install or execute modules, and destructive modules are intentionally absent.
 
 ## The promise
 
@@ -117,6 +117,14 @@ Paths are redacted by default; raw local values require the explicit
 `--include-raw-paths` flag. It does not run package
 managers, modify the system, or make the module installable through `rz0`.
 
+The second source package, [`modules/report-export/`](modules/report-export/),
+accepts a bounded strict inventory/diagnostics envelope on standard input and
+emits only a deterministic summary to standard output. The shared
+`crates/support-contract/` owns input validation, domain-separated digests,
+privacy omissions, bounds, and non-authority fields. Raw reports, paths,
+identities, application names, process output, and free-form warnings are not
+embedded. The module has no path/network options and is not executed by core.
+
 A separate `crates/module-trust/` contract now verifies local detached Ed25519
 signatures with public test keys only. It does not provide signing, production
 keys, installation, activation, or module execution. Schema-1 staging plans and
@@ -141,7 +149,8 @@ digest-bound install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall
 transitions and their exact foundation gates. `crates/privacy-contract/` owns
 bounded report-local redaction, `crates/configuration-contract/` owns immutable
 fail-closed defaults, `crates/diagnostics-contract/` binds that policy into
-privacy-safe `doctor` output, `crates/performance-contract/` owns bounded final-
+privacy-safe `doctor` output, `crates/support-contract/` owns privacy-reviewed
+summary exports from validated reports, `crates/performance-contract/` owns bounded final-
 artifact budgets/evidence, and `crates/process-host/` owns bounded process I/O plus
 fail-closed handle/descriptor and test-containment primitives.
 `crates/confirmation-contract/`
@@ -168,6 +177,7 @@ canonical installed-state shape and digest. `crates/release-contract/` generates
 [`docs/privacy-contract.md`](docs/privacy-contract.md),
 [`docs/configuration-contract.md`](docs/configuration-contract.md),
 [`docs/diagnostics-contract.md`](docs/diagnostics-contract.md),
+[`docs/support-report-contract.md`](docs/support-report-contract.md),
 [`docs/process-host-foundation.md`](docs/process-host-foundation.md),
 [`docs/performance-contract.md`](docs/performance-contract.md),
 [`docs/module-lifecycle-contract.md`](docs/module-lifecycle-contract.md),
@@ -268,6 +278,7 @@ cargo run -- scan --dry-run --format json
 cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
 cargo run -p rz0-module-inventory -- --format json
 cargo run -p rz0-module-inventory -- --include-apps --format json
+cargo run -p rz0-module-report-export -- --format json < report-export-input.json
 python3 -m unittest scripts.tests.test_prepare_macos_dmg
 scripts/build-package.sh aarch64-apple-darwin /tmp/runtime-zero-package
 scripts/build-dmg.sh aarch64-apple-darwin /tmp/runtime-zero-dmg

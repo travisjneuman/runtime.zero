@@ -22,7 +22,9 @@ install anything, enable anything, or run module entry points.
 
 ## Initial platform intent
 
-Windows is the first practical target because the original need came from a Windows CLI/tool-manager workflow. The Rust core is cross-platform from day one so macOS and Linux adapters can be added without a rewrite.
+The originating use case was a Windows CLI/tool-manager workflow, but Windows,
+macOS, and Linux are equal release requirements. Shared Rust contracts are
+platform-neutral; only the narrowest adapter layer may differ.
 
 ## Inventory contract boundary
 
@@ -31,9 +33,10 @@ Core `rz0 scan --dry-run --format json` emits the versioned, empty
 package under `modules/inventory/`; the core does not depend on, install, load,
 or execute it.
 
-A small `crates/inventory-contract/` library owns the shared serializable model
-so the feature package does not depend on the CLI/TUI core or pull its terminal
-stack into the module binary. The module uses deterministic fixtures, bounded
+A small `crates/inventory-contract/` library owns strict owned serialization,
+deserialization, cross-reference/summary validation, resource ceilings, and a
+separate private-for-export gate so the feature package does not depend on the
+CLI/TUI core or pull its terminal stack into the module binary. The module uses deterministic fixtures, bounded
 process-PATH collection on
 Windows/macOS/Linux, read-only persisted PATH and optional app registry reads on
 Windows, bounded opt-in `.app`/XDG desktop-entry evidence on macOS/Linux,
@@ -52,7 +55,10 @@ plans and exact foundation gate sets. `crates/privacy-contract/` owns bounded,
 report-local redaction without retaining raw sensitive strings.
 `crates/configuration-contract/` owns immutable fail-closed schema-1 defaults;
 `crates/diagnostics-contract/` binds their digest into the strict privacy-safe
-`rz0 doctor` report. `crates/performance-contract/` owns bounded final-artifact
+`rz0 doctor` report. `crates/support-contract/` validates private inventory and
+diagnostics inputs and emits only deterministic summary counts/statuses and
+domain-separated digests; the separate report/export module owns only input
+selection and output format. `crates/performance-contract/` owns bounded final-artifact
 command budgets and non-authorizing measurements. `crates/process-host/` owns
 bounded pipe draining and platform handle/descriptor
 and test-containment primitives while exposing no production runner.
