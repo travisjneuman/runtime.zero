@@ -9,7 +9,9 @@ actions.
 
 1. **Evidence** — read-only source records with provenance, status, warnings, and
    confidence.
-2. **Finding** — normalized installed tool/app/path state without an action.
+2. **Finding** — `crates/finding-contract/` validates path-free typed ownership,
+   data class, confidence, risk, disposition, protected-data policy, evidence
+   digests, and producer/category binding without granting action authority.
 3. **Candidate action** — a module proposes one narrow operation and names its
    manager/source, target, risk, capabilities, and prerequisites.
 4. **Dry-run plan** — the core validates policy, resolves exact paths/commands,

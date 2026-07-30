@@ -63,7 +63,10 @@ selection and output format. `crates/performance-contract/` owns bounded final-a
 command budgets and non-authorizing measurements. `crates/process-host/` owns
 bounded pipe draining and platform handle/descriptor
 and test-containment primitives while exposing no production runner.
-`crates/confirmation-contract/` owns exact short-lived interactive plan binding,
+`crates/finding-contract/` owns path-free typed ownership/data-class/confidence/
+risk/disposition evidence and conservative protected-data policy for five module
+families; it cannot authorize an action. `crates/confirmation-contract/` owns
+exact short-lived interactive plan binding,
 response digests, and single-use consumption evidence without execution
 authority. `crates/error-contract/` owns stable machine codes and conservative privacy/retry
 semantics; human messages are not policy. `crates/resource-contract/` owns

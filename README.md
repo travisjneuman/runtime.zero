@@ -157,7 +157,9 @@ privacy-safe `doctor` output, `crates/support-contract/` owns privacy-reviewed
 summary exports from validated reports, `crates/performance-contract/` owns bounded final-
 artifact budgets/evidence, and `crates/process-host/` owns bounded process I/O plus
 fail-closed handle/descriptor and test-containment primitives.
-`crates/confirmation-contract/`
+`crates/finding-contract/` owns path-free typed ownership/data-class/confidence/
+risk/disposition evidence shared by updater, uninstall, leftovers, cache, and
+integrity modules; findings cannot authorize actions. `crates/confirmation-contract/`
 binds validated plan/dry-run/write-set/state
 hashes to a five-minute interactive phrase and single-use consumption record
 while remaining unable to authorize execution. `crates/transaction-contract/`
@@ -185,6 +187,7 @@ canonical installed-state shape and digest. `crates/release-contract/` generates
 [`docs/process-host-foundation.md`](docs/process-host-foundation.md),
 [`docs/performance-contract.md`](docs/performance-contract.md),
 [`docs/module-lifecycle-contract.md`](docs/module-lifecycle-contract.md),
+[`docs/finding-contract.md`](docs/finding-contract.md),
 [`docs/confirmation-contract.md`](docs/confirmation-contract.md),
 [`docs/error-contract.md`](docs/error-contract.md),
 [`docs/resource-contract.md`](docs/resource-contract.md),

@@ -97,7 +97,11 @@ See [`action-planning.md`](action-planning.md).
 - [x] Shared typed machine-error vocabulary with redacted-detail defaults and no
   schema-1 automatic retry; module protocol rejects free-form error codes.
 - [x] Shared resource contract for artifact/document/collector/probe/process,
-  redaction, and diagnostics ceilings, consumed across foundation and modules.
+  redaction, diagnostics, inventory, and finding ceilings, consumed across
+  foundation and modules.
+- [x] Shared path-free finding classification contract with exact producer/
+  category binding, protected-data blocking, ownership/disposition policy,
+  evidence digests, deterministic IDs, and no action authority.
 - [x] Bounded privacy contract using domain-separated report-local tokens without
   retaining raw strings; inventory paths are redacted by default.
 - [x] Immutable schema-1 configuration defaults enforce privacy, offline/network-

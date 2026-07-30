@@ -33,6 +33,9 @@ module. The foundation owns:
 The shared capability vocabulary is centralized in
 `crates/capability-contract/`; each versioned manifest/protocol/action schema
 accepts only its exact subset, and classification never grants authority.
+`crates/finding-contract/` likewise owns typed cross-module ownership, protected-
+data, confidence, risk, disposition, digest, and producer/category policy while
+remaining path-free and unable to authorize an action.
 
 A module owns only its intended domain logic. It may collect domain evidence,
 normalize findings, and propose or perform its exact approved action through

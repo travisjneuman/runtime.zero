@@ -11,6 +11,8 @@ Schema-1 shared ceilings currently include:
   confirmation documents;
 - 128 KiB per installed-registry document;
 - 2 MiB per immutable transaction journal snapshot;
+- 4 MiB per classified finding report, with 64 sources, 4,096 findings, and 16
+  source references per finding;
 - 16 MiB per complete inventory report;
 - 1,024 installed-module records;
 - 64 inventory sources, 512 PATH entries, 1,024 tool records, 4,096 application
@@ -27,7 +29,7 @@ Schema-1 shared ceilings currently include:
 shared validator returns typed field violations. The protocol maps those to its
 own contract messages. Artifact identity, action plans, module trust/staging,
 package integrity, manifests, canonical registries, transaction snapshots,
-inventory fixtures/collectors/probes, privacy redaction, foundation diagnostics,
+inventory fixtures/collectors/probes, classified findings, privacy redaction, foundation diagnostics,
 performance evidence, and module test framing now use the shared constants.
 
 These are safety ceilings, not performance targets or permission to allocate the
