@@ -4,6 +4,7 @@ The repository contains local, non-publishing build-runner helpers:
 
 ```bash
 scripts/build-package.sh aarch64-apple-darwin /path/to/output
+scripts/build-package.sh universal2-apple-darwin /path/to/output
 ```
 
 On macOS, an unsigned DMG can be assembled from the same canonical portable ZIP
@@ -11,6 +12,7 @@ contract:
 
 ```bash
 scripts/build-dmg.sh aarch64-apple-darwin /path/to/output
+scripts/build-dmg.sh universal2-apple-darwin /path/to/output
 ```
 
 ```powershell
@@ -35,8 +37,9 @@ compatibility hosts do not.
 The wrapper builds `rz0` in release mode and calls
 `scripts/package_release.py`. The packager:
 
-- accepts the seven initial macOS/Windows/Linux x86-64/ARM64 targets plus the
-  modern Windows x86 target;
+- accepts the initial macOS/Windows/Linux x86-64/ARM64 targets, modern Windows
+  x86, and a macOS universal2 union built from separately linked ARM64/x86-64
+  slices;
 - requires a full source commit and bounded version;
 - rejects symlinked/non-regular or oversized binary/document inputs;
 - embeds `rz0`, public policy files, target-filtered SPDX 2.3 JSON, deduplicated
@@ -57,8 +60,9 @@ only from direct package roots, bounded, hashed, and deduplicated. Missing text
 remains explicit rather than being silently invented. This is evidence for
 release/legal review, not legal advice.
 
-The native Apple Silicon package has been independently generated twice with
-identical ZIP, SBOM, and notices bytes, checksum-verified, extracted into a clean
+Native Apple Silicon and Intel/Rosetta final ZIPs and DMGs have been built and
+exercised locally. The Apple Silicon package was independently generated twice
+with identical ZIP, SBOM, and notices bytes, checksum-verified, extracted into a clean
 temporary root, and exercised with `rz0 --version`, `rz0 doctor`, and the dry-run
 scan. The Windows-7-baseline crates and custom standard library pass cross-target
 workspace checks for x86 and x86-64; linked EXEs still require the Windows build

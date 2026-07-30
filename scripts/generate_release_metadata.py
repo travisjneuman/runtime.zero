@@ -169,18 +169,35 @@ def main() -> int:
 
     if args.toolchain and not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", args.toolchain):
         raise ValueError("toolchain name is invalid")
-    command = ["cargo"]
-    if args.toolchain:
-        command.append(f"+{args.toolchain}")
-    command.extend([
-        "metadata", "--manifest-path", str(repo / "Cargo.toml"),
-        "--locked", "--format-version", "1", "--filter-platform", args.target,
-    ])
-    completed = subprocess.run(command, cwd=repo, check=True, capture_output=True, text=True)
-    metadata = json.loads(completed.stdout)
-    metadata["root_version"] = args.version
-    packages_by_id, reached, edges = resolved_graph(metadata)
-    packages = sorted((packages_by_id[identifier] for identifier in reached), key=lambda p: (p["name"], p["version"], p["id"]))
+    metadata_targets = (
+        ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+        if args.target == "universal2-apple-darwin"
+        else [args.target]
+    )
+    packages_by_id: dict[str, dict] = {}
+    reached: set[str] = set()
+    edges: list[tuple[str, str]] = []
+    for metadata_target in metadata_targets:
+        command = ["cargo"]
+        if args.toolchain:
+            command.append(f"+{args.toolchain}")
+        command.extend([
+            "metadata", "--manifest-path", str(repo / "Cargo.toml"),
+            "--locked", "--format-version", "1", "--filter-platform", metadata_target,
+        ])
+        completed = subprocess.run(
+            command, cwd=repo, check=True, capture_output=True, text=True
+        )
+        metadata = json.loads(completed.stdout)
+        metadata["root_version"] = args.version
+        target_packages, target_reached, target_edges = resolved_graph(metadata)
+        packages_by_id.update(target_packages)
+        reached.update(target_reached)
+        edges.extend(target_edges)
+    packages = sorted(
+        (packages_by_id[identifier] for identifier in reached),
+        key=lambda package: (package["name"], package["version"], package["id"]),
+    )
     identifiers = {
         package["id"]: spdx_id(package["name"], package["version"])
         for package in packages

@@ -18,6 +18,7 @@ FIXED_ZIP_TIME = (2020, 1, 1, 0, 0, 0)
 TARGETS = {
     "aarch64-apple-darwin": "rz0",
     "x86_64-apple-darwin": "rz0",
+    "universal2-apple-darwin": "rz0",
     "aarch64-pc-windows-msvc": "rz0.exe",
     "i686-pc-windows-msvc": "rz0.exe",
     "i686-win7-windows-msvc": "rz0.exe",

@@ -23,7 +23,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--archive", required=True, type=Path)
     parser.add_argument("--checksum", required=True, type=Path)
     parser.add_argument("--staging", required=True, type=Path)
-    parser.add_argument("--target", required=True, choices=("aarch64-apple-darwin", "x86_64-apple-darwin"))
+    parser.add_argument(
+        "--target",
+        required=True,
+        choices=(
+            "aarch64-apple-darwin",
+            "x86_64-apple-darwin",
+            "universal2-apple-darwin",
+        ),
+    )
     parser.add_argument("--version", required=True)
     parser.add_argument("--source-commit", required=True)
     return parser.parse_args()

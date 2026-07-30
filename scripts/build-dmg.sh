@@ -7,7 +7,7 @@ target="${1:-$(rustc -vV | awk '/^host:/ {print $2}')}"
 output="${2:-$repo/dist}"
 
 case "$target" in
-  aarch64-apple-darwin|x86_64-apple-darwin) ;;
+  aarch64-apple-darwin|x86_64-apple-darwin|universal2-apple-darwin) ;;
   *) printf 'unsupported macOS DMG target: %s\n' "$target" >&2; exit 2 ;;
 esac
 if [[ "$(uname -s)" != Darwin ]]; then
