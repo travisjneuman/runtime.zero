@@ -27,6 +27,7 @@ members = [
     "crates/module-lifecycle",
     "crates/module-protocol",
     "crates/module-trust",
+    "crates/performance-contract",
     "crates/privacy-contract",
     "crates/process-host",
     "crates/release-contract",
