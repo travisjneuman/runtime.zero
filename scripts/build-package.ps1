@@ -26,17 +26,37 @@ $Metadata = & cargo metadata --manifest-path (Join-Path $Repo "Cargo.toml") --lo
 if ($LASTEXITCODE -ne 0) { throw "Could not read Cargo metadata." }
 $Version = ($Metadata.packages | Where-Object name -eq "runtime-zero").version
 $Commit = (& git -C $Repo rev-parse HEAD | Out-String).Trim()
+$SourceDate = (& git -C $Repo show -s --format=%cI HEAD | Out-String).Trim()
+$Work = Join-Path ([System.IO.Path]::GetTempPath()) ("rz0-package-metadata-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $Work | Out-Null
+try {
+    & cargo build --manifest-path (Join-Path $Repo "Cargo.toml") --locked --release --bin rz0 --target $Target
+    if ($LASTEXITCODE -ne 0) { throw "Release build failed." }
+    $BinaryName = if ($Target -like "*-windows-msvc") { "rz0.exe" } else { "rz0" }
+    $Binary = Join-Path $Repo "target/$Target/release/$BinaryName"
+    $Evidence = Join-Path $Work "evidence"
 
-& cargo build --manifest-path (Join-Path $Repo "Cargo.toml") --locked --release --bin rz0 --target $Target
-if ($LASTEXITCODE -ne 0) { throw "Release build failed." }
-$BinaryName = if ($Target -like "*-windows-msvc") { "rz0.exe" } else { "rz0" }
-$Binary = Join-Path $Repo "target/$Target/release/$BinaryName"
+    & python (Join-Path $Repo "scripts/generate_release_metadata.py") `
+        --repo $Repo `
+        --target $Target `
+        --binary $Binary `
+        --output $Evidence `
+        --version $Version `
+        --source-commit $Commit `
+        --source-date $SourceDate
+    if ($LASTEXITCODE -ne 0) { throw "Release metadata generation failed." }
 
-& python (Join-Path $Repo "scripts/package_release.py") `
-    --repo $Repo `
-    --target $Target `
-    --binary $Binary `
-    --output $OutputDirectory `
-    --version $Version `
-    --source-commit $Commit
-if ($LASTEXITCODE -ne 0) { throw "Release packaging failed." }
+    & python (Join-Path $Repo "scripts/package_release.py") `
+        --repo $Repo `
+        --target $Target `
+        --binary $Binary `
+        --output $OutputDirectory `
+        --version $Version `
+        --source-commit $Commit `
+        --sbom (Join-Path $Evidence "SBOM.spdx.json") `
+        --notices (Join-Path $Evidence "THIRD-PARTY-NOTICES.txt")
+    if ($LASTEXITCODE -ne 0) { throw "Release packaging failed." }
+}
+finally {
+    Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
+}

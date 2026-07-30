@@ -37,6 +37,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--version", required=True)
     parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--sbom", required=True, type=Path)
+    parser.add_argument("--notices", required=True, type=Path)
     return parser.parse_args()
 
 
@@ -112,6 +114,27 @@ def main() -> int:
     files: dict[str, tuple[bytes, bool]] = {expected_name: (binary, True)}
     for name in PUBLIC_FILES:
         files[name] = (read_direct_file(repo / name, repo, 2 * 1024 * 1024), False)
+    sbom = read_direct_file(args.sbom, args.sbom.parent.resolve(strict=True), 2 * 1024 * 1024)
+    notices = read_direct_file(
+        args.notices,
+        args.notices.parent.resolve(strict=True),
+        2 * 1024 * 1024,
+    )
+    try:
+        sbom_document = json.loads(sbom)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"SBOM is not valid JSON: {error}") from error
+    if (
+        sbom_document.get("spdxVersion") != "SPDX-2.3"
+        or sbom_document.get("name") != f"runtime-zero-{args.version}-{args.target}"
+        or not any(
+            file.get("checksums") == [{"algorithm": "SHA256", "checksumValue": sha256(binary)}]
+            for file in sbom_document.get("files", [])
+        )
+    ):
+        raise ValueError("SBOM does not bind the exact release binary and target")
+    files["SBOM.spdx.json"] = (sbom, False)
+    files["THIRD-PARTY-NOTICES.txt"] = (notices, False)
 
     manifest = {
         "schema_version": SCHEMA_VERSION,
@@ -129,6 +152,17 @@ def main() -> int:
             "path": expected_name,
             "sha256": sha256(binary),
             "size_bytes": len(binary),
+        },
+        "sbom": {
+            "path": "SBOM.spdx.json",
+            "format": "SPDX-2.3-json",
+            "sha256": sha256(sbom),
+            "size_bytes": len(sbom),
+        },
+        "third_party_notices": {
+            "path": "THIRD-PARTY-NOTICES.txt",
+            "sha256": sha256(notices),
+            "size_bytes": len(notices),
         },
         "warning": "Verify SHA-256 before use; this artifact has no paid platform publisher signature.",
     }

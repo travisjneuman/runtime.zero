@@ -74,7 +74,12 @@ def main() -> int:
     validate_checksum(checksum, args.archive.name, archive_sha256)
 
     prefix = f"runtime-zero-{args.version}-{args.target}/"
-    expected = PUBLIC_FILES | {"rz0", "artifact-manifest.json"}
+    expected = PUBLIC_FILES | {
+        "rz0",
+        "artifact-manifest.json",
+        "SBOM.spdx.json",
+        "THIRD-PARTY-NOTICES.txt",
+    }
     files: dict[str, bytes] = {}
     with zipfile.ZipFile(args.archive) as package:
         infos = package.infolist()
@@ -114,6 +119,12 @@ def main() -> int:
         or manifest.get("notarized") is not False
         or manifest.get("binary", {}).get("sha256") != digest(binary)
         or manifest.get("binary", {}).get("size_bytes") != len(binary)
+        or manifest.get("sbom", {}).get("sha256") != digest(files["SBOM.spdx.json"])
+        or manifest.get("sbom", {}).get("size_bytes") != len(files["SBOM.spdx.json"])
+        or manifest.get("third_party_notices", {}).get("sha256")
+        != digest(files["THIRD-PARTY-NOTICES.txt"])
+        or manifest.get("third_party_notices", {}).get("size_bytes")
+        != len(files["THIRD-PARTY-NOTICES.txt"])
     ):
         raise ValueError("portable ZIP manifest is inconsistent with DMG inputs")
 

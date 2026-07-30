@@ -17,14 +17,29 @@ fi
 
 version="$(cargo metadata --manifest-path "$repo/Cargo.toml" --locked --no-deps --format-version 1 | python3 -c 'import json,sys; m=json.load(sys.stdin); print(next(p["version"] for p in m["packages"] if p["name"]=="runtime-zero"))')"
 commit="$(git -C "$repo" rev-parse HEAD)"
+source_date="$(git -C "$repo" show -s --format=%cI HEAD)"
+work="$(mktemp -d "${TMPDIR:-/tmp}/rz0-package-metadata.XXXXXXXX")"
+trap 'rm -rf "$work"' EXIT INT TERM
 
 cargo build --manifest-path "$repo/Cargo.toml" --locked --release --bin rz0 --target "$target"
 binary_name=rz0
 [[ "$target" == *-windows-msvc ]] && binary_name=rz0.exe
+binary="$repo/target/$target/release/$binary_name"
+python3 "$repo/scripts/generate_release_metadata.py" \
+  --repo "$repo" \
+  --target "$target" \
+  --binary "$binary" \
+  --output "$work/evidence" \
+  --version "$version" \
+  --source-commit "$commit" \
+  --source-date "$source_date" \
+  >/dev/null
 python3 "$repo/scripts/package_release.py" \
   --repo "$repo" \
   --target "$target" \
-  --binary "$repo/target/$target/release/$binary_name" \
+  --binary "$binary" \
   --output "$output" \
   --version "$version" \
-  --source-commit "$commit"
+  --source-commit "$commit" \
+  --sbom "$work/evidence/SBOM.spdx.json" \
+  --notices "$work/evidence/THIRD-PARTY-NOTICES.txt"

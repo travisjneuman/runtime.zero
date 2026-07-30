@@ -28,22 +28,43 @@ $Metadata = & cargo metadata --manifest-path (Join-Path $Repo "Cargo.toml") --lo
 if ($LASTEXITCODE -ne 0) { throw "Could not read Cargo metadata." }
 $Version = ($Metadata.packages | Where-Object name -eq "runtime-zero").version
 $Commit = (& git -C $Repo rev-parse HEAD | Out-String).Trim()
+$SourceDate = (& git -C $Repo show -s --format=%cI HEAD | Out-String).Trim()
+$Work = Join-Path ([System.IO.Path]::GetTempPath()) ("rz0-package-metadata-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $Work | Out-Null
+try {
+    & cargo "+$Toolchain" build `
+        -Z "build-std=std,panic_abort" `
+        --manifest-path (Join-Path $Repo "Cargo.toml") `
+        --locked `
+        --release `
+        --bin rz0 `
+        --target $Target
+    if ($LASTEXITCODE -ne 0) { throw "Legacy Windows release build failed." }
 
-& cargo "+$Toolchain" build `
-    -Z "build-std=std,panic_abort" `
-    --manifest-path (Join-Path $Repo "Cargo.toml") `
-    --locked `
-    --release `
-    --bin rz0 `
-    --target $Target
-if ($LASTEXITCODE -ne 0) { throw "Legacy Windows release build failed." }
+    $Binary = Join-Path $Repo "target/$Target/release/rz0.exe"
+    $Evidence = Join-Path $Work "evidence"
+    & python (Join-Path $Repo "scripts/generate_release_metadata.py") `
+        --repo $Repo `
+        --target $Target `
+        --binary $Binary `
+        --output $Evidence `
+        --version $Version `
+        --source-commit $Commit `
+        --source-date $SourceDate `
+        --toolchain $Toolchain
+    if ($LASTEXITCODE -ne 0) { throw "Legacy release metadata generation failed." }
 
-$Binary = Join-Path $Repo "target/$Target/release/rz0.exe"
-& python (Join-Path $Repo "scripts/package_release.py") `
-    --repo $Repo `
-    --target $Target `
-    --binary $Binary `
-    --output $OutputDirectory `
-    --version $Version `
-    --source-commit $Commit
-if ($LASTEXITCODE -ne 0) { throw "Legacy Windows release packaging failed." }
+    & python (Join-Path $Repo "scripts/package_release.py") `
+        --repo $Repo `
+        --target $Target `
+        --binary $Binary `
+        --output $OutputDirectory `
+        --version $Version `
+        --source-commit $Commit `
+        --sbom (Join-Path $Evidence "SBOM.spdx.json") `
+        --notices (Join-Path $Evidence "THIRD-PARTY-NOTICES.txt")
+    if ($LASTEXITCODE -ne 0) { throw "Legacy Windows release packaging failed." }
+}
+finally {
+    Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue
+}

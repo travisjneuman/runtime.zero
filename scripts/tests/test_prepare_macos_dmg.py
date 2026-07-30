@@ -35,6 +35,8 @@ class PrepareMacosDmgTests(unittest.TestCase):
                     "SAFETY.md",
                     "SECURITY.md",
                     "artifact-manifest.json",
+                    "SBOM.spdx.json",
+                    "THIRD-PARTY-NOTICES.txt",
                     "dmg-manifest.json",
                 },
             )
@@ -82,6 +84,8 @@ def make_archive(
     override: tuple[str, bytes, int] | None = None,
 ) -> tuple[Path, Path]:
     binary = b"synthetic-rz0-binary"
+    sbom = b'{"spdxVersion":"SPDX-2.3"}\n'
+    notices = b"synthetic third-party notices\n"
     manifest = {
         "schema_version": 1,
         "contract": "release_artifact_manifest",
@@ -95,6 +99,14 @@ def make_archive(
             "sha256": hashlib.sha256(binary).hexdigest(),
             "size_bytes": len(binary),
         },
+        "sbom": {
+            "sha256": hashlib.sha256(sbom).hexdigest(),
+            "size_bytes": len(sbom),
+        },
+        "third_party_notices": {
+            "sha256": hashlib.sha256(notices).hexdigest(),
+            "size_bytes": len(notices),
+        },
     }
     files = {
         "rz0": (binary, stat.S_IFREG | 0o755),
@@ -102,6 +114,8 @@ def make_archive(
         "LICENSE": (b"license", stat.S_IFREG | 0o644),
         "SAFETY.md": (b"safety", stat.S_IFREG | 0o644),
         "SECURITY.md": (b"security", stat.S_IFREG | 0o644),
+        "SBOM.spdx.json": (sbom, stat.S_IFREG | 0o644),
+        "THIRD-PARTY-NOTICES.txt": (notices, stat.S_IFREG | 0o644),
         "artifact-manifest.json": (
             (json.dumps(manifest) + "\n").encode(),
             stat.S_IFREG | 0o644,
