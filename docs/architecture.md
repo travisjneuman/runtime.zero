@@ -52,9 +52,11 @@ semantics; human messages are not policy. `crates/resource-contract/` owns
 shared byte/record/timeout/process ceilings so modules can narrow but not expand
 foundation budgets. `crates/validation-contract/` owns allocation-free lexical
 validation for contract IDs, versions, hashes, references, and relative paths.
-`crates/secure-fs/` owns held-directory-relative Unix create/open/sync/no-replace
-publication primitives and explicitly blocks weaker Windows mutation emulation.
-`crates/release-contract/` owns the bounded canonical target
+`crates/secure-fs/` owns held-directory-relative create/open/sync/lock/no-replace
+and atomic-replace primitives: Unix runtime-tested operations plus compile-checked
+NT root-relative Windows operations that remain blocked by ACL runtime policy.
+`crates/registry-contract/` owns canonical installed-state shape, ordering,
+paths, serialization, and digests. `crates/release-contract/` owns the bounded canonical target
 × module × lifecycle evidence-ledger shape and cannot authorize release.
 `crates/artifact-identity/` opens, bounds, hashes, identifies, revalidates, and
 returns the same receipt-relative file handle without execution; platform
@@ -65,8 +67,9 @@ staging plans and OS-temp integration tests also exercise immutable publication
 and quarantine/restore failure semantics without a production mover.
 `crates/transaction-contract/` owns the bounded hash-chained transaction state
 machine, exclusive immutable snapshot publication/recovery, exact confirmation-
-aware commit-receipt binding, and non-authorizing recovery assessment; durable receipt/registry
-publication remains gated.
+aware commit-receipt binding, single-use consumption publication, atomic registry-
+last coordination, and non-authorizing commit recovery assessment. Production
+execution and recovery mutation remain gated.
 `crates/module-protocol/` validates a read-only/offline
 invocation preview and not-executed response with exact-path/digest metadata,
 least-privilege grants, a cleared environment-name allowlist, and bounded I/O.

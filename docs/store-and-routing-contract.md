@@ -253,9 +253,8 @@ Safety requirements for initialization:
 - use held-parent `openat`/`mkdirat` one-component directory creation and
   create-new file writes with file/parent sync on Unix, rather than recursive,
   truncating, or re-resolved writes;
-- fail closed as unsupported until equivalent Windows root-relative mutation is
-  integrated into this command; current Windows path hardening is not claimed as
-  equivalent opened-root proof;
+- fail closed on Windows until the compile-checked NT root-relative primitives
+  also have reviewed owner/DACL privacy enforcement and runtime filesystem proof;
 - create new Unix directories as `0700` and files as `0600`;
 - stop on the first apply-time failure and retain an exact partial-state report;
 - be idempotent when all expected paths/files already exist and validate;

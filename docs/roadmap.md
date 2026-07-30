@@ -94,10 +94,12 @@ See [`action-planning.md`](action-planning.md).
   hashes, evidence references, and platform-neutral relative paths.
 - [x] Deterministic validated action-plan/write-set digests and five-minute exact
   interactive confirmation with single-use transaction-consumption evidence.
-- [x] Unix held-directory-relative no-follow create/open/lock/sync/no-replace
-  publication primitives consumed by store initialization and journal writes.
-- [ ] Implement equivalent reviewed Windows NT root-relative operations and real
-  client/server reparse/File-ID/ACL/flush runtime proof.
+- [x] Unix held-directory-relative no-follow create/open/lock/sync/no-replace/
+  atomic-replace operations consumed by store, journal, and commit coordination.
+- [x] Implement compile-checked Windows `NtCreateFile` root-relative child
+  create/open/lock/rename/unlink operations without path-based emulation.
+- [ ] Prove Windows owner/DACL privacy, inherited ACLs, reparse/File-ID behavior,
+  atomicity, and directory flush on real client/server filesystems.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
 - [x] Test-key-only detached Ed25519 signature contract and strict verification.
 - [x] Fixture-only immutable staging plan plus atomic temporary-root publication
@@ -125,12 +127,16 @@ See [`action-planning.md`](action-planning.md).
 - [x] Add a tamper-evident commit receipt binding the committed journal head,
   action plan, write set, confirmation consumption, and prior/next installed-
   registry digests.
-- [ ] Durably publish commit receipts and atomic installed-registry state, then
-  prove safe root handles and process/power-loss recovery on every platform.
-- [ ] Bind the verified open identity to platform execution, close remaining
-  descriptor/handle-inheritance and Windows suspended-create races, obtain real
-  Windows Job Object runtime proof, enforce every declared capability, and
-  complete platform sandbox/isolation runtime tests.
+- [x] Durably consume confirmation, publish commit receipts, retain prior registry
+  recovery bytes, and atomically publish a canonical validated registry last.
+- [ ] Add boundary-complete coordinator fault injection, explicit recovery
+  execution, cancellation, and process/power-loss proof on every platform.
+- [x] Add a non-authorizing borrow-scoped executable binding: Linux held `/proc`
+  descriptor path, Windows deny-write/delete handle lease, and fail-closed macOS.
+- [ ] Integrate and adversarially prove Linux/Windows binding in the contained
+  host, implement a reviewed exact macOS spawn primitive, close descriptor/
+  handle-inheritance and Windows suspended-create races, obtain real Job Object
+  proof, enforce capabilities, and complete sandbox/isolation runtime tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote
   feeds, third-party modules, deployment automation, and production actions only
   after their separate explicit approvals.

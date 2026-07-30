@@ -7,8 +7,11 @@ quietly inventing larger or inconsistent budgets.
 Schema-1 shared ceilings currently include:
 
 - 64 MiB per verified artifact/action source/staging/package file;
-- 64 KiB for small manifests, fixtures, desktop entries, and test frames;
+- 64 KiB for small manifests, fixtures, desktop entries, receipts, and
+  confirmation documents;
+- 128 KiB per installed-registry document;
 - 2 MiB per immutable transaction journal snapshot;
+- 1,024 installed-module records;
 - 512 PATH entries per source;
 - 4,096 application records per bounded collector;
 - 64 KiB retained version-probe output;
@@ -19,7 +22,7 @@ Schema-1 shared ceilings currently include:
 `ProcessLimits` preserves the module protocol's schema-1 JSON shape while the
 shared validator returns typed field violations. The protocol maps those to its
 own contract messages. Artifact identity, action plans, module trust/staging,
-package integrity, manifests, transaction snapshots, inventory fixtures/
+package integrity, manifests, canonical registries, transaction snapshots, inventory fixtures/
 collectors/probes, and module test framing now use the shared constants.
 
 These are safety ceilings, not performance targets or permission to allocate the

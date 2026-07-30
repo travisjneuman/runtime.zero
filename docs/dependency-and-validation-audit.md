@@ -33,14 +33,15 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 230 tests. The all-features suite passed 239,
+The default workspace suite passed 242 tests. The all-features suite passed 251,
 including shared capability/error/resource/validation/confirmation semantics,
-three deterministic plan/write-set digest tests, five opened-directory-relative
-filesystem adversarial tests, five exact
-release-acceptance cross-product tests, seven transaction-chain/recovery unit
-tests, four guarded immutable-snapshot simulations, six durable-writer tests,
-five commit-receipt binding tests, two store-init filesystem-hardening tests,
-five opened-artifact identity tests,
+three deterministic plan/write-set digest tests, eight opened-directory/lock/
+privacy/atomic-publication adversarial tests, four canonical registry tests, five
+exact release-acceptance cross-product tests, seven transaction-chain/recovery
+unit tests, four guarded immutable-snapshot simulations, six durable-writer
+tests, five commit-receipt binding tests, four commit-coordinator/recovery tests,
+two store-init filesystem-hardening tests, five opened-artifact identity tests,
+and one fail-closed native executable-binding test,
 and six production-execution gate
 tests, and nine native macOS test-child
 transport cases. The transport cases prove
@@ -54,7 +55,7 @@ library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 130 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 131 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -62,7 +63,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved fifteen local workspace packages and 115
+`cargo metadata --locked` resolved sixteen local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -101,12 +102,15 @@ normal cross-platform dependencies are Serde, serde_json, and time; Windows adds
 `rz0-inventory`.
 
 The secure-fs crate adds no newly resolved external package; it reuses libc and
-windows-sys, provides held-directory-relative Unix operations, and returns an
-explicit unsupported result rather than emulate weaker Windows child mutation.
+windows-sys for Unix runtime-tested and Windows compile-checked held-directory
+operations, locks, atomic publication, and Unix ownership/mode checks. Windows
+owner/DACL privacy verification remains explicitly unsupported.
 The confirmation-contract crate adds no newly resolved external package and
 binds exact plan/dry-run/write-set/state digests to short-lived interactive
 responses and single-use consumption evidence without execution authority. The
-validation-contract crate adds no external package and provides allocation-free
+registry-contract crate adds no newly resolved external package and owns the
+bounded canonical installed-state model, exact paths/order, serialization, and
+digests consumed by core reporting and transactions. The validation-contract crate adds no external package and provides allocation-free
 canonical grammar consumed by foundation ID/version/hash/path parsers. The
 release-contract crate adds no new external package and bounds the canonical
 target × seven-module × 12-stage evidence ledger to 256 targets/21,504 cells
@@ -117,9 +121,10 @@ foundation and inventory packages. The error-contract crate adds no new external
 package and replaces free-form
 module-protocol error codes with stable typed Serde values plus conservative
 privacy/retry classifiers. The transaction-contract crate adds no newly resolved external package: it
-reuses Serde, SHA-256, libc, and windows-sys for a bounded domain-separated event
-chain, cross-process writer locking, immutable snapshot publication/recovery,
-committed-head/plan/write-set/registry receipt binding, and non-authorizing
+reuses foundation action, confirmation, registry, resource, validation, and
+secure-filesystem crates for a bounded domain-separated event chain, immutable
+snapshot publication/recovery, durable single-use consumption, commit receipts,
+rollback evidence, atomic registry-last coordination, and non-authorizing commit
 recovery assessment. The separate module-trust
 crate uses `ed25519-dalek` 3.0 with default features
 disabled for strict, local test-key signature verification. It does not expose a
@@ -128,7 +133,10 @@ dependency graph. The capability-contract crate adds only Serde and centralizes
 the vocabulary/classifiers reused by core manifests, process protocols, and
 action plans; it grants no authority. The artifact-identity crate uses SHA-256
 plus the existing Windows system bindings only on Windows to obtain stable
-opened-handle file identity; it has no spawn or installer API. The
+opened-handle file identity. Its borrow-scoped executable-binding API uses Linux
+`/proc/self/fd`, Windows deny-write/delete handle retention, and explicit
+fail-closed unsupported behavior on macOS; it grants no execution authority and
+has no installer API. The
 module-protocol crate uses Serde for its default fixture validator. Its
 non-default test-child feature adds Serde JSON framing; SHA-256 is a dev
 dependency, and Windows test builds use the already-resolved `windows-sys`
@@ -146,12 +154,14 @@ no duplicate terminal-control stack.
   macOS terminal compatibility beyond the current inventory smoke.
 - Artifact-level license/notice and reproducibility checks.
 - Signed provenance/key lifecycle and revocation design implementation.
-- Verified-handle-to-execution binding, descriptor/handle-inheritance race
-  closure, Windows suspended-create and real Job Object runtime proof,
+- Linux/Windows executable-binding runtime proof, a reviewed macOS handle-to-
+  spawn primitive, descriptor/handle-inheritance race closure, Windows suspended-
+  create and real Job Object runtime proof,
   production capability enforcement, and platform sandbox runtime proof;
   current process evidence executes only the Cargo test helper.
-- Safe-root-handle transaction operations, Windows directory-flush evidence,
-  receipt/head binding, atomic registry commit, and real process/power-loss
-  recovery; staging/quarantine/restore remain OS-temp integration simulations.
+- Windows owner/DACL and directory-flush evidence, boundary-complete coordinator
+  fault injection, explicit recovery execution, cancellation, and real process/
+  power-loss recovery; staging/quarantine/restore remain OS-temp integration
+  simulations.
 - Separately approved release, package publishing, bootstrap, deployment, and
   recurring automation.

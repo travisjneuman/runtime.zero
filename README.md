@@ -127,22 +127,26 @@ kill/reap, and fail-closed errors; it is not linked to the core or inventory
 module. A separate schema-1 production execution assessment enumerates all
 artifact, capability, executable-identity, process, runtime, and transaction
 gates while remaining structurally unable to authorize execution. The
-`crates/artifact-identity/` foundation primitive hashes and identifies one
-receipt-relative file through the same returned open handle without executing
-it. `crates/capability-contract/` supplies one shared least-privilege vocabulary
+`crates/artifact-identity/` hashes and identifies one receipt-relative file
+through the same returned handle and can issue a non-authorizing Linux/Windows
+spawn-identity lease; macOS deliberately remains unsupported pending an exact
+primitive. `crates/capability-contract/` supplies one shared least-privilege vocabulary
 for manifests, protocols, and action plans while granting no authority.
 `crates/confirmation-contract/` binds validated plan/dry-run/write-set/state
 hashes to a five-minute interactive phrase and single-use consumption record
-while remaining unable to authorize execution. `crates/transaction-contract/` supplies a bounded hash-chained state machine,
-exclusive immutable snapshot writer, committed-head/plan/write-set/registry
-receipt binding, and conservative recovery decisions without automatic action
+while remaining unable to authorize execution. `crates/transaction-contract/`
+supplies a bounded hash-chained state machine, exclusive immutable snapshots,
+single-use confirmation publication, committed-head receipt binding, registry-
+last atomic coordination, and conservative recovery decisions without automatic
 mutation. `crates/error-contract/` supplies stable machine error
 codes with fail-closed privacy and retry semantics. `crates/resource-contract/`
 centralizes shared byte/record/timeout/process ceilings so modules cannot
 silently expand them. `crates/validation-contract/` owns allocation-free bounded
 ID/version/hash/path grammar so parsers cannot silently diverge.
-`crates/secure-fs/` owns Unix held-directory-relative no-follow state operations
-and blocks weaker Windows mutation emulation. `crates/release-contract/` generates the exact bounded target × seven-module ×
+`crates/secure-fs/` owns held-directory-relative state operations, locks, privacy
+checks, and atomic publication; Windows NT operations are compile-checked but
+remain blocked by owner/DACL runtime policy. `crates/registry-contract/` owns the
+canonical installed-state shape and digest. `crates/release-contract/` generates the exact bounded target × seven-module ×
 12-stage evidence ledger while remaining unable to authorize release. See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),
 [`docs/capability-contract.md`](docs/capability-contract.md),
@@ -151,6 +155,7 @@ and blocks weaker Windows mutation emulation. `crates/release-contract/` generat
 [`docs/resource-contract.md`](docs/resource-contract.md),
 [`docs/validation-contract.md`](docs/validation-contract.md),
 [`docs/secure-filesystem.md`](docs/secure-filesystem.md),
+[`docs/installed-registry-contract.md`](docs/installed-registry-contract.md),
 [`docs/release-acceptance.md`](docs/release-acceptance.md),
 [`docs/signature-verification.md`](docs/signature-verification.md),
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md),
@@ -200,7 +205,7 @@ future-ready local store needs. On Unix, `store init --yes` creates runtime.zero
 owned user-local directories, an empty schema-1 registry, and an initialization
 marker through held-parent no-follow operations. It is idempotent and refuses to
 repair or overwrite invalid existing state. Windows apply currently fails closed
-until equivalent reviewed NT root-relative mutation and runtime evidence exist. It does not
+until reviewed owner/DACL policy and NT runtime evidence exist. It does not
 install modules, copy packages, execute code, fetch remote content, edit PATH,
 or create services, tasks, registry entries, persistence, releases, or
 bootstrap hooks.

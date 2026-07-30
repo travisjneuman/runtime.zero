@@ -75,13 +75,16 @@ The shared transaction contract validates a bounded hash-chained state machine,
 publishes and recovers exact immutable snapshots under an exclusive cross-process
 writer lock, and emits conservative recovery decisions. Unix journal/store
 creation and publication use foundation-owned held-directory-relative no-follow
-operations; Windows mutation fails closed where equivalent root-handle semantics
-are not yet implemented. Snapshot publication
-writes only caller-selected transaction roots and does not authorize action-plan
-writes, receipt commits, registry changes, rollback, or automatic recovery. The
-commit-receipt contract binds exact plan, write-set, confirmation-consumption,
-committed journal-head, and registry evidence but performs no publication. Every recovery assessment and receipt
-refuses to authorize automatic mutation. Modules may
+operations. Compile-checked Windows NT root-relative operations exist, but state
+coordination fails closed until owner/DACL privacy policy and runtime evidence
+are complete. Snapshot publication writes only caller-selected transaction roots
+and does not authorize action-plan writes or automatic recovery. The commit-
+receipt contract binds exact plan, write-set, confirmation-consumption, committed
+journal-head, and registry evidence. The foundation commit coordinator verifies
+those exact documents, stores rollback and pending registry evidence, synchronizes
+the create-new receipt, and atomically publishes canonical registry state last.
+It is not wired to production execution. Every recovery assessment, receipt, and
+coordinator result refuses to authorize automatic mutation. Modules may
 not create private transaction, writer-lock, or recovery engines.
 
 The schema-1 module process protocol still authorizes no module execution.

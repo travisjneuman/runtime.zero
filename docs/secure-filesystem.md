@@ -18,6 +18,9 @@ child component and provide:
 - root-relative lock-file opens;
 - no-replace publication by atomically linking a complete pending file into its
   final held directory, synchronizing, then retiring the pending link;
+- atomic replacement for transaction-coordinated registry publication;
+- opened-file exclusive nonblocking locks;
+- explicit effective-user ownership and `0700`/`0600` privacy verification;
 - typed errors mapped into the shared foundation error vocabulary.
 
 Holding the directory descriptor prevents a path replacement from redirecting a
@@ -31,17 +34,19 @@ normal single-link validation. It is never silently accepted or overwritten.
 
 ## Windows boundary
 
-Windows can open and inspect a direct directory handle with reparse-point
-rejection, but schema 1 deliberately returns `unsupported_operation` for child
-mutation. Path-based emulation would not provide equivalent root-handle race
-closure. A reviewed Windows implementation requires NT root-relative handle
-semantics, reparse/File-ID tests, ACL policy, atomic publication, directory-
-metadata flush evidence, and runtime proof from Windows 7 through current
-client/server targets.
+The compile-checked Windows implementation uses `NtCreateFile` with a held
+`RootDirectory`, `FILE_OPEN_REPARSE_POINT`, synchronous handles, exact one-child
+UTF-16 names, and create/open dispositions. `NtSetInformationFile` provides
+no-replace or replace-enabled root-relative atomic rename and root-relative
+unlink. File IDs/link counts, reparse attributes, directory handles, and
+`LockFileEx` locking are checked without path-based mutation emulation.
 
-This explicit unsupported result keeps Windows an equal release blocker rather
-than weakening its security contract. Windows-target compilation is build
-evidence only.
+This is build evidence, not runtime proof. Owner/DACL privacy verification
+currently returns `unsupported_operation`; therefore the transaction coordinator
+and `store init --yes` remain blocked on Windows. Release support still requires
+reviewed owner/DACL policy, inherited-ACL tests, reparse/File-ID adversarial
+tests, atomicity and directory-flush evidence, and final-artifact runtime proof
+from Windows 7 through current client/server targets.
 
 ## Authority boundary
 

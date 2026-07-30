@@ -157,8 +157,11 @@ parallel once its shared foundation dependency is stable.
    single-use plan-confirmation contracts exist; remaining adapters and measured
    budgets must consume the shared policies.
 3. Close package and executable identity races; the same-open-handle artifact
-   identity primitive and Unix root-relative no-follow traversal exist, but
-   Windows root-handle semantics and platform execution binding remain.
+   identity primitive, Unix no-follow traversal, and compile-checked Windows NT
+   root-relative state operations exist. Borrow-scoped Linux `/proc` and Windows
+   deny-replacement spawn leases also exist, while macOS fails closed. Integration
+   into the contained host, adversarial runtime proof, Windows ACL proof, and an
+   exact macOS spawn primitive remain.
    Implement production signatures, key policy,
    provenance, freshness, transparency, and revocation.
 4. Implement platform process/handle/tree containment, capability enforcement,
@@ -166,11 +169,11 @@ parallel once its shared foundation dependency is stable.
 5. Implement crash-safe staging, journals, receipts, atomic state, quarantine,
    rollback, idempotency, and interrupted recovery. The bounded hash-chained
    state machine now has exclusive immutable snapshot publication/recovery,
-   Unix held-parent no-follow create/open/publication primitives, and a commit-
-   receipt contract binding journal head, plan, write set, single-use confirmation
-   evidence, and before/after registry digests. One-handle multi-document
-   coordination, equivalent Windows NT root-relative operations, confirmation-
-   consumption/receipt/registry publication, rollback execution, and platform
+   opened-parent operations, a canonical registry contract, durable single-use
+   confirmation, exact commit receipts, rollback copies, registry-last atomic
+   coordination, idempotent final-state recognition, and non-authorizing commit
+   recovery assessment. Windows owner/DACL and flush proof, boundary-complete
+   fault injection, recovery/rollback execution, cancellation, and platform
    power-loss evidence remain.
 6. Implement foundation-owned module install, activation, invocation,
    deactivation, repair, migration, upgrade, and uninstall.

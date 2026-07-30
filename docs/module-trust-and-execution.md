@@ -84,8 +84,9 @@ A future installer must verify in this order:
 6. Re-open or stage verified bytes without trusting mutable source paths; defend
    against validation-to-use replacement. `crates/artifact-identity/` now
    provides the bounded same-open-handle identity/digest primitive and Unix
-   held-root no-follow component traversal, but Windows root-handle semantics
-   and platform execution binding remain gated.
+   held-root no-follow component traversal. Compile-checked Windows NT root-
+   relative state operations now exist separately, but package traversal,
+   owner/DACL runtime proof, and platform execution binding remain gated.
 7. Display capabilities, destination, write set, risk, receipt, rollback, and
    quarantine plan.
 8. Require explicit confirmation for any write or elevated capability.

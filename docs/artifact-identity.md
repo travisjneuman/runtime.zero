@@ -2,8 +2,9 @@
 
 `crates/artifact-identity/` is a foundation library for opening one
 receipt-relative artifact, hashing the bytes from that open handle, recording
-platform file identity, revalidating the path, and returning the same rewound
-handle. `revalidate_verified_artifact` can rehash that held handle after use,
+platform file identity, revalidating the path, returning the same rewound
+handle, and deriving a platform-specific identity-bound spawn lease where a
+reviewed primitive exists. `revalidate_verified_artifact` can rehash that held handle after use,
 recheck identity/link count/size and current-path identity, then rewind it on
 success. The crate performs no execution, installation, staging, trust decision,
 or system mutation.
@@ -42,25 +43,27 @@ Windows behavior is target-compiled but still needs adversarial runtime proof.
 
 Native tests prove digest/size/path rejection, symlinked root/artifact rejection,
 hardlink rejection, and that post-use revalidation detects a Unix path
-replacement while the returned handle continues to expose the original bytes. Windows and Linux target
-checks are compile evidence until real runtime tests exist.
+replacement while the returned handle continues to expose the original bytes.
+The native macOS binding test deliberately proves fail-closed unsupported
+behavior. Windows and Linux binding target checks remain compile evidence until
+real runtime tests exist.
 
 ## Security boundary
 
-This primitive improves validation-to-use behavior because callers can consume
-the already verified open file instead of reopening an untrusted path. It does
-**not** by itself close executable validation-to-spawn races:
+`bind_verified_executable` returns a borrow-scoped `BoundExecutable` and always
+reports `execution_authorized: false`:
 
-- Unix root-relative no-follow opening now anchors component traversal to held
-  directory handles, but macOS and the current standard process APIs still
-  launch executables by path;
-- Windows now denies write/delete sharing on the held final handle and records
-  its File ID, but still needs root-handle-relative traversal, an approved
-  CreateProcess binding strategy, and real reparse/replace/share-conflict tests;
-- Linux handle-based execution needs a separately reviewed `fexecve`/equivalent
-  host and runtime proof;
-- same-user filesystem authority and platform code-signing/sandbox policy remain
-  relevant.
+- Linux/Android use `/proc/self/fd/<held-fd>` and verify its device/inode against
+  the opened artifact before exposing the launch path;
+- Windows exposes the canonical path only while retaining the original
+  share-read-only handle, which denies normal write/delete replacement across
+  `CreateProcess` path resolution;
+- macOS and other Unix systems fail closed because `/dev/fd` is not a reliable
+  executable primitive and no reviewed handle-to-spawn implementation exists.
+
+Linux and Windows still require adversarial runtime tests integrated with the
+actual contained process host. Same-user filesystem authority, descriptor/handle
+inheritance, platform code-signing, and sandbox policy remain relevant.
 
 Therefore this crate is evidence for the `executable_identity_pinned` and
 `executable_replacement_race_closed` production gates, not proof that those gates

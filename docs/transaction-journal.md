@@ -1,8 +1,9 @@
 # Transaction Journal and Recovery Contract
 
 `crates/transaction-contract/` owns the schema-1 transaction state machine,
-tamper-evident event chain, deterministic recovery assessment, and immutable
-snapshot writer shared by all future mutating modules. It cannot authorize a
+tamper-evident event chain, deterministic recovery assessment, immutable
+snapshot writer, and multi-document commit coordinator shared by all future
+mutating modules. It cannot authorize a
 mutation or perform an action-plan write.
 
 ## Schema-1 journal
@@ -70,9 +71,10 @@ write-capable transaction foundation. They:
 - serialize at most 2 MiB under the shared resource contract;
 - create a private pending file, synchronize it, and publish an immutable
   sequence/event-digest-bound head without replacement;
-- synchronize containing directories on Unix;
+- request file and containing-directory synchronization;
 - reject symlink/reparse/hardlink/wrong-type roots, lock files, directories, and
-  heads, with Unix opened-directory-relative snapshot/lock/publication operations;
+  heads, with opened-directory-relative Unix operations and compile-checked NT
+  root-relative Windows operations;
 - recover only after validating every bounded snapshot as one exact immutable
   prefix; corruption is never skipped;
 - map durable-writer failures to the shared foundation machine-error vocabulary;
@@ -98,21 +100,46 @@ commits to the journal snapshot name and required publication order:
 Tampering with any identity, head, plan, write set, confirmation evidence,
 registry state, or ordering claim invalidates the receipt. Schema 1 explicitly sets
 `automatic_mutation_authorized: false`; the receipt is evidence and never an
-instruction to finish or repeat a write. Filesystem publication of receipt and
-registry documents remains the next coordinator layer.
+instruction to finish or repeat a write.
+
+## Commit coordinator
+
+`publish_confirmation_consumption` stores exact single-use evidence only after
+verifying the prepared immutable journal, action-plan digest, write set,
+capability set, risk, response, and transaction identity. Identical publication
+is idempotent; conflicting consumption requires recovery.
+
+`publish_committed_state` retains opened state/transaction/receipt directories,
+takes an exclusive state commit lock, and revalidates the committed head,
+consumption, receipt, canonical next registry, and exact prior registry bytes.
+It then:
+
+1. stores a synchronized rollback copy when prior registry state exists;
+2. stores the synchronized canonical next registry as a pending document;
+3. publishes the synchronized create-new receipt;
+4. atomically replaces or initially publishes `installed-modules.json` last;
+5. rereads and compares the final bytes.
+
+Successful final state is idempotent. Any partial prior attempt returns
+`recovery_required` rather than silently retrying. `assess_commit_recovery`
+classifies exact no-action, interrupted-final-publication, uncommitted-pending,
+or inconsistent states and always sets `automatic_mutation_authorized: false`.
+The coordinator is a foundation library and is not connected to a production
+module executor or user command.
 
 ## Remaining production work
 
-The complete store transaction still requires one retained Unix root handle
-across the complete multi-document commit, equivalent Windows NT root-relative
-operations, Windows directory-metadata flush evidence, durable commit-
-receipt publication, atomic installed-registry publication, explicit ACL/ownership
-verification, cancellation, fault injection at every boundary, and real
-power/process-loss recovery on Windows, macOS, and Linux. Quarantine and
+The complete store transaction still requires reviewed Windows owner/DACL
+privacy verification and directory-flush evidence, coordinator fault injection
+at every boundary, explicit recovery execution, cancellation propagation, and
+real power/process-loss recovery on Windows, macOS, and Linux. The current
+coordinator enforces Unix effective-user ownership and private permission bits
+and deliberately blocks on Windows at that gate. Quarantine and
 rollback need platform-specific locked-file, reparse/symlink, cross-filesystem,
 and metadata-fidelity proof. No module may implement a private journal,
 writer-lock, or recovery engine.
 
 See [`action-planning.md`](action-planning.md),
+[`installed-registry-contract.md`](installed-registry-contract.md),
 [`transaction-simulation.md`](transaction-simulation.md), and
 [`production-readiness.md`](production-readiness.md).
