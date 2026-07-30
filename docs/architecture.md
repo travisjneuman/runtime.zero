@@ -65,7 +65,10 @@ bounded pipe draining and platform handle/descriptor
 and test-containment primitives while exposing no production runner.
 `crates/finding-contract/` owns path-free typed ownership/data-class/confidence/
 risk/disposition evidence and conservative protected-data policy for five module
-families; it cannot authorize an action. `crates/confirmation-contract/` owns
+families; it cannot authorize an action. Separate updater/uninstall/leftovers/
+cache/security-integrity source packages currently contain only synthetic domain
+classification into this contract—no shared policy, live adapter, process host,
+or action execution. `crates/confirmation-contract/` owns
 exact short-lived interactive plan binding,
 response digests, and single-use consumption evidence without execution
 authority. `crates/error-contract/` owns stable machine codes and conservative privacy/retry

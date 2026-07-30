@@ -156,6 +156,12 @@ validation, digests, bounds, and authority refusal to
 behavior. It is not installed or executed by core. See
 [`support-report-contract.md`](support-report-contract.md).
 
+The remaining five family directories now contain synthetic source-level domain
+classifiers into `crates/finding-contract/`. They do not contain live adapters,
+host permissions, binaries, signed lifecycle artifacts, core integration, or
+action execution; their manifests remain planned. See
+[`domain-classifier-modules.md`](domain-classifier-modules.md).
+
 ## Planned module families
 
 - tool/package updater modules;

@@ -51,6 +51,8 @@ See [`inventory-schema.md`](inventory-schema.md).
 
 - [x] Public plan-first/no-surprise-install design contract.
 - [x] Fixture-only schema-1 update-plan model and fail-closed policy tests.
+- [x] Separate installed/manager-owned synthetic update finding classifier over
+  the shared path-free finding contract; no live adapter or execution.
 - [ ] Installed-only availability adapters after explicit network review.
 - [ ] Execution remains blocked until trust, transaction, receipt, rollback, and
   confirmation gates are complete.
@@ -62,6 +64,9 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [x] Fixture-only uninstall/quarantine/blocked-data plan schemas and policy tests.
 - [x] Test-only temporary-root transaction/quarantine/restore simulation with
   verified-copy-before-remove, conflict refusal, failure injection, and receipts.
+- [x] Separate synthetic uninstall, leftovers, and cache classifiers requiring
+  manager ownership or exact runtime-owned evidence and preserving protected/
+  unknown blocking; no live adapter or execution.
 - [ ] Platform-specific manager, ownership, ACL, reparse/symlink, locked-file,
   cross-filesystem, and partial-failure proof.
 - [ ] Mutation remains blocked pending explicit approval.
@@ -84,6 +89,8 @@ See [`action-planning.md`](action-planning.md).
 - [x] Public module threat model, capability, signing, isolation, transaction,
   revocation, and staged-approval design.
 - [x] Bounded macOS application-bundle and Linux desktop-entry adapters.
+- [x] Separate synthetic security/integrity digest classifier with report-only
+  mismatch posture and no remediation claim.
 - [ ] macOS/Linux package-manager, service, and persistence inventory adapters.
 - [ ] Real Linux application runtime and Windows/full cross-platform compatibility matrix.
 - [x] Deterministic target-filtered SPDX 2.3 and deduplicated package license/

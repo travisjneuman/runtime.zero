@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core stays intentionally small: it owns the CLI, policy, output contracts, and module registry primitives while substantial capabilities ship as explicit modules instead of being bundled by default.
 
-> Status: pre-alpha foundation plus separately built, read-only first-party inventory and report/export source packages. This repository is public early so the design and safety model are visible from the start. The core does not install or execute modules, and destructive modules are intentionally absent.
+> Status: pre-alpha foundation plus development source packages for all seven frozen first-party families. Inventory has bounded collectors, report/export has a stdin/stdout binary, and the other five currently classify synthetic evidence only. The core does not install or execute modules, and destructive execution is intentionally absent.
 
 ## The promise
 
@@ -119,13 +119,20 @@ Paths are redacted by default; raw local values require the explicit
 `--include-raw-paths` flag. It does not run package
 managers, modify the system, or make the module installable through `rz0`.
 
-The second source package, [`modules/report-export/`](modules/report-export/),
+The report/export source package, [`modules/report-export/`](modules/report-export/),
 accepts a bounded strict inventory/diagnostics envelope on standard input and
 emits only a deterministic summary to standard output. The shared
 `crates/support-contract/` owns input validation, domain-separated digests,
 privacy omissions, bounds, and non-authority fields. Raw reports, paths,
 identities, application names, process output, and free-form warnings are not
 embedded. The module has no path/network options and is not executed by core.
+
+Updater, uninstall, leftovers, cache, and security/integrity now have separate
+source-level domain classifier packages under `modules/`. They consume only
+caller-supplied synthetic evidence and the shared finding contract. They have no
+live adapters, host permissions, process protocol, signed lifecycle, action
+execution, or production support. See
+[`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).
 
 A separate `crates/module-trust/` contract now verifies local detached Ed25519
 signatures with public test keys only. It does not provide signing, production
@@ -184,6 +191,7 @@ canonical installed-state shape and digest. `crates/release-contract/` generates
 [`docs/configuration-contract.md`](docs/configuration-contract.md),
 [`docs/diagnostics-contract.md`](docs/diagnostics-contract.md),
 [`docs/support-report-contract.md`](docs/support-report-contract.md),
+[`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md),
 [`docs/process-host-foundation.md`](docs/process-host-foundation.md),
 [`docs/performance-contract.md`](docs/performance-contract.md),
 [`docs/module-lifecycle-contract.md`](docs/module-lifecycle-contract.md),

@@ -98,11 +98,11 @@ Every module must reach the same lifecycle bar on every supported platform:
 | Module | Windows | macOS | Linux | Current maturity |
 | --- | --- | --- | --- | --- |
 | Inventory/environment | Required | Required | Required | Read-only source implementation; package/service/persistence and runtime parity incomplete |
-| Updater | Required | Required | Required | Fixture-only planning contract |
-| Uninstall | Required | Required | Required | Fixture-only planning contract |
-| Leftovers | Required | Required | Required | Policy and quarantine fixtures only |
-| Cache management | Required | Required | Required | Named family only |
-| Security/integrity | Required | Required | Required | Named family only |
+| Updater | Required | Required | Required | Synthetic installed/manager classifier + plan fixtures only |
+| Uninstall | Required | Required | Required | Synthetic manager classifier + plan/transaction fixtures only |
+| Leftovers | Required | Required | Required | Synthetic protected-data/exact-runtime classifier + quarantine fixtures only |
+| Cache management | Required | Required | Required | Synthetic ownership/exact-evidence classifier only |
+| Security/integrity | Required | Required | Required | Synthetic exact-digest report-only classifier only |
 | Report/export | Required | Required | Required | Strict summary-only foundation contract and stdin/stdout source module; lifecycle/core/final-artifact runtime proof open |
 
 ## Required lifecycle for every module-platform cell
