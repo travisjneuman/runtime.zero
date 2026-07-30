@@ -144,7 +144,9 @@ primitive. `crates/capability-contract/` supplies one shared least-privilege
 vocabulary plus exact partition/list validation for manifests, protocols, and
 action plans while granting no authority.
 `crates/cancellation-contract/` provides a one-atomic first-reason cancellation
-and monotonic-deadline primitive. `crates/module-lifecycle/` owns dry-run,
+and monotonic-deadline primitive consumed by guarded timeout polling and every
+synchronized commit-coordinator boundary. Partial commit cancellation requires
+recovery and never auto-rolls back. `crates/module-lifecycle/` owns dry-run,
 digest-bound install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall
 transitions and their exact foundation gates. `crates/privacy-contract/` owns
 bounded report-local redaction, `crates/configuration-contract/` owns immutable

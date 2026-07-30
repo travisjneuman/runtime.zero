@@ -88,8 +88,9 @@ and quarantine/restore failure semantics without a production mover.
 `crates/transaction-contract/` owns the bounded hash-chained transaction state
 machine, exclusive immutable snapshot publication/recovery, exact confirmation-
 aware commit-receipt binding, single-use consumption publication, atomic registry-
-last coordination, and non-authorizing commit recovery assessment. Production
-execution and recovery mutation remain gated.
+last coordination, boundary-aware cancellation classification, and non-
+authorizing commit recovery assessment. Production execution and recovery
+mutation remain gated.
 `crates/module-protocol/` validates a read-only/offline
 invocation preview and not-executed response with exact-path/digest metadata,
 least-privilege grants, a cleared environment-name allowlist, and bounded I/O.

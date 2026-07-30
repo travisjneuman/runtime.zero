@@ -128,7 +128,12 @@ or inconsistent states and always sets `automatic_mutation_authorized: false`.
 The optional `fault-injection` feature interrupts deterministically after each
 of eight commit boundaries: evidence validation, lock, durable evidence,
 rollback backup, pending registry, receipt, registry publication, and final
-verification. It is test-only and not enabled by the product.
+verification. The same lane drives cancellation at every boundary. The
+cancellable coordinator returns typed `cancelled` only before partial commit
+publication, returns `recovery_required` after partial publication, and
+preserves success after exact final verification. It never rolls back, cleans,
+or retries because a signal arrived. Fault injection is test-only and not
+enabled by the product.
 
 Only the narrowly safe interrupted state—exact committed journal, durable
 confirmation, exact receipt, exact pending registry, and unchanged prior
@@ -144,8 +149,10 @@ to a production module executor or user command.
 The complete store transaction still requires reviewed Windows owner/DACL
 privacy verification and directory-flush evidence, real process/power-loss
 fault execution beyond deterministic local injection, rollback execution,
-cancellation propagation through every write boundary, and recovery evidence on
-Windows, macOS, and Linux. The current
+cancellation propagation through remaining process/write paths, and recovery
+evidence on Windows, macOS, and Linux. The commit coordinator's eight
+synchronized boundaries are cancellation-aware; this does not prove abrupt
+process/power loss or other writers. The current
 coordinator enforces Unix effective-user ownership and private permission bits
 and deliberately blocks on Windows at that gate. Quarantine and
 rollback need platform-specific locked-file, reparse/symlink, cross-filesystem,

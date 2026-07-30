@@ -154,10 +154,11 @@ See [`action-planning.md`](action-planning.md).
   recovery bytes, and atomically publish a canonical validated registry last.
 - [x] Add deterministic fault injection at all eight commit boundaries and a
   fresh interactive approval path for exact interrupted registry-last completion.
-- [x] Add an allocation-minimal first-writer-wins cancellation/deadline primitive
-  and consume it in guarded process timeout polling.
-- [ ] Propagate cancellation through production process/write hosts and prove
-  real process/power-loss recovery and rollback on every platform.
+- [x] Add an allocation-minimal first-writer-wins cancellation/deadline primitive,
+  consume it in guarded process timeout polling, and classify it at every
+  synchronized commit-coordinator boundary without automatic rollback/retry.
+- [ ] Propagate cancellation through remaining production process/write hosts
+  and prove real process/power-loss recovery and rollback on every platform.
 - [x] Add a non-authorizing borrow-scoped executable binding: Linux held `/proc`
   descriptor path, Windows deny-write/delete handle lease, and fail-closed macOS.
 - [x] Integrate Linux/Windows executable leases through guarded test-host spawn.
