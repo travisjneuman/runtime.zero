@@ -24,7 +24,9 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 - [x] Bounded process-PATH normalization on Windows/macOS/Linux.
 - [x] Read-only Windows User/Machine PATH registry adapters.
 - [x] Allowlisted known-executable discovery without recursive scans.
-- [x] Opt-in exact-path version probes with no shell, bounded output, and timeout.
+- [x] Opt-in exact-path Unix version probes with no shell, cleared environment,
+  shared bounded drains/descriptor audit/process-group teardown, and atomic
+  deadline; Windows fails closed pending race-free production containment.
 - [x] Structured source status, duration, warnings, and generic events.
 - [x] Report-local path redaction for share-oriented output.
 - [x] Opt-in normalized Windows application registry evidence.

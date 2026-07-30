@@ -109,8 +109,10 @@ live and why explicit subcommands remain scriptable; they do not create files.
 The first feature-module source package lives at
 [`modules/inventory/`](modules/inventory/). It reads process PATH on supported
 platforms, reads persisted User/Machine PATH on Windows, detects a bounded set
-of known executables, supports opt-in timeout-bounded version probes, and can
-read normalized platform application evidence when explicitly requested.
+of known executables, supports opt-in Unix version probes with cleared
+environment, shared bounded drains/deadlines/process-group teardown, and can read
+normalized platform application evidence when explicitly requested. Windows
+version probes fail closed pending race-free production containment.
 Windows uses read-only uninstall registry views, macOS enumerates only direct
 `.app` bundles under known roots, and Linux parses bounded XDG desktop entries.
 Paths are redacted by default; raw local values require the explicit

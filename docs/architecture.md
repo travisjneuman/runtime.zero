@@ -40,7 +40,8 @@ CLI/TUI core or pull its terminal stack into the module binary. The module uses 
 process-PATH collection on
 Windows/macOS/Linux, read-only persisted PATH and optional app registry reads on
 Windows, bounded opt-in `.app`/XDG desktop-entry evidence on macOS/Linux,
-allowlisted direct executable discovery, opt-in timeout-bounded version probes,
+allowlisted direct executable discovery, opt-in Unix probes using shared
+cleared-environment drains/deadlines/process groups (Windows fails closed),
 report-local path redaction, and structured source events. It does not invoke
 package managers, execute desktop entries, inspect macOS bundle contents, or
 recursively scan drives. See

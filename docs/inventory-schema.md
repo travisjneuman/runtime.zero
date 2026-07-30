@@ -97,7 +97,7 @@ schema 1 entirely.
 | Process PATH | On | Environment read only; bounded and normalized |
 | Windows User/Machine PATH | On for Windows module | `KEY_READ` registry access only |
 | Known executable discovery | On | Exact allowlisted filenames under PATH only |
-| Known executable version probes | Off | Explicit `--probe-versions`; exact path, symlink/reparse-component rejection, static arguments, no shell, 2-second timeout, 64 KiB capture |
+| Known executable version probes | Off | Explicit `--probe-versions`; exact path, symlink/reparse-component rejection, static arguments, no shell, cleared environment, `/` working directory, shared descriptor audit/Unix process-group teardown, atomic 2-second deadline, 64 KiB per-stream capture; Windows fails closed pending race-free containment |
 | Windows installed applications | Off | Explicit `--include-apps`; standard uninstall views, read only, 4,096-record cap |
 | macOS application bundles | Off | Explicit `--include-apps`; direct `.app` directories under five known roots, metadata only, no bundle-content reads |
 | Linux desktop entries | Off | Explicit `--include-apps`; regular XDG `.desktop` files up to 64 KiB, user/hidden precedence, no `Exec` output or execution |
@@ -148,9 +148,10 @@ These references describe APIs; they do not replace fixture/runtime verification
 ## Remaining proof gates
 
 The code is fixture-tested on macOS and cross-checked for the Windows MSVC
-target. Before claiming Windows support, it still needs a real Windows runtime
-smoke covering persisted PATH, registry views, app normalization, timeout
-behavior, redaction, and the installed terminal experience. The macOS app
+target. Before claiming Windows support, it still needs race-free handle audit/process
+containment plus a real Windows runtime smoke covering persisted PATH, registry
+views, app normalization, timeout behavior, redaction, and the installed
+terminal experience. The macOS app
 adapter was exercised on the development host and Linux parser behavior is
 fixture-tested plus Linux-target compiled, but a real Linux runtime and broader
 macOS/Linux package-manager, service, and persistence inventory remain later
