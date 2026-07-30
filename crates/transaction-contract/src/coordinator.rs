@@ -1,6 +1,7 @@
 use std::{collections::BTreeSet, ffi::OsStr, fmt, path::Path};
 
 use rz0_action_plan::{ActionKind, ActionPlan, action_plan_digests};
+use rz0_cancellation_contract::CancellationToken;
 use rz0_confirmation_contract::{
     ConfirmationChallenge, ConfirmationConsumption, ConfirmationResponse, ConfirmationRisk,
     confirmation_response_sha256, validate_confirmation_consumption,
@@ -38,6 +39,7 @@ pub enum CoordinatorErrorCode {
     EvidenceMissing,
     UnsafeFilesystem,
     Conflict,
+    Cancelled,
     RecoveryRequired,
     LimitExceeded,
     Unsupported,
@@ -48,6 +50,34 @@ pub enum CoordinatorErrorCode {
 pub struct CoordinatorError {
     pub code: CoordinatorErrorCode,
     detail: String,
+}
+
+impl CoordinatorError {
+    pub const fn foundation_code(&self) -> rz0_error_contract::FoundationErrorCode {
+        match self.code {
+            CoordinatorErrorCode::InvalidEvidence => {
+                rz0_error_contract::FoundationErrorCode::TransactionInvalid
+            }
+            CoordinatorErrorCode::EvidenceMissing => {
+                rz0_error_contract::FoundationErrorCode::InvalidContract
+            }
+            CoordinatorErrorCode::UnsafeFilesystem => {
+                rz0_error_contract::FoundationErrorCode::PermissionDenied
+            }
+            CoordinatorErrorCode::Conflict => rz0_error_contract::FoundationErrorCode::Conflict,
+            CoordinatorErrorCode::Cancelled => rz0_error_contract::FoundationErrorCode::Cancelled,
+            CoordinatorErrorCode::RecoveryRequired => {
+                rz0_error_contract::FoundationErrorCode::RecoveryRequired
+            }
+            CoordinatorErrorCode::LimitExceeded => {
+                rz0_error_contract::FoundationErrorCode::InputLimitExceeded
+            }
+            CoordinatorErrorCode::Unsupported => {
+                rz0_error_contract::FoundationErrorCode::UnsupportedOperation
+            }
+            CoordinatorErrorCode::Io => rz0_error_contract::FoundationErrorCode::IoUnavailable,
+        }
+    }
 }
 
 impl fmt::Display for CoordinatorError {
@@ -274,7 +304,19 @@ pub fn publish_committed_state(
     state_root: &Path,
     input: CommitCoordinatorInput<'_>,
 ) -> Result<CommitPublication, CoordinatorError> {
-    publish_committed_state_inner(state_root, input, |_| false)
+    publish_committed_state_inner(state_root, input, |_| false, None)
+}
+
+/// Publishes committed state while observing cancellation only at synchronized
+/// transaction boundaries. Cancellation before durable commit work returns a
+/// typed cancellation. Cancellation after partial publication requires explicit
+/// recovery; it never triggers rollback, cleanup, or automatic retry.
+pub fn publish_committed_state_cancellable(
+    state_root: &Path,
+    input: CommitCoordinatorInput<'_>,
+    cancellation: &CancellationToken,
+) -> Result<CommitPublication, CoordinatorError> {
+    publish_committed_state_inner(state_root, input, |_| false, Some(cancellation))
 }
 
 #[cfg(feature = "fault-injection")]
@@ -283,13 +325,24 @@ pub fn publish_committed_state_with_fault(
     input: CommitCoordinatorInput<'_>,
     fault: impl FnMut(CommitFaultPoint) -> bool,
 ) -> Result<CommitPublication, CoordinatorError> {
-    publish_committed_state_inner(state_root, input, fault)
+    publish_committed_state_inner(state_root, input, fault, None)
+}
+
+#[cfg(feature = "fault-injection")]
+pub fn publish_committed_state_cancellable_with_fault(
+    state_root: &Path,
+    input: CommitCoordinatorInput<'_>,
+    cancellation: &CancellationToken,
+    fault: impl FnMut(CommitFaultPoint) -> bool,
+) -> Result<CommitPublication, CoordinatorError> {
+    publish_committed_state_inner(state_root, input, fault, Some(cancellation))
 }
 
 fn publish_committed_state_inner(
     state_root: &Path,
     input: CommitCoordinatorInput<'_>,
     mut fault: impl FnMut(CommitFaultPoint) -> bool,
+    cancellation: Option<&CancellationToken>,
 ) -> Result<CommitPublication, CoordinatorError> {
     let CommitCoordinatorInput {
         committed_journal,
@@ -316,7 +369,11 @@ fn publish_committed_state_inner(
         receipt,
         &registry_bytes,
     )?;
-    fault_checkpoint(&mut fault, CommitFaultPoint::AfterEvidenceValidation)?;
+    commit_checkpoint(
+        &mut fault,
+        cancellation,
+        CommitFaultPoint::AfterEvidenceValidation,
+    )?;
 
     let state = SecureDirectory::open(state_root).map_err(secure("open state root"))?;
     state
@@ -327,7 +384,7 @@ fn publish_committed_state_inner(
         .map_err(secure("open commit coordinator lock"))?;
     let _lock = SecureFileLock::try_exclusive(lock_file)
         .map_err(secure("acquire commit coordinator lock"))?;
-    fault_checkpoint(&mut fault, CommitFaultPoint::AfterCommitLock)?;
+    commit_checkpoint(&mut fault, cancellation, CommitFaultPoint::AfterCommitLock)?;
     let transactions = state
         .open_child_directory(OsStr::new(TRANSACTIONS_DIRECTORY))
         .map_err(secure("open transactions directory"))?;
@@ -348,8 +405,9 @@ fn publish_committed_state_inner(
         .map_err(secure("verify private receipts directory"))?;
     verify_journal_head(&transaction, committed_journal)?;
     verify_confirmation(&transaction, consumption)?;
-    fault_checkpoint(
+    commit_checkpoint(
         &mut fault,
+        cancellation,
         CommitFaultPoint::AfterDurableEvidenceVerification,
     )?;
 
@@ -391,7 +449,11 @@ fn publish_committed_state_inner(
             "registry rollback copy",
         )?;
     }
-    fault_checkpoint(&mut fault, CommitFaultPoint::AfterPriorRegistryBackup)?;
+    commit_checkpoint(
+        &mut fault,
+        cancellation,
+        CommitFaultPoint::AfterPriorRegistryBackup,
+    )?;
     write_recovery_document(
         &transaction,
         REGISTRY_NEXT_NAME,
@@ -399,7 +461,11 @@ fn publish_committed_state_inner(
         rz0_resource_contract::MAX_REGISTRY_DOCUMENT_BYTES,
         "pending next registry",
     )?;
-    fault_checkpoint(&mut fault, CommitFaultPoint::AfterPendingRegistry)?;
+    commit_checkpoint(
+        &mut fault,
+        cancellation,
+        CommitFaultPoint::AfterPendingRegistry,
+    )?;
     receipts
         .write_new_child(
             OsStr::new(&receipt_name),
@@ -407,7 +473,11 @@ fn publish_committed_state_inner(
             rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
         )
         .map_err(publication_error("publish commit receipt"))?;
-    fault_checkpoint(&mut fault, CommitFaultPoint::AfterCommitReceipt)?;
+    commit_checkpoint(
+        &mut fault,
+        cancellation,
+        CommitFaultPoint::AfterCommitReceipt,
+    )?;
 
     if current_registry.is_some() {
         transaction
@@ -426,7 +496,11 @@ fn publish_committed_state_inner(
             )
             .map_err(publication_error("publish initial installed registry"))?;
     }
-    fault_checkpoint(&mut fault, CommitFaultPoint::AfterRegistryPublication)?;
+    commit_checkpoint(
+        &mut fault,
+        cancellation,
+        CommitFaultPoint::AfterRegistryPublication,
+    )?;
     let published = state
         .read_child(
             OsStr::new(REGISTRY_NAME),
@@ -439,7 +513,11 @@ fn publish_committed_state_inner(
             "published registry bytes do not match the exact committed registry",
         ));
     }
-    fault_checkpoint(&mut fault, CommitFaultPoint::AfterFinalVerification)?;
+    commit_checkpoint(
+        &mut fault,
+        cancellation,
+        CommitFaultPoint::AfterFinalVerification,
+    )?;
     Ok(commit_publication(
         CommitPublicationStatus::Committed,
         receipt,
@@ -1147,17 +1225,35 @@ fn publication_error(
     }
 }
 
-fn fault_checkpoint(
+fn commit_checkpoint(
     fault: &mut impl FnMut(CommitFaultPoint) -> bool,
+    cancellation: Option<&CancellationToken>,
     point: CommitFaultPoint,
 ) -> Result<(), CoordinatorError> {
     if fault(point) {
-        Err(error(
+        return Err(error(
             CoordinatorErrorCode::RecoveryRequired,
             format!("injected commit interruption at {point:?}"),
-        ))
-    } else {
-        Ok(())
+        ));
+    }
+    let Some(reason) = cancellation.and_then(CancellationToken::reason) else {
+        return Ok(());
+    };
+    match point {
+        CommitFaultPoint::AfterEvidenceValidation
+        | CommitFaultPoint::AfterCommitLock
+        | CommitFaultPoint::AfterDurableEvidenceVerification => Err(error(
+            CoordinatorErrorCode::Cancelled,
+            format!("commit cancelled before durable publication: {reason:?}"),
+        )),
+        CommitFaultPoint::AfterFinalVerification => Ok(()),
+        CommitFaultPoint::AfterPriorRegistryBackup
+        | CommitFaultPoint::AfterPendingRegistry
+        | CommitFaultPoint::AfterCommitReceipt
+        | CommitFaultPoint::AfterRegistryPublication => Err(error(
+            CoordinatorErrorCode::RecoveryRequired,
+            format!("commit cancelled after partial publication at {point:?}: {reason:?}"),
+        )),
     }
 }
 

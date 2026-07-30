@@ -9,6 +9,7 @@ use std::{
 };
 
 use rz0_action_plan::{ActionPlan, action_plan_digests};
+use rz0_cancellation_contract::{CancellationReason, cancellation_pair};
 use rz0_confirmation_contract::{
     CONFIRMATION_CHALLENGE_CONTRACT, CONFIRMATION_CONSUMPTION_CONTRACT,
     CONFIRMATION_RESPONSE_CONTRACT, CONFIRMATION_SCHEMA_VERSION, ConfirmationChallenge,
@@ -26,11 +27,15 @@ use rz0_transaction_contract::{
     TransactionCommitReceipt, TransactionEvent, TransactionEventKind, TransactionJournal,
     TransactionOperation, TransactionState, assess_commit_recovery,
     complete_interrupted_registry_publication, publish_committed_state,
-    publish_confirmation_consumption, publish_journal_snapshot, seal_commit_receipt,
-    seal_commit_recovery_challenge, seal_transaction_journal,
+    publish_committed_state_cancellable, publish_confirmation_consumption,
+    publish_journal_snapshot, seal_commit_receipt, seal_commit_recovery_challenge,
+    seal_transaction_journal,
 };
 #[cfg(feature = "fault-injection")]
-use rz0_transaction_contract::{CommitFaultPoint, publish_committed_state_with_fault};
+use rz0_transaction_contract::{
+    CommitFaultPoint, publish_committed_state_cancellable_with_fault,
+    publish_committed_state_with_fault,
+};
 
 const A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -167,6 +172,151 @@ fn confirmation_is_single_value_and_registry_drift_blocks_receipt_publication() 
             .join(format!("{}.json", plan.plan_id))
             .exists()
     );
+}
+
+#[test]
+fn preexisting_cancellation_stops_before_commit_publication() {
+    let root = TestRoot::new();
+    let plan = plan();
+    let next_registry = InstalledRegistry {
+        schema_version: 1,
+        modules: Vec::new(),
+    };
+    let (mut journal, challenge, response, consumption) =
+        prepared_evidence(root.path(), &plan, None, &next_registry);
+    publish_confirmation_consumption(
+        root.path(),
+        &journal,
+        &plan,
+        &challenge,
+        &response,
+        &consumption,
+    )
+    .expect("confirmation");
+    commit_journal(root.path(), &mut journal);
+    let receipt = receipt(
+        &journal,
+        &plan,
+        &challenge,
+        &response,
+        &consumption,
+        None,
+        &next_registry,
+    );
+    let (controller, token) = cancellation_pair();
+    controller.cancel(CancellationReason::UserRequested);
+    let failure = publish_committed_state_cancellable(
+        root.path(),
+        CommitCoordinatorInput {
+            committed_journal: &journal,
+            action_plan: &plan,
+            challenge: &challenge,
+            response: &response,
+            consumption: &consumption,
+            receipt: &receipt,
+            next_registry: &next_registry,
+        },
+        &token,
+    )
+    .expect_err("cancellation must stop publication");
+    assert_eq!(failure.code, CoordinatorErrorCode::Cancelled);
+    assert_eq!(
+        failure.foundation_code(),
+        rz0_error_contract::FoundationErrorCode::Cancelled
+    );
+    assert!(!root.path().join("installed-modules.json").exists());
+    assert!(
+        !root
+            .path()
+            .join("receipts")
+            .join(format!("{}.json", plan.plan_id))
+            .exists()
+    );
+}
+
+#[cfg(feature = "fault-injection")]
+#[test]
+fn cancellation_is_classified_at_every_commit_boundary() {
+    for point in [
+        CommitFaultPoint::AfterEvidenceValidation,
+        CommitFaultPoint::AfterCommitLock,
+        CommitFaultPoint::AfterDurableEvidenceVerification,
+        CommitFaultPoint::AfterPriorRegistryBackup,
+        CommitFaultPoint::AfterPendingRegistry,
+        CommitFaultPoint::AfterCommitReceipt,
+        CommitFaultPoint::AfterRegistryPublication,
+        CommitFaultPoint::AfterFinalVerification,
+    ] {
+        let root = TestRoot::new();
+        let plan = plan();
+        let next_registry = InstalledRegistry {
+            schema_version: 1,
+            modules: Vec::new(),
+        };
+        let (mut journal, challenge, response, consumption) =
+            prepared_evidence(root.path(), &plan, None, &next_registry);
+        publish_confirmation_consumption(
+            root.path(),
+            &journal,
+            &plan,
+            &challenge,
+            &response,
+            &consumption,
+        )
+        .expect("confirmation");
+        commit_journal(root.path(), &mut journal);
+        let receipt = receipt(
+            &journal,
+            &plan,
+            &challenge,
+            &response,
+            &consumption,
+            None,
+            &next_registry,
+        );
+        let (controller, token) = cancellation_pair();
+        let result = publish_committed_state_cancellable_with_fault(
+            root.path(),
+            CommitCoordinatorInput {
+                committed_journal: &journal,
+                action_plan: &plan,
+                challenge: &challenge,
+                response: &response,
+                consumption: &consumption,
+                receipt: &receipt,
+                next_registry: &next_registry,
+            },
+            &token,
+            |observed| {
+                if observed == point {
+                    controller.cancel(CancellationReason::UserRequested);
+                }
+                false
+            },
+        );
+        match point {
+            CommitFaultPoint::AfterEvidenceValidation
+            | CommitFaultPoint::AfterCommitLock
+            | CommitFaultPoint::AfterDurableEvidenceVerification => {
+                assert_eq!(result.unwrap_err().code, CoordinatorErrorCode::Cancelled);
+            }
+            CommitFaultPoint::AfterPriorRegistryBackup
+            | CommitFaultPoint::AfterPendingRegistry
+            | CommitFaultPoint::AfterCommitReceipt
+            | CommitFaultPoint::AfterRegistryPublication => {
+                assert_eq!(
+                    result.unwrap_err().code,
+                    CoordinatorErrorCode::RecoveryRequired
+                );
+            }
+            CommitFaultPoint::AfterFinalVerification => {
+                assert_eq!(
+                    result.expect("verified commit remains successful").status,
+                    CommitPublicationStatus::Committed
+                );
+            }
+        }
+    }
 }
 
 #[cfg(feature = "fault-injection")]

@@ -13,6 +13,7 @@ fault-injection = []
 
 [dependencies]
 rz0-action-plan = { version = "0.1.0", path = "../action-plan" }
+rz0-cancellation-contract = { version = "0.1.0", path = "../cancellation-contract" }
 rz0-confirmation-contract = { version = "0.1.0", path = "../confirmation-contract" }
 rz0-error-contract = { version = "0.1.0", path = "../error-contract" }
 rz0-registry-contract = { version = "0.1.0", path = "../registry-contract" }

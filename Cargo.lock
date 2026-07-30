@@ -972,6 +972,7 @@ name = "rz0-transaction-contract"
 version = "0.1.0"
 dependencies = [
  "rz0-action-plan",
+ "rz0-cancellation-contract",
  "rz0-confirmation-contract",
  "rz0-error-contract",
  "rz0-registry-contract",
