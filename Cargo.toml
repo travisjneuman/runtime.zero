@@ -23,6 +23,7 @@ members = [
     "crates/configuration-contract",
     "crates/diagnostics-contract",
     "crates/error-contract",
+    "crates/finding-contract",
     "crates/inventory-contract",
     "crates/module-lifecycle",
     "crates/module-protocol",

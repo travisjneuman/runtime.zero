@@ -1,0 +1,17 @@
+[package]
+name = "rz0-finding-contract"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "Shared privacy-safe finding classification contract for runtime.zero modules"
+license = "Apache-2.0"
+repository = "https://github.com/travisjneuman/runtime.zero"
+rust-version = "1.96"
+publish = false
+
+[dependencies]
+rz0-resource-contract = { version = "0.1.0", path = "../resource-contract" }
+rz0-validation-contract = { version = "0.1.0", path = "../validation-contract" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
