@@ -42,13 +42,14 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 289 tests. The all-features suite passed 300.
+The default workspace suite passed 295 tests. The all-features suite passed 306.
 Coverage includes shared capability families plus exact manifest/protocol/action
 grant validation, error/resource/validation/confirmation, strict owned inventory
 parsing/cross-reference/export-privacy checks, path-free finding classification
 and finding-bound action plans, four privacy-redaction tests, four fail-closed
 configuration tests, four strict config-digest-bound diagnostic tests, four
-support-contract tests plus report/export binary tests, four final-artifact
+support-contract tests plus report/export binary tests, five domain-classifier
+module tests and all-seven-manifest validation, four final-artifact
 performance contract tests, two process-host capture/descriptor tests, guarded
 Unix version-probe group teardown, action-plan digests, opened-directory adversarial
 tests, canonical registries, release ledgers, transaction/recovery chains,
@@ -68,7 +69,7 @@ library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 141 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 146 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -76,7 +77,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved 26 local workspace packages and 115
+`cargo metadata --locked` resolved 31 local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
