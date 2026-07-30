@@ -6,6 +6,12 @@ path, production support, or permission to cross a later gate. Windows, macOS,
 Linux, and every frozen 1.0 module family are equal release requirements; see
 [`production-readiness.md`](production-readiness.md).
 
+> Work was paused by the owner on 2026-07-30 after the live Mac catalog and
+> unified per-software option UX landed. Resume with
+> [`project-status-and-resumption.md`](project-status-and-resumption.md), which
+> records the exact implementation boundary, known debts, evidence, and restart
+> sequence.
+
 ## Phase 1 — foundation baseline (complete)
 
 - [x] Public Rust CLI, safety/security/contribution docs, brand, and static site.

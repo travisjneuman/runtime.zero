@@ -1,5 +1,10 @@
 # Terminal UI Foundation
 
+> The current paused UX intentionally uses one canonical installed-software list
+> with per-item options. Do not recreate a separate uninstall navigation list.
+> See [`project-status-and-resumption.md`](project-status-and-resumption.md) for
+> the complete handoff.
+
 Bare `rz0` opens the terminal UI when both stdin and stdout are interactive and
 automation is not detected. `rz0 --tui` explicitly requests that same
 full-screen dashboard and returns a clear usage error if the terminal is not

@@ -132,8 +132,16 @@ isolated root.
 
 `crates/confirmation-contract/` adds exact short-lived CLI/TUI challenge,
 response, and single-use consumption evidence while remaining structurally
-unable to authorize execution. There is intentionally no `rz0` action-plan
-command, manager adapter, staging executor, production filesystem mover, or
-runtime mutation path. Real
-package-manager commands and non-fixture filesystem mutation still require
-separate approval.
+unable to authorize execution.
+
+The product-level `rz0 uninstall plan <installed-software-id>` command currently
+emits a path-free `uninstall_review`. It is a UX bridge from live catalog
+records, not a `crates/action-plan` value: it has no write set, cannot be
+confirmed into execution, and always sets `product_execution_authorized: false`.
+Before mutation, a review must be replaced or bound by exact finding-report and
+shared action-plan evidence rather than becoming a second action system.
+
+There is no manager adapter, staging executor, production filesystem mover, or
+runtime software-mutation path. Real package-manager commands and non-fixture
+filesystem mutation require the exact foundation implementation, disposable-host
+proof, and current external-action authorization applicable at that time.

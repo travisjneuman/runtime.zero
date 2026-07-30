@@ -31,8 +31,14 @@ commands, writes one create-new evidence document, and returns nonzero when a
 budget is exceeded. Host/OS/runtime context still belongs in the private release
 ledger; one fast machine cannot prove another target.
 
-The current macOS universal artifact passed 25-sample ARM64 and Rosetta x86-64
-runs for all six operations. ARM64 p95 values were below 9.5 ms with peak
-observed RSS at 2.0 MiB; Rosetta p95 values were below 19.3 ms with peak observed
-RSS below 3.5 MiB. These are local process-launch measurements, not older macOS,
-Intel hardware, terminal, sustained-load, or cross-platform proof.
+The paused macOS universal artifact from product commit `53d1e3d` passed
+25-sample ARM64 and Rosetta x86-64 runs for all six operations. Worst ARM64 p95
+was 19.286 ms, maximum was 20.269 ms, and peak observed RSS was 5,062,656
+bytes. Worst Rosetta p95 was 35.238 ms, maximum was 36.070 ms, and peak observed
+RSS was 6,344,704 bytes. These are local process-launch measurements, not older
+macOS, Intel hardware, terminal, sustained-load, or cross-platform proof.
+
+Schema 1 does not directly time `rz0 apps` or interactive TUI startup. Core scan
+uses the same live collector and final-artifact PTY smoke exercises TUI startup,
+but a future contract revision should add explicit catalog/TUI operations rather
+than silently changing schema 1's exact six-operation set.

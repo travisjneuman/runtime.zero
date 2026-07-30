@@ -1,5 +1,8 @@
 # runtime.zero Architecture
 
+> Current paused implementation state and the restart sequence are captured in
+> [`project-status-and-resumption.md`](project-status-and-resumption.md).
+
 `runtime.zero` is a modular system-management runtime, not a monolithic cleaner script. The core is the smallest durable foundation that can describe, validate, list, and eventually run explicitly installed modules under safety policy.
 
 ## Layers

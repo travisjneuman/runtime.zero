@@ -1,5 +1,9 @@
 # Module System
 
+> For the paused 2026-07-30 source boundary, built-in inventory exception,
+> per-family maturity, and continuation order, begin with
+> [`project-status-and-resumption.md`](project-status-and-resumption.md).
+
 Modules are the unit of growth for `runtime.zero`. The foundation should remain useful with zero optional modules installed.
 
 A module manifest declares:

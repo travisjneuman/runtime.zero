@@ -1,5 +1,9 @@
 # Inventory Report Contract
 
+> The built-in collector's paused implementation, known coverage gaps,
+> Homebrew/app identity debts, and restart sequence are summarized in
+> [`project-status-and-resumption.md`](project-status-and-resumption.md).
+
 `runtime.zero` uses a versioned inventory contract so platform evidence remains
 deterministic, privacy-explicit, and separate from future action planning.
 

@@ -289,46 +289,51 @@ paths.
 
 ## CLI/TUI routing contract
 
-The future routing contract is deterministic:
+The current routing contract is deterministic:
 
-- bare `rz0` in an interactive terminal opens the read-only foundation TUI
-  dashboard;
-- bare `rz0` falls back to safe CLI dashboard/status text while non-interactive
-  or automated;
+- bare `rz0` with interactive stdin/stdout opens the live read-only local-
+  software TUI when automation is not detected;
+- bare `rz0` falls back to safe CLI dashboard text when non-interactive or
+  automated;
 - `rz0 --tui` explicitly requests the TUI and returns a clear usage error when
   non-interactive or automated;
 - `rz0 <subcommand>` always runs the scriptable CLI path;
 - `rz0 --json` and `rz0 --format json` never launch a full-screen TUI;
 - pipes, redirected output, non-interactive contexts, and automation contexts
   never launch a full-screen TUI;
-- `rz0 --no-tui` bypasses the TUI and prints the scriptable text dashboard.
-- `--color=auto|always|never` is a global presentation flag, not a command; it
+- `rz0 --no-tui` bypasses the TUI and prints the scriptable text dashboard;
+- `--color=auto|always|never` is a global presentation flag, not a command, and
   must not change routing, safety, write behavior, or JSON output.
 
-The current TUI shell is intentionally small and dependency-light. It uses
-standard-library terminal detection, `crossterm` raw key handling, centralized
-theme tokens, a dashboard data model, a resize-safe renderer, and a guarded
-event loop. It does not add an installer, PATH setup, release binary, or
-bootstrap command.
+The TUI uses standard-library terminal detection, `crossterm` raw key handling,
+Ratatui widgets/layout, centralized theme tokens, a dashboard data model,
+resize-safe rendering, and a guarded event loop. It does not create an installer,
+PATH setup, release publication, or bootstrap command.
 
 The TUI key contract is:
 
-- `q` or Esc exits safely without echoing typed input;
+- `q` quits immediately without echoing typed input;
+- Esc closes preview/help, returns focus toward navigation, or quits from base
+  navigation;
 - `h` or `?` toggles help;
-- Tab/down/right/`j` moves to the next section;
-- up/left/BackTab/`k` moves to the previous section;
-- Home and End jump to the first and last section;
-- terminal resize events re-render the dashboard without changing state;
+- Tab and Shift+Tab cycle navigation, details, and command-rail focus;
+- arrows or `j`/`k` move within the focused region;
+- Home and End jump to the first and last section while navigation is focused;
+- Enter/Space opens or closes a read-only row/command preview;
+- terminal resize events re-render without changing selected evidence;
 - key release events are ignored, while press and repeat events remain
-  intentional input so Windows terminals do not double-advance navigation.
+  intentional so Windows terminals do not double-advance navigation.
 
 The terminal guard must restore raw mode, cursor visibility, and the normal
 screen on exit or panic unwinding.
 
-The TUI may show only foundation state: doctor/status posture, store
-plan/status summaries, module validation/dry-run posture, safety model, and
-future module slots. It must not imply optional modules are installed or active
-when the installed module registry is empty.
+The TUI may show built-in bounded read-only software evidence plus foundation
+store/module/safety state. Its five sections are overview, local store,
+installed software, modules, and safety gates. Installed software is one
+canonical object list: each row shows details and only an applicable protected,
+manager-review, quarantine-review, or unsupported uninstall posture. Previewing
+a row never executes it. The TUI must not imply optional modules are installed
+or active when the installed registry is empty.
 
 ## Brand and output constraints
 
@@ -341,7 +346,7 @@ Future CLI/TUI output should follow [`BRAND.md`](../BRAND.md):
 - `[PLAN]`, `[DRY-RUN]`, `[OK]`, `[WARN]`, `[BLOCKED]`, `[ERROR]`, and
   `[QUARANTINE]` remain the preferred status grammar.
 
-The current foundation TUI should visually align with the website's
+The current terminal TUI should visually align with the website's
 TUI reference as closely as practical by sharing concepts and future design
 tokens derived from `BRAND.md`. The website is a visual reference, not a rigid
 contract: the TUI must remain easy to customize and refactor, and terminal

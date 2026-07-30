@@ -9,6 +9,12 @@ Windows, macOS, and Linux are equal release-blocking platforms. Every named 1.0
 module is equally required. Compile-only evidence, fixtures, a successful run on
 another platform, or a planned manifest cannot satisfy a platform runtime cell.
 
+The owner paused work on 2026-07-30. The exact current product behavior,
+validation snapshot, unresolved prerequisites, and dependency-ordered restart
+plan are recorded in
+[`project-status-and-resumption.md`](project-status-and-resumption.md). This
+matrix remains the authority for eventual completion and is still blocked.
+
 ## Foundation ownership
 
 Anything required to make multiple modules safe, stable, efficient, or

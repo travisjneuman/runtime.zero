@@ -3,9 +3,9 @@
 **System Management Toolkit**  
 Command: `rz0`
 
-`runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core stays intentionally small: it owns the CLI, policy, output contracts, and module registry primitives while substantial capabilities ship as explicit modules instead of being bundled by default.
+`runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy and contracts plus the bounded read-only inventory needed for a useful zero-module product; write-capable domain behavior remains isolated behind explicit modules and lifecycle gates.
 
-> Status: pre-alpha foundation plus development source packages for all seven frozen first-party families. Inventory has bounded collectors, report/export has a stdin/stdout binary, and the other five currently classify synthetic evidence only. The core does not install or execute modules, and destructive execution is intentionally absent.
+> **Paused project snapshot — 2026-07-30:** pre-alpha, not production-ready. The installed Mac surface now provides a live software catalog and one canonical TUI software list with per-item details/protection/uninstall-review posture. All seven first-party source families exist, but destructive software execution remains absent. Start future work with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md).
 
 ## The promise
 
@@ -344,17 +344,20 @@ install-from-internet flow.
 
 The project is intentionally modular:
 
-- Rust CLI core for command parsing, action planning, policy, logs, JSON output, and quarantine/restore.
+- Rust CLI core for command parsing, built-in bounded inventory, policy, contracts, JSON output, and non-authorizing action/recovery planning.
 - Platform adapters for Windows, macOS, and Linux.
 - Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
-- Read-only foundation TUI shell for local review, using crossterm for raw
+- Live read-only local-software TUI for review, using crossterm for raw
   terminal lifecycle and Ratatui for the interactive widget dashboard, with
   componentized panels/status badges, focus regions, navigation rail, numbered dossier sections, selected-section
   panel, foundation status cards, read-only command previews, Home/End and
   `j`/`k` navigation, and command rail; subcommands remain the stable
   automation/script surface.
 
-See [`docs/architecture.md`](docs/architecture.md),
+Start with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md)
+for the paused source snapshot, current behavior, known limitations, evidence,
+and dependency-ordered restart checklist. Then see
+[`docs/architecture.md`](docs/architecture.md),
 [`docs/module-system.md`](docs/module-system.md),
 [`docs/manifest-validation.md`](docs/manifest-validation.md), and
 [`docs/foundation-readiness.md`](docs/foundation-readiness.md). See

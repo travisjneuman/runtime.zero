@@ -1,7 +1,8 @@
 # Dependency and Validation Audit — 2026-07-29
 
-This snapshot records the manual foundation/inventory audit at the current
-pre-alpha source stage. It is evidence, not a promise of future security support
+This snapshot records the manual foundation/inventory audit through paused
+product implementation commit `53d1e3d`. Later documentation-only handoff
+commits do not change the tested binary. It is evidence, not a promise of future security support
 or a substitute for release-time review.
 
 ## Toolchain and checks
