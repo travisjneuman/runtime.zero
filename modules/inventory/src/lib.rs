@@ -22,12 +22,23 @@ pub use render::{render_json, render_text};
 
 pub const MODULE_ID: &str = "first-party.inventory";
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InventoryOptions {
     pub fixture: Option<PathBuf>,
     pub redact_paths: bool,
     pub probe_versions: bool,
     pub include_apps: bool,
+}
+
+impl Default for InventoryOptions {
+    fn default() -> Self {
+        Self {
+            fixture: None,
+            redact_paths: true,
+            probe_versions: false,
+            include_apps: false,
+        }
+    }
 }
 
 pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, String> {
@@ -79,7 +90,7 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
     }
 
     if options.redact_paths {
-        redaction::redact_path_values(&mut report);
+        redaction::redact_path_values(&mut report)?;
     }
     report.recalculate_summary();
     Ok(report)

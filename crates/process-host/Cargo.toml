@@ -1,12 +1,16 @@
 [package]
-name = "rz0-secure-fs"
+name = "rz0-process-host"
 version = "0.1.0"
 edition = "2024"
 authors = ["Travis J. Neuman <travis@neuman.dev>"]
-description = "Opened-directory relative filesystem primitives for runtime.zero"
+description = "Bounded process I/O and platform containment primitives for runtime.zero"
 license = "Apache-2.0"
 publish = false
 rust-version = "1.96"
+
+[features]
+default = []
+test-support = []
 
 [dependencies]
 rz0-error-contract = { version = "0.1.0", path = "../error-contract" }
@@ -16,13 +20,8 @@ libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
-    "Wdk_Foundation",
-    "Wdk_Storage_FileSystem",
     "Win32_Foundation",
     "Win32_Security",
-    "Win32_Security_Authorization",
-    "Win32_Storage_FileSystem",
-    "Win32_System_IO",
-    "Win32_System_SystemServices",
+    "Win32_System_JobObjects",
     "Win32_System_Threading",
 ] }

@@ -583,10 +583,10 @@ mod platform {
         os::windows::{
             ffi::OsStrExt,
             fs::{MetadataExt, OpenOptionsExt},
-            io::{AsRawHandle, FromRawHandle},
+            io::{AsRawHandle, FromRawHandle, OwnedHandle},
         },
         path::Path,
-        ptr::{copy_nonoverlapping, null},
+        ptr::{copy_nonoverlapping, null, null_mut},
     };
 
     use windows_sys::{
@@ -602,8 +602,16 @@ mod platform {
         },
         Win32::{
             Foundation::{
-                HANDLE, INVALID_HANDLE_VALUE, OBJ_CASE_INSENSITIVE, RtlNtStatusToDosError,
-                UNICODE_STRING,
+                HANDLE, INVALID_HANDLE_VALUE, LocalFree, OBJ_CASE_INSENSITIVE,
+                RtlNtStatusToDosError, UNICODE_STRING,
+            },
+            Security::{
+                ACCESS_ALLOWED_ACE, ACL, ACL_SIZE_INFORMATION, AclSizeInformation,
+                Authorization::{GetSecurityInfo, SE_FILE_OBJECT},
+                CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, GetAce, GetAclInformation,
+                GetTokenInformation, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
+                SECURITY_MAX_SID_SIZE, TOKEN_QUERY, TOKEN_USER, TokenUser,
+                WinBuiltinAdministratorsSid, WinLocalSystemSid,
             },
             Storage::FileSystem::{
                 BY_HANDLE_FILE_INFORMATION, DELETE, FILE_ATTRIBUTE_NORMAL,
@@ -612,7 +620,11 @@ mod platform {
                 GetFileInformationByHandle, LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY,
                 LockFileEx, UnlockFileEx,
             },
-            System::IO::IO_STATUS_BLOCK,
+            System::{
+                IO::IO_STATUS_BLOCK,
+                SystemServices::{ACCESS_ALLOWED_ACE_TYPE, ACCESS_DENIED_ACE_TYPE},
+                Threading::{GetCurrentProcess, OpenProcessToken},
+            },
         },
     };
 
@@ -804,20 +816,218 @@ mod platform {
     }
 
     pub fn verify_private_directory(
-        _file: &File,
+        file: &File,
         _metadata: &Metadata,
     ) -> Result<(), SecureFsError> {
-        Err(SecureFsError::new(
-            SecureFsErrorCode::UnsupportedOperation,
-            "Windows owner/DACL privacy verification requires runtime-reviewed ACL policy",
-        ))
+        verify_windows_private(file)
     }
 
-    pub fn verify_private_file(_file: &File, _metadata: &Metadata) -> Result<(), SecureFsError> {
-        Err(SecureFsError::new(
-            SecureFsErrorCode::UnsupportedOperation,
-            "Windows owner/DACL privacy verification requires runtime-reviewed ACL policy",
-        ))
+    pub fn verify_private_file(file: &File, _metadata: &Metadata) -> Result<(), SecureFsError> {
+        verify_windows_private(file)
+    }
+
+    fn verify_windows_private(file: &File) -> Result<(), SecureFsError> {
+        const MAX_PRIVATE_ACES: u32 = 256;
+
+        let token = current_process_token()?;
+        let mut required = 0u32;
+        // SAFETY: the null probe requests only the required byte length.
+        let _ = unsafe {
+            GetTokenInformation(
+                token.as_raw_handle(),
+                TokenUser,
+                null_mut(),
+                0,
+                &raw mut required,
+            )
+        };
+        if required == 0 {
+            return Err(io_error(
+                "size Windows token user information",
+                std::io::Error::last_os_error(),
+            ));
+        }
+        let token_words = (required as usize).div_ceil(size_of::<usize>());
+        let mut token_buffer = vec![0usize; token_words];
+        // SAFETY: the aligned buffer is at least the byte count returned by the
+        // sizing call and remains live while its embedded SID is inspected.
+        if unsafe {
+            GetTokenInformation(
+                token.as_raw_handle(),
+                TokenUser,
+                token_buffer.as_mut_ptr().cast(),
+                required,
+                &raw mut required,
+            )
+        } == 0
+        {
+            return Err(io_error(
+                "read Windows token user information",
+                std::io::Error::last_os_error(),
+            ));
+        }
+        // SAFETY: successful TokenUser output begins with TOKEN_USER.
+        let user_sid = unsafe { (*(token_buffer.as_ptr().cast::<TOKEN_USER>())).User.Sid };
+        if user_sid.is_null() {
+            return Err(private_policy_error("Windows token user SID is absent"));
+        }
+
+        let system_sid = well_known_sid(WinLocalSystemSid)?;
+        let administrators_sid = well_known_sid(WinBuiltinAdministratorsSid)?;
+        let mut owner: PSID = null_mut();
+        let mut dacl: *mut ACL = null_mut();
+        let mut descriptor: PSECURITY_DESCRIPTOR = null_mut();
+        // SAFETY: the file handle is live and output pointers remain valid until
+        // the LocalFree-owned security descriptor guard is dropped.
+        let result = unsafe {
+            GetSecurityInfo(
+                file.as_raw_handle(),
+                SE_FILE_OBJECT,
+                OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+                &raw mut owner,
+                null_mut(),
+                &raw mut dacl,
+                null_mut(),
+                &raw mut descriptor,
+            )
+        };
+        if result != 0 {
+            return Err(io_error(
+                "query Windows owner and DACL",
+                std::io::Error::from_raw_os_error(result as i32),
+            ));
+        }
+        let _descriptor = LocalDescriptor(descriptor);
+        if owner.is_null() || dacl.is_null() {
+            return Err(private_policy_error(
+                "Windows private object requires an owner and non-null DACL",
+            ));
+        }
+        // SAFETY: all SIDs are live and came from successful Windows APIs.
+        if unsafe { EqualSid(owner, user_sid) } == 0 {
+            return Err(private_policy_error(
+                "Windows private object owner does not match the process user",
+            ));
+        }
+
+        let mut information = ACL_SIZE_INFORMATION::default();
+        // SAFETY: dacl belongs to the live descriptor and information has the
+        // exact ACL_SIZE_INFORMATION layout.
+        if unsafe {
+            GetAclInformation(
+                dacl,
+                (&raw mut information).cast(),
+                size_of::<ACL_SIZE_INFORMATION>() as u32,
+                AclSizeInformation,
+            )
+        } == 0
+        {
+            return Err(io_error(
+                "query Windows DACL size information",
+                std::io::Error::last_os_error(),
+            ));
+        }
+        if information.AceCount == 0 || information.AceCount > MAX_PRIVATE_ACES {
+            return Err(private_policy_error(
+                "Windows private DACL has an empty or excessive ACE set",
+            ));
+        }
+
+        let mut user_allow_present = false;
+        for index in 0..information.AceCount {
+            let mut raw_ace = null_mut();
+            // SAFETY: index is below the ACE count reported for this live DACL.
+            if unsafe { GetAce(dacl, index, &raw mut raw_ace) } == 0 || raw_ace.is_null() {
+                return Err(io_error(
+                    "read Windows DACL ACE",
+                    std::io::Error::last_os_error(),
+                ));
+            }
+            // SAFETY: every ACE starts with an ACE_HEADER, and GetAce returned a
+            // pointer owned by the live security descriptor.
+            let ace_type =
+                unsafe { (*(raw_ace.cast::<windows_sys::Win32::Security::ACE_HEADER>())).AceType };
+            if u32::from(ace_type) == ACCESS_DENIED_ACE_TYPE {
+                continue;
+            }
+            if u32::from(ace_type) != ACCESS_ALLOWED_ACE_TYPE {
+                return Err(private_policy_error(
+                    "Windows private DACL contains an unsupported ACE type",
+                ));
+            }
+            let allowed = raw_ace.cast::<ACCESS_ALLOWED_ACE>();
+            // SAFETY: ACCESS_ALLOWED_ACE stores the variable SID beginning at
+            // SidStart and the descriptor remains live for the comparison.
+            let sid = unsafe { (&raw mut (*allowed).SidStart).cast() };
+            // SAFETY: the compared SIDs are live and validated by Windows.
+            let is_user = unsafe { EqualSid(sid, user_sid) } != 0;
+            let is_system = unsafe { EqualSid(sid, system_sid.as_ptr().cast_mut().cast()) } != 0;
+            let is_administrator =
+                unsafe { EqualSid(sid, administrators_sid.as_ptr().cast_mut().cast()) } != 0;
+            if !(is_user || is_system || is_administrator) {
+                return Err(private_policy_error(
+                    "Windows private DACL grants access outside user, SYSTEM, or Administrators",
+                ));
+            }
+            user_allow_present |= is_user;
+        }
+        if !user_allow_present {
+            return Err(private_policy_error(
+                "Windows private DACL does not grant the process user access",
+            ));
+        }
+        Ok(())
+    }
+
+    fn current_process_token() -> Result<OwnedHandle, SecureFsError> {
+        let mut token: HANDLE = INVALID_HANDLE_VALUE;
+        // SAFETY: GetCurrentProcess returns the current pseudo-handle and the
+        // successful token handle transfers immediately to OwnedHandle.
+        if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &raw mut token) } == 0 {
+            return Err(io_error(
+                "open Windows process token",
+                std::io::Error::last_os_error(),
+            ));
+        }
+        if token.is_null() || token == INVALID_HANDLE_VALUE {
+            return Err(private_policy_error(
+                "Windows process token API returned an invalid handle",
+            ));
+        }
+        // SAFETY: OpenProcessToken returned one owned valid handle.
+        Ok(unsafe { OwnedHandle::from_raw_handle(token) })
+    }
+
+    fn well_known_sid(kind: i32) -> Result<Vec<u8>, SecureFsError> {
+        let mut sid = vec![0u8; SECURITY_MAX_SID_SIZE as usize];
+        let mut bytes = SECURITY_MAX_SID_SIZE;
+        // SAFETY: the output buffer is SECURITY_MAX_SID_SIZE bytes and the null
+        // domain SID is valid for the requested well-known local SIDs.
+        if unsafe { CreateWellKnownSid(kind, null_mut(), sid.as_mut_ptr().cast(), &raw mut bytes) }
+            == 0
+        {
+            return Err(io_error(
+                "create Windows well-known SID",
+                std::io::Error::last_os_error(),
+            ));
+        }
+        sid.truncate(bytes as usize);
+        Ok(sid)
+    }
+
+    fn private_policy_error(detail: &'static str) -> SecureFsError {
+        SecureFsError::new(SecureFsErrorCode::UnsafeDirectory, detail)
+    }
+
+    struct LocalDescriptor(PSECURITY_DESCRIPTOR);
+
+    impl Drop for LocalDescriptor {
+        fn drop(&mut self) {
+            if !self.0.is_null() {
+                // SAFETY: GetSecurityInfo allocated this descriptor with LocalAlloc.
+                let _ = unsafe { LocalFree(self.0) };
+            }
+        }
     }
 
     pub fn is_regular_file(_file: &File, metadata: &Metadata) -> Result<bool, SecureFsError> {

@@ -9,18 +9,19 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rz0_artifact_identity::revalidate_verified_artifact;
-use rz0_cancellation_contract::{ProcessDeadline, cancellation_pair};
-use rz0_module_protocol::test_transport::{
-    TestTransportRequest, TestTransportResponse, validate_test_transport_response,
-};
-
 use super::{
     capture::{Capture, drain_bounded},
     outcome::{TransportFailure, TransportSuccess, failure, failure_with_state},
     preflight::validate_preflight,
     process_isolation::{configure_test_process, contain_test_process, terminate_test_process},
     temp_root::TestRoot,
+};
+#[cfg(any(target_os = "linux", target_os = "android", windows))]
+use rz0_artifact_identity::bind_verified_executable;
+use rz0_artifact_identity::revalidate_verified_artifact;
+use rz0_cancellation_contract::{ProcessDeadline, cancellation_pair};
+use rz0_module_protocol::test_transport::{
+    TestTransportRequest, TestTransportResponse, validate_test_transport_response,
 };
 
 static PROCESS_TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -72,6 +73,12 @@ fn run_test_transport_inner(
         ));
     }
 
+    #[cfg(any(target_os = "linux", target_os = "android", windows))]
+    let executable_binding = bind_verified_executable(&verified_artifact)
+        .map_err(|error| failure("executable_binding_failed", error.to_string()))?;
+    #[cfg(any(target_os = "linux", target_os = "android", windows))]
+    let executable = executable_binding.launch_path();
+    #[cfg(not(any(target_os = "linux", target_os = "android", windows)))]
     let executable = fs::canonicalize(root.executable())
         .map_err(|error| failure("preflight_failed", error.to_string()))?;
     let working_directory = fs::canonicalize(root.work())
@@ -90,6 +97,8 @@ fn run_test_transport_inner(
     let mut child = command
         .spawn()
         .map_err(|error| failure("spawn_failed", error.to_string()))?;
+    #[cfg(any(target_os = "linux", target_os = "android", windows))]
+    drop(executable_binding);
     let containment = match contain_test_process(&child) {
         Ok(containment) => containment,
         Err(error) => {
@@ -250,7 +259,7 @@ fn run_test_transport_inner(
 }
 
 fn join_capture(
-    handle: thread::JoinHandle<std::io::Result<Capture>>,
+    handle: thread::JoinHandle<Result<Capture, rz0_process_host::ProcessHostError>>,
     code: &'static str,
     timed_out: bool,
     exit_code: Option<i32>,

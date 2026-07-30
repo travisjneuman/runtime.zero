@@ -1,23 +1,23 @@
-use std::collections::BTreeMap;
-
 use rz0_inventory_contract::{InventoryEvent, InventoryReport};
+use rz0_privacy_contract::{RedactionContext, SensitiveValueClass};
 
-pub fn redact_path_values(report: &mut InventoryReport) {
-    let mut replacements = BTreeMap::new();
-    let mut next = 1usize;
+pub fn redact_path_values(report: &mut InventoryReport) -> Result<(), String> {
+    let mut context = RedactionContext::default();
 
     for entry in &mut report.path_entries {
-        entry.path = replacement(&entry.path, &mut replacements, &mut next);
+        entry.path = context
+            .redact(SensitiveValueClass::LocalPath, &entry.path)
+            .map_err(|error| error.to_string())?;
     }
     for tool in &mut report.tools {
-        if let Some(path) = &mut tool.executable_path {
-            *path = replacement(path, &mut replacements, &mut next);
-        }
+        context
+            .redact_optional(SensitiveValueClass::LocalPath, &mut tool.executable_path)
+            .map_err(|error| error.to_string())?;
     }
     for app in &mut report.apps {
-        if let Some(path) = &mut app.install_location {
-            *path = replacement(path, &mut replacements, &mut next);
-        }
+        context
+            .redact_optional(SensitiveValueClass::LocalPath, &mut app.install_location)
+            .map_err(|error| error.to_string())?;
     }
 
     report.path_values_redacted = true;
@@ -25,21 +25,10 @@ pub fn redact_path_values(report: &mut InventoryReport) {
         level: "info".to_string(),
         code: "path_values_redacted".to_string(),
         source_id: None,
-        message: "local path values were replaced with stable report-local placeholders"
-            .to_string(),
+        message: format!(
+            "local path values were replaced with {} stable report-local placeholders",
+            context.token_count()
+        ),
     });
-}
-
-fn replacement(
-    value: &str,
-    replacements: &mut BTreeMap<String, String>,
-    next: &mut usize,
-) -> String {
-    if let Some(existing) = replacements.get(value) {
-        return existing.clone();
-    }
-    let token = format!("<redacted:path:{:04}>", *next);
-    *next = next.saturating_add(1);
-    replacements.insert(value.to_string(), token.clone());
-    token
+    Ok(())
 }

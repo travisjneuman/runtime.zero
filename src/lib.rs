@@ -1,5 +1,3 @@
-use std::env;
-
 pub mod brand;
 pub mod color_mode;
 pub mod dashboard_cli;
@@ -66,7 +64,7 @@ where
         None => (ExitCode::Ok, help_text(), String::new()),
         Some("--help" | "-h" | "help") => (ExitCode::Ok, help_text(), String::new()),
         Some("--version" | "-V" | "version") => (ExitCode::Ok, version_text(), String::new()),
-        Some("doctor") => (ExitCode::Ok, doctor_text(), String::new()),
+        Some("doctor") => doctor_command(&args[1..]),
         Some("modules") => module_cli::modules_command(&args[1..]),
         Some("store") => store_cli::store_command(&args[1..]),
         Some("scan") => scan_command(&args[1..]),
@@ -86,7 +84,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--format json]\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--format json]\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
@@ -95,20 +93,54 @@ pub fn help_text() -> String {
 }
 
 pub fn doctor_text() -> String {
-    let current_dir = env::current_dir()
-        .map(|path| path.display().to_string())
-        .unwrap_or_else(|_| "unavailable".to_string());
+    rz0_diagnostics_contract::diagnostic_text(&doctor_report())
+}
 
-    format!(
-        "{title} doctor\n\nstatus: phase-3 inventory-source-package\ncommand: {cmd}\nversion: {version}\nos: {os}\narch: {arch}\ncurrent_dir: {current_dir}\nsafety: {safety}\nmutation_capability: explicit_store_init_only\nmodule_mutation_capability: disabled\ncloudflare_automation: not configured\ngithub_actions: not configured\n",
-        title = brand::TITLE,
-        cmd = brand::COMMAND,
-        version = env!("CARGO_PKG_VERSION"),
-        os = env::consts::OS,
-        arch = env::consts::ARCH,
-        current_dir = current_dir,
-        safety = brand::SAFETY_POSTURE
+pub fn doctor_report() -> rz0_diagnostics_contract::DiagnosticReport {
+    rz0_diagnostics_contract::foundation_diagnostics(
+        brand::TITLE,
+        brand::COMMAND,
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH,
     )
+}
+
+fn doctor_command(args: &[String]) -> (ExitCode, String, String) {
+    let report = doctor_report();
+    let validation = rz0_diagnostics_contract::validate_diagnostic_report(&report);
+    if !validation.valid {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "foundation diagnostics failed internal validation\n".to_string(),
+        );
+    }
+    match args {
+        [] => (
+            ExitCode::Ok,
+            rz0_diagnostics_contract::diagnostic_text(&report),
+            String::new(),
+        ),
+        [format, value] if format == "--format" && value == "json" => {
+            match rz0_diagnostics_contract::diagnostic_json(&report) {
+                Ok(json) => (ExitCode::Ok, json, String::new()),
+                Err(_) => (
+                    ExitCode::Usage,
+                    String::new(),
+                    "failed to serialize foundation diagnostics\n".to_string(),
+                ),
+            }
+        }
+        _ => (
+            ExitCode::Usage,
+            String::new(),
+            format!(
+                "unsupported doctor option\n\nUsage: {} doctor [--format json]\n",
+                brand::COMMAND
+            ),
+        ),
+    }
 }
 
 fn unknown_command(command: &str) -> (ExitCode, String, String) {

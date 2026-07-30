@@ -70,6 +70,7 @@ fn parse_args(args: &[String]) -> Result<ParsedCommand, String> {
                 command.options.fixture = Some(PathBuf::from(path));
             }
             "--redact-paths" => command.options.redact_paths = true,
+            "--include-raw-paths" => command.options.redact_paths = false,
             "--probe-versions" => command.options.probe_versions = true,
             "--include-apps" => command.options.include_apps = true,
             value => return Err(format!("unsupported inventory option '{value}'")),
@@ -83,7 +84,7 @@ fn parse_args(args: &[String]) -> Result<ParsedCommand, String> {
 }
 
 fn usage() -> String {
-    "Usage: rz0-inventory [--format text|json] [--redact-paths]\n       rz0-inventory --fixture <local.json> [--format text|json] [--redact-paths]\n       rz0-inventory --probe-versions [--format text|json] [--redact-paths]\n       rz0-inventory --include-apps [--format text|json] [--redact-paths]\n\nSafety:\n  Read-only local inventory. PATH and registry values are never changed.\n  Version probes are opt-in, timeout-bounded, and run exact discovered paths.\n  Platform app evidence is opt-in; raw registry keys are never emitted.\n  Use --redact-paths and review opt-in app names before sharing output.\n"
+    "Usage: rz0-inventory [--format text|json] [--include-raw-paths]\n       rz0-inventory --fixture <local.json> [--format text|json] [--include-raw-paths]\n       rz0-inventory --probe-versions [--format text|json] [--include-raw-paths]\n       rz0-inventory --include-apps [--format text|json] [--include-raw-paths]\n\nSafety:\n  Read-only local inventory. PATH and registry values are never changed.\n  Paths are report-locally redacted by default; raw paths require an explicit flag.\n  Version probes are opt-in, timeout-bounded, and run exact discovered paths.\n  Platform app evidence is opt-in; raw registry keys are never emitted.\n  Review raw-path or app-name output before sharing it.\n"
         .to_string()
 }
 
@@ -118,6 +119,17 @@ mod tests {
         assert_eq!(parsed.format, OutputFormat::Json);
         assert_eq!(parsed.options.fixture, Some(PathBuf::from("fixture.json")));
         assert!(parsed.options.redact_paths);
+    }
+
+    #[test]
+    fn raw_paths_require_an_explicit_local_flag() {
+        assert!(parse_args(&[]).unwrap().options.redact_paths);
+        assert!(
+            !parse_args(&["--include-raw-paths".to_string()])
+                .unwrap()
+                .options
+                .redact_paths
+        );
     }
 
     #[test]

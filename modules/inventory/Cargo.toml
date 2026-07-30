@@ -11,6 +11,7 @@ publish = false
 
 [dependencies]
 rz0-inventory-contract = { version = "0.1.0", path = "../../crates/inventory-contract" }
+rz0-privacy-contract = { version = "0.1.0", path = "../../crates/privacy-contract" }
 rz0-resource-contract = { version = "0.1.0", path = "../../crates/resource-contract" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

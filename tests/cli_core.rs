@@ -14,9 +14,26 @@ fn doctor_is_read_only_bootstrap_diagnostic() {
     let (code, out, err) = run(["doctor"]);
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
-    assert!(out.contains("mutation_capability: explicit_store_init_only"));
-    assert!(out.contains("module_mutation_capability: disabled"));
-    assert!(out.contains("github_actions: not configured"));
+    assert!(out.contains("contract: foundation_diagnostics"));
+    assert!(out.contains("read_only: true"));
+    assert!(out.contains("production_execution_authorized: false"));
+    assert!(out.contains("module_execution_policy: blocked"));
+    assert!(!out.contains("current_dir:"));
+}
+
+#[test]
+fn doctor_json_is_versioned_and_private_by_default() {
+    let (code, out, err) = run(["doctor", "--format", "json"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("doctor JSON");
+    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["contract"], "foundation_diagnostics");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["privacy"]["hostname_included"], false);
+    assert_eq!(value["privacy"]["current_directory_included"], false);
+    assert!(!out.contains("/Users/"));
 }
 
 #[test]
