@@ -27,7 +27,7 @@ Every release candidate should produce, locally before publication:
 1. deterministic versioned archives/packages per target;
 2. SHA-256 checksums generated from final bytes;
 3. an SPDX or CycloneDX SBOM;
-4. license/notices inventory;
+4. target-filtered license/notices evidence with final legal review;
 5. artifact content and secret/private-path scan;
 6. build metadata and source commit binding;
 7. reproducibility comparison where the toolchain/platform permits it;
@@ -67,8 +67,9 @@ Initial no-cost artifacts should be:
 - Windows: portable `rz0.exe` ZIP first; an unsigned installer only after its
   install/uninstall/rollback behavior is fully exercised and warnings documented.
 - macOS: architecture-specific tar archives and a universal archive when
-  reproducibly available; optional unsigned/adhoc-signed DMG after clean-host
-  tests.
+  reproducibly available; the local unsigned DMG builder consumes the canonical
+  ZIP and binds deterministic content, but release use still requires clean-host
+  tests and must disclose `hdiutil` container variance.
 - Linux: architecture-specific tar archives, then DEB and RPM packages; Arch
   `PKGBUILD`/package artifacts after pacman lifecycle tests.
 

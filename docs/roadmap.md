@@ -82,8 +82,11 @@ See [`action-planning.md`](action-planning.md).
 - [x] Bounded macOS application-bundle and Linux desktop-entry adapters.
 - [ ] macOS/Linux package-manager, service, and persistence inventory adapters.
 - [ ] Real Linux application runtime and Windows/full cross-platform compatibility matrix.
-- [ ] Artifact-level license/notice and reproducibility audit; source dependency
-  vulnerability/license metadata audit is recorded.
+- [x] Deterministic target-filtered SPDX 2.3 and deduplicated package license/
+  notice evidence generation bound to the exact final binary and artifact
+  manifest.
+- [ ] Final per-target legal/license and artifact reproducibility review; native
+  generation is local evidence, not release approval.
 - [x] Shared foundation capability vocabulary with disjoint read-only protocol/
   manifest and action-plan schema subsets; classification grants no authority.
 - [x] Shared typed machine-error vocabulary with redacted-detail defaults and no

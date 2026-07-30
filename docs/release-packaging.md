@@ -39,8 +39,9 @@ The wrapper builds `rz0` in release mode and calls
   modern Windows x86 target;
 - requires a full source commit and bounded version;
 - rejects symlinked/non-regular or oversized binary/document inputs;
-- embeds only `rz0`, README, license, safety/security policy, and a strict
-  artifact manifest;
+- embeds `rz0`, public policy files, target-filtered SPDX 2.3 JSON, deduplicated
+  third-party license/notice evidence, and a strict artifact manifest;
+- binds SBOM/notices size and SHA-256 into the artifact manifest;
 - writes a deterministic, sorted ZIP with fixed metadata;
 - emits a separate SHA-256 checksum;
 - uses create-new publication and refuses occupied artifact paths;
@@ -48,16 +49,26 @@ The wrapper builds `rz0` in release mode and calls
 - performs no upload, signing, account access, installation, deployment, or
   release creation.
 
-The current native Apple Silicon package was independently generated twice with
-identical ZIP bytes, checksum-verified, extracted into a clean temporary root,
-and exercised with `rz0 --version` and `rz0 doctor`. The Windows-7-baseline crates and custom standard library pass cross-target
+`scripts/generate_release_metadata.py` traverses the Cargo metadata graph from
+only the `runtime-zero` package, excludes dev-only edges, filters the selected
+target, binds the exact final binary, and emits deterministic SPDX and notice
+bytes. Registry checksums come from `Cargo.lock`; license/notice texts are read
+only from direct package roots, bounded, hashed, and deduplicated. Missing text
+remains explicit rather than being silently invented. This is evidence for
+release/legal review, not legal advice.
+
+The native Apple Silicon package has been independently generated twice with
+identical ZIP, SBOM, and notices bytes, checksum-verified, extracted into a clean
+temporary root, and exercised with `rz0 --version`, `rz0 doctor`, and the dry-run
+scan. The Windows-7-baseline crates and custom standard library pass cross-target
 workspace checks for x86 and x86-64; linked EXEs still require the Windows build
 runner. Other targets still require link-capable build runners and artifact-only runtime hosts; `cargo check` is not
 an executable artifact.
 
 The DMG builder first creates and checksum-verifies the canonical portable ZIP,
 then rejects missing/extra/duplicate/traversal/symlink/oversized entries before
-preparing fixed-metadata content. The mounted image contains the original
+preparing fixed-metadata content. SBOM and third-party notices are mandatory
+members and their manifest digests are revalidated. The mounted image contains the original
 artifact manifest plus `dmg-manifest.json`, which binds source ZIP, source commit,
 target, binary content set, unsigned/notarized posture, and a deterministic
 content digest. Unit tests cover valid preparation, checksum mismatch,

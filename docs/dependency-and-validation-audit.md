@@ -30,6 +30,9 @@ Validated with Rust/Cargo 1.96.0:
 - opt-in version-probe smoke with redacted output;
 - pseudo-terminal TUI navigation/help/quit/alternate-screen restoration smoke;
 - static site checks for unsafe JavaScript primitives and missing local links;
+- deterministic target-filtered SPDX 2.3 and deduplicated third-party license/
+  notice generation bound to the final native binary;
+- adversarial checksum/entry/traversal/symlink DMG-content preparation tests;
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
@@ -165,7 +168,9 @@ no duplicate terminal-control stack.
 - Real Windows registry/app/version-timeout/redaction runtime tests.
 - Real Linux desktop-entry/application and terminal runtime smoke; broader
   macOS terminal compatibility beyond the current inventory smoke.
-- Artifact-level license/notice and reproducibility checks.
+- Final legal review of generated artifact-level license/notice evidence and
+  reproducibility checks on every target; native target-filtered generation is
+  deterministic local evidence only.
 - Signed provenance/key lifecycle and revocation design implementation.
 - Linux/Windows executable-binding runtime proof, a reviewed macOS handle-to-
   spawn primitive, descriptor/handle-inheritance race closure, Windows suspended-
