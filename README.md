@@ -132,7 +132,11 @@ through the same returned handle and can issue a non-authorizing Linux/Windows
 spawn-identity lease; macOS deliberately remains unsupported pending an exact
 primitive. `crates/capability-contract/` supplies one shared least-privilege vocabulary
 for manifests, protocols, and action plans while granting no authority.
-`crates/confirmation-contract/` binds validated plan/dry-run/write-set/state
+`crates/cancellation-contract/` provides a one-atomic first-reason cancellation
+and monotonic-deadline primitive. `crates/module-lifecycle/` owns dry-run,
+digest-bound install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall
+transitions and their exact foundation gates. `crates/confirmation-contract/`
+binds validated plan/dry-run/write-set/state
 hashes to a five-minute interactive phrase and single-use consumption record
 while remaining unable to authorize execution. `crates/transaction-contract/`
 supplies a bounded hash-chained state machine, exclusive immutable snapshots,
@@ -150,6 +154,8 @@ canonical installed-state shape and digest. `crates/release-contract/` generates
 12-stage evidence ledger while remaining unable to authorize release. See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),
 [`docs/capability-contract.md`](docs/capability-contract.md),
+[`docs/cancellation-contract.md`](docs/cancellation-contract.md),
+[`docs/module-lifecycle-contract.md`](docs/module-lifecycle-contract.md),
 [`docs/confirmation-contract.md`](docs/confirmation-contract.md),
 [`docs/error-contract.md`](docs/error-contract.md),
 [`docs/resource-contract.md`](docs/resource-contract.md),

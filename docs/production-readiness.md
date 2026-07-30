@@ -165,18 +165,23 @@ parallel once its shared foundation dependency is stable.
    Implement production signatures, key policy,
    provenance, freshness, transparency, and revocation.
 4. Implement platform process/handle/tree containment, capability enforcement,
-   sandbox/elevation policy, network policy, cancellation, and resource limits.
+   sandbox/elevation policy, and network policy. A one-atomic cancellation/
+   deadline primitive exists and drives guarded timeout polling; production host
+   propagation and teardown evidence remain.
 5. Implement crash-safe staging, journals, receipts, atomic state, quarantine,
    rollback, idempotency, and interrupted recovery. The bounded hash-chained
    state machine now has exclusive immutable snapshot publication/recovery,
    opened-parent operations, a canonical registry contract, durable single-use
    confirmation, exact commit receipts, rollback copies, registry-last atomic
    coordination, idempotent final-state recognition, and non-authorizing commit
-   recovery assessment. Windows owner/DACL and flush proof, boundary-complete
-   fault injection, recovery/rollback execution, cancellation, and platform
-   power-loss evidence remain.
-6. Implement foundation-owned module install, activation, invocation,
-   deactivation, repair, migration, upgrade, and uninstall.
+   recovery assessment. Eight-boundary deterministic fault injection and an
+   exact fresh-confirmation path for interrupted final registry publication now
+   exist. Windows owner/DACL and flush proof, rollback execution, cancellation
+   through write boundaries, and platform power-loss evidence remain.
+6. Implement foundation-owned module lifecycle execution. Digest-bound dry-run
+   transitions and exact gates now cover install, activation, invocation,
+   deactivation, repair, migration, upgrade, and uninstall; no operation is yet
+   authorized.
 7. Complete inventory/environment parity on all platforms; use its normalized
    evidence as the prerequisite for mutating modules.
 8. Implement updater, uninstall, leftovers, cache, security/integrity, and

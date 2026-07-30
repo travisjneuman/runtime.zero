@@ -116,7 +116,8 @@ concurrently while memory retention stays bounded. Tests cover:
 - malformed output and nonzero exit rejection;
 - a stderr burst large enough to exercise concurrent draining;
 - stdout/stderr flooding with continued draining and fail-closed byte ceilings;
-- deadline enforcement followed by direct-child kill and reap;
+- allocation-minimal shared cancellation/deadline polling followed by direct-
+  child kill and reap;
 - process-tree timeout teardown that terminates a helper-spawned sleeping
   descendant and closes its inherited pipes: a fresh process group on Unix and
   a private kill-on-close Job Object with a bounded active-process count on
@@ -146,7 +147,8 @@ The test lane deliberately does **not** claim production isolation:
   `FD_CLOEXEC` clear, but a descriptor created after that audit remains a race;
   Windows inherited-handle auditing is not implemented;
 - Unix tests assign the helper to a fresh process group and kill the group on
-  timeout, but the host reaps only its direct child;
+  timeout, but the host reaps only its direct child; the shared cancellation
+  token is not yet a production host or platform teardown implementation;
 - Windows-target test support assigns the stdin-blocked helper to a private
   kill-on-close Job Object before behavior dispatch and terminates that job on
   timeout, but this has compile evidence only: it is not real Windows runtime

@@ -84,8 +84,12 @@ journal-head, and registry evidence. The foundation commit coordinator verifies
 those exact documents, stores rollback and pending registry evidence, synchronizes
 the create-new receipt, and atomically publishes canonical registry state last.
 It is not wired to production execution. Every recovery assessment, receipt, and
-coordinator result refuses to authorize automatic mutation. Modules may
-not create private transaction, writer-lock, or recovery engines.
+coordinator result refuses to authorize automatic mutation. Deterministic test
+faults cover every commit boundary. Interrupted final registry publication can
+resume only from exact durable evidence after a new five-minute interactive
+recovery challenge; the recovery function cannot execute plan writes or
+rollback. Modules may not create private transaction, writer-lock, cancellation,
+lifecycle, or recovery engines.
 
 The schema-1 module process protocol still authorizes no module execution.
 Valid plans are unauthorized/unattempted read-only offline previews with exact

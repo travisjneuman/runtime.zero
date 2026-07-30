@@ -129,8 +129,12 @@ See [`action-planning.md`](action-planning.md).
   registry digests.
 - [x] Durably consume confirmation, publish commit receipts, retain prior registry
   recovery bytes, and atomically publish a canonical validated registry last.
-- [ ] Add boundary-complete coordinator fault injection, explicit recovery
-  execution, cancellation, and process/power-loss proof on every platform.
+- [x] Add deterministic fault injection at all eight commit boundaries and a
+  fresh interactive approval path for exact interrupted registry-last completion.
+- [x] Add an allocation-minimal first-writer-wins cancellation/deadline primitive
+  and consume it in guarded process timeout polling.
+- [ ] Propagate cancellation through production process/write hosts and prove
+  real process/power-loss recovery and rollback on every platform.
 - [x] Add a non-authorizing borrow-scoped executable binding: Linux held `/proc`
   descriptor path, Windows deny-write/delete handle lease, and fail-closed macOS.
 - [ ] Integrate and adversarially prove Linux/Windows binding in the contained
@@ -153,6 +157,9 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
   contract with deterministic IDs and blocked-only schema-1 release posture.
 - [ ] Freeze the exact RC target snapshot and measured budgets, then populate
   every acceptance ID with reviewed evidence or evidence-backed not-applicable.
+- [x] Define foundation-owned digest-bound dry-run transitions and exact gates
+  for install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall; embed
+  the install transition in the core planner.
 - [ ] Complete every lifecycle stage for inventory/environment, updater,
   uninstall, leftovers, cache, security/integrity, and report/export on Windows,
   macOS, and Linux.

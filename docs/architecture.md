@@ -45,7 +45,10 @@ recursively scan drives. See
 
 `crates/capability-contract/` owns the shared read/action capability vocabulary
 used by manifests, protocols, and plans while granting no authority.
-`crates/confirmation-contract/` owns exact short-lived interactive plan binding,
+`crates/cancellation-contract/` owns one atomic first-writer-wins cancellation
+and monotonic-deadline primitive. `crates/module-lifecycle/` owns digest-bound
+install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall transition
+plans and exact foundation gate sets. `crates/confirmation-contract/` owns exact short-lived interactive plan binding,
 response digests, and single-use consumption evidence without execution authority.
 `crates/error-contract/` owns stable machine codes and conservative privacy/retry
 semantics; human messages are not policy. `crates/resource-contract/` owns

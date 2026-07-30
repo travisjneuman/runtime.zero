@@ -28,6 +28,17 @@ Core primitives are not feature modules. `core.cli`, `core.policy`, and
 `core.registry` describe the foundation. Optional modules are listed separately
 and are not bundled, installed, or executed by default.
 
+## Foundation lifecycle ownership
+
+`crates/module-lifecycle/` owns the only schema-1 transition grammar for install,
+activate, invoke, deactivate, repair, migrate, upgrade, and uninstall. Active
+modules must deactivate before upgrade or uninstall. Every mutation remains dry-
+run-only and binds identity, trust, capability, confirmation, transaction,
+rollback, and where required process-isolation gates. Modules supply domain
+behavior; they must not implement lifecycle state machines, cancellation
+engines, registries, receipts, or transaction coordinators. See
+[`module-lifecycle-contract.md`](module-lifecycle-contract.md).
+
 ## Current registry surface
 
 ```bash
