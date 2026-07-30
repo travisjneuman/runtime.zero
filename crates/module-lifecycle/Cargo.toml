@@ -1,0 +1,17 @@
+[package]
+name = "rz0-module-lifecycle"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "Foundation-owned module lifecycle transition plans for runtime.zero"
+license = "Apache-2.0"
+publish = false
+rust-version = "1.96"
+
+[dependencies]
+rz0-validation-contract = { version = "0.1.0", path = "../validation-contract" }
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+serde_json = "1.0"

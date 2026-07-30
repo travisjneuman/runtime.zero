@@ -10,6 +10,7 @@ use std::{
 };
 
 use rz0_artifact_identity::revalidate_verified_artifact;
+use rz0_cancellation_contract::{ProcessDeadline, cancellation_pair};
 use rz0_module_protocol::test_transport::{
     TestTransportRequest, TestTransportResponse, validate_test_transport_response,
 };
@@ -110,12 +111,25 @@ fn run_test_transport_inner(
     let stderr_limit = request.preview.limits.stderr_bytes;
     let stderr_reader = thread::spawn(move || drain_bounded(child_stderr, stderr_limit));
 
-    let deadline = Instant::now() + Duration::from_millis(request.preview.limits.timeout_ms);
+    let started = Instant::now();
+    let (_, cancellation) = cancellation_pair();
+    let deadline = ProcessDeadline::new(
+        0,
+        request.preview.limits.timeout_ms,
+        rz0_resource_contract::ProcessLimitCeilings::MODULE_SCHEMA_ONE.timeout_ms,
+    )
+    .map_err(|error| failure("deadline_failed", format!("{error:?}")))?;
     let mut timed_out = false;
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(5)),
+            Ok(None)
+                if cancellation
+                    .poll(started.elapsed().as_millis() as u64, deadline)
+                    .is_none() =>
+            {
+                thread::sleep(Duration::from_millis(5));
+            }
             Ok(None) => {
                 timed_out = true;
                 let _ = terminate_test_process(&mut child, &containment);

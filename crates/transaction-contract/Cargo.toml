@@ -8,6 +8,9 @@ license = "Apache-2.0"
 publish = false
 rust-version = "1.96"
 
+[features]
+fault-injection = []
+
 [dependencies]
 rz0-action-plan = { version = "0.1.0", path = "../action-plan" }
 rz0-confirmation-contract = { version = "0.1.0", path = "../confirmation-contract" }

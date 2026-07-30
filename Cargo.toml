@@ -18,9 +18,11 @@ members = [
     "crates/action-plan",
     "crates/artifact-identity",
     "crates/capability-contract",
+    "crates/cancellation-contract",
     "crates/confirmation-contract",
     "crates/error-contract",
     "crates/inventory-contract",
+    "crates/module-lifecycle",
     "crates/module-protocol",
     "crates/module-trust",
     "crates/release-contract",
@@ -37,6 +39,7 @@ crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm_0_29"] }
 rz0-capability-contract = { version = "0.1.0", path = "crates/capability-contract" }
 rz0-inventory-contract = { version = "0.1.0", path = "crates/inventory-contract" }
+rz0-module-lifecycle = { version = "0.1.0", path = "crates/module-lifecycle" }
 rz0-registry-contract = { version = "0.1.0", path = "crates/registry-contract" }
 rz0-resource-contract = { version = "0.1.0", path = "crates/resource-contract" }
 rz0-secure-fs = { version = "0.1.0", path = "crates/secure-fs" }

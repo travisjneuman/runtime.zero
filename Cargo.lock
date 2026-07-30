@@ -693,6 +693,7 @@ dependencies = [
  "ratatui",
  "rz0-capability-contract",
  "rz0-inventory-contract",
+ "rz0-module-lifecycle",
  "rz0-registry-contract",
  "rz0-resource-contract",
  "rz0-secure-fs",
@@ -760,6 +761,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rz0-cancellation-contract"
+version = "0.1.0"
+dependencies = [
+ "rz0-error-contract",
+]
+
+[[package]]
 name = "rz0-capability-contract"
 version = "0.1.0"
 dependencies = [
@@ -805,11 +813,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rz0-module-lifecycle"
+version = "0.1.0"
+dependencies = [
+ "rz0-validation-contract",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "rz0-module-protocol"
 version = "0.1.0"
 dependencies = [
  "libc",
  "rz0-artifact-identity",
+ "rz0-cancellation-contract",
  "rz0-capability-contract",
  "rz0-error-contract",
  "rz0-resource-contract",

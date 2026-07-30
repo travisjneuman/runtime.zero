@@ -1,3 +1,6 @@
+use rz0_module_lifecycle::{
+    ModuleLifecycleOperation, ModuleLifecyclePlan, ModuleLifecycleState, module_lifecycle_plan,
+};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
@@ -20,6 +23,7 @@ pub struct ModuleInstallPlanReport {
     pub store: ModuleStorePlan,
     pub launch_context: LaunchRoutingReport,
     pub validation: ManifestValidationReport,
+    pub lifecycle: Option<ModuleLifecyclePlan>,
     pub planned_actions: Vec<PlannedInstallAction>,
     pub errors: Vec<String>,
     pub warnings: Vec<String>,
@@ -67,6 +71,15 @@ fn build_report(
     let store = store_plan(&manifest_path, &validation);
     let proposed_module_dir = store.module_dir.clone();
     validate_manifest_for_install_plan(&validation, &mut errors);
+    let lifecycle = if errors.is_empty() {
+        install_lifecycle(&store, &validation)
+            .map_err(|lifecycle_errors| {
+                errors.extend(lifecycle_errors);
+            })
+            .ok()
+    } else {
+        None
+    };
     let valid = errors.is_empty();
     let actions = if valid {
         planned_actions(&validation, proposed_module_dir.as_deref())
@@ -86,11 +99,32 @@ fn build_report(
         store,
         launch_context: cli_subcommand_report("modules install --dry-run"),
         validation,
+        lifecycle,
         planned_actions: actions,
         errors,
         warnings,
         safety_note: "Dry-run planner only; no files, registry entries, PATH, services, tasks, or module code were changed.",
     }
+}
+
+fn install_lifecycle(
+    store: &ModuleStorePlan,
+    validation: &ManifestValidationReport,
+) -> Result<ModuleLifecyclePlan, Vec<String>> {
+    let manifest = validation
+        .manifest
+        .as_ref()
+        .ok_or_else(|| vec!["install lifecycle requires a validated manifest".to_string()])?;
+    module_lifecycle_plan(
+        format!("{}-install", store.plan_id),
+        manifest.id.clone(),
+        ModuleLifecycleOperation::Install,
+        ModuleLifecycleState::Absent,
+        ModuleLifecycleState::InstalledInactive,
+        None,
+        Some(manifest.version.clone()),
+    )
+    .map_err(|validation| validation.errors)
 }
 
 fn store_plan(manifest_path: &Path, validation: &ManifestValidationReport) -> ModuleStorePlan {
@@ -224,6 +258,9 @@ mod tests {
                 .contains("installed-modules.json")
         );
         assert!(report.store.receipt_path.is_some());
+        let lifecycle = report.lifecycle.as_ref().expect("lifecycle plan");
+        assert_eq!(lifecycle.operation, ModuleLifecycleOperation::Install);
+        assert!(!lifecycle.product_execution_authorized);
         assert_eq!(
             report.launch_context.launch_mode,
             crate::launch_routing::LaunchMode::CliSubcommand

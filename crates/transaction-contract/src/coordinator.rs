@@ -9,6 +9,8 @@ use rz0_registry_contract::{
     InstalledRegistry, bytes_sha256, canonical_registry_bytes, parse_registry_document,
 };
 use rz0_secure_fs::{SecureDirectory, SecureFileLock, SecureFsError, SecureFsErrorCode};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::{
     TransactionCommitReceipt, TransactionJournal, TransactionOperation, TransactionState,
@@ -24,6 +26,11 @@ const CONFIRMATION_LOCK_NAME: &str = ".confirmation.lock";
 const CONFIRMATION_NAME: &str = "confirmation.json";
 const REGISTRY_BEFORE_NAME: &str = "registry-before.json";
 const REGISTRY_NEXT_NAME: &str = "registry-next.json";
+const RECOVERY_APPROVAL_NAME: &str = "registry-recovery-approval.json";
+pub const COMMIT_RECOVERY_SCHEMA_VERSION: u16 = 1;
+pub const COMMIT_RECOVERY_CHALLENGE_CONTRACT: &str = "commit_recovery_challenge";
+pub const COMMIT_RECOVERY_RESPONSE_CONTRACT: &str = "commit_recovery_response";
+pub const MAX_COMMIT_RECOVERY_TTL_SECONDS: u64 = 300;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CoordinatorErrorCode {
@@ -69,6 +76,19 @@ pub struct ConfirmationPublication {
 pub enum CommitPublicationStatus {
     Committed,
     AlreadyCommitted,
+    RecoveredCommitted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommitFaultPoint {
+    AfterEvidenceValidation,
+    AfterCommitLock,
+    AfterDurableEvidenceVerification,
+    AfterPriorRegistryBackup,
+    AfterPendingRegistry,
+    AfterCommitReceipt,
+    AfterRegistryPublication,
+    AfterFinalVerification,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -111,6 +131,63 @@ pub struct CommitRecoveryAssessment {
     pub pending_registry_present: bool,
     pub rollback_registry_present: bool,
     pub automatic_mutation_authorized: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitRecoveryAction {
+    CompleteRegistryPublication,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CommitRecoveryChallenge {
+    pub schema_version: u16,
+    pub contract: String,
+    pub challenge_id: String,
+    pub transaction_id: String,
+    pub assessment_sha256: String,
+    pub receipt_binding_sha256: String,
+    pub action: CommitRecoveryAction,
+    pub issued_unix_seconds: u64,
+    pub expires_unix_seconds: u64,
+    pub expected_phrase: String,
+    pub challenge_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CommitRecoveryResponse {
+    pub schema_version: u16,
+    pub contract: String,
+    pub challenge_id: String,
+    pub challenge_sha256: String,
+    pub confirmed_unix_seconds: u64,
+    pub phrase: String,
+    pub interactive: bool,
+    pub single_use: bool,
+    pub execution_authorized: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CommitRecoveryInput<'a> {
+    pub committed_journal: &'a TransactionJournal,
+    pub consumption: &'a ConfirmationConsumption,
+    pub receipt: &'a TransactionCommitReceipt,
+    pub next_registry: &'a InstalledRegistry,
+    pub assessment: &'a CommitRecoveryAssessment,
+    pub challenge: &'a CommitRecoveryChallenge,
+    pub response: &'a CommitRecoveryResponse,
+    pub now_unix_seconds: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct DurableRecoveryApproval {
+    challenge: CommitRecoveryChallenge,
+    response: CommitRecoveryResponse,
+    response_sha256: String,
+    automatic_mutation_authorized: bool,
 }
 
 /// Durably consumes one exact confirmation after the prepared journal exists
@@ -197,6 +274,23 @@ pub fn publish_committed_state(
     state_root: &Path,
     input: CommitCoordinatorInput<'_>,
 ) -> Result<CommitPublication, CoordinatorError> {
+    publish_committed_state_inner(state_root, input, |_| false)
+}
+
+#[cfg(feature = "fault-injection")]
+pub fn publish_committed_state_with_fault(
+    state_root: &Path,
+    input: CommitCoordinatorInput<'_>,
+    fault: impl FnMut(CommitFaultPoint) -> bool,
+) -> Result<CommitPublication, CoordinatorError> {
+    publish_committed_state_inner(state_root, input, fault)
+}
+
+fn publish_committed_state_inner(
+    state_root: &Path,
+    input: CommitCoordinatorInput<'_>,
+    mut fault: impl FnMut(CommitFaultPoint) -> bool,
+) -> Result<CommitPublication, CoordinatorError> {
     let CommitCoordinatorInput {
         committed_journal,
         action_plan,
@@ -222,6 +316,7 @@ pub fn publish_committed_state(
         receipt,
         &registry_bytes,
     )?;
+    fault_checkpoint(&mut fault, CommitFaultPoint::AfterEvidenceValidation)?;
 
     let state = SecureDirectory::open(state_root).map_err(secure("open state root"))?;
     state
@@ -232,6 +327,7 @@ pub fn publish_committed_state(
         .map_err(secure("open commit coordinator lock"))?;
     let _lock = SecureFileLock::try_exclusive(lock_file)
         .map_err(secure("acquire commit coordinator lock"))?;
+    fault_checkpoint(&mut fault, CommitFaultPoint::AfterCommitLock)?;
     let transactions = state
         .open_child_directory(OsStr::new(TRANSACTIONS_DIRECTORY))
         .map_err(secure("open transactions directory"))?;
@@ -252,6 +348,10 @@ pub fn publish_committed_state(
         .map_err(secure("verify private receipts directory"))?;
     verify_journal_head(&transaction, committed_journal)?;
     verify_confirmation(&transaction, consumption)?;
+    fault_checkpoint(
+        &mut fault,
+        CommitFaultPoint::AfterDurableEvidenceVerification,
+    )?;
 
     let receipt_name = format!("{}.json", receipt.plan_id);
     let prior_receipt = read_optional(
@@ -291,6 +391,7 @@ pub fn publish_committed_state(
             "registry rollback copy",
         )?;
     }
+    fault_checkpoint(&mut fault, CommitFaultPoint::AfterPriorRegistryBackup)?;
     write_recovery_document(
         &transaction,
         REGISTRY_NEXT_NAME,
@@ -298,6 +399,7 @@ pub fn publish_committed_state(
         rz0_resource_contract::MAX_REGISTRY_DOCUMENT_BYTES,
         "pending next registry",
     )?;
+    fault_checkpoint(&mut fault, CommitFaultPoint::AfterPendingRegistry)?;
     receipts
         .write_new_child(
             OsStr::new(&receipt_name),
@@ -305,6 +407,7 @@ pub fn publish_committed_state(
             rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
         )
         .map_err(publication_error("publish commit receipt"))?;
+    fault_checkpoint(&mut fault, CommitFaultPoint::AfterCommitReceipt)?;
 
     if current_registry.is_some() {
         transaction
@@ -323,6 +426,7 @@ pub fn publish_committed_state(
             )
             .map_err(publication_error("publish initial installed registry"))?;
     }
+    fault_checkpoint(&mut fault, CommitFaultPoint::AfterRegistryPublication)?;
     let published = state
         .read_child(
             OsStr::new(REGISTRY_NAME),
@@ -335,6 +439,7 @@ pub fn publish_committed_state(
             "published registry bytes do not match the exact committed registry",
         ));
     }
+    fault_checkpoint(&mut fault, CommitFaultPoint::AfterFinalVerification)?;
     Ok(commit_publication(
         CommitPublicationStatus::Committed,
         receipt,
@@ -459,6 +564,268 @@ pub fn assess_commit_recovery(
         rollback_registry_present,
         automatic_mutation_authorized: false,
     })
+}
+
+pub fn seal_commit_recovery_challenge(
+    challenge: &mut CommitRecoveryChallenge,
+    assessment: &CommitRecoveryAssessment,
+) {
+    challenge.assessment_sha256 = commit_recovery_assessment_sha256(assessment);
+    let digest = commit_recovery_challenge_sha256(challenge);
+    challenge.expected_phrase = format!("recover {} {}", challenge.transaction_id, &digest[..12]);
+    challenge.challenge_sha256 = digest;
+}
+
+/// Completes only the registry-last step of an exact interrupted commit after a
+/// fresh interactive recovery challenge. It cannot execute action-plan writes,
+/// rollback, or any other recovery decision.
+pub fn complete_interrupted_registry_publication(
+    state_root: &Path,
+    input: CommitRecoveryInput<'_>,
+) -> Result<CommitPublication, CoordinatorError> {
+    let CommitRecoveryInput {
+        committed_journal,
+        consumption,
+        receipt,
+        next_registry,
+        assessment,
+        challenge,
+        response,
+        now_unix_seconds,
+    } = input;
+    validate_commit_recovery_approval(assessment, challenge, response, receipt, now_unix_seconds)?;
+    let registry_bytes =
+        canonical_registry_bytes(next_registry).map_err(|error| CoordinatorError {
+            code: CoordinatorErrorCode::InvalidEvidence,
+            detail: format!("canonical recovery registry: {error}"),
+        })?;
+    if bytes_sha256(&registry_bytes) != receipt.registry_after_sha256 {
+        return Err(error(
+            CoordinatorErrorCode::InvalidEvidence,
+            "recovery registry does not match the commit receipt",
+        ));
+    }
+
+    let state = SecureDirectory::open(state_root).map_err(secure("open recovery state root"))?;
+    state
+        .verify_private()
+        .map_err(secure("verify private recovery state root"))?;
+    let lock_file = state
+        .open_or_create_lock_file(OsStr::new(COMMIT_LOCK_NAME))
+        .map_err(secure("open recovery commit lock"))?;
+    let _lock =
+        SecureFileLock::try_exclusive(lock_file).map_err(secure("acquire recovery commit lock"))?;
+
+    let fresh = assess_commit_recovery(
+        state_root,
+        committed_journal,
+        consumption,
+        receipt,
+        next_registry,
+    )?;
+    if fresh != *assessment
+        || fresh.decision != CommitRecoveryDecision::CompleteRegistryPublicationWithExplicitApproval
+    {
+        return Err(error(
+            CoordinatorErrorCode::Conflict,
+            "commit recovery state changed after operator approval",
+        ));
+    }
+
+    let transactions = state
+        .open_child_directory(OsStr::new(TRANSACTIONS_DIRECTORY))
+        .map_err(secure("open recovery transactions directory"))?;
+    let transaction = transactions
+        .open_child_directory(OsStr::new(&receipt.transaction_id))
+        .map_err(secure("open recovery transaction directory"))?;
+    let approval = DurableRecoveryApproval {
+        challenge: challenge.clone(),
+        response: response.clone(),
+        response_sha256: commit_recovery_response_sha256(response),
+        automatic_mutation_authorized: false,
+    };
+    let approval_bytes = canonical_line(&approval, "serialize recovery approval")?;
+    ensure_small_document(&approval_bytes, "recovery approval")?;
+    match transaction.read_child(
+        OsStr::new(RECOVERY_APPROVAL_NAME),
+        rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
+    ) {
+        Ok(existing) if existing == approval_bytes => {}
+        Ok(_) => {
+            return Err(error(
+                CoordinatorErrorCode::RecoveryRequired,
+                "conflicting durable commit recovery approval exists",
+            ));
+        }
+        Err(error) if error.code == SecureFsErrorCode::NotFound => {
+            transaction
+                .write_new_child(
+                    OsStr::new(RECOVERY_APPROVAL_NAME),
+                    &approval_bytes,
+                    rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
+                )
+                .map_err(publication_error("publish durable recovery approval"))?;
+        }
+        Err(error) => return Err(secure("read durable recovery approval")(error)),
+    }
+
+    if receipt.registry_before_sha256.is_some() {
+        transaction
+            .replace_child_atomic(
+                OsStr::new(REGISTRY_NEXT_NAME),
+                &state,
+                OsStr::new(REGISTRY_NAME),
+            )
+            .map_err(publication_error(
+                "recover atomic installed registry replacement",
+            ))?;
+    } else {
+        transaction
+            .publish_child_noreplace(
+                OsStr::new(REGISTRY_NEXT_NAME),
+                &state,
+                OsStr::new(REGISTRY_NAME),
+            )
+            .map_err(publication_error(
+                "recover initial installed registry publication",
+            ))?;
+    }
+    let published = state
+        .read_child(
+            OsStr::new(REGISTRY_NAME),
+            rz0_resource_contract::MAX_REGISTRY_DOCUMENT_BYTES,
+        )
+        .map_err(secure("verify recovered installed registry"))?;
+    if published != registry_bytes {
+        return Err(error(
+            CoordinatorErrorCode::RecoveryRequired,
+            "recovered installed registry does not match exact receipt bytes",
+        ));
+    }
+    Ok(commit_publication(
+        CommitPublicationStatus::RecoveredCommitted,
+        receipt,
+        &format!("{}.json", receipt.plan_id),
+        &registry_bytes,
+    ))
+}
+
+fn validate_commit_recovery_approval(
+    assessment: &CommitRecoveryAssessment,
+    challenge: &CommitRecoveryChallenge,
+    response: &CommitRecoveryResponse,
+    receipt: &TransactionCommitReceipt,
+    now_unix_seconds: u64,
+) -> Result<(), CoordinatorError> {
+    let ttl = challenge
+        .expires_unix_seconds
+        .checked_sub(challenge.issued_unix_seconds);
+    let expected_digest = commit_recovery_challenge_sha256(challenge);
+    let expected_phrase = format!(
+        "recover {} {}",
+        challenge.transaction_id,
+        &expected_digest[..12]
+    );
+    let valid = assessment.decision
+        == CommitRecoveryDecision::CompleteRegistryPublicationWithExplicitApproval
+        && !assessment.automatic_mutation_authorized
+        && challenge.schema_version == COMMIT_RECOVERY_SCHEMA_VERSION
+        && challenge.contract == COMMIT_RECOVERY_CHALLENGE_CONTRACT
+        && rz0_validation_contract::valid_ledger_id(&challenge.challenge_id, 96)
+        && challenge.transaction_id == assessment.transaction_id
+        && challenge.transaction_id == receipt.transaction_id
+        && challenge.assessment_sha256 == commit_recovery_assessment_sha256(assessment)
+        && challenge.receipt_binding_sha256 == receipt.binding_sha256
+        && challenge.action == CommitRecoveryAction::CompleteRegistryPublication
+        && ttl.is_some_and(|seconds| seconds > 0 && seconds <= MAX_COMMIT_RECOVERY_TTL_SECONDS)
+        && now_unix_seconds <= challenge.expires_unix_seconds
+        && challenge.challenge_sha256 == expected_digest
+        && challenge.expected_phrase == expected_phrase
+        && response.schema_version == COMMIT_RECOVERY_SCHEMA_VERSION
+        && response.contract == COMMIT_RECOVERY_RESPONSE_CONTRACT
+        && response.challenge_id == challenge.challenge_id
+        && response.challenge_sha256 == challenge.challenge_sha256
+        && response.confirmed_unix_seconds >= challenge.issued_unix_seconds
+        && response.confirmed_unix_seconds <= challenge.expires_unix_seconds
+        && response.confirmed_unix_seconds <= now_unix_seconds
+        && response.phrase == challenge.expected_phrase
+        && response.interactive
+        && response.single_use
+        && !response.execution_authorized;
+    if valid {
+        Ok(())
+    } else {
+        Err(error(
+            CoordinatorErrorCode::InvalidEvidence,
+            "interactive commit recovery approval is invalid, expired, or mismatched",
+        ))
+    }
+}
+
+fn commit_recovery_assessment_sha256(assessment: &CommitRecoveryAssessment) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"runtime.zero.commit-recovery-assessment.v1\0");
+    recovery_put(&mut digest, &assessment.transaction_id);
+    recovery_put(
+        &mut digest,
+        match assessment.decision {
+            CommitRecoveryDecision::NoAction => "no_action",
+            CommitRecoveryDecision::CompleteRegistryPublicationWithExplicitApproval => {
+                "complete_registry_publication_with_explicit_approval"
+            }
+            CommitRecoveryDecision::DiscardUncommittedPendingWithExplicitApproval => {
+                "discard_uncommitted_pending_with_explicit_approval"
+            }
+            CommitRecoveryDecision::RefuseInconsistentEvidence => "refuse_inconsistent_evidence",
+        },
+    );
+    for value in [
+        assessment.committed_journal_present,
+        assessment.confirmation_present,
+        assessment.receipt_present,
+        assessment.registry_matches_after,
+        assessment.pending_registry_present,
+        assessment.rollback_registry_present,
+        assessment.automatic_mutation_authorized,
+    ] {
+        digest.update([u8::from(value)]);
+    }
+    format!("{:x}", digest.finalize())
+}
+
+fn commit_recovery_challenge_sha256(challenge: &CommitRecoveryChallenge) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"runtime.zero.commit-recovery-challenge.v1\0");
+    recovery_put(&mut digest, &challenge.challenge_id);
+    recovery_put(&mut digest, &challenge.transaction_id);
+    recovery_put(&mut digest, &challenge.assessment_sha256);
+    recovery_put(&mut digest, &challenge.receipt_binding_sha256);
+    recovery_put(&mut digest, "complete_registry_publication");
+    digest.update(challenge.issued_unix_seconds.to_be_bytes());
+    digest.update(challenge.expires_unix_seconds.to_be_bytes());
+    format!("{:x}", digest.finalize())
+}
+
+fn commit_recovery_response_sha256(response: &CommitRecoveryResponse) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"runtime.zero.commit-recovery-response.v1\0");
+    recovery_put(&mut digest, &response.challenge_id);
+    recovery_put(&mut digest, &response.challenge_sha256);
+    digest.update(response.confirmed_unix_seconds.to_be_bytes());
+    recovery_put(&mut digest, &response.phrase);
+    for value in [
+        response.interactive,
+        response.single_use,
+        response.execution_authorized,
+    ] {
+        digest.update([u8::from(value)]);
+    }
+    format!("{:x}", digest.finalize())
+}
+
+fn recovery_put(digest: &mut Sha256, value: &str) {
+    digest.update((value.len() as u64).to_be_bytes());
+    digest.update(value.as_bytes());
 }
 
 fn validate_prepared_confirmation(
@@ -777,6 +1144,20 @@ fn publication_error(
             mapped.code = CoordinatorErrorCode::RecoveryRequired;
         }
         mapped
+    }
+}
+
+fn fault_checkpoint(
+    fault: &mut impl FnMut(CommitFaultPoint) -> bool,
+    point: CommitFaultPoint,
+) -> Result<(), CoordinatorError> {
+    if fault(point) {
+        Err(error(
+            CoordinatorErrorCode::RecoveryRequired,
+            format!("injected commit interruption at {point:?}"),
+        ))
+    } else {
+        Ok(())
     }
 }
 

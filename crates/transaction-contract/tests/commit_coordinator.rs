@@ -17,15 +17,20 @@ use rz0_confirmation_contract::{
 };
 use rz0_registry_contract::{InstalledModuleRecord, InstalledRegistry, canonical_registry_bytes};
 use rz0_transaction_contract::{
-    COMMIT_RECEIPT_CONTRACT, COMMIT_RECEIPT_SCHEMA_VERSION, CommitCoordinatorInput,
-    CommitPublicationRequirements, CommitPublicationStatus, CommitRecoveryDecision,
+    COMMIT_RECEIPT_CONTRACT, COMMIT_RECEIPT_SCHEMA_VERSION, COMMIT_RECOVERY_CHALLENGE_CONTRACT,
+    COMMIT_RECOVERY_RESPONSE_CONTRACT, COMMIT_RECOVERY_SCHEMA_VERSION, CommitCoordinatorInput,
+    CommitPublicationRequirements, CommitPublicationStatus, CommitRecoveryAction,
+    CommitRecoveryChallenge, CommitRecoveryDecision, CommitRecoveryInput, CommitRecoveryResponse,
     ConfirmationPublication, CoordinatorErrorCode, DurabilityRequirements,
     EvidencePublicationStatus, TRANSACTION_CONTRACT, TRANSACTION_SCHEMA_VERSION,
     TransactionCommitReceipt, TransactionEvent, TransactionEventKind, TransactionJournal,
-    TransactionOperation, TransactionState, assess_commit_recovery, publish_committed_state,
+    TransactionOperation, TransactionState, assess_commit_recovery,
+    complete_interrupted_registry_publication, publish_committed_state,
     publish_confirmation_consumption, publish_journal_snapshot, seal_commit_receipt,
-    seal_transaction_journal,
+    seal_commit_recovery_challenge, seal_transaction_journal,
 };
+#[cfg(feature = "fault-injection")]
+use rz0_transaction_contract::{CommitFaultPoint, publish_committed_state_with_fault};
 
 const A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -164,6 +169,101 @@ fn confirmation_is_single_value_and_registry_drift_blocks_receipt_publication() 
     );
 }
 
+#[cfg(feature = "fault-injection")]
+#[test]
+fn every_commit_boundary_has_deterministic_interruption_evidence() {
+    for point in [
+        CommitFaultPoint::AfterEvidenceValidation,
+        CommitFaultPoint::AfterCommitLock,
+        CommitFaultPoint::AfterDurableEvidenceVerification,
+        CommitFaultPoint::AfterPriorRegistryBackup,
+        CommitFaultPoint::AfterPendingRegistry,
+        CommitFaultPoint::AfterCommitReceipt,
+        CommitFaultPoint::AfterRegistryPublication,
+        CommitFaultPoint::AfterFinalVerification,
+    ] {
+        let root = TestRoot::new();
+        let plan = plan();
+        let next_registry = InstalledRegistry {
+            schema_version: 1,
+            modules: Vec::new(),
+        };
+        let (mut journal, challenge, response, consumption) =
+            prepared_evidence(root.path(), &plan, None, &next_registry);
+        publish_confirmation_consumption(
+            root.path(),
+            &journal,
+            &plan,
+            &challenge,
+            &response,
+            &consumption,
+        )
+        .expect("confirmation");
+        commit_journal(root.path(), &mut journal);
+        let receipt = receipt(
+            &journal,
+            &plan,
+            &challenge,
+            &response,
+            &consumption,
+            None,
+            &next_registry,
+        );
+        let failure = publish_committed_state_with_fault(
+            root.path(),
+            CommitCoordinatorInput {
+                committed_journal: &journal,
+                action_plan: &plan,
+                challenge: &challenge,
+                response: &response,
+                consumption: &consumption,
+                receipt: &receipt,
+                next_registry: &next_registry,
+            },
+            |observed| observed == point,
+        )
+        .expect_err("fault must interrupt");
+        assert_eq!(failure.code, CoordinatorErrorCode::RecoveryRequired);
+
+        let receipt_path = root
+            .path()
+            .join("receipts")
+            .join(format!("{}.json", plan.plan_id));
+        let registry_path = root.path().join("installed-modules.json");
+        let transaction = root
+            .path()
+            .join("transactions")
+            .join(&journal.transaction_id);
+        let pending = transaction.join("registry-next.json");
+        match point {
+            CommitFaultPoint::AfterEvidenceValidation
+            | CommitFaultPoint::AfterCommitLock
+            | CommitFaultPoint::AfterDurableEvidenceVerification
+            | CommitFaultPoint::AfterPriorRegistryBackup => {
+                assert!(!receipt_path.exists());
+                assert!(!registry_path.exists());
+                assert!(!pending.exists());
+            }
+            CommitFaultPoint::AfterPendingRegistry => {
+                assert!(pending.is_file());
+                assert!(!receipt_path.exists());
+                assert!(!registry_path.exists());
+            }
+            CommitFaultPoint::AfterCommitReceipt => {
+                assert!(pending.is_file());
+                assert!(receipt_path.is_file());
+                assert!(!registry_path.exists());
+            }
+            CommitFaultPoint::AfterRegistryPublication
+            | CommitFaultPoint::AfterFinalVerification => {
+                assert!(!pending.exists());
+                assert!(receipt_path.is_file());
+                assert!(registry_path.is_file());
+            }
+        }
+    }
+}
+
 #[test]
 fn receipt_before_registry_interruption_requires_explicit_recovery_completion() {
     let root = TestRoot::new();
@@ -225,6 +325,81 @@ fn receipt_before_registry_interruption_requires_explicit_recovery_completion() 
     );
     assert!(!assessment.automatic_mutation_authorized);
     assert!(!root.path().join("installed-modules.json").exists());
+
+    let mut recovery_challenge = CommitRecoveryChallenge {
+        schema_version: COMMIT_RECOVERY_SCHEMA_VERSION,
+        contract: COMMIT_RECOVERY_CHALLENGE_CONTRACT.to_string(),
+        challenge_id: "recovery-challenge-001".to_string(),
+        transaction_id: journal.transaction_id.clone(),
+        assessment_sha256: String::new(),
+        receipt_binding_sha256: receipt.binding_sha256.clone(),
+        action: CommitRecoveryAction::CompleteRegistryPublication,
+        issued_unix_seconds: 2_000,
+        expires_unix_seconds: 2_200,
+        expected_phrase: String::new(),
+        challenge_sha256: String::new(),
+    };
+    seal_commit_recovery_challenge(&mut recovery_challenge, &assessment);
+    let recovery_response = CommitRecoveryResponse {
+        schema_version: COMMIT_RECOVERY_SCHEMA_VERSION,
+        contract: COMMIT_RECOVERY_RESPONSE_CONTRACT.to_string(),
+        challenge_id: recovery_challenge.challenge_id.clone(),
+        challenge_sha256: recovery_challenge.challenge_sha256.clone(),
+        confirmed_unix_seconds: 2_100,
+        phrase: recovery_challenge.expected_phrase.clone(),
+        interactive: true,
+        single_use: true,
+        execution_authorized: false,
+    };
+    let mut invalid_response = recovery_response.clone();
+    invalid_response.phrase.push_str(" mismatch");
+    let invalid = complete_interrupted_registry_publication(
+        root.path(),
+        CommitRecoveryInput {
+            committed_journal: &journal,
+            consumption: &consumption,
+            receipt: &receipt,
+            next_registry: &next_registry,
+            assessment: &assessment,
+            challenge: &recovery_challenge,
+            response: &invalid_response,
+            now_unix_seconds: 2_110,
+        },
+    )
+    .expect_err("mismatched recovery approval must fail");
+    assert_eq!(invalid.code, CoordinatorErrorCode::InvalidEvidence);
+    assert!(!root.path().join("installed-modules.json").exists());
+
+    let recovered = complete_interrupted_registry_publication(
+        root.path(),
+        CommitRecoveryInput {
+            committed_journal: &journal,
+            consumption: &consumption,
+            receipt: &receipt,
+            next_registry: &next_registry,
+            assessment: &assessment,
+            challenge: &recovery_challenge,
+            response: &recovery_response,
+            now_unix_seconds: 2_110,
+        },
+    )
+    .expect("explicit recovery completion");
+    assert_eq!(
+        recovered.status,
+        CommitPublicationStatus::RecoveredCommitted
+    );
+    assert!(!recovered.automatic_mutation_authorized);
+    assert_eq!(
+        fs::read(root.path().join("installed-modules.json")).unwrap(),
+        canonical_registry_bytes(&next_registry).unwrap()
+    );
+    assert!(
+        root.path()
+            .join("transactions")
+            .join(&journal.transaction_id)
+            .join("registry-recovery-approval.json")
+            .is_file()
+    );
 }
 
 #[test]
