@@ -6,8 +6,9 @@ create private validation, hashing, privacy, or authority policies.
 
 ## Inputs and construction
 
-`build_support_report` accepts one strict `inventory_report` and one strict
-`foundation_diagnostics` value. It requires:
+The foundation also owns the bounded strict `support_report_input` envelope and
+its decoder. `build_support_report` accepts the envelope's one strict
+`inventory_report` and one strict `foundation_diagnostics` value. It requires:
 
 - both shared validators to pass;
 - inventory to pass its separate `private_for_export` gate;

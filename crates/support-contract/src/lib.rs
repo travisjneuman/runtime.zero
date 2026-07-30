@@ -7,7 +7,19 @@ use sha2::{Digest, Sha256};
 
 pub const SUPPORT_SCHEMA_VERSION: u16 = 1;
 pub const SUPPORT_CONTRACT: &str = "privacy_reviewed_support_report";
+pub const SUPPORT_INPUT_CONTRACT: &str = "support_report_input";
 pub const MAX_SUPPORT_REPORT_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
+pub const MAX_SUPPORT_INPUT_BYTES: u64 = rz0_resource_contract::MAX_INVENTORY_REPORT_BYTES
+    + rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SupportReportInput {
+    pub schema_version: u16,
+    pub contract: String,
+    pub inventory: InventoryReport,
+    pub diagnostics: DiagnosticReport,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -87,6 +99,33 @@ pub struct SupportSource {
 pub struct SupportValidation {
     pub valid: bool,
     pub errors: Vec<String>,
+}
+
+pub fn decode_support_input(bytes: &[u8]) -> Result<SupportReportInput, String> {
+    if bytes.is_empty() || bytes.len() as u64 > MAX_SUPPORT_INPUT_BYTES {
+        return Err(format!(
+            "support input must contain 1 to {MAX_SUPPORT_INPUT_BYTES} bytes"
+        ));
+    }
+    let input: SupportReportInput = serde_json::from_slice(bytes)
+        .map_err(|error| format!("invalid support input JSON: {error}"))?;
+    if input.schema_version != SUPPORT_SCHEMA_VERSION {
+        return Err(format!("schema_version must be {SUPPORT_SCHEMA_VERSION}"));
+    }
+    if input.contract != SUPPORT_INPUT_CONTRACT {
+        return Err(format!("contract must be {SUPPORT_INPUT_CONTRACT}"));
+    }
+    build_support_report(&input.inventory, &input.diagnostics)?;
+    Ok(input)
+}
+
+pub fn build_support_report_from_input(
+    input: &SupportReportInput,
+) -> Result<SupportReport, String> {
+    if input.schema_version != SUPPORT_SCHEMA_VERSION || input.contract != SUPPORT_INPUT_CONTRACT {
+        return Err("support input identity is invalid".to_string());
+    }
+    build_support_report(&input.inventory, &input.diagnostics)
 }
 
 pub fn build_support_report(
@@ -343,6 +382,28 @@ mod tests {
         let diagnostics =
             foundation_diagnostics("runtime.zero", "rz0", "0.1.0", "test-os", "test-arch");
         (inventory, diagnostics)
+    }
+
+    #[test]
+    fn strict_input_envelope_is_bounded_and_foundation_owned() {
+        let (inventory, diagnostics) = inputs();
+        let input = SupportReportInput {
+            schema_version: SUPPORT_SCHEMA_VERSION,
+            contract: SUPPORT_INPUT_CONTRACT.to_string(),
+            inventory,
+            diagnostics,
+        };
+        let bytes = serde_json::to_vec(&input).unwrap();
+        let decoded = decode_support_input(&bytes).unwrap();
+        assert_eq!(
+            build_support_report_from_input(&decoded).unwrap(),
+            build_support_report(&decoded.inventory, &decoded.diagnostics).unwrap()
+        );
+
+        let mut value = serde_json::to_value(input).unwrap();
+        value["future"] = serde_json::Value::Bool(true);
+        assert!(decode_support_input(&serde_json::to_vec(&value).unwrap()).is_err());
+        assert!(decode_support_input(&vec![b'x'; MAX_SUPPORT_INPUT_BYTES as usize + 1]).is_err());
     }
 
     #[test]

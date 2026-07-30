@@ -873,9 +873,7 @@ version = "0.1.0"
 dependencies = [
  "rz0-diagnostics-contract",
  "rz0-inventory-contract",
- "rz0-resource-contract",
  "rz0-support-contract",
- "serde",
  "serde_json",
 ]
 

@@ -6,14 +6,15 @@ from already validated inventory and diagnostics inputs and render text or JSON.
 The foundation crate `rz0-support-contract` owns validation, canonical digests,
 privacy posture, authority refusal, output shape, and rendering.
 
-The module is not installed, loaded, or executed by `rz0`. Development use is
+The module is not installed, loaded, or executed by `rz0`. The foundation owns
+the strict `support_report_input` envelope and its byte ceiling. Development use is
 stdin/stdout only:
 
 ```bash
 cargo run -p rz0-module-report-export -- --format json < report-export-input.json
 ```
 
-Input is one strict `report_export_input` JSON object containing an
+Input is one strict `support_report_input` JSON object containing an
 `inventory_report` and `foundation_diagnostics`. It is bounded before parsing.
 Unknown fields, raw-path inventory, identity-bearing inventory, platform drift,
 summary drift, malformed cross-references, and invalid diagnostics fail closed.
