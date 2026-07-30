@@ -381,10 +381,8 @@ mod tests {
 
     #[test]
     fn uninstall_ids_reject_terminal_control_input_before_inventory() {
-        let (code, output, error) = uninstall_command(&[
-            "plan".to_string(),
-            "bad\u{1b}[31m".to_string(),
-        ]);
+        let (code, output, error) =
+            uninstall_command(&["plan".to_string(), "bad\u{1b}[31m".to_string()]);
         assert_eq!(code, ExitCode::Usage);
         assert!(output.is_empty());
         assert_eq!(error, "installed software id is invalid\n");

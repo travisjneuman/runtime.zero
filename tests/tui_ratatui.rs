@@ -150,7 +150,7 @@ fn color_mode_does_not_change_required_text_labels() {
     }
     let dashboard = runtime_zero::tui_dashboard::dashboard();
     let mut modules = TuiState::new(dashboard.sections.len());
-    modules.selected_section = 4;
+    modules.selected_section = 3;
     assert!(render_text(110, 32, &modules, false).contains(tui_theme::LABEL_DRY_RUN));
     assert!(render_text(110, 32, &modules, true).contains(tui_theme::LABEL_DRY_RUN));
 }

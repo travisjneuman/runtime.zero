@@ -29,11 +29,23 @@ fn dashboard_does_not_claim_active_feature_modules() {
             .find(|section| section.title == "installed software")
             .expect("installed software section");
         assert!(installed.rows.iter().any(|row| row.label == "[APP]"));
-        let uninstall = dashboard
-            .sections
-            .iter()
-            .find(|section| section.title == "uninstall options")
-            .expect("uninstall options section");
-        assert!(uninstall.rows.iter().any(|row| row.label == "[PLAN]"));
+        assert!(installed.rows.iter().any(|row| {
+            row.preview
+                .as_deref()
+                .is_some_and(|preview| preview.contains("rz0 uninstall plan"))
+        }));
+        assert!(installed.rows.iter().any(|row| {
+            row.value.contains("system protected")
+                && row
+                    .preview
+                    .as_deref()
+                    .is_some_and(|preview| !preview.contains("rz0 uninstall plan"))
+        }));
+        assert!(
+            dashboard
+                .sections
+                .iter()
+                .all(|section| section.title != "uninstall options")
+        );
     }
 }

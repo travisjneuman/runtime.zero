@@ -155,9 +155,8 @@ fn sections(
             ],
         },
         installed_software_section(catalog, inventory_error),
-        uninstall_options_section(catalog),
         TuiSection {
-            code: "05",
+            code: "04",
             title: "modules",
             summary: "first-party module source and lifecycle state",
             rows: vec![
@@ -186,7 +185,7 @@ fn sections(
             ],
         },
         TuiSection {
-            code: "06",
+            code: "05",
             title: "safety gates",
             summary: "blocked mutation and trust gates",
             rows: vec![
@@ -281,7 +280,7 @@ fn installed_software_section(
             ));
             rows.push(row(
                 tui_theme::LABEL_INFO,
-                "select an item and press Enter to preview its uninstall review",
+                "select an item and press Enter to preview its available options",
                 "info",
             ));
             for app in &catalog.apps {
@@ -289,11 +288,29 @@ fn installed_software_section(
                     SoftwareKind::HomebrewFormula | SoftwareKind::HomebrewCask => "[PKG]",
                     SoftwareKind::ApplicationBundle | SoftwareKind::PlatformPackage => "[APP]",
                 };
-                let (option, tone) = match app.uninstall_option {
-                    UninstallOption::Protected => ("protected", "muted"),
-                    UninstallOption::ManagerReview => ("manager uninstall review", "accent"),
-                    UninstallOption::QuarantineReview => ("quarantine uninstall review", "accent"),
-                    UninstallOption::Unsupported => ("uninstall unsupported", "warn"),
+                let (options, tone, preview) = match app.uninstall_option {
+                    UninstallOption::Protected => (
+                        "options: details · system protected",
+                        "muted",
+                        "details only; protected system software has no uninstall option"
+                            .to_string(),
+                    ),
+                    UninstallOption::ManagerReview => (
+                        "options: details · manager uninstall review",
+                        "accent",
+                        format!("run: rz0 uninstall plan {}", app.id),
+                    ),
+                    UninstallOption::QuarantineReview => (
+                        "options: details · quarantine uninstall review",
+                        "accent",
+                        format!("run: rz0 uninstall plan {}", app.id),
+                    ),
+                    UninstallOption::Unsupported => (
+                        "options: details · uninstall unavailable",
+                        "warn",
+                        "details only; no safe ownership-specific uninstall option is available"
+                            .to_string(),
+                    ),
                 };
                 rows.push(TuiRow {
                     label,
@@ -301,10 +318,10 @@ fn installed_software_section(
                         "{} · version {} · {}",
                         app.name,
                         app.version.as_deref().unwrap_or("unknown"),
-                        option
+                        options
                     ),
                     tone,
-                    preview: Some(format!("{}; run: rz0 uninstall plan {}", option, app.id)),
+                    preview: Some(preview),
                 });
             }
         }
@@ -323,50 +340,6 @@ fn installed_software_section(
         code: "03",
         title: "installed software",
         summary: "live bounded macOS applications and package-manager records",
-        rows,
-    }
-}
-
-fn uninstall_options_section(catalog: Option<&AppCatalog>) -> TuiSection {
-    let mut rows = vec![row(
-        tui_theme::LABEL_INFO,
-        "select an option and press Enter for its exact review command",
-        "info",
-    )];
-    if let Some(catalog) = catalog {
-        for app in catalog.apps.iter().filter(|app| {
-            matches!(
-                app.uninstall_option,
-                UninstallOption::ManagerReview | UninstallOption::QuarantineReview
-            )
-        }) {
-            let method = match app.uninstall_option {
-                UninstallOption::ManagerReview => "manager review",
-                UninstallOption::QuarantineReview => "quarantine review",
-                UninstallOption::Protected | UninstallOption::Unsupported => continue,
-            };
-            rows.push(TuiRow {
-                label: "[PLAN]",
-                value: format!("{} · {}", app.name, method),
-                tone: "accent",
-                preview: Some(format!(
-                    "run: rz0 uninstall plan {}; no write occurs",
-                    app.id
-                )),
-            });
-        }
-    }
-    if rows.len() == 1 {
-        rows.push(row(
-            tui_theme::LABEL_SKIP,
-            "no uninstall reviews are currently available",
-            "muted",
-        ));
-    }
-    TuiSection {
-        code: "04",
-        title: "uninstall options",
-        summary: "ownership-aware manager or quarantine-first reviews",
         rows,
     }
 }
