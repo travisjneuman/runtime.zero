@@ -58,7 +58,7 @@ fn command_rail_cycles_across_all_preview_entries() {
     let _ = state.apply(TuiInput::FocusNext);
     let _ = state.apply(TuiInput::FocusNext);
     assert_eq!(state.focus_region, TuiFocusRegion::CommandRail);
-    for _ in 0..5 {
+    for _ in 0..6 {
         let _ = state.apply(TuiInput::NextItem);
     }
     assert_eq!(state.selected_command, 0);

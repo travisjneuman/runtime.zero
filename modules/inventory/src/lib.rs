@@ -79,11 +79,25 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
         #[cfg(windows)]
         let apps = windows_registry::collect_installed_apps();
         #[cfg(any(target_os = "macos", target_os = "linux"))]
-        let apps = platform_apps::collect_installed_apps();
+        let app_collections = platform_apps::collect_installed_apps();
+        #[cfg(windows)]
+        let app_collections = vec![apps];
 
-        record_source_event(&mut report, &apps.source);
-        report.sources.push(apps.source);
-        report.apps.extend(apps.apps);
+        for mut collection in app_collections {
+            let remaining =
+                rz0_inventory_contract::MAX_INVENTORY_APP_RECORDS.saturating_sub(report.apps.len());
+            if collection.apps.len() > remaining {
+                collection.apps.truncate(remaining);
+                collection.source.status = "partial".to_string();
+                collection.source.warnings.push(
+                    "combined application inventory reached the foundation record ceiling"
+                        .to_string(),
+                );
+            }
+            record_source_event(&mut report, &collection.source);
+            report.sources.push(collection.source);
+            report.apps.extend(collection.apps);
+        }
         report.warnings.push(
             "installed application names may be sensitive; review them before sharing output"
                 .to_string(),

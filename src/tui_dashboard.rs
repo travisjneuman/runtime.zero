@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::apps::{AppCatalog, SoftwareKind, UninstallOption, collect_app_catalog};
 use crate::brand;
 use crate::install_receipt::ReceiptInventoryState;
 use crate::installed_registry::InstalledRegistryState;
@@ -29,6 +30,8 @@ pub struct TuiDashboard {
     pub store_init_status: StoreInitStatus,
     pub installed_module_count: usize,
     pub planned_module_family_count: usize,
+    pub installed_software_count: usize,
+    pub inventory_status: String,
     pub sections: Vec<TuiSection>,
     pub palette: TuiPalette,
 }
@@ -46,6 +49,7 @@ pub struct TuiRow {
     pub label: &'static str,
     pub value: String,
     pub tone: &'static str,
+    pub preview: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -58,20 +62,39 @@ pub struct TuiPalette {
 }
 
 pub fn dashboard() -> TuiDashboard {
+    dashboard_with_inventory(true)
+}
+
+pub fn private_dashboard() -> TuiDashboard {
+    dashboard_with_inventory(false)
+}
+
+fn dashboard_with_inventory(include_software_names: bool) -> TuiDashboard {
     let store = store_status_report(&["tui".to_string()]);
     let init = store_init_report(
         &["tui".to_string()],
         StoreInitOptions::new(StoreInitMode::DryRun),
     );
     let modules = ModuleRegistryReport::empty_installed();
-    build_dashboard(&store, init.status, &modules)
+    let inventory = include_software_names.then(collect_app_catalog);
+    build_dashboard(&store, init.status, &modules, inventory)
 }
 
 fn build_dashboard(
     store: &StoreStatusReport,
     init_status: StoreInitStatus,
     modules: &ModuleRegistryReport,
+    inventory: Option<Result<AppCatalog, String>>,
 ) -> TuiDashboard {
+    let catalog = inventory.as_ref().and_then(|result| result.as_ref().ok());
+    let inventory_status = match &inventory {
+        Some(Ok(catalog)) => format!("live · {} items", catalog.app_count),
+        Some(Err(_)) => "unavailable".to_string(),
+        None => "private summary".to_string(),
+    };
+    let inventory_error = inventory
+        .as_ref()
+        .and_then(|result| result.as_ref().err().map(String::as_str));
     TuiDashboard {
         schema_version: 1,
         read_only: true,
@@ -88,7 +111,9 @@ fn build_dashboard(
         store_init_status: init_status,
         installed_module_count: store.registry.installed_module_count,
         planned_module_family_count: modules.summary.planned_family_count,
-        sections: sections(store, init_status, modules),
+        installed_software_count: catalog.map_or(0, |catalog| catalog.app_count),
+        inventory_status,
+        sections: sections(store, init_status, modules, catalog, inventory_error),
         palette: palette(),
     }
 }
@@ -97,18 +122,11 @@ fn sections(
     store: &StoreStatusReport,
     init_status: StoreInitStatus,
     modules: &ModuleRegistryReport,
+    catalog: Option<&AppCatalog>,
+    inventory_error: Option<&str>,
 ) -> Vec<TuiSection> {
     vec![
-        TuiSection {
-            code: "01",
-            title: "foundation",
-            summary: "core contracts and safety posture",
-            rows: vec![
-                row(tui_theme::LABEL_OK, "core CLI loaded", "safe"),
-                row(tui_theme::LABEL_INFO, brand::SAFETY_POSTURE, "info"),
-                row(tui_theme::LABEL_SKIP, "module mutation disabled", "muted"),
-            ],
-        },
+        overview_section(catalog, inventory_error),
         TuiSection {
             code: "02",
             title: "local store",
@@ -136,10 +154,12 @@ fn sections(
                 ),
             ],
         },
+        installed_software_section(catalog, inventory_error),
+        uninstall_options_section(catalog),
         TuiSection {
-            code: "03",
+            code: "05",
             title: "modules",
-            summary: "module planning without activation",
+            summary: "first-party module source and lifecycle state",
             rows: vec![
                 row_count(
                     tui_theme::LABEL_INFO,
@@ -155,7 +175,7 @@ fn sections(
                 ),
                 row(
                     tui_theme::LABEL_PLAN,
-                    "inventory module source is read-only and not installed",
+                    "inventory adapter is built in; domain modules remain isolated",
                     "accent",
                 ),
                 row(
@@ -166,7 +186,7 @@ fn sections(
             ],
         },
         TuiSection {
-            code: "04",
+            code: "06",
             title: "safety gates",
             summary: "blocked mutation and trust gates",
             rows: vec![
@@ -189,6 +209,166 @@ fn sections(
             ],
         },
     ]
+}
+
+fn overview_section(catalog: Option<&AppCatalog>, inventory_error: Option<&str>) -> TuiSection {
+    let mut rows = vec![row(
+        tui_theme::LABEL_OK,
+        "local control surface loaded",
+        "safe",
+    )];
+    match catalog {
+        Some(catalog) => {
+            let uninstall_reviews = catalog
+                .apps
+                .iter()
+                .filter(|app| {
+                    matches!(
+                        app.uninstall_option,
+                        UninstallOption::ManagerReview | UninstallOption::QuarantineReview
+                    )
+                })
+                .count();
+            rows.push(row_count(
+                tui_theme::LABEL_OK,
+                catalog.app_count,
+                "installed software records loaded",
+                "safe",
+            ));
+            rows.push(row_count(
+                tui_theme::LABEL_PLAN,
+                uninstall_reviews,
+                "uninstall reviews available",
+                "accent",
+            ));
+        }
+        None if inventory_error.is_some() => rows.push(row(
+            tui_theme::LABEL_WARN,
+            "local inventory unavailable",
+            "warn",
+        )),
+        None => rows.push(row(
+            tui_theme::LABEL_INFO,
+            "software names omitted from private output",
+            "info",
+        )),
+    }
+    rows.push(row(
+        tui_theme::LABEL_INFO,
+        "Tab details; arrows select; Enter previews",
+        "info",
+    ));
+    TuiSection {
+        code: "01",
+        title: "overview",
+        summary: "live local inventory and available safe actions",
+        rows,
+    }
+}
+
+fn installed_software_section(
+    catalog: Option<&AppCatalog>,
+    inventory_error: Option<&str>,
+) -> TuiSection {
+    let mut rows = Vec::new();
+    match catalog {
+        Some(catalog) => {
+            rows.push(row_count(
+                tui_theme::LABEL_OK,
+                catalog.app_count,
+                "installed software records",
+                "safe",
+            ));
+            rows.push(row(
+                tui_theme::LABEL_INFO,
+                "select an item and press Enter to preview its uninstall review",
+                "info",
+            ));
+            for app in &catalog.apps {
+                let label = match app.kind {
+                    SoftwareKind::HomebrewFormula | SoftwareKind::HomebrewCask => "[PKG]",
+                    SoftwareKind::ApplicationBundle | SoftwareKind::PlatformPackage => "[APP]",
+                };
+                let (option, tone) = match app.uninstall_option {
+                    UninstallOption::Protected => ("protected", "muted"),
+                    UninstallOption::ManagerReview => ("manager uninstall review", "accent"),
+                    UninstallOption::QuarantineReview => ("quarantine uninstall review", "accent"),
+                    UninstallOption::Unsupported => ("uninstall unsupported", "warn"),
+                };
+                rows.push(TuiRow {
+                    label,
+                    value: format!(
+                        "{} · version {} · {}",
+                        app.name,
+                        app.version.as_deref().unwrap_or("unknown"),
+                        option
+                    ),
+                    tone,
+                    preview: Some(format!("{}; run: rz0 uninstall plan {}", option, app.id)),
+                });
+            }
+        }
+        None if inventory_error.is_some() => rows.push(row(
+            tui_theme::LABEL_WARN,
+            "local software inventory failed closed; run `rz0 apps` for details",
+            "warn",
+        )),
+        None => rows.push(row(
+            tui_theme::LABEL_INFO,
+            "software names omitted from private dashboard output",
+            "info",
+        )),
+    }
+    TuiSection {
+        code: "03",
+        title: "installed software",
+        summary: "live bounded macOS applications and package-manager records",
+        rows,
+    }
+}
+
+fn uninstall_options_section(catalog: Option<&AppCatalog>) -> TuiSection {
+    let mut rows = vec![row(
+        tui_theme::LABEL_INFO,
+        "select an option and press Enter for its exact review command",
+        "info",
+    )];
+    if let Some(catalog) = catalog {
+        for app in catalog.apps.iter().filter(|app| {
+            matches!(
+                app.uninstall_option,
+                UninstallOption::ManagerReview | UninstallOption::QuarantineReview
+            )
+        }) {
+            let method = match app.uninstall_option {
+                UninstallOption::ManagerReview => "manager review",
+                UninstallOption::QuarantineReview => "quarantine review",
+                UninstallOption::Protected | UninstallOption::Unsupported => continue,
+            };
+            rows.push(TuiRow {
+                label: "[PLAN]",
+                value: format!("{} · {}", app.name, method),
+                tone: "accent",
+                preview: Some(format!(
+                    "run: rz0 uninstall plan {}; no write occurs",
+                    app.id
+                )),
+            });
+        }
+    }
+    if rows.len() == 1 {
+        rows.push(row(
+            tui_theme::LABEL_SKIP,
+            "no uninstall reviews are currently available",
+            "muted",
+        ));
+    }
+    TuiSection {
+        code: "04",
+        title: "uninstall options",
+        summary: "ownership-aware manager or quarantine-first reviews",
+        rows,
+    }
 }
 
 fn palette() -> TuiPalette {

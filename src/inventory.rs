@@ -30,6 +30,27 @@ pub fn contract_report() -> InventoryReport {
     report
 }
 
+pub fn live_report(redact_paths: bool) -> Result<InventoryReport, String> {
+    let mut report =
+        rz0_module_inventory::collect_inventory(&rz0_module_inventory::InventoryOptions {
+            fixture: None,
+            redact_paths,
+            probe_versions: false,
+            include_apps: true,
+        })?;
+    report.runtime.command = brand::COMMAND.to_string();
+    report.runtime.scan_mode = "dry_run".to_string();
+    report.recalculate_summary();
+    let validation = validate_inventory_report(&report);
+    if !validation.valid {
+        return Err(format!(
+            "inventory report failed its shared contract: {}",
+            validation.errors.join("; ")
+        ));
+    }
+    Ok(report)
+}
+
 pub fn recalculate_summary(report: &mut InventoryReport) {
     report.recalculate_summary();
 }
@@ -42,13 +63,40 @@ pub fn contract_text(report: &InventoryReport) -> String {
     let _ = writeln!(out, "mutation_capability: disabled");
     let _ = writeln!(out, "writes_attempted: no");
     let _ = writeln!(out, "sources_collected: {}", report.summary.source_count);
+    let _ = writeln!(out, "known_tools: {}", report.summary.tool_count);
+    let _ = writeln!(out, "installed_software: {}", report.summary.app_count);
     let _ = writeln!(out, "result: no system changes were attempted");
     for warning in &report.warnings {
         let _ = writeln!(out, "warning: {warning}");
     }
+    let _ = writeln!(out, "\ninstalled software:");
+    if report.apps.is_empty() {
+        let _ = writeln!(out, "  none reported");
+    }
+    for app in &report.apps {
+        let _ = writeln!(
+            out,
+            "  {}\tversion={}\tsource={}",
+            app.name,
+            app.version.as_deref().unwrap_or("unknown"),
+            app.source_id
+        );
+    }
+    let _ = writeln!(out, "\nknown tools:");
+    if report.tools.is_empty() {
+        let _ = writeln!(out, "  none reported");
+    }
+    for tool in &report.tools {
+        let _ = writeln!(
+            out,
+            "  {}\tversion={}",
+            tool.display_name,
+            tool.version.as_deref().unwrap_or("not-probed")
+        );
+    }
     let _ = writeln!(
         out,
-        "module_source: modules/inventory (separate, read-only, not installed)"
+        "\ninventory_adapter: built-in first-party read-only collector"
     );
     out
 }

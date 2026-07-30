@@ -10,6 +10,7 @@ pub(crate) fn row(label: &'static str, value: &str, tone: &'static str) -> TuiRo
         label,
         value: value.to_string(),
         tone,
+        preview: None,
     }
 }
 

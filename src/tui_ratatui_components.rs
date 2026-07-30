@@ -89,7 +89,7 @@ pub(crate) fn render_header(
             Span::raw(format!("  v{}", dashboard.version)),
             Span::raw("   "),
             Span::styled(tui_theme::LABEL_OK, tone_style("safe", color)),
-            Span::raw(" read-only foundation"),
+            Span::raw(" live local inventory"),
         ]),
         Line::from(vec![
             Span::styled("Dossier Navy / Burnished Brass", tone_style("muted", color)),
@@ -97,7 +97,7 @@ pub(crate) fn render_header(
             Span::raw(tier.name()),
             Span::raw(" · "),
             Span::styled(
-                "no installs · no cleanup · no module execution",
+                "inventory live · uninstall requires review and confirmation",
                 tone_style("dry_run", color),
             ),
         ]),
@@ -139,9 +139,12 @@ pub(crate) fn render_state_cards(
 pub(crate) fn render_footer(frame: &mut Frame<'_>, area: Rect, color: bool) {
     let line = Line::from(vec![
         Span::styled(tui_theme::LABEL_DRY_RUN, tone_style("dry_run", color)),
-        Span::raw(" read-only "),
-        Span::styled("preview/control surface only", tone_style("accent", color)),
-        Span::raw(" · no installs/cleanup/module execution/store writes"),
+        Span::raw(" report-first "),
+        Span::styled(
+            "installed software is selectable",
+            tone_style("accent", color),
+        ),
+        Span::raw(" · no mutation without exact confirmation"),
     ]);
     frame.render_widget(
         Paragraph::new(vec![line]).block(block("SAFETY // LOCKED", "dry_run", color)),

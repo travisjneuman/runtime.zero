@@ -20,4 +20,20 @@ fn dashboard_does_not_claim_active_feature_modules() {
         StoreInitStatus::Ready | StoreInitStatus::AlreadyInitialized
     ));
     assert!(dashboard.planned_module_family_count > 0);
+    #[cfg(target_os = "macos")]
+    {
+        assert!(dashboard.installed_software_count > 0);
+        let installed = dashboard
+            .sections
+            .iter()
+            .find(|section| section.title == "installed software")
+            .expect("installed software section");
+        assert!(installed.rows.iter().any(|row| row.label == "[APP]"));
+        let uninstall = dashboard
+            .sections
+            .iter()
+            .find(|section| section.title == "uninstall options")
+            .expect("uninstall options section");
+        assert!(uninstall.rows.iter().any(|row| row.label == "[PLAN]"));
+    }
 }

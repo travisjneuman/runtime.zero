@@ -113,7 +113,7 @@ fn render_navigation(
     ));
     lines.push(label_line(
         tui_theme::LABEL_BLOCKED,
-        "module execution blocked",
+        "mutation needs confirmation",
         "warn",
         color,
     ));
@@ -197,8 +197,13 @@ fn render_selected_panel(
         let row = &section.rows[selected_row];
         lines.push(Line::raw(""));
         lines.push(preview_only_line(color));
-        lines.push(Line::raw(format!("context: {} {}", row.label, row.value)));
+        lines.push(Line::raw(row.preview.clone().unwrap_or_else(|| {
+            format!("context: {} {}", row.label, row.value)
+        })));
     }
+    let visible_height = area.height.saturating_sub(2);
+    let selected_line = u16::try_from(4usize.saturating_add(selected_row)).unwrap_or(u16::MAX);
+    let scroll = selected_line.saturating_sub(visible_height.saturating_sub(1));
     frame.render_widget(
         Paragraph::new(lines)
             .block(block(
@@ -209,7 +214,8 @@ fn render_selected_panel(
                 "accent",
                 color,
             ))
-            .wrap(Wrap { trim: true }),
+            .wrap(Wrap { trim: true })
+            .scroll((scroll, 0)),
         area,
     );
 }

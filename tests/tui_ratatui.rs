@@ -35,11 +35,12 @@ fn widget_dashboard_keeps_text_first_labels() {
 
 #[test]
 fn selected_section_changes_detail_panel() {
-    let mut state = TuiState::new(4);
+    let dashboard = runtime_zero::tui_dashboard::dashboard();
+    let mut state = TuiState::new(dashboard.sections.len());
     state.selected_section = 2;
     let text = render_text(110, 32, &state, false);
     assert!(text.contains("DOSSIER 03"));
-    assert!(text.contains("module planning without activation"));
+    assert!(text.contains("installed software"));
 }
 
 #[test]
@@ -112,15 +113,15 @@ fn read_only_previews_do_not_claim_execution() {
 }
 
 #[test]
-fn inventory_module_is_previewed_without_install_or_execution_claims() {
+fn live_software_command_is_previewed_without_execution_claims() {
     let mut state = TuiState::new(4);
     state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
     state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
     state.selected_command = 3;
     state.apply(runtime_zero::tui_state::TuiInput::Activate);
     let text = render_text(118, 34, &state, false);
-    assert!(text.contains("rz0-inventory --format json --redact-paths"));
-    assert!(text.contains("never run from this TUI"));
+    assert!(text.contains("rz0 apps"));
+    assert!(text.contains("list live bounded application"));
     assert!(!text.contains("module activated"));
 }
 
@@ -130,7 +131,7 @@ fn polished_shell_uses_component_labels_without_color_dependency() {
     assert!(text.contains("RZ0 // FOUNDATION CONTROL SURFACE"));
     assert!(text.contains("FOUNDATION STATE // LIVE"));
     assert!(text.contains("SAFETY // LOCKED"));
-    assert!(text.contains("preview/control surface only"));
+    assert!(text.contains("installed software is selectable"));
     assert!(text.contains("select to preview; TUI will not run commands"));
 }
 
@@ -147,8 +148,9 @@ fn color_mode_does_not_change_required_text_labels() {
         assert!(plain.contains(label));
         assert!(color.contains(label));
     }
-    let mut modules = TuiState::new(4);
-    modules.selected_section = 2;
+    let dashboard = runtime_zero::tui_dashboard::dashboard();
+    let mut modules = TuiState::new(dashboard.sections.len());
+    modules.selected_section = 4;
     assert!(render_text(110, 32, &modules, false).contains(tui_theme::LABEL_DRY_RUN));
     assert!(render_text(110, 32, &modules, true).contains(tui_theme::LABEL_DRY_RUN));
 }

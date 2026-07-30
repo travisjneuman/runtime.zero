@@ -69,6 +69,8 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("store status [--store-root <path>]"));
     assert!(out.contains("--color auto|always|never"));
     assert!(out.contains("rz0 --tui"));
+    assert!(out.contains("rz0 apps [--format json]"));
+    assert!(out.contains("rz0 uninstall plan <installed-software-id>"));
 }
 
 #[test]
@@ -103,6 +105,9 @@ fn dashboard_json_reports_versioned_read_only_contract() {
     assert_eq!(value["read_only"], true);
     assert_eq!(value["writes_attempted"], false);
     assert_eq!(value["installed_module_count"], 0);
+    assert_eq!(value["installed_software_count"], 0);
+    assert_eq!(value["inventory_status"], "private summary");
+    assert!(!out.contains("[APP]"));
     assert!(!out.contains("\u{1b}["));
 }
 
@@ -336,7 +341,7 @@ fn scan_dry_run_attempts_no_changes() {
 }
 
 #[test]
-fn scan_json_exposes_empty_read_only_inventory_contract() {
+fn scan_json_exposes_live_private_read_only_inventory_contract() {
     let (code, out, err) = run(["scan", "--dry-run", "--format", "json"]);
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
@@ -348,7 +353,26 @@ fn scan_json_exposes_empty_read_only_inventory_contract() {
     assert_eq!(value["writes_attempted"], false);
     assert_eq!(value["host"]["hostname_included"], false);
     assert_eq!(value["host"]["current_user_included"], false);
-    assert_eq!(value["sources"].as_array().map(Vec::len), Some(0));
-    assert_eq!(value["summary"]["warning_count"], 1);
+    assert!(
+        value["sources"]
+            .as_array()
+            .is_some_and(|sources| !sources.is_empty())
+    );
+    assert_eq!(value["path_values_redacted"], true);
+    assert!(value["summary"]["source_count"].as_u64().unwrap_or(0) > 0);
     assert!(!out.contains("\u{1b}["));
+}
+
+#[test]
+fn apps_command_exposes_path_free_live_software_catalog() {
+    let (code, out, err) = run(["apps", "--format", "json"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("apps json");
+    assert_eq!(value["contract"], "installed_software_catalog");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert!(value["source_count"].as_u64().unwrap_or(0) > 0);
+    assert!(!out.contains("install_location"));
+    assert!(!out.contains("/Users/"));
 }

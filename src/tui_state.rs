@@ -56,6 +56,14 @@ impl TuiState {
         }
     }
 
+    pub fn clamp_detail_row(&mut self, row_count: usize) {
+        self.selected_detail_row = if row_count == 0 {
+            0
+        } else {
+            self.selected_detail_row.min(row_count - 1)
+        };
+    }
+
     pub fn apply(&mut self, input: TuiInput) -> TuiAction {
         match input {
             TuiInput::Quit => TuiAction::Quit,

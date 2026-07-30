@@ -18,7 +18,7 @@ pub fn render_dashboard(dashboard: &TuiDashboard, color: bool) -> String {
         dashboard,
         color,
         TEXT_WIDTH as u16,
-        34,
+        38,
         &TuiState::new(0),
         false,
     )
@@ -163,7 +163,7 @@ fn navigation_lines(dashboard: &TuiDashboard, state: &TuiState, interactive: boo
     lines.push("POSTURE".to_string());
     lines.push(format!("{} safe review", tui_theme::LABEL_INFO));
     lines.push(format!(
-        "{} module execution blocked",
+        "{} mutation requires exact confirmation",
         tui_theme::LABEL_BLOCKED
     ));
     lines
@@ -212,15 +212,15 @@ fn command_rail_lines(width: usize) -> Vec<String> {
     vec![
         String::new(),
         "SCRIPTABLE CLI RAIL".to_string(),
-        truncate("rz0 doctor · rz0 store status · rz0 --json", width),
-        truncate("rz0 modules install --dry-run <package>", width),
+        truncate("rz0 apps · rz0 scan --dry-run · rz0 --json", width),
+        truncate("rz0 uninstall plan <id> · rz0 doctor", width),
     ]
 }
 
 fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) -> Vec<String> {
     let mut lines = vec![separator(width)];
     lines.push(line(
-        "read-only · no installs/cleanup/module execution/store writes",
+        "live inventory · uninstall review · no mutation without confirmation",
         width,
         color,
         Some(tui_theme::TuiTone::DryRun),

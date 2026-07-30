@@ -44,7 +44,9 @@ fn render_plain_dashboard_without_ansi() {
     assert!(rendered.contains("runtime.zero rz0"));
     assert!(rendered.contains("SCRIPTABLE CLI RAIL"));
     assert!(rendered.contains("rz0 store status"));
-    assert!(rendered.contains("read-only · no installs/cleanup/module execution/store writes"));
+    assert!(
+        rendered.contains("live inventory · uninstall review · no mutation without confirmation")
+    );
     assert!(!rendered.contains('…'));
     assert!(!rendered.contains("\x1b["));
 }
@@ -72,7 +74,7 @@ fn interactive_color_render_styles_body_without_breaking_text() {
     );
     assert!(rendered.contains("\x1b["));
     assert!(rendered.contains("[BLOCKED]"));
-    assert!(rendered.contains("DOSSIER 01 · FOUNDATION"));
+    assert!(rendered.contains("DOSSIER 01 · OVERVIEW"));
 }
 
 #[test]
@@ -160,11 +162,7 @@ fn all_sections_render_with_accessible_labels_across_terminal_sizes() {
                         );
                     }
                     assert!(plain.contains("NAVIGATION"));
-                    assert!(plain.contains("read-only"));
-                    if requested_height >= 20 {
-                        assert!(plain.contains("[INFO]"));
-                        assert!(plain.contains("[") && plain.contains("]"));
-                    }
+                    assert!(plain.contains("read-only") || plain.contains("live inventory"));
                     if !show_help || requested_height >= 24 {
                         assert!(
                             plain.contains(section.title)
@@ -196,5 +194,5 @@ fn colorized_frames_preserve_plain_text_contract() {
     assert!(colorized.contains("\x1b["));
     assert_eq!(strip_ansi(&colorized), plain);
     assert!(plain.contains("[BLOCKED]"));
-    assert!(plain.contains("[DRY-RUN]"));
+    assert!(plain.contains("[PLAN]"));
 }

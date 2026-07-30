@@ -13,7 +13,7 @@ pub fn dashboard_text_with_color(color: bool) -> (ExitCode, String, String) {
 }
 
 pub fn dashboard_json() -> (ExitCode, String, String) {
-    match serde_json::to_string_pretty(&tui_dashboard::dashboard()) {
+    match serde_json::to_string_pretty(&tui_dashboard::private_dashboard()) {
         Ok(json) => (ExitCode::Ok, format!("{json}\n"), String::new()),
         Err(err) => (ExitCode::Usage, String::new(), err.to_string()),
     }

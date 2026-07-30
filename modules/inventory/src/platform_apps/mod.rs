@@ -27,13 +27,13 @@ pub(super) struct RootSpec {
 }
 
 #[cfg(target_os = "macos")]
-pub fn collect_installed_apps() -> PlatformAppCollection {
+pub fn collect_installed_apps() -> Vec<PlatformAppCollection> {
     macos::collect_installed_apps()
 }
 
 #[cfg(target_os = "linux")]
-pub fn collect_installed_apps() -> PlatformAppCollection {
-    linux::collect_installed_apps()
+pub fn collect_installed_apps() -> Vec<PlatformAppCollection> {
+    vec![linux::collect_installed_apps()]
 }
 
 pub(super) fn open_root(root: &RootSpec, warnings: &mut Vec<String>) -> Option<Vec<fs::DirEntry>> {

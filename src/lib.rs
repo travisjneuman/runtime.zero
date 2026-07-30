@@ -1,3 +1,4 @@
+pub mod apps;
 pub mod brand;
 pub mod color_mode;
 pub mod dashboard_cli;
@@ -65,6 +66,8 @@ where
         Some("--help" | "-h" | "help") => (ExitCode::Ok, help_text(), String::new()),
         Some("--version" | "-V" | "version") => (ExitCode::Ok, version_text(), String::new()),
         Some("doctor") => doctor_command(&args[1..]),
+        Some("apps") => apps::apps_command(&args[1..]),
+        Some("uninstall") => apps::uninstall_command(&args[1..]),
         Some("modules") => module_cli::modules_command(&args[1..]),
         Some("store") => store_cli::store_command(&args[1..]),
         Some("scan") => scan_command(&args[1..]),
@@ -84,7 +87,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--format json]\n\nFoundation safety posture:\n  {safety}\n\nThe core validates local manifests and lists installed modules. It never executes module code or fetches remote modules.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} apps [--format json]\n  {cmd} uninstall plan <installed-software-id> [--format json]\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--include-raw-paths] [--format json]\n\nFoundation safety posture:\n  {safety}\n\nThe core includes bounded read-only local inventory, validates local manifests, and lists installed modules. Uninstall remains review-only until an exact quarantine/manager transaction is confirmed and authorized.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
@@ -155,26 +158,37 @@ fn unknown_command(command: &str) -> (ExitCode, String, String) {
 }
 
 fn scan_command(args: &[String]) -> (ExitCode, String, String) {
-    let format = match args {
-        [dry_run] if dry_run == "--dry-run" => ScanOutputFormat::Text,
-        [dry_run, format, value]
-            if dry_run == "--dry-run" && format == "--format" && value == "json" =>
-        {
-            ScanOutputFormat::Json
+    let Some(first) = args.first() else {
+        return scan_usage_error();
+    };
+    if first != "--dry-run" {
+        return scan_usage_error();
+    }
+    let mut format = ScanOutputFormat::Text;
+    let mut include_raw_paths = false;
+    let mut index = 1usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--include-raw-paths" => include_raw_paths = true,
+            "--format" if args.get(index + 1).is_some_and(|value| value == "json") => {
+                format = ScanOutputFormat::Json;
+                index += 1;
+            }
+            _ => return scan_usage_error(),
         }
-        _ => {
+        index += 1;
+    }
+
+    let report = match inventory::live_report(!include_raw_paths) {
+        Ok(report) => report,
+        Err(error) => {
             return (
                 ExitCode::Usage,
                 String::new(),
-                format!(
-                    "scan is report-only and requires dry-run mode\n\nUsage: {} scan --dry-run [--format json]\n",
-                    brand::COMMAND
-                ),
+                format!("local inventory failed closed: {error}\n"),
             );
         }
     };
-
-    let report = inventory::contract_report();
     match format {
         ScanOutputFormat::Text => (
             ExitCode::Ok,
@@ -186,6 +200,17 @@ fn scan_command(args: &[String]) -> (ExitCode, String, String) {
             Err(err) => (ExitCode::Usage, String::new(), err),
         },
     }
+}
+
+fn scan_usage_error() -> (ExitCode, String, String) {
+    (
+        ExitCode::Usage,
+        String::new(),
+        format!(
+            "scan is report-only and requires dry-run mode\n\nUsage: {} scan --dry-run [--include-raw-paths] [--format json]\n",
+            brand::COMMAND
+        ),
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -40,6 +40,11 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
             if state.apply(input) == TuiAction::Quit {
                 break;
             }
+            let row_count = dashboard
+                .sections
+                .get(state.selected_section)
+                .map_or(0, |section| section.rows.len());
+            state.clamp_detail_row(row_count);
             render(terminal, &dashboard, &state, launch_context, color)?;
         }
     }
