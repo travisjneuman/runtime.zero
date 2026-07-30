@@ -42,16 +42,18 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 271 tests. The all-features suite passed 281.
+The default workspace suite passed 289 tests. The all-features suite passed 300.
 Coverage includes shared capability families plus exact manifest/protocol/action
-grant validation, error/resource/validation/confirmation,
-four privacy-redaction tests, four fail-closed configuration tests, four strict
-config-digest-bound diagnostic tests, four final-artifact performance contract
-tests, two process-host
-capture/descriptor tests, action-plan digests, opened-directory adversarial
+grant validation, error/resource/validation/confirmation, strict owned inventory
+parsing/cross-reference/export-privacy checks, path-free finding classification
+and finding-bound action plans, four privacy-redaction tests, four fail-closed
+configuration tests, four strict config-digest-bound diagnostic tests, four
+support-contract tests plus report/export binary tests, four final-artifact
+performance contract tests, two process-host capture/descriptor tests, guarded
+Unix version-probe group teardown, action-plan digests, opened-directory adversarial
 tests, canonical registries, release ledgers, transaction/recovery chains,
-durable writers, commit receipts, default and fault-enabled commit coordination,
-store initialization, opened-artifact identity, fail-closed native executable
+durable writers, commit receipts, default/fault/cancellation-enabled commit
+coordination across all eight boundaries, store initialization, opened-artifact identity, fail-closed native executable
 binding, production-execution assessments, and nine native macOS guarded test-
 child cases. The transport cases prove fail-closed refusal of an observed
 inheritable descriptor and Unix process-group teardown of a sleeping descendant
@@ -66,7 +68,7 @@ library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 138 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 141 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -74,7 +76,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved 23 local workspace packages and 115
+`cargo metadata --locked` resolved 26 local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
