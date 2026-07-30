@@ -31,7 +31,8 @@ A future versioned plan should include:
 
 - plan ID, schema version, creation time, expiry, host/platform class, and module
   identity;
-- evidence source IDs and immutable evidence digests;
+- exact `classified_finding_report` contract, sealed report ID, immutable report
+  digest, and one mandatory finding ID per action;
 - action kind, exact target identity/version, manager/source, and rationale;
 - for quarantine/restore fixtures, exact source-relative path, SHA-256, and size;
 - capability grant and whether elevation/network access is required;

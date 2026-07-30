@@ -115,8 +115,9 @@ See [`action-planning.md`](action-planning.md).
   signed lifecycle/core integration/final-artifact platform proof remain open.
 - [x] Allocation-free validation contract for canonical IDs, versions, lowercase
   hashes, evidence references, and platform-neutral relative paths.
-- [x] Deterministic validated action-plan/write-set digests and five-minute exact
-  interactive confirmation with single-use transaction-consumption evidence.
+- [x] Require every action plan to bind the finding contract, sealed report ID,
+  report digest, and per-action finding ID; deterministically bind plan/write-set
+  digests into five-minute exact confirmation and single-use consumption.
 - [x] Unix held-directory-relative no-follow create/open/lock/sync/no-replace/
   atomic-replace operations consumed by store, journal, and commit coordination.
 - [x] Implement compile-checked Windows `NtCreateFile` root-relative child

@@ -39,8 +39,10 @@ Schema 1 enforces these cross-module rules:
 `read_only` is true while `writes_attempted`, `action_authorized`, and
 `raw_paths_included` are false. A valid finding is evidence, not an action. It
 cannot authorize a manager command, quarantine, confirmation, transaction,
-rollback, module lifecycle transition, or release. Action plans must separately
-bind exact source evidence and pass all confirmation/transaction/runtime gates.
+rollback, module lifecycle transition, or release. Schema-1 action plans must
+name the exact finding contract, sealed report ID, immutable report SHA-256, and
+one finding ID per action, then separately bind source evidence and pass all
+confirmation/transaction/runtime gates.
 
 ## Remaining work
 
