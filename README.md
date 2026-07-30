@@ -272,6 +272,7 @@ python3 -m unittest scripts.tests.test_prepare_macos_dmg
 scripts/build-package.sh aarch64-apple-darwin /tmp/runtime-zero-package
 scripts/build-dmg.sh aarch64-apple-darwin /tmp/runtime-zero-dmg
 scripts/benchmark_final_artifact.py --binary /path/to/rz0 --target aarch64-apple-darwin --source-commit <commit> --output /tmp/rz0-performance.json
+scripts/smoke_terminal_artifact.py --binary /path/to/rz0 --target aarch64-apple-darwin --source-commit <commit> --output /tmp/rz0-terminal.json
 cargo deny check
 ```
 

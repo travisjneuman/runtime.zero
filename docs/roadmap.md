@@ -188,8 +188,12 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
 - [ ] Complete foundation-owned trust, isolation, capabilities, durable
   transactions, module lifecycle, configuration, diagnostics, recovery, and
   compatibility/migrations.
+- [x] Add bounded final-artifact PTY/resize/alternate-screen smoke and pass the
+  current universal macOS binary through four TERM/dimension cases on ARM64 and
+  Rosetta slices.
 - [ ] Complete end-to-end/fuzz/race/fault/performance/soak/security/privacy/
-  accessibility testing and real runtime matrices.
+  cross-terminal/shell/pipe/Unicode/screen-reader accessibility testing and real
+  Windows/Linux/Intel/older-macOS runtime matrices.
 - [x] Add local non-publishing native and deterministic universal2 ZIP builders
   plus an unsigned macOS DMG builder that consumes the canonical ZIP, verifies
   exact entries/checksum/content/SBOM/notices, binds honest variable-container

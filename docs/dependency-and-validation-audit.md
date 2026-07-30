@@ -30,7 +30,9 @@ Validated with Rust/Cargo 1.96.0:
   no-execution module-protocol fixtures, canonical blocked production-execution
   assessments, and native test-child framing/output/timeout failure cases;
 - opt-in version-probe smoke with redacted output;
-- pseudo-terminal TUI navigation/help/quit/alternate-screen restoration smoke;
+- source-test pseudo-terminal TUI navigation/help/quit/alternate-screen smoke;
+- final universal artifact PTY smoke through ARM64 and Rosetta x86-64 across
+  `xterm-256color`, resized compact `xterm`, wide `screen`, and minimum `vt100`;
 - static site checks for unsafe JavaScript primitives and missing local links;
 - deterministic target-filtered SPDX 2.3 and deduplicated third-party license/
   notice generation bound to the final native binary;

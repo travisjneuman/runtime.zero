@@ -145,6 +145,21 @@ responsive layout vocabulary, and read-only command preview posture. Website
 mockups should be updated only in a separate website lane after Travis approves
 the visual direction. See [`website-tui-parity-backlog.md`](website-tui-parity-backlog.md)
 for the exact backlog and checks.
+## Final-artifact PTY smoke
+
+`scripts/smoke_terminal_artifact.py` exercises an already built single-link
+binary rather than a source checkout. It creates bounded pseudo-terminals,
+selects explicit TERM values and dimensions, injects a resize in the compact
+case, sends one raw `q`, and requires clean exit plus balanced alternate-screen
+entry/exit without captured line-echo. It stores only bounded output digests and
+counts, never terminal contents or host paths, and cannot authorize release.
+
+The current universal macOS artifact passed four `xterm-256color`, `xterm`,
+`screen`, and `vt100` PTY cases through both ARM64 and Rosetta x86-64 slices,
+including 40×12→100×30 resize. This is final-artifact local smoke, not proof for
+Terminal.app/iTerm/etc. versions, Intel hardware, older macOS, Windows console
+stacks, Linux terminal families, screen readers, or human accessibility.
+
 ## Verification expectations
 
 Automated tests should cover launch routing, key-event filtering, reducer
