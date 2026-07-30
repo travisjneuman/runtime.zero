@@ -27,6 +27,7 @@ rz0 --tui
 rz0 --no-tui
 rz0 --color auto|always|never
 rz0 doctor
+rz0 doctor --format json
 rz0 modules
 rz0 modules --format json
 rz0 modules validate <manifest.json>
@@ -112,7 +113,8 @@ of known executables, supports opt-in timeout-bounded version probes, and can
 read normalized platform application evidence when explicitly requested.
 Windows uses read-only uninstall registry views, macOS enumerates only direct
 `.app` bundles under known roots, and Linux parses bounded XDG desktop entries.
-Use `--redact-paths` before sharing its local output. It does not run package
+Paths are redacted by default; raw local values require the explicit
+`--include-raw-paths` flag. It does not run package
 managers, modify the system, or make the module installable through `rz0`.
 
 A separate `crates/module-trust/` contract now verifies local detached Ed25519
@@ -135,7 +137,11 @@ for manifests, protocols, and action plans while granting no authority.
 `crates/cancellation-contract/` provides a one-atomic first-reason cancellation
 and monotonic-deadline primitive. `crates/module-lifecycle/` owns dry-run,
 digest-bound install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall
-transitions and their exact foundation gates. `crates/confirmation-contract/`
+transitions and their exact foundation gates. `crates/privacy-contract/` owns
+bounded report-local redaction, `crates/diagnostics-contract/` owns privacy-safe
+`doctor` output, and `crates/process-host/` owns bounded process I/O plus
+fail-closed handle/descriptor and test-containment primitives.
+`crates/confirmation-contract/`
 binds validated plan/dry-run/write-set/state
 hashes to a five-minute interactive phrase and single-use consumption record
 while remaining unable to authorize execution. `crates/transaction-contract/`
@@ -148,13 +154,17 @@ centralizes shared byte/record/timeout/process ceilings so modules cannot
 silently expand them. `crates/validation-contract/` owns allocation-free bounded
 ID/version/hash/path grammar so parsers cannot silently diverge.
 `crates/secure-fs/` owns held-directory-relative state operations, locks, privacy
-checks, and atomic publication; Windows NT operations are compile-checked but
-remain blocked by owner/DACL runtime policy. `crates/registry-contract/` owns the
+checks, and atomic publication; Windows NT operations and strict owner/DACL
+inspection are compile-checked, while Windows store mutation remains blocked
+pending safe initial ACL creation and runtime proof. `crates/registry-contract/` owns the
 canonical installed-state shape and digest. `crates/release-contract/` generates the exact bounded target × seven-module ×
 12-stage evidence ledger while remaining unable to authorize release. See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),
 [`docs/capability-contract.md`](docs/capability-contract.md),
 [`docs/cancellation-contract.md`](docs/cancellation-contract.md),
+[`docs/privacy-contract.md`](docs/privacy-contract.md),
+[`docs/diagnostics-contract.md`](docs/diagnostics-contract.md),
+[`docs/process-host-foundation.md`](docs/process-host-foundation.md),
 [`docs/module-lifecycle-contract.md`](docs/module-lifecycle-contract.md),
 [`docs/confirmation-contract.md`](docs/confirmation-contract.md),
 [`docs/error-contract.md`](docs/error-contract.md),
@@ -236,6 +246,7 @@ cargo run -- --no-tui
 cargo run -- --json
 cargo run -- --version
 cargo run -- doctor
+cargo run -- doctor --format json
 cargo run -- modules
 cargo run -- modules --format json
 cargo run -- modules validate path/to/rz0-module.json
@@ -250,8 +261,8 @@ cargo run -- store init --dry-run --format json
 cargo run -- scan --dry-run
 cargo run -- scan --dry-run --format json
 cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
-cargo run -p rz0-module-inventory -- --format json --redact-paths
-cargo run -p rz0-module-inventory -- --include-apps --format json --redact-paths
+cargo run -p rz0-module-inventory -- --format json
+cargo run -p rz0-module-inventory -- --include-apps --format json
 cargo deny check
 ```
 

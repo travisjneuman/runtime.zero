@@ -41,12 +41,19 @@ no-replace or replace-enabled root-relative atomic rename and root-relative
 unlink. File IDs/link counts, reparse attributes, directory handles, and
 `LockFileEx` locking are checked without path-based mutation emulation.
 
-This is build evidence, not runtime proof. Owner/DACL privacy verification
-currently returns `unsupported_operation`; therefore the transaction coordinator
-and `store init --yes` remain blocked on Windows. Release support still requires
-reviewed owner/DACL policy, inherited-ACL tests, reparse/File-ID adversarial
-tests, atomicity and directory-flush evidence, and final-artifact runtime proof
-from Windows 7 through current client/server targets.
+Windows owner/DACL inspection is now compile-checked. It queries the process
+user SID and handle security descriptor, requires exact user ownership and a
+non-null bounded DACL, and accepts allow ACEs only for that user, LocalSystem, or
+Builtin Administrators. At least one user allow ACE is required; unsupported ACE
+types and grants to any other principal fail closed. Inherited ACEs receive the
+same principal policy rather than being trusted because they were inherited.
+
+This remains build evidence, not runtime proof. `store init --yes` stays
+structurally blocked on Windows because safe initial ACL creation and the full
+runtime filesystem matrix are not proven. Release support still requires real
+owner/DACL and inherited-ACL tests, token/elevation cases, reparse/File-ID
+adversarial tests, atomicity and directory-flush evidence, and final-artifact
+runtime proof from Windows 7 through current client/server targets.
 
 ## Authority boundary
 

@@ -48,19 +48,27 @@ used by manifests, protocols, and plans while granting no authority.
 `crates/cancellation-contract/` owns one atomic first-writer-wins cancellation
 and monotonic-deadline primitive. `crates/module-lifecycle/` owns digest-bound
 install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall transition
-plans and exact foundation gate sets. `crates/confirmation-contract/` owns exact short-lived interactive plan binding,
-response digests, and single-use consumption evidence without execution authority.
-`crates/error-contract/` owns stable machine codes and conservative privacy/retry
+plans and exact foundation gate sets. `crates/privacy-contract/` owns bounded,
+report-local redaction without retaining raw sensitive strings.
+`crates/diagnostics-contract/` owns the strict privacy-safe `rz0 doctor` report.
+`crates/process-host/` owns bounded pipe draining and platform handle/descriptor
+and test-containment primitives while exposing no production runner.
+`crates/confirmation-contract/` owns exact short-lived interactive plan binding,
+response digests, and single-use consumption evidence without execution
+authority. `crates/error-contract/` owns stable machine codes and conservative privacy/retry
 semantics; human messages are not policy. `crates/resource-contract/` owns
 shared byte/record/timeout/process ceilings so modules can narrow but not expand
 foundation budgets. `crates/validation-contract/` owns allocation-free lexical
 validation for contract IDs, versions, hashes, references, and relative paths.
 `crates/secure-fs/` owns held-directory-relative create/open/sync/lock/no-replace
-and atomic-replace primitives: Unix runtime-tested operations plus compile-checked
-NT root-relative Windows operations that remain blocked by ACL runtime policy.
+and atomic-replace primitives: Unix runtime-tested operations plus compile-
+checked NT root-relative Windows operations and owner/DACL inspection. Windows
+store mutation remains blocked pending safe initial ACL creation and runtime
+proof.
 `crates/registry-contract/` owns canonical installed-state shape, ordering,
-paths, serialization, and digests. `crates/release-contract/` owns the bounded canonical target
-× module × lifecycle evidence-ledger shape and cannot authorize release.
+paths, serialization, and digests. `crates/release-contract/` owns the bounded
+canonical target × module × lifecycle evidence-ledger shape and cannot authorize
+release.
 `crates/artifact-identity/` opens, bounds, hashes, identifies, revalidates, and
 returns the same receipt-relative file handle without execution; platform
 execution binding remains a later gate. `crates/module-trust/` supplies a
@@ -76,10 +84,12 @@ execution and recovery mutation remain gated.
 `crates/module-protocol/` validates a read-only/offline
 invocation preview and not-executed response with exact-path/digest metadata,
 least-privilege grants, a cleared environment-name allowlist, and bounded I/O.
-An explicit-feature integration lane launches only a Cargo-built test helper from
-a guarded OS-temp receipt-like path to exercise framing, concurrent drains,
-Unix inheritable-descriptor refusal, Unix process-group teardown, and compile-
-only Windows Job Object tree teardown; no core or inventory-module launch
+An explicit-feature integration lane launches only a Cargo-built test helper
+from a guarded OS-temp receipt-like path to exercise framing, shared bounded
+drains, Unix inheritable-descriptor refusal, Unix process-group teardown, and
+compile-only Windows Job Object tree teardown. Linux and Windows builds hold the
+verified executable lease through spawn; Windows handle auditing and all
+production macOS spawning still fail closed. No core or inventory-module launch
 exists. Future module
 execution, production signing, capability enforcement, durable transactions,
 and distribution work is gated by

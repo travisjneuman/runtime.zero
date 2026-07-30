@@ -13,7 +13,7 @@ From the repository root:
 ```bash
 cargo run -p rz0-module-inventory -- --help
 cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
-cargo run -p rz0-module-inventory -- --format json --redact-paths
+cargo run -p rz0-module-inventory -- --format json
 ```
 
 The fixture path is deterministic and reads only the selected local JSON file.
@@ -24,8 +24,8 @@ read-only access.
 Additional evidence is opt-in:
 
 ```bash
-cargo run -p rz0-module-inventory -- --probe-versions --format json --redact-paths
-cargo run -p rz0-module-inventory -- --include-apps --format json --redact-paths
+cargo run -p rz0-module-inventory -- --probe-versions --format json
+cargo run -p rz0-module-inventory -- --include-apps --format json
 ```
 
 `--probe-versions` executes exact known executable paths discovered from PATH
@@ -46,9 +46,10 @@ and do not invoke package managers, applications, scripts, or uninstallers.
 
 ## Privacy
 
-Local paths can contain usernames or private directory names. Output is local by
-default; use `--redact-paths` before sharing it. Redaction replaces path values
-with stable report-local placeholders without exposing the original values.
+Local paths can contain usernames or private directory names. Paths are redacted
+by default with stable report-local placeholders from the shared privacy
+foundation. Raw local paths require the explicit `--include-raw-paths` flag and
+must be reviewed before sharing.
 It does not redact application names, versions, or publishers from opt-in app
 inventory; review those fields separately before sharing. Hostname and
 current-user identity remain omitted. Raw registry keys,

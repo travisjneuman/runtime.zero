@@ -88,8 +88,12 @@ See [`action-planning.md`](action-planning.md).
   manifest and action-plan schema subsets; classification grants no authority.
 - [x] Shared typed machine-error vocabulary with redacted-detail defaults and no
   schema-1 automatic retry; module protocol rejects free-form error codes.
-- [x] Shared resource contract for artifact/document/collector/probe/process
-  ceilings, consumed across foundation and inventory modules.
+- [x] Shared resource contract for artifact/document/collector/probe/process,
+  redaction, and diagnostics ceilings, consumed across foundation and modules.
+- [x] Bounded privacy contract using domain-separated report-local tokens without
+  retaining raw strings; inventory paths are redacted by default.
+- [x] Strict privacy-safe text/JSON foundation diagnostics with exact typed checks
+  and no host, user, current-directory, environment-value, or raw-path output.
 - [x] Allocation-free validation contract for canonical IDs, versions, lowercase
   hashes, evidence references, and platform-neutral relative paths.
 - [x] Deterministic validated action-plan/write-set digests and five-minute exact
@@ -98,6 +102,9 @@ See [`action-planning.md`](action-planning.md).
   atomic-replace operations consumed by store, journal, and commit coordination.
 - [x] Implement compile-checked Windows `NtCreateFile` root-relative child
   create/open/lock/rename/unlink operations without path-based emulation.
+- [x] Add compile-checked exact-owner and bounded DACL inspection that accepts
+  allow ACEs only for the user, SYSTEM, or Administrators and rejects unknown
+  ACE shapes/principals.
 - [ ] Prove Windows owner/DACL privacy, inherited ACLs, reparse/File-ID behavior,
   atomicity, and directory flush on real client/server filesystems.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.
@@ -110,6 +117,9 @@ See [`action-planning.md`](action-planning.md).
 - [x] Explicit-feature Cargo test-child transport with bounded JSON framing,
   concurrent output drains, timeout kill/reap, environment/cwd proof, and
   fail-closed fixture tests; no module/core execution.
+- [x] Move bounded pipe draining and descriptor/handle/test-containment
+  primitives into a shared process-host foundation; Windows handle audit fails
+  closed rather than reporting success.
 - [x] Native Unix test-helper preflight for observed inheritable descriptors and
   process-group timeout teardown including a sleeping descendant.
 - [x] Windows-target test-helper Job Object assignment, kill-on-close, bounded
@@ -137,8 +147,9 @@ See [`action-planning.md`](action-planning.md).
   real process/power-loss recovery and rollback on every platform.
 - [x] Add a non-authorizing borrow-scoped executable binding: Linux held `/proc`
   descriptor path, Windows deny-write/delete handle lease, and fail-closed macOS.
-- [ ] Integrate and adversarially prove Linux/Windows binding in the contained
-  host, implement a reviewed exact macOS spawn primitive, close descriptor/
+- [x] Integrate Linux/Windows executable leases through guarded test-host spawn.
+- [ ] Adversarially prove Linux/Windows binding in a production contained host,
+  implement a reviewed exact macOS spawn primitive, close descriptor/
   handle-inheritance and Windows suspended-create races, obtain real Job Object
   proof, enforce capabilities, and complete sandbox/isolation runtime tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote

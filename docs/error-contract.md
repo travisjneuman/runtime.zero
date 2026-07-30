@@ -28,7 +28,9 @@ The module protocol now uses the typed code for its unchanged JSON value
 messages remain separate presentation data and should not be parsed for policy.
 
 This crate does not log, retry, display, localize, redact, or recover anything.
-Future CLI/TUI/module/transaction adapters should map internal failures at their
+`crates/privacy-contract/` supplies the bounded report-local redaction primitive;
+it does not make arbitrary OS error text safe automatically. Future
+CLI/TUI/module/transaction adapters should map internal failures at their
 boundary, preserve a causal chain privately where safe, and emit only bounded
 privacy-reviewed detail. Adding a code requires a compatibility and threat-model
 review; changing the meaning of an existing code requires a new schema.

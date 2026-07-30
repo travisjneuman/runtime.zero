@@ -33,29 +33,28 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 249 tests. The all-features suite passed 259,
-including shared capability/error/resource/validation/confirmation semantics,
-three deterministic plan/write-set digest tests, eight opened-directory/lock/
-privacy/atomic-publication adversarial tests, four canonical registry tests, five
-exact release-acceptance cross-product tests, seven transaction-chain/recovery
-unit tests, four guarded immutable-snapshot simulations, six durable-writer
-tests, five commit-receipt binding tests, four default and five fault-enabled commit-coordinator/recovery tests,
-two store-init filesystem-hardening tests, five opened-artifact identity tests,
-and one fail-closed native executable-binding test,
-and six production-execution gate
-tests, and nine native macOS test-child
-transport cases. The transport cases prove
-fail-closed refusal of an observed inheritable descriptor and Unix process-group
-teardown of a sleeping descendant with inherited pipes. The Windows-target lane
-also compiles private kill-on-close Job Object assignment, a two-process
-ceiling, descendant creation, and timeout job termination. Windows x86/x86-64/ARM64, Linux x86-64/ARM64, and macOS Intel all-feature target
+The default workspace suite passed 261 tests. The all-features suite passed 271.
+Coverage includes shared capability/error/resource/validation/confirmation,
+four privacy-redaction tests, four strict diagnostic tests, two process-host
+capture/descriptor tests, action-plan digests, opened-directory adversarial
+tests, canonical registries, release ledgers, transaction/recovery chains,
+durable writers, commit receipts, default and fault-enabled commit coordination,
+store initialization, opened-artifact identity, fail-closed native executable
+binding, production-execution assessments, and nine native macOS guarded test-
+child cases. The transport cases prove fail-closed refusal of an observed
+inheritable descriptor and Unix process-group teardown of a sleeping descendant
+with inherited pipes. Linux/Windows test-host builds hold the verified executable
+lease through spawn. The Windows-target lane also compiles private kill-on-close
+Job Object assignment, a two-process ceiling, strict owner/DACL inspection,
+descendant creation, and timeout job termination. Windows x86/x86-64/ARM64,
+Linux x86-64/ARM64, and macOS Intel all-feature target
 checks are not runtime evidence. Ordinary Rust Windows targets require Windows
 10/Server 2016. The Tier-3 legacy checks compile crates and a custom standard
 library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 133 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 136 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -63,7 +62,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved eighteen local workspace packages and 115
+`cargo metadata --locked` resolved 21 local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -103,8 +102,9 @@ normal cross-platform dependencies are Serde, serde_json, and time; Windows adds
 
 The secure-fs crate adds no newly resolved external package; it reuses libc and
 windows-sys for Unix runtime-tested and Windows compile-checked held-directory
-operations, locks, atomic publication, and Unix ownership/mode checks. Windows
-owner/DACL privacy verification remains explicitly unsupported.
+operations, locks, atomic publication, Unix ownership/mode checks, and Windows
+exact-owner/bounded-DACL inspection. Windows ACL behavior remains compile-only
+and does not enable store initialization.
 The confirmation-contract crate adds no newly resolved external package and
 binds exact plan/dry-run/write-set/state digests to short-lived interactive
 responses and single-use consumption evidence without execution authority. The cancellation-
@@ -121,8 +121,8 @@ release-contract crate adds no new external package and bounds the canonical
 target × seven-module × 12-stage evidence ledger to 256 targets/21,504 cells
 while remaining unable to authorize release. The resource-contract crate adds no
 new external package and centralizes typed
-process limits plus artifact/document/inventory/probe ceilings reused across
-foundation and inventory packages. The error-contract crate adds no new external
+process limits plus artifact/document/inventory/probe/redaction/diagnostic
+ceilings reused across foundation and inventory packages. The error-contract crate adds no new external
 package and replaces free-form
 module-protocol error codes with stable typed Serde values plus conservative
 privacy/retry classifiers. The transaction-contract crate adds no newly resolved external package: it
@@ -142,11 +142,17 @@ opened-handle file identity. Its borrow-scoped executable-binding API uses Linux
 `/proc/self/fd`, Windows deny-write/delete handle retention, and explicit
 fail-closed unsupported behavior on macOS; it grants no execution authority and
 has no installer API. The
-module-protocol crate uses Serde for its default fixture validator. Its
-non-default test-child feature adds Serde JSON framing; SHA-256 is a dev
-dependency, and Windows test builds use the already-resolved `windows-sys`
-Job Object APIs. Process spawn code exists only in integration-test support, not
-the library, core, CLI, or TUI.
+privacy-contract crate adds no new external package and uses shared SHA-256 for
+bounded domain-separated report-local placeholders without retaining raw values.
+The diagnostics-contract crate adds no new external package and owns the strict
+private text/JSON doctor model. The process-host crate adds no new external
+package, centralizes bounded capture plus Unix descriptor auditing, and places
+process-group/Job Object helper containment behind `test-support`; it exposes no
+production runner. The module-protocol crate uses Serde for its default fixture
+validator. Its non-default test-child feature adds Serde JSON framing and
+consumes the process-host test foundation. SHA-256 remains a dev dependency.
+Process spawn code exists only in integration-test support, not the library,
+core, CLI, or TUI.
 
 The core Ratatui graph contains two `hashbrown` versions through Ratatui's
 internal `kasuari`/`lru` graph. The audit found one crossterm backend version and

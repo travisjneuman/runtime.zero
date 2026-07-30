@@ -153,21 +153,25 @@ parallel once its shared foundation dependency is stable.
    measured budgets remain.
 2. Stabilize the core package/module/store/configuration/error/logging contracts
    and migration rules. Shared typed error semantics, byte/record/timeout/process
-   ceilings, allocation-free ID/version/hash/path grammar, and exact short-lived
-   single-use plan-confirmation contracts exist; remaining adapters and measured
-   budgets must consume the shared policies.
+   ceilings, allocation-free ID/version/hash/path grammar, bounded privacy
+   redaction, exact private diagnostics, and short-lived single-use plan-
+   confirmation contracts exist; remaining adapters and measured budgets must
+   consume the shared policies.
 3. Close package and executable identity races; the same-open-handle artifact
    identity primitive, Unix no-follow traversal, and compile-checked Windows NT
    root-relative state operations exist. Borrow-scoped Linux `/proc` and Windows
    deny-replacement spawn leases also exist, while macOS fails closed. Integration
    into the contained host, adversarial runtime proof, Windows ACL proof, and an
-   exact macOS spawn primitive remain.
-   Implement production signatures, key policy,
+   exact macOS spawn primitive remain. Guarded Linux/Windows test-host builds now
+   retain the verified executable lease through spawn, but this is not production
+   runtime proof. Implement production signatures, key policy,
    provenance, freshness, transparency, and revocation.
 4. Implement platform process/handle/tree containment, capability enforcement,
-   sandbox/elevation policy, and network policy. A one-atomic cancellation/
-   deadline primitive exists and drives guarded timeout polling; production host
-   propagation and teardown evidence remain.
+   sandbox/elevation policy, and network policy. Shared bounded capture and Unix
+   descriptor auditing now live in the process-host foundation; Windows handle
+   audit explicitly fails closed, and Job Object support remains guarded-test
+   compile evidence. A one-atomic cancellation/deadline primitive drives guarded
+   timeout polling; production host propagation and teardown evidence remain.
 5. Implement crash-safe staging, journals, receipts, atomic state, quarantine,
    rollback, idempotency, and interrupted recovery. The bounded hash-chained
    state machine now has exclusive immutable snapshot publication/recovery,

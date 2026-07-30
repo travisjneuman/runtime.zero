@@ -21,7 +21,9 @@ Capability names are foundation-owned through one shared contract; manifest,
 protocol, and action schemas accept only their explicit subsets. Classification
 does not grant OS authority. Machine error codes are also foundation-owned;
 schema 1 permits no automatic retry and requires accompanying detail to be
-redacted by default. Shared resource ceilings are foundation-owned; a module may
+redacted by default. The shared privacy contract assigns bounded report-local
+placeholders without retaining duplicate raw strings; user and host identity are
+never collected by default. Shared resource ceilings are foundation-owned; a module may
 use smaller limits but may not silently raise artifact, document, journal,
 collector, probe, timeout, or process-I/O bounds. Lexical ID/version/hash/path
 validation is likewise foundation-owned; a module cannot substitute a more
@@ -75,9 +77,9 @@ The shared transaction contract validates a bounded hash-chained state machine,
 publishes and recovers exact immutable snapshots under an exclusive cross-process
 writer lock, and emits conservative recovery decisions. Unix journal/store
 creation and publication use foundation-owned held-directory-relative no-follow
-operations. Compile-checked Windows NT root-relative operations exist, but state
-coordination fails closed until owner/DACL privacy policy and runtime evidence
-are complete. Snapshot publication writes only caller-selected transaction roots
+operations. Compile-checked Windows NT root-relative operations and strict
+owner/DACL inspection exist, but Windows store initialization remains blocked
+until safe initial ACL creation and runtime filesystem evidence are complete. Snapshot publication writes only caller-selected transaction roots
 and does not authorize action-plan writes or automatic recovery. The commit-
 receipt contract binds exact plan, write-set, confirmation-consumption, committed
 journal-head, and registry evidence. The foundation commit coordinator verifies
@@ -104,10 +106,13 @@ The test host uses an absolute exact path with no shell, PATH search, or
 arguments; clears the parent environment; frames bounded JSON; and concurrently
 drains bounded output. Unix test preflight refuses observed non-standard
 inheritable descriptors, assigns a new process group, and kills that group on
-timeout before reaping the direct helper. This helper is not the inventory
-module, is not built by default, is not reachable from the core/CLI/TUI, and is
-not a sandbox. Executable replacement/audit races, Windows handle/job control,
-and platform capability isolation remain unresolved production blockers.
+timeout before reaping the direct helper. Shared bounded capture and containment
+primitives live in the process-host foundation. Linux/Windows test builds retain
+the verified executable lease until spawn; Windows handle audit fails closed and
+macOS has no production binding. This helper is not the inventory module, is not
+built by default, is not reachable from the core/CLI/TUI, and is not a sandbox.
+Descriptor creation races, Windows suspended-create/job runtime proof, and
+platform capability isolation remain production blockers.
 
 The schema-1 production execution assessment records the exact canonical gate
 set for readiness review but has only a `blocked` decision and requires
@@ -198,7 +203,9 @@ contract. The separate `modules/inventory/` workspace package implements bounded
 read-only collection without making it part of the core execution surface. It
 uses fixture-first PATH normalization, reads process PATH, uses `KEY_READ` for
 persisted Windows PATH, detects only allowlisted executable names directly under
-PATH entries, and omits hostname/current-user identity and raw registry keys.
+PATH entries, omits hostname/current-user identity and raw registry keys, and
+redacts paths by default. Raw local paths require `--include-raw-paths` and must
+never satisfy the production protocol.
 
 Version probes require explicit `--probe-versions`; they invoke an exact
 discovered path without a shell, use static version-only arguments, cap captured

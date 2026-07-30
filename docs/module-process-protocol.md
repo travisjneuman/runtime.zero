@@ -105,8 +105,11 @@ spawn, the test host requires:
 - a marked direct working directory inside the isolated test root;
 - on Unix, no observed non-standard descriptor whose `FD_CLOEXEC` bit is clear.
 
-The test host invokes the absolute copied helper path directly with no shell,
-PATH search, or arguments. It clears the parent environment, sets only the
+The test host invokes the helper directly with no shell, PATH search, or
+arguments. Linux and Windows builds consume the borrow-scoped verified-
+executable binding through spawn and retain it until child creation; guarded
+macOS tests still use the canonical copied test path because production macOS
+binding deliberately fails closed. It clears the parent environment, sets only the
 explicit map, pipes only stdin/stdout/stderr, sends one bounded JSON request,
 and requires one strict JSON response. Stdout and stderr are drained
 concurrently while memory retention stays bounded. Tests cover:
@@ -138,14 +141,15 @@ network operation. This is test evidence only; it is not an execution API.
 
 The test lane deliberately does **not** claim production isolation:
 
-- same-open-handle executable identity is pinned during preflight, but
-  `Command` still spawns by canonical path, leaving verification-to-execution
-  binding unresolved;
+- Linux and Windows test-host builds bind the held verified artifact through
+  spawn, but this still lacks real Windows runtime proof and a production host;
+  guarded macOS tests spawn only their copied test helper by canonical path
+  while production macOS binding remains unsupported;
 - the standard process boundary does not enforce filesystem, registry, process,
   network, or syscall capabilities;
-- Unix preflight enumeration rejects currently observed descriptors with
+- shared Unix preflight enumeration rejects currently observed descriptors with
   `FD_CLOEXEC` clear, but a descriptor created after that audit remains a race;
-  Windows inherited-handle auditing is not implemented;
+  Windows inherited-handle auditing fails closed as unsupported;
 - Unix tests assign the helper to a fresh process group and kill the group on
   timeout, but the host reaps only its direct child; the shared cancellation
   token is not yet a production host or platform teardown implementation;
