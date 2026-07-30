@@ -91,7 +91,10 @@ fn corruption_blocks_recovery_instead_of_skipping_history() {
 #[cfg(unix)]
 #[test]
 fn symlinked_history_and_busy_writer_lock_fail_closed() {
-    use std::{fs::OpenOptions, os::fd::AsRawFd, os::unix::fs::symlink};
+    use std::{
+        fs::OpenOptions,
+        os::unix::fs::{OpenOptionsExt, symlink},
+    };
 
     let root = TestRoot::new();
     let journal = journal();
@@ -103,16 +106,14 @@ fn symlinked_history_and_busy_writer_lock_fail_closed() {
         .write(true)
         .create(true)
         .truncate(false)
+        .mode(0o600)
         .open(&lock_path)
         .expect("open competing lock");
-    // SAFETY: acquires a test-owned advisory lock on a live descriptor.
-    assert_eq!(
-        unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
-        0
-    );
+    let _held =
+        rz0_secure_fs::SecureFileLock::try_exclusive(lock).expect("acquire competing test lock");
     let error = publish_journal_snapshot(root.path(), &journal).expect_err("busy lock rejected");
     assert_eq!(error.code, DurableJournalErrorCode::WriterBusy);
-    drop(lock);
+    drop(_held);
 
     publish_journal_snapshot(root.path(), &journal).expect("publish after unlock");
     let transaction = root.path().join(&journal.transaction_id);

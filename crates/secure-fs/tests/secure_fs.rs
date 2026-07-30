@@ -3,13 +3,13 @@
 use std::{
     ffi::OsStr,
     fs,
-    os::unix::fs::symlink,
+    os::unix::fs::{PermissionsExt, symlink},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use rz0_secure_fs::{SecureDirectory, SecureFsErrorCode};
+use rz0_secure_fs::{SecureDirectory, SecureFileLock, SecureFsErrorCode};
 
 #[test]
 fn creates_reads_and_syncs_private_children_relative_to_held_directories() {
@@ -97,6 +97,73 @@ fn publication_is_noreplace_and_retires_the_pending_link() {
         fs::read(root.path().join("published/head")).unwrap(),
         b"complete"
     );
+}
+
+#[test]
+fn explicit_privacy_verification_checks_owner_and_unix_permission_bits() {
+    let root = TestRoot::new();
+    fs::set_permissions(root.path(), fs::Permissions::from_mode(0o755)).expect("public mode");
+    let directory = SecureDirectory::open(root.path()).expect("open root");
+    assert_eq!(
+        directory.verify_private().unwrap_err().code,
+        SecureFsErrorCode::UnsafeDirectory
+    );
+    fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).expect("private mode");
+    directory.verify_private().expect("private directory");
+    let file = directory
+        .write_new_child(OsStr::new("private"), b"x", 1)
+        .expect("private file");
+    file.verify_private().expect("private file policy");
+}
+
+#[test]
+fn opened_lock_file_enforces_exclusive_nonblocking_ownership() {
+    let root = TestRoot::new();
+    let directory = SecureDirectory::open(root.path()).expect("open root");
+    let first = directory
+        .open_or_create_lock_file(OsStr::new("writer.lock"))
+        .expect("first open");
+    let second = directory
+        .open_or_create_lock_file(OsStr::new("writer.lock"))
+        .expect("second open");
+    let held = SecureFileLock::try_exclusive(first).expect("first lock");
+    let error = match SecureFileLock::try_exclusive(second) {
+        Ok(_) => panic!("second lock unexpectedly succeeded"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, SecureFsErrorCode::LockBusy);
+    drop(held);
+    let third = directory
+        .open_or_create_lock_file(OsStr::new("writer.lock"))
+        .expect("third open");
+    SecureFileLock::try_exclusive(third).expect("lock after release");
+}
+
+#[test]
+fn atomic_replacement_publishes_complete_bytes_and_retires_pending_name() {
+    let root = TestRoot::new();
+    let directory = SecureDirectory::open(root.path()).expect("open root");
+    let pending = directory
+        .create_child_directory(OsStr::new("pending-replace"))
+        .expect("pending");
+    let published = directory
+        .create_child_directory(OsStr::new("published-replace"))
+        .expect("published");
+    published
+        .write_new_child(OsStr::new("registry"), b"before", 64)
+        .expect("before");
+    pending
+        .write_new_child(OsStr::new("next"), b"after", 64)
+        .expect("next");
+    let opened = pending
+        .replace_child_atomic(OsStr::new("next"), &published, OsStr::new("registry"))
+        .expect("replace");
+    assert_eq!(opened.metadata().len(), 5);
+    assert_eq!(
+        fs::read(root.path().join("published-replace/registry")).unwrap(),
+        b"after"
+    );
+    assert!(!root.path().join("pending-replace/next").exists());
 }
 
 #[test]

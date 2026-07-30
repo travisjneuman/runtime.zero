@@ -693,6 +693,7 @@ dependencies = [
  "ratatui",
  "rz0-capability-contract",
  "rz0-inventory-contract",
+ "rz0-registry-contract",
  "rz0-resource-contract",
  "rz0-secure-fs",
  "rz0-validation-contract",
@@ -832,6 +833,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rz0-registry-contract"
+version = "0.1.0"
+dependencies = [
+ "rz0-resource-contract",
+ "rz0-validation-contract",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "rz0-release-contract"
 version = "0.1.0"
 dependencies = [
@@ -860,15 +872,16 @@ dependencies = [
 name = "rz0-transaction-contract"
 version = "0.1.0"
 dependencies = [
- "libc",
+ "rz0-action-plan",
+ "rz0-confirmation-contract",
  "rz0-error-contract",
+ "rz0-registry-contract",
  "rz0-resource-contract",
  "rz0-secure-fs",
  "rz0-validation-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "windows-sys",
 ]
 
 [[package]]

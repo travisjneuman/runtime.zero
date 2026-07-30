@@ -1,8 +1,10 @@
 use std::collections::BTreeSet;
 
+mod coordinator;
 mod durable;
 mod receipt;
 
+pub use coordinator::*;
 pub use durable::*;
 pub use receipt::*;
 use serde::{Deserialize, Serialize};

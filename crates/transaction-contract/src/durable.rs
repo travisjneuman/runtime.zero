@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 use std::{fs::OpenOptions, io::Write};
 
 use rz0_resource_contract::MAX_JOURNAL_SNAPSHOT_BYTES;
@@ -380,7 +380,7 @@ fn snapshot_name(sequence: u32, event_sha256: &str) -> String {
     format!("{sequence:04}-{event_sha256}.json")
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn write_new_synced_file(path: &Path, bytes: &[u8]) -> Result<(), DurableJournalError> {
     let parent = path.parent().ok_or_else(|| {
         DurableJournalError::new(
@@ -400,7 +400,7 @@ fn write_new_synced_file(path: &Path, bytes: &[u8]) -> Result<(), DurableJournal
         .map_err(|error| secure_error("write pending journal snapshot", error))
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 fn write_new_synced_file(path: &Path, bytes: &[u8]) -> Result<(), DurableJournalError> {
     let mut file = OpenOptions::new()
         .write(true)
@@ -413,7 +413,7 @@ fn write_new_synced_file(path: &Path, bytes: &[u8]) -> Result<(), DurableJournal
         .map_err(|error| io_error("sync pending journal snapshot", error))
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn create_private_directory(path: &Path) -> std::io::Result<()> {
     let parent = path
         .parent()
@@ -427,7 +427,7 @@ fn create_private_directory(path: &Path) -> std::io::Result<()> {
         .map_err(|error| std::io::Error::other(error.to_string()))
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 fn create_private_directory(path: &Path) -> std::io::Result<()> {
     fs::create_dir(path)
 }
@@ -449,7 +449,7 @@ fn verify_direct_regular_file(path: &Path) -> Result<(), DurableJournalError> {
     open_direct_snapshot(path).map(|_| ())
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn open_direct_snapshot(path: &Path) -> Result<(File, fs::Metadata), DurableJournalError> {
     let parent = path.parent().ok_or_else(|| {
         DurableJournalError::new(
@@ -470,16 +470,10 @@ fn open_direct_snapshot(path: &Path) -> Result<(File, fs::Metadata), DurableJour
     Ok((opened.into_file(), metadata))
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 fn open_direct_snapshot(path: &Path) -> Result<(File, fs::Metadata), DurableJournalError> {
     let mut options = OpenOptions::new();
     options.read(true);
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::OpenOptionsExt;
-        use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT;
-        options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
-    }
     let file = options
         .open(path)
         .map_err(|error| io_error("open journal snapshot without following links", error))?;
@@ -493,26 +487,6 @@ fn open_direct_snapshot(path: &Path) -> Result<(File, fs::Metadata), DurableJour
         ));
     }
     Ok((file, metadata))
-}
-
-#[cfg(windows)]
-fn has_single_link(file: &File, _metadata: &fs::Metadata) -> Result<bool, DurableJournalError> {
-    use std::{mem::MaybeUninit, os::windows::io::AsRawHandle};
-    use windows_sys::Win32::Storage::FileSystem::{
-        BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
-    };
-
-    let mut information = MaybeUninit::<BY_HANDLE_FILE_INFORMATION>::zeroed();
-    // SAFETY: the structure is writable and the handle is borrowed from the
-    // live opened snapshot for this synchronous metadata query.
-    if unsafe { GetFileInformationByHandle(file.as_raw_handle(), information.as_mut_ptr()) } == 0 {
-        return Err(io_error(
-            "query journal snapshot link count",
-            std::io::Error::last_os_error(),
-        ));
-    }
-    // SAFETY: a successful call initialized the complete structure.
-    Ok(unsafe { information.assume_init() }.nNumberOfLinks == 1)
 }
 
 #[cfg(not(any(unix, windows)))]
@@ -532,19 +506,19 @@ fn unsafe_link_type(metadata: &fs::Metadata) -> bool {
     metadata.file_type().is_symlink()
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn sync_directory(path: &Path) -> Result<(), DurableJournalError> {
     rz0_secure_fs::SecureDirectory::open(path)
         .and_then(|directory| directory.sync())
         .map_err(|error| secure_error("sync journal directory", error))
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 fn sync_directory(_path: &Path) -> Result<(), DurableJournalError> {
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn publish_pending_file(
     temporary: &Path,
     heads: &Path,
@@ -576,7 +550,7 @@ fn publish_pending_file(
         .map_err(|error| secure_error("publish immutable journal snapshot", error))
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 fn publish_pending_file(
     temporary: &Path,
     heads: &Path,
@@ -590,7 +564,7 @@ fn publish_pending_file(
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn secure_error(context: &str, error: rz0_secure_fs::SecureFsError) -> DurableJournalError {
     use rz0_error_contract::FoundationErrorCode as Foundation;
 
@@ -611,152 +585,35 @@ fn io_error(context: &str, error: std::io::Error) -> DurableJournalError {
 }
 
 struct WriterLock {
-    file: File,
+    #[cfg(any(unix, windows))]
+    _lock: rz0_secure_fs::SecureFileLock,
 }
 
 impl WriterLock {
+    #[cfg(any(unix, windows))]
     fn acquire(root: &Path, transaction_id: &str) -> Result<Self, DurableJournalError> {
-        let path = root.join(format!(".{transaction_id}.writer.lock"));
-        if let Ok(metadata) = fs::symlink_metadata(&path)
-            && unsafe_link_type(&metadata)
-        {
-            return Err(DurableJournalError::new(
-                DurableJournalErrorCode::UnsafeFilesystemType,
-                "journal writer lock is a symlink or reparse point",
-            ));
-        }
-        #[cfg(unix)]
+        let name = format!(".{transaction_id}.writer.lock");
         let file = rz0_secure_fs::SecureDirectory::open(root)
-            .and_then(|directory| {
-                directory.open_or_create_lock_file(path.file_name().unwrap_or_default())
-            })
+            .and_then(|directory| directory.open_or_create_lock_file(std::ffi::OsStr::new(&name)))
             .map_err(|error| secure_error("open journal writer lock", error))?;
-        #[cfg(not(unix))]
-        let file = {
-            let mut options = OpenOptions::new();
-            options.read(true).write(true).create(true);
-            #[cfg(windows)]
-            {
-                use std::os::windows::fs::OpenOptionsExt;
-                use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT;
-                options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+        let lock = rz0_secure_fs::SecureFileLock::try_exclusive(file).map_err(|error| {
+            if error.code == rz0_secure_fs::SecureFsErrorCode::LockBusy {
+                DurableJournalError::new(
+                    DurableJournalErrorCode::WriterBusy,
+                    format!("acquire journal writer lock: {error}"),
+                )
+            } else {
+                secure_error("acquire journal writer lock", error)
             }
-            options
-                .open(&path)
-                .map_err(|error| io_error("open journal writer lock", error))?
-        };
-        let metadata = file
-            .metadata()
-            .map_err(|error| io_error("inspect opened journal writer lock", error))?;
-        if !metadata.is_file() || unsafe_link_type(&metadata) {
-            return Err(DurableJournalError::new(
-                DurableJournalErrorCode::UnsafeFilesystemType,
-                "journal writer lock is reparse-backed or the wrong type",
-            ));
-        }
-        lock_file(&file)?;
-        Ok(Self { file })
+        })?;
+        Ok(Self { _lock: lock })
     }
-}
 
-impl Drop for WriterLock {
-    fn drop(&mut self) {
-        unlock_file(&self.file);
-    }
-}
-
-#[cfg(unix)]
-fn lock_file(file: &File) -> Result<(), DurableJournalError> {
-    use std::os::fd::AsRawFd;
-
-    // SAFETY: flock operates on the borrowed live descriptor and stores lock
-    // ownership in the open file description held by WriterLock.
-    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
-        Ok(())
-    } else {
-        let error = std::io::Error::last_os_error();
-        let code = if error.kind() == std::io::ErrorKind::WouldBlock {
-            DurableJournalErrorCode::WriterBusy
-        } else {
-            DurableJournalErrorCode::Io
-        };
+    #[cfg(not(any(unix, windows)))]
+    fn acquire(_root: &Path, _transaction_id: &str) -> Result<Self, DurableJournalError> {
         Err(DurableJournalError::new(
-            code,
-            format!("acquire journal writer lock: {error}"),
+            DurableJournalErrorCode::Io,
+            "journal writer locks are unsupported on this platform",
         ))
     }
 }
-
-#[cfg(unix)]
-fn unlock_file(file: &File) {
-    use std::os::fd::AsRawFd;
-
-    // SAFETY: unlocks only the advisory lock held by this live descriptor.
-    let _ = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_UN) };
-}
-
-#[cfg(windows)]
-fn lock_file(file: &File) -> Result<(), DurableJournalError> {
-    use std::{mem::MaybeUninit, os::windows::io::AsRawHandle};
-    use windows_sys::Win32::{
-        Storage::FileSystem::{LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY, LockFileEx},
-        System::IO::OVERLAPPED,
-    };
-
-    let mut overlapped = MaybeUninit::<OVERLAPPED>::zeroed();
-    // SAFETY: the handle is live and the zeroed OVERLAPPED storage remains
-    // valid for this synchronous non-overlapped lock request.
-    let result = unsafe {
-        LockFileEx(
-            file.as_raw_handle(),
-            LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
-            0,
-            u32::MAX,
-            u32::MAX,
-            overlapped.as_mut_ptr(),
-        )
-    };
-    if result != 0 {
-        Ok(())
-    } else {
-        let error = std::io::Error::last_os_error();
-        let code = if error.raw_os_error() == Some(33) {
-            DurableJournalErrorCode::WriterBusy
-        } else {
-            DurableJournalErrorCode::Io
-        };
-        Err(DurableJournalError::new(
-            code,
-            format!("acquire journal writer lock: {error}"),
-        ))
-    }
-}
-
-#[cfg(windows)]
-fn unlock_file(file: &File) {
-    use std::{mem::MaybeUninit, os::windows::io::AsRawHandle};
-    use windows_sys::Win32::{Storage::FileSystem::UnlockFileEx, System::IO::OVERLAPPED};
-
-    let mut overlapped = MaybeUninit::<OVERLAPPED>::zeroed();
-    // SAFETY: releases only the byte range locked by this live descriptor.
-    let _ = unsafe {
-        UnlockFileEx(
-            file.as_raw_handle(),
-            0,
-            u32::MAX,
-            u32::MAX,
-            overlapped.as_mut_ptr(),
-        )
-    };
-}
-
-#[cfg(not(any(unix, windows)))]
-fn lock_file(_file: &File) -> Result<(), DurableJournalError> {
-    Err(DurableJournalError::new(
-        DurableJournalErrorCode::Io,
-        "journal writer locks are unsupported on this platform",
-    ))
-}
-
-#[cfg(not(any(unix, windows)))]
-fn unlock_file(_file: &File) {}

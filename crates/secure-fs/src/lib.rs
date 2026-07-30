@@ -11,7 +11,9 @@ pub enum SecureFsErrorCode {
     UnsafeName,
     UnsafeDirectory,
     UnsupportedOperation,
+    NotFound,
     AlreadyExists,
+    LockBusy,
     IdentityChanged,
     LimitExceeded,
     PublicationIncomplete,
@@ -39,7 +41,8 @@ impl SecureFsError {
             SecureFsErrorCode::UnsafeName => Foundation::InvalidContract,
             SecureFsErrorCode::UnsafeDirectory => Foundation::PermissionDenied,
             SecureFsErrorCode::UnsupportedOperation => Foundation::UnsupportedOperation,
-            SecureFsErrorCode::AlreadyExists => Foundation::Conflict,
+            SecureFsErrorCode::NotFound => Foundation::IoUnavailable,
+            SecureFsErrorCode::AlreadyExists | SecureFsErrorCode::LockBusy => Foundation::Conflict,
             SecureFsErrorCode::IdentityChanged => Foundation::ArtifactIdentityChanged,
             SecureFsErrorCode::LimitExceeded => Foundation::InputLimitExceeded,
             SecureFsErrorCode::PublicationIncomplete => Foundation::RecoveryRequired,
@@ -67,7 +70,33 @@ pub struct SecureOpenedFile {
     metadata: fs::Metadata,
 }
 
+pub struct SecureFileLock {
+    file: File,
+    state: platform::LockState,
+}
+
+impl SecureFileLock {
+    pub fn try_exclusive(file: File) -> Result<Self, SecureFsError> {
+        let state = platform::try_lock_exclusive(&file)?;
+        Ok(Self { file, state })
+    }
+
+    pub fn file(&self) -> &File {
+        &self.file
+    }
+}
+
+impl Drop for SecureFileLock {
+    fn drop(&mut self) {
+        platform::unlock(&self.file, &mut self.state);
+    }
+}
+
 impl SecureOpenedFile {
+    pub fn verify_private(&self) -> Result<(), SecureFsError> {
+        platform::verify_private_file(&self.file, &self.metadata)
+    }
+
     pub fn file(&self) -> &File {
         &self.file
     }
@@ -84,6 +113,14 @@ impl SecureOpenedFile {
 impl SecureDirectory {
     pub fn open(path: &Path) -> Result<Self, SecureFsError> {
         platform::open_directory(path).map(|file| Self { file })
+    }
+
+    pub fn verify_private(&self) -> Result<(), SecureFsError> {
+        let metadata = self
+            .file
+            .metadata()
+            .map_err(|error| io_error("inspect opened directory privacy", error))?;
+        platform::verify_private_directory(&self.file, &metadata)
     }
 
     pub fn sync(&self) -> Result<(), SecureFsError> {
@@ -132,7 +169,9 @@ impl SecureDirectory {
         validate_child_name(name)?;
         let file = platform::open_child_file(&self.file, name)?;
         let metadata = checked_regular_metadata(&file)?;
-        Ok(SecureOpenedFile { file, metadata })
+        let opened = SecureOpenedFile { file, metadata };
+        opened.verify_private()?;
+        Ok(opened)
     }
 
     pub fn read_child(&self, name: &OsStr, maximum_bytes: u64) -> Result<Vec<u8>, SecureFsError> {
@@ -161,7 +200,8 @@ impl SecureDirectory {
     pub fn open_or_create_lock_file(&self, name: &OsStr) -> Result<File, SecureFsError> {
         validate_child_name(name)?;
         let file = platform::open_or_create_lock_file(&self.file, name)?;
-        checked_regular_metadata(&file)?;
+        let metadata = checked_regular_metadata(&file)?;
+        platform::verify_private_file(&file, &metadata)?;
         Ok(file)
     }
 
@@ -176,19 +216,44 @@ impl SecureDirectory {
         validate_child_name(pending_name)?;
         validate_child_name(destination_name)?;
         self.open_child_file(pending_name)?;
-        platform::publish_child_noreplace(
+        let pending_link_remains = platform::publish_child_noreplace(
             &self.file,
             pending_name,
             &destination.file,
             destination_name,
         )?;
         destination.sync()?;
-        platform::unlink_child(&self.file, pending_name).map_err(|error| {
-            SecureFsError::new(
-                SecureFsErrorCode::PublicationIncomplete,
-                format!("published child but could not retire pending link: {error}"),
-            )
-        })?;
+        if pending_link_remains {
+            platform::unlink_child(&self.file, pending_name).map_err(|error| {
+                SecureFsError::new(
+                    SecureFsErrorCode::PublicationIncomplete,
+                    format!("published child but could not retire pending link: {error}"),
+                )
+            })?;
+        }
+        self.sync()?;
+        destination.open_child_file(destination_name)
+    }
+
+    /// Atomically replaces one destination name with a complete pending file.
+    /// Policy callers must retain and verify rollback evidence before invoking
+    /// this primitive; the filesystem operation itself grants no authority.
+    pub fn replace_child_atomic(
+        &self,
+        pending_name: &OsStr,
+        destination: &SecureDirectory,
+        destination_name: &OsStr,
+    ) -> Result<SecureOpenedFile, SecureFsError> {
+        validate_child_name(pending_name)?;
+        validate_child_name(destination_name)?;
+        self.open_child_file(pending_name)?;
+        platform::replace_child_atomic(
+            &self.file,
+            pending_name,
+            &destination.file,
+            destination_name,
+        )?;
+        destination.sync()?;
         self.sync()?;
         destination.open_child_file(destination_name)
     }
@@ -214,7 +279,8 @@ fn checked_regular_metadata(file: &File) -> Result<fs::Metadata, SecureFsError> 
     let metadata = file
         .metadata()
         .map_err(|error| io_error("inspect opened child", error))?;
-    if !metadata.is_file() || !platform::has_single_link(file, &metadata)? {
+    if !platform::is_regular_file(file, &metadata)? || !platform::has_single_link(file, &metadata)?
+    {
         return Err(SecureFsError::new(
             SecureFsErrorCode::IdentityChanged,
             "opened child is not a single-link regular file",
@@ -224,10 +290,10 @@ fn checked_regular_metadata(file: &File) -> Result<fs::Metadata, SecureFsError> 
 }
 
 fn io_error(context: &str, error: std::io::Error) -> SecureFsError {
-    let code = if error.kind() == std::io::ErrorKind::AlreadyExists {
-        SecureFsErrorCode::AlreadyExists
-    } else {
-        SecureFsErrorCode::Io
+    let code = match error.kind() {
+        std::io::ErrorKind::NotFound => SecureFsErrorCode::NotFound,
+        std::io::ErrorKind::AlreadyExists => SecureFsErrorCode::AlreadyExists,
+        _ => SecureFsErrorCode::Io,
     };
     SecureFsError::new(code, format!("{context}: {error}"))
 }
@@ -245,6 +311,33 @@ mod platform {
     };
 
     use super::{SecureFsError, SecureFsErrorCode, io_error};
+
+    #[derive(Debug)]
+    pub struct LockState;
+
+    pub fn try_lock_exclusive(file: &File) -> Result<LockState, SecureFsError> {
+        // SAFETY: the descriptor remains owned by SecureFileLock for the lock lifetime.
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
+            Ok(LockState)
+        } else {
+            let error = std::io::Error::last_os_error();
+            let raw = error.raw_os_error();
+            let code = if raw == Some(libc::EWOULDBLOCK) || raw == Some(libc::EAGAIN) {
+                SecureFsErrorCode::LockBusy
+            } else {
+                SecureFsErrorCode::Io
+            };
+            Err(SecureFsError::new(
+                code,
+                format!("lock opened file: {error}"),
+            ))
+        }
+    }
+
+    pub fn unlock(file: &File, _state: &mut LockState) {
+        // SAFETY: the descriptor is live until SecureFileLock finishes dropping.
+        let _ = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_UN) };
+    }
 
     pub fn open_directory(path: &Path) -> Result<File, SecureFsError> {
         let path = CString::new(path.as_os_str().as_bytes()).map_err(|_| {
@@ -325,7 +418,7 @@ mod platform {
         source_name: &OsStr,
         destination: &File,
         destination_name: &OsStr,
-    ) -> Result<(), SecureFsError> {
+    ) -> Result<bool, SecureFsError> {
         let source_name = child_c_string(source_name)?;
         let destination_name = child_c_string(destination_name)?;
         // SAFETY: both descriptors are held directories and both names are one
@@ -340,10 +433,38 @@ mod platform {
             )
         } == 0
         {
-            Ok(())
+            Ok(true)
         } else {
             Err(io_error(
                 "publish child without replacement",
+                std::io::Error::last_os_error(),
+            ))
+        }
+    }
+
+    pub fn replace_child_atomic(
+        source: &File,
+        source_name: &OsStr,
+        destination: &File,
+        destination_name: &OsStr,
+    ) -> Result<(), SecureFsError> {
+        let source_name = child_c_string(source_name)?;
+        let destination_name = child_c_string(destination_name)?;
+        // SAFETY: both descriptors are held directories and both names are one
+        // validated component. renameat atomically replaces the destination.
+        if unsafe {
+            libc::renameat(
+                source.as_raw_fd(),
+                source_name.as_ptr(),
+                destination.as_raw_fd(),
+                destination_name.as_ptr(),
+            )
+        } == 0
+        {
+            Ok(())
+        } else {
+            Err(io_error(
+                "atomically replace child",
                 std::io::Error::last_os_error(),
             ))
         }
@@ -362,9 +483,44 @@ mod platform {
         }
     }
 
+    pub fn verify_private_directory(
+        _file: &File,
+        metadata: &Metadata,
+    ) -> Result<(), SecureFsError> {
+        verify_unix_privacy(metadata, true)
+    }
+
+    pub fn verify_private_file(_file: &File, metadata: &Metadata) -> Result<(), SecureFsError> {
+        verify_unix_privacy(metadata, false)
+    }
+
+    pub fn is_regular_file(_file: &File, metadata: &Metadata) -> Result<bool, SecureFsError> {
+        Ok(metadata.is_file())
+    }
+
     pub fn has_single_link(_file: &File, metadata: &Metadata) -> Result<bool, SecureFsError> {
         use std::os::unix::fs::MetadataExt;
         Ok(metadata.nlink() == 1)
+    }
+
+    fn verify_unix_privacy(metadata: &Metadata, directory: bool) -> Result<(), SecureFsError> {
+        use std::os::unix::fs::MetadataExt;
+
+        let expected_type = if directory {
+            metadata.is_dir()
+        } else {
+            metadata.is_file()
+        };
+        // SAFETY: geteuid has no preconditions.
+        let owned = metadata.uid() == unsafe { libc::geteuid() };
+        if expected_type && owned && metadata.mode() & 0o077 == 0 {
+            Ok(())
+        } else {
+            Err(SecureFsError::new(
+                SecureFsErrorCode::UnsafeDirectory,
+                "opened Unix object is not private to the effective user",
+            ))
+        }
     }
 
     fn open_child(
@@ -423,70 +579,249 @@ mod platform {
     use std::{
         ffi::OsStr,
         fs::{File, Metadata, OpenOptions},
-        os::windows::{fs::OpenOptionsExt, io::AsRawHandle},
+        mem::{offset_of, size_of},
+        os::windows::{
+            ffi::OsStrExt,
+            fs::{MetadataExt, OpenOptionsExt},
+            io::{AsRawHandle, FromRawHandle},
+        },
         path::Path,
+        ptr::{copy_nonoverlapping, null},
     };
 
-    use windows_sys::Win32::Storage::FileSystem::{
-        BY_HANDLE_FILE_INFORMATION, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-        GetFileInformationByHandle,
+    use windows_sys::{
+        Wdk::{
+            Foundation::OBJECT_ATTRIBUTES,
+            Storage::FileSystem::{
+                FILE_CREATE, FILE_DIRECTORY_FILE, FILE_DISPOSITION_INFORMATION,
+                FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_FOR_BACKUP_INTENT, FILE_OPEN_IF,
+                FILE_OPEN_REPARSE_POINT, FILE_RENAME_INFORMATION, FILE_SYNCHRONOUS_IO_NONALERT,
+                FileDispositionInformation, FileRenameInformation, NtCreateFile,
+                NtSetInformationFile,
+            },
+        },
+        Win32::{
+            Foundation::{
+                HANDLE, INVALID_HANDLE_VALUE, OBJ_CASE_INSENSITIVE, RtlNtStatusToDosError,
+                UNICODE_STRING,
+            },
+            Storage::FileSystem::{
+                BY_HANDLE_FILE_INFORMATION, DELETE, FILE_ATTRIBUTE_NORMAL,
+                FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_READ,
+                FILE_GENERIC_WRITE, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+                GetFileInformationByHandle, LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY,
+                LockFileEx, UnlockFileEx,
+            },
+            System::IO::IO_STATUS_BLOCK,
+        },
     };
 
     use super::{SecureFsError, SecureFsErrorCode, io_error};
 
-    pub fn open_directory(path: &Path) -> Result<File, SecureFsError> {
-        let mut options = OpenOptions::new();
-        options
-            .read(true)
-            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT);
-        let file = options
-            .open(path)
-            .map_err(|error| io_error("open Windows directory handle", error))?;
-        let metadata = file
-            .metadata()
-            .map_err(|error| io_error("inspect Windows directory handle", error))?;
-        use std::os::windows::fs::MetadataExt;
-        if metadata.is_dir() && metadata.file_attributes() & 0x0400 == 0 {
-            Ok(file)
+    pub struct LockState;
+
+    pub fn try_lock_exclusive(file: &File) -> Result<LockState, SecureFsError> {
+        let mut overlapped =
+            std::mem::MaybeUninit::<windows_sys::Win32::System::IO::OVERLAPPED>::zeroed();
+        // SAFETY: the handle is live and this non-overlapped lock request
+        // completes synchronously before the OVERLAPPED storage is released.
+        if unsafe {
+            LockFileEx(
+                file.as_raw_handle(),
+                LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
+                0,
+                u32::MAX,
+                u32::MAX,
+                overlapped.as_mut_ptr(),
+            )
+        } != 0
+        {
+            Ok(LockState)
         } else {
+            let error = std::io::Error::last_os_error();
+            let code = if error.raw_os_error() == Some(33) {
+                SecureFsErrorCode::LockBusy
+            } else {
+                SecureFsErrorCode::Io
+            };
             Err(SecureFsError::new(
-                SecureFsErrorCode::UnsafeDirectory,
-                "Windows directory is reparse-backed or the wrong type",
+                code,
+                format!("lock opened file: {error}"),
             ))
         }
     }
 
-    pub fn open_child_directory(_parent: &File, _name: &OsStr) -> Result<File, SecureFsError> {
-        unsupported()
+    pub fn unlock(file: &File, _state: &mut LockState) {
+        let mut overlapped =
+            std::mem::MaybeUninit::<windows_sys::Win32::System::IO::OVERLAPPED>::zeroed();
+        // SAFETY: releases only the byte range locked by this live handle.
+        let _ = unsafe {
+            UnlockFileEx(
+                file.as_raw_handle(),
+                0,
+                u32::MAX,
+                u32::MAX,
+                overlapped.as_mut_ptr(),
+            )
+        };
     }
 
-    pub fn create_child_directory(_parent: &File, _name: &OsStr) -> Result<(), SecureFsError> {
-        unsupported()
+    const SHARE_ALL: u32 = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    const DIRECTORY_OPTIONS: u32 = FILE_DIRECTORY_FILE
+        | FILE_OPEN_REPARSE_POINT
+        | FILE_OPEN_FOR_BACKUP_INTENT
+        | FILE_SYNCHRONOUS_IO_NONALERT;
+    const FILE_OPTIONS: u32 =
+        FILE_NON_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT;
+
+    pub fn open_directory(path: &Path) -> Result<File, SecureFsError> {
+        let mut options = OpenOptions::new();
+        options
+            .access_mode(FILE_GENERIC_READ | FILE_GENERIC_WRITE)
+            .share_mode(SHARE_ALL)
+            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT);
+        let file = options
+            .open(path)
+            .map_err(|error| io_error("open Windows directory handle", error))?;
+        validate_directory(&file)?;
+        Ok(file)
     }
 
-    pub fn create_new_child_file(_parent: &File, _name: &OsStr) -> Result<File, SecureFsError> {
-        unsupported()
+    pub fn open_child_directory(parent: &File, name: &OsStr) -> Result<File, SecureFsError> {
+        let file = nt_open_child(
+            parent,
+            name,
+            FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+            FILE_OPEN,
+            DIRECTORY_OPTIONS,
+            "open Windows child directory relative to held parent",
+        )?;
+        validate_directory(&file)?;
+        Ok(file)
     }
 
-    pub fn open_child_file(_parent: &File, _name: &OsStr) -> Result<File, SecureFsError> {
-        unsupported()
+    pub fn create_child_directory(parent: &File, name: &OsStr) -> Result<(), SecureFsError> {
+        let file = nt_open_child(
+            parent,
+            name,
+            FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE,
+            FILE_CREATE,
+            DIRECTORY_OPTIONS,
+            "create Windows child directory relative to held parent",
+        )?;
+        validate_directory(&file)
     }
 
-    pub fn open_or_create_lock_file(_parent: &File, _name: &OsStr) -> Result<File, SecureFsError> {
-        unsupported()
+    pub fn create_new_child_file(parent: &File, name: &OsStr) -> Result<File, SecureFsError> {
+        nt_open_child(
+            parent,
+            name,
+            FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE,
+            FILE_CREATE,
+            FILE_OPTIONS,
+            "create Windows child file relative to held parent",
+        )
+    }
+
+    pub fn open_child_file(parent: &File, name: &OsStr) -> Result<File, SecureFsError> {
+        nt_open_child(
+            parent,
+            name,
+            FILE_GENERIC_READ,
+            FILE_OPEN,
+            FILE_OPTIONS,
+            "open Windows child file relative to held parent",
+        )
+    }
+
+    pub fn open_or_create_lock_file(parent: &File, name: &OsStr) -> Result<File, SecureFsError> {
+        nt_open_child(
+            parent,
+            name,
+            FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+            FILE_OPEN_IF,
+            FILE_OPTIONS,
+            "open Windows lock file relative to held parent",
+        )
     }
 
     pub fn publish_child_noreplace(
-        _source: &File,
-        _source_name: &OsStr,
-        _destination: &File,
-        _destination_name: &OsStr,
-    ) -> Result<(), SecureFsError> {
-        unsupported()
+        source: &File,
+        source_name: &OsStr,
+        destination: &File,
+        destination_name: &OsStr,
+    ) -> Result<bool, SecureFsError> {
+        rename_child(
+            source,
+            source_name,
+            destination,
+            destination_name,
+            false,
+            "publish Windows child without replacement",
+        )?;
+        Ok(false)
     }
 
-    pub fn unlink_child(_parent: &File, _name: &OsStr) -> Result<(), SecureFsError> {
-        unsupported()
+    pub fn replace_child_atomic(
+        source: &File,
+        source_name: &OsStr,
+        destination: &File,
+        destination_name: &OsStr,
+    ) -> Result<(), SecureFsError> {
+        rename_child(
+            source,
+            source_name,
+            destination,
+            destination_name,
+            true,
+            "atomically replace Windows child",
+        )
+    }
+
+    pub fn unlink_child(parent: &File, name: &OsStr) -> Result<(), SecureFsError> {
+        let child = nt_open_child(
+            parent,
+            name,
+            DELETE,
+            FILE_OPEN,
+            FILE_OPTIONS,
+            "open Windows child for root-relative unlink",
+        )?;
+        let disposition = FILE_DISPOSITION_INFORMATION { DeleteFile: true };
+        let mut status_block = IO_STATUS_BLOCK::default();
+        // SAFETY: child is a live DELETE-capable handle and disposition has the
+        // exact fixed-size layout required by FileDispositionInformation.
+        let status = unsafe {
+            NtSetInformationFile(
+                child.as_raw_handle(),
+                &raw mut status_block,
+                (&raw const disposition).cast(),
+                size_of::<FILE_DISPOSITION_INFORMATION>() as u32,
+                FileDispositionInformation,
+            )
+        };
+        nt_result(status, "unlink Windows child relative to held parent")
+    }
+
+    pub fn verify_private_directory(
+        _file: &File,
+        _metadata: &Metadata,
+    ) -> Result<(), SecureFsError> {
+        Err(SecureFsError::new(
+            SecureFsErrorCode::UnsupportedOperation,
+            "Windows owner/DACL privacy verification requires runtime-reviewed ACL policy",
+        ))
+    }
+
+    pub fn verify_private_file(_file: &File, _metadata: &Metadata) -> Result<(), SecureFsError> {
+        Err(SecureFsError::new(
+            SecureFsErrorCode::UnsupportedOperation,
+            "Windows owner/DACL privacy verification requires runtime-reviewed ACL policy",
+        ))
+    }
+
+    pub fn is_regular_file(_file: &File, metadata: &Metadata) -> Result<bool, SecureFsError> {
+        Ok(metadata.is_file() && metadata.file_attributes() & 0x0400 == 0)
     }
 
     pub fn has_single_link(file: &File, _metadata: &Metadata) -> Result<bool, SecureFsError> {
@@ -502,10 +837,180 @@ mod platform {
         Ok(information.nNumberOfLinks == 1)
     }
 
-    fn unsupported<T>() -> Result<T, SecureFsError> {
-        Err(SecureFsError::new(
-            SecureFsErrorCode::UnsupportedOperation,
-            "Windows root-relative mutation requires reviewed NT handle semantics",
+    fn rename_child(
+        source: &File,
+        source_name: &OsStr,
+        destination: &File,
+        destination_name: &OsStr,
+        replace: bool,
+        context: &str,
+    ) -> Result<(), SecureFsError> {
+        let pending = nt_open_child(
+            source,
+            source_name,
+            FILE_GENERIC_READ | DELETE,
+            FILE_OPEN,
+            FILE_OPTIONS,
+            "open Windows pending file for atomic publication",
+        )?;
+        let metadata = pending
+            .metadata()
+            .map_err(|error| io_error("inspect Windows pending file", error))?;
+        if !is_regular_file(&pending, &metadata)? || !has_single_link(&pending, &metadata)? {
+            return Err(SecureFsError::new(
+                SecureFsErrorCode::IdentityChanged,
+                "Windows pending file changed identity before publication",
+            ));
+        }
+        let destination_name = wide_child(destination_name)?;
+        let name_bytes = destination_name
+            .len()
+            .checked_mul(size_of::<u16>())
+            .ok_or_else(|| {
+                SecureFsError::new(
+                    SecureFsErrorCode::LimitExceeded,
+                    "Windows child name is too long",
+                )
+            })?;
+        let header_bytes = offset_of!(FILE_RENAME_INFORMATION, FileName);
+        let information_bytes = header_bytes.checked_add(name_bytes).ok_or_else(|| {
+            SecureFsError::new(
+                SecureFsErrorCode::LimitExceeded,
+                "Windows rename buffer is too large",
+            )
+        })?;
+        let words = information_bytes.div_ceil(size_of::<usize>());
+        let mut buffer = vec![0_usize; words];
+        let information = buffer.as_mut_ptr().cast::<FILE_RENAME_INFORMATION>();
+        // SAFETY: the usize buffer is aligned, large enough for the fixed header
+        // and validated UTF-16 name, and remains live through the synchronous call.
+        unsafe {
+            (*information).Anonymous.ReplaceIfExists = replace;
+            (*information).RootDirectory = destination.as_raw_handle();
+            (*information).FileNameLength = name_bytes as u32;
+            copy_nonoverlapping(
+                destination_name.as_ptr(),
+                (*information).FileName.as_mut_ptr(),
+                destination_name.len(),
+            );
+        }
+        let mut status_block = IO_STATUS_BLOCK::default();
+        // SAFETY: pending and destination are live handles and the information
+        // buffer has the exact FILE_RENAME_INFORMATION layout.
+        let status = unsafe {
+            NtSetInformationFile(
+                pending.as_raw_handle(),
+                &raw mut status_block,
+                information.cast(),
+                information_bytes as u32,
+                FileRenameInformation,
+            )
+        };
+        nt_result(status, context)
+    }
+
+    fn nt_open_child(
+        parent: &File,
+        name: &OsStr,
+        desired_access: u32,
+        disposition: u32,
+        options: u32,
+        context: &str,
+    ) -> Result<File, SecureFsError> {
+        let mut wide_name = wide_child(name)?;
+        let byte_length = wide_name
+            .len()
+            .checked_mul(size_of::<u16>())
+            .ok_or_else(|| {
+                SecureFsError::new(
+                    SecureFsErrorCode::LimitExceeded,
+                    "Windows child name is too long",
+                )
+            })?;
+        let length = u16::try_from(byte_length).map_err(|_| {
+            SecureFsError::new(
+                SecureFsErrorCode::LimitExceeded,
+                "Windows child name is too long",
+            )
+        })?;
+        let unicode_name = UNICODE_STRING {
+            Length: length,
+            MaximumLength: length,
+            Buffer: wide_name.as_mut_ptr(),
+        };
+        let attributes = OBJECT_ATTRIBUTES {
+            Length: size_of::<OBJECT_ATTRIBUTES>() as u32,
+            RootDirectory: parent.as_raw_handle(),
+            ObjectName: &raw const unicode_name,
+            Attributes: OBJ_CASE_INSENSITIVE,
+            SecurityDescriptor: null(),
+            SecurityQualityOfService: null(),
+        };
+        let mut handle: HANDLE = INVALID_HANDLE_VALUE;
+        let mut status_block = IO_STATUS_BLOCK::default();
+        // SAFETY: all pointers reference live stack/vector storage for this
+        // synchronous call; successful handle ownership moves directly to File.
+        let status = unsafe {
+            NtCreateFile(
+                &raw mut handle,
+                desired_access,
+                &raw const attributes,
+                &raw mut status_block,
+                null(),
+                FILE_ATTRIBUTE_NORMAL,
+                SHARE_ALL,
+                disposition,
+                options,
+                null(),
+                0,
+            )
+        };
+        nt_result(status, context)?;
+        if handle.is_null() || handle == INVALID_HANDLE_VALUE {
+            return Err(SecureFsError::new(
+                SecureFsErrorCode::Io,
+                format!("{context}: NT returned an invalid handle"),
+            ));
+        }
+        // SAFETY: NtCreateFile returned one owned valid handle.
+        Ok(unsafe { File::from_raw_handle(handle) })
+    }
+
+    fn validate_directory(file: &File) -> Result<(), SecureFsError> {
+        let metadata = file
+            .metadata()
+            .map_err(|error| io_error("inspect Windows directory handle", error))?;
+        if metadata.is_dir() && metadata.file_attributes() & 0x0400 == 0 {
+            Ok(())
+        } else {
+            Err(SecureFsError::new(
+                SecureFsErrorCode::UnsafeDirectory,
+                "Windows directory is reparse-backed or the wrong type",
+            ))
+        }
+    }
+
+    fn wide_child(name: &OsStr) -> Result<Vec<u16>, SecureFsError> {
+        let wide: Vec<u16> = name.encode_wide().collect();
+        if wide.is_empty() || wide.contains(&0) {
+            Err(SecureFsError::new(
+                SecureFsErrorCode::UnsafeName,
+                "Windows child name is empty or contains a null code unit",
+            ))
+        } else {
+            Ok(wide)
+        }
+    }
+
+    fn nt_result(status: i32, context: &str) -> Result<(), SecureFsError> {
+        if status >= 0 {
+            return Ok(());
+        }
+        // SAFETY: conversion is pure for any NTSTATUS value.
+        let code = unsafe { RtlNtStatusToDosError(status) };
+        Err(io_error(
+            context,
+            std::io::Error::from_raw_os_error(code as i32),
         ))
     }
 }
@@ -519,6 +1024,12 @@ mod platform {
     };
 
     use super::{SecureFsError, SecureFsErrorCode};
+
+    pub struct LockState;
+    pub fn try_lock_exclusive(_file: &File) -> Result<LockState, SecureFsError> {
+        unsupported()
+    }
+    pub fn unlock(_file: &File, _state: &mut LockState) {}
 
     pub fn open_directory(_path: &Path) -> Result<File, SecureFsError> {
         unsupported()
@@ -543,10 +1054,30 @@ mod platform {
         _source_name: &OsStr,
         _destination: &File,
         _destination_name: &OsStr,
+    ) -> Result<bool, SecureFsError> {
+        unsupported()
+    }
+    pub fn replace_child_atomic(
+        _source: &File,
+        _source_name: &OsStr,
+        _destination: &File,
+        _destination_name: &OsStr,
     ) -> Result<(), SecureFsError> {
         unsupported()
     }
     pub fn unlink_child(_parent: &File, _name: &OsStr) -> Result<(), SecureFsError> {
+        unsupported()
+    }
+    pub fn verify_private_directory(
+        _file: &File,
+        _metadata: &Metadata,
+    ) -> Result<(), SecureFsError> {
+        unsupported()
+    }
+    pub fn verify_private_file(_file: &File, _metadata: &Metadata) -> Result<(), SecureFsError> {
+        unsupported()
+    }
+    pub fn is_regular_file(_file: &File, _metadata: &Metadata) -> Result<bool, SecureFsError> {
         unsupported()
     }
     pub fn has_single_link(_file: &File, _metadata: &Metadata) -> Result<bool, SecureFsError> {
