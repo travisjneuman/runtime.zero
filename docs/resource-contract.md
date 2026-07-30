@@ -16,6 +16,7 @@ Schema-1 shared ceilings currently include:
 - 4,096 application records per bounded collector;
 - 8,192 unique report-local redaction tokens;
 - 128 canonical diagnostic checks;
+- 16 performance operations and 100 samples per operation;
 - 64 KiB retained version-probe output;
 - a 2-second version-probe timeout and 250-ms reader-close grace;
 - module process limits of 10 seconds, 64 KiB stdin, 1 MiB stdout, and 64 KiB
@@ -26,7 +27,7 @@ shared validator returns typed field violations. The protocol maps those to its
 own contract messages. Artifact identity, action plans, module trust/staging,
 package integrity, manifests, canonical registries, transaction snapshots,
 inventory fixtures/collectors/probes, privacy redaction, foundation diagnostics,
-and module test framing now use the shared constants.
+performance evidence, and module test framing now use the shared constants.
 
 These are safety ceilings, not performance targets or permission to allocate the
 maximum eagerly. Implementations should stream, short-circuit, preallocate only

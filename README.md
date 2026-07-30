@@ -140,7 +140,8 @@ digest-bound install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall
 transitions and their exact foundation gates. `crates/privacy-contract/` owns
 bounded report-local redaction, `crates/configuration-contract/` owns immutable
 fail-closed defaults, `crates/diagnostics-contract/` binds that policy into
-privacy-safe `doctor` output, and `crates/process-host/` owns bounded process I/O plus
+privacy-safe `doctor` output, `crates/performance-contract/` owns bounded final-
+artifact budgets/evidence, and `crates/process-host/` owns bounded process I/O plus
 fail-closed handle/descriptor and test-containment primitives.
 `crates/confirmation-contract/`
 binds validated plan/dry-run/write-set/state
@@ -167,6 +168,7 @@ canonical installed-state shape and digest. `crates/release-contract/` generates
 [`docs/configuration-contract.md`](docs/configuration-contract.md),
 [`docs/diagnostics-contract.md`](docs/diagnostics-contract.md),
 [`docs/process-host-foundation.md`](docs/process-host-foundation.md),
+[`docs/performance-contract.md`](docs/performance-contract.md),
 [`docs/module-lifecycle-contract.md`](docs/module-lifecycle-contract.md),
 [`docs/confirmation-contract.md`](docs/confirmation-contract.md),
 [`docs/error-contract.md`](docs/error-contract.md),
@@ -268,6 +270,7 @@ cargo run -p rz0-module-inventory -- --include-apps --format json
 python3 -m unittest scripts.tests.test_prepare_macos_dmg
 scripts/build-package.sh aarch64-apple-darwin /tmp/runtime-zero-package
 scripts/build-dmg.sh aarch64-apple-darwin /tmp/runtime-zero-dmg
+scripts/benchmark_final_artifact.py --binary /path/to/rz0 --target aarch64-apple-darwin --source-commit <commit> --output /tmp/rz0-performance.json
 cargo deny check
 ```
 

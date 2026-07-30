@@ -52,7 +52,9 @@ plans and exact foundation gate sets. `crates/privacy-contract/` owns bounded,
 report-local redaction without retaining raw sensitive strings.
 `crates/configuration-contract/` owns immutable fail-closed schema-1 defaults;
 `crates/diagnostics-contract/` binds their digest into the strict privacy-safe
-`rz0 doctor` report. `crates/process-host/` owns bounded pipe draining and platform handle/descriptor
+`rz0 doctor` report. `crates/performance-contract/` owns bounded final-artifact
+command budgets and non-authorizing measurements. `crates/process-host/` owns
+bounded pipe draining and platform handle/descriptor
 and test-containment primitives while exposing no production runner.
 `crates/confirmation-contract/` owns exact short-lived interactive plan binding,
 response digests, and single-use consumption evidence without execution

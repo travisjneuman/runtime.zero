@@ -29,7 +29,8 @@ never collected by default. Shared resource ceilings are foundation-owned; a mod
 use smaller limits but may not silently raise artifact, document, journal,
 collector, probe, timeout, or process-I/O bounds. Lexical ID/version/hash/path
 validation is likewise foundation-owned; a module cannot substitute a more
-permissive path or digest grammar. Schema-1 configuration is compiled and
+permissive path or digest grammar. Final-artifact performance evidence is
+bounded and cannot authorize release. Schema-1 configuration is compiled and
 immutable: network/shell/remote/module execution, telemetry, automatic retry,
 automatic update, services, implicit migration, and startup repair remain
 disabled. Configuration never authorizes execution.

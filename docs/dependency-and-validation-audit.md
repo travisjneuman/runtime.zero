@@ -34,14 +34,17 @@ Validated with Rust/Cargo 1.96.0:
 - static site checks for unsafe JavaScript primitives and missing local links;
 - deterministic target-filtered SPDX 2.3 and deduplicated third-party license/
   notice generation bound to the final native binary;
+- bounded read-only final-artifact performance sampling for version, diagnostics,
+  core scan, and dashboard text/JSON paths;
 - adversarial checksum/entry/traversal/symlink DMG-content preparation tests;
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 265 tests. The all-features suite passed 275.
+The default workspace suite passed 269 tests. The all-features suite passed 279.
 Coverage includes shared capability/error/resource/validation/confirmation,
 four privacy-redaction tests, four fail-closed configuration tests, four strict
-config-digest-bound diagnostic tests, two process-host
+config-digest-bound diagnostic tests, four final-artifact performance contract
+tests, two process-host
 capture/descriptor tests, action-plan digests, opened-directory adversarial
 tests, canonical registries, release ledgers, transaction/recovery chains,
 durable writers, commit receipts, default and fault-enabled commit coordination,
@@ -60,7 +63,7 @@ library but do not link an EXE or prove any Windows 7/8/Server runtime.
 
 ## RustSec advisory scan
 
-`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 137 entries
+`cargo-audit 0.22.2` loaded 1,173 RustSec advisories and scanned the 138 entries
 reported from `Cargo.lock`. It reported no known vulnerabilities.
 
 This result is time-bound to 2026-07-29. No recurring workflow was added;
@@ -68,7 +71,7 @@ release candidates must run a fresh advisory scan.
 
 ## License metadata
 
-`cargo metadata --locked` resolved 22 local workspace packages and 115
+`cargo metadata --locked` resolved 23 local workspace packages and 115
 external packages. Every external package declared license metadata. Observed
 license expressions were combinations of:
 
@@ -152,8 +155,9 @@ privacy-contract crate adds no new external package and uses shared SHA-256 for
 bounded domain-separated report-local placeholders without retaining raw values.
 The configuration-contract crate adds no new external package and owns canonical
 immutable offline/default-deny schema-1 settings and their digest. The diagnostics-contract crate adds no new external package and owns the strict
-private text/JSON doctor model. The process-host crate adds no new external
-package, centralizes bounded capture plus Unix descriptor auditing, and places
+private text/JSON doctor model. The performance-contract crate adds no new external package and owns canonical
+final-artifact command ceilings plus strict non-authorizing evidence. The
+process-host crate adds no new external package, centralizes bounded capture plus Unix descriptor auditing, and places
 process-group/Job Object helper containment behind `test-support`; it exposes no
 production runner. The module-protocol crate uses Serde for its default fixture
 validator. Its non-default test-child feature adds Serde JSON framing and

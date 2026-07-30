@@ -173,8 +173,11 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
   expansion, and no-paid-signing GitHub distribution posture.
 - [x] Add a bounded canonical target × seven-module × 12-stage acceptance-ledger
   contract with deterministic IDs and blocked-only schema-1 release posture.
-- [ ] Freeze the exact RC target snapshot and measured budgets, then populate
-  every acceptance ID with reviewed evidence or evidence-backed not-applicable.
+- [x] Freeze initial final-artifact command ceilings and a strict bounded
+  performance evidence schema for version/doctor/scan/dashboard text/JSON paths.
+- [ ] Freeze the exact RC target snapshot and target-specific measured/narrower
+  budgets, then populate every acceptance ID with reviewed evidence or evidence-
+  backed not-applicable.
 - [x] Define foundation-owned digest-bound dry-run transitions and exact gates
   for install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall; embed
   the install transition in the core planner.
