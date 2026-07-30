@@ -6,10 +6,13 @@
   "expires_at": null,
   "dry_run": true,
   "writes_attempted": false,
+  "evidence_contract": "classified_finding_report",
+  "evidence_report_id": "findings:111111111111111111111111",
   "evidence_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
   "actions": [
     {
       "action_id": "uninstall-example-tool",
+      "finding_id": "uninstall.example-tool",
       "kind": "uninstall",
       "disposition": "planned",
       "target": "Example.Tool 2.0.0",

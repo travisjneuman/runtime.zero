@@ -743,6 +743,7 @@ name = "rz0-action-plan"
 version = "0.1.0"
 dependencies = [
  "rz0-capability-contract",
+ "rz0-finding-contract",
  "rz0-resource-contract",
  "rz0-validation-contract",
  "serde",

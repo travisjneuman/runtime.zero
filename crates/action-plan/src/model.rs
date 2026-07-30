@@ -17,6 +17,8 @@ pub struct ActionPlan {
     pub expires_at: Option<String>,
     pub dry_run: bool,
     pub writes_attempted: bool,
+    pub evidence_contract: String,
+    pub evidence_report_id: String,
     pub evidence_sha256: String,
     pub actions: Vec<PlanAction>,
     pub warnings: Vec<String>,
@@ -26,6 +28,7 @@ pub struct ActionPlan {
 #[serde(deny_unknown_fields)]
 pub struct PlanAction {
     pub action_id: String,
+    pub finding_id: String,
     pub kind: ActionKind,
     pub disposition: ActionDisposition,
     pub target: String,

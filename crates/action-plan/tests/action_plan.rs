@@ -123,6 +123,27 @@ fn read_only_protocol_capabilities_are_rejected_by_action_schema() {
 }
 
 #[test]
+fn finding_report_and_finding_identity_are_mandatory() {
+    let mut plan: ActionPlan =
+        serde_json::from_str(include_str!("fixtures/valid-update.json")).expect("fixture");
+    plan.evidence_contract = "inventory_report".to_string();
+    plan.evidence_report_id = "other:report".to_string();
+    plan.actions[0].finding_id = "../unsafe".to_string();
+    let validation = validate_action_plan(&plan);
+    assert!(!validation.valid);
+    for expected in ["evidence_contract", "evidence_report_id", "finding_id"] {
+        assert!(
+            validation
+                .errors
+                .iter()
+                .any(|error| error.contains(expected)),
+            "missing {expected}: {:?}",
+            validation.errors
+        );
+    }
+}
+
+#[test]
 fn plan_and_write_set_digests_are_deterministic_and_domain_separated() {
     let plan: ActionPlan =
         serde_json::from_str(include_str!("fixtures/valid-update.json")).expect("fixture");

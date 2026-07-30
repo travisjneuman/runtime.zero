@@ -26,6 +26,17 @@ pub fn validate_action_plan(plan: &ActionPlan) -> ActionPlanValidation {
     if !plan.dry_run || plan.writes_attempted {
         validation.fail("action plan fixtures must be dry-run with writes_attempted false");
     }
+    if plan.evidence_contract != rz0_finding_contract::FINDING_CONTRACT {
+        validation.fail(format!(
+            "evidence_contract must be {}",
+            rz0_finding_contract::FINDING_CONTRACT
+        ));
+    }
+    if !rz0_validation_contract::valid_evidence_reference(&plan.evidence_report_id, 120)
+        || !plan.evidence_report_id.starts_with("findings:")
+    {
+        validation.fail("evidence_report_id must identify a sealed finding report");
+    }
     if !valid_sha256(&plan.evidence_sha256) {
         validation.fail("evidence_sha256 must be 64 lowercase hexadecimal characters");
     }
@@ -48,6 +59,12 @@ pub fn validate_action_plan(plan: &ActionPlan) -> ActionPlanValidation {
 
 fn validate_action(action: &PlanAction, validation: &mut ActionPlanValidation) {
     validate_id(&action.action_id, "action_id", validation);
+    if !rz0_validation_contract::valid_ledger_id(&action.finding_id, 120) {
+        validation.fail(format!(
+            "action '{}' has an invalid finding_id",
+            action.action_id
+        ));
+    }
     validate_text(&action.target, "target", 240, validation);
     validate_source(action, validation);
     if action.would_write {
