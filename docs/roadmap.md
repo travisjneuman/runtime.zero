@@ -84,8 +84,8 @@ See [`action-planning.md`](action-planning.md).
 
 - [x] Terminal review flow, focus regions, preview-only command rail, and
   responsive layout tiers.
-- [x] Live installed-software and uninstall-review sections with scroll-following
-  row selection and path-free command previews.
+- [x] One live installed-software section with per-item details/uninstall posture,
+  scroll-following row selection, and path-free command previews.
 - [ ] Manual Windows Terminal/PowerShell TUI smoke and installed-binary refresh.
 - [ ] Linux/macOS terminal-emulator accessibility/restore smoke.
 - [ ] Website parity and final brand-asset pass after explicit production/site

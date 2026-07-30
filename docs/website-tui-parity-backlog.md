@@ -8,12 +8,12 @@ This backlog intentionally does not edit `site/`. Website work remains a separat
 
 - `RZ0 // FOUNDATION CONTROL SURFACE` header with live-inventory status and Dossier Navy / Burnished Brass posture;
 - named layout tiers: very-small, compact, standard, wide;
-- left navigation/index for overview, local store, installed software, uninstall options, modules, and safety gates;
+- left navigation/index for overview, local store, installed software, modules, and safety gates;
 - selected dossier/details panel with visible focus state;
 - foundation state cards for store, registry, receipts, and installed modules;
 - command rail that is explicitly preview-only and does not run commands;
-- the built-in read-only inventory adapter shown through live local records,
-  `rz0 apps`, and exact `rz0 uninstall plan <id>` previews;
+- the built-in read-only inventory adapter shown as one software list with
+  per-item options, plus `rz0 apps` and applicable `rz0 uninstall plan <id>` previews;
 - persistent `SAFETY // LOCKED` footer;
 - help/focus guidance that reinforces CLI/JSON escape hatches.
 

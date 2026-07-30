@@ -68,8 +68,8 @@ The dashboard performs bounded local reads at startup and shows:
 - a live installed-software total;
 - direct macOS application bundles and Homebrew formula/cask records;
 - versions when bounded bundle or manager-directory metadata provides them;
-- protected, manager-review, quarantine-review, or unsupported uninstall posture;
-- a dedicated uninstall-options section with exact `rz0 uninstall plan <id>` previews;
+- one installed-software list where every row exposes its available details and
+  uninstall posture; applicable rows preview exact `rz0 uninstall plan <id>` commands;
 - store, registry, receipt, and module lifecycle state;
 - the built-in first-party inventory adapter and scriptable `rz0 apps` surface.
 
@@ -85,7 +85,7 @@ now renders the existing dashboard data model through Ratatui widgets:
 
 - a bounded header panel with product/version and live-inventory status;
 - a navigation rail/index for overview, runtime state, installed software,
-  uninstall options, modules, and safety gates;
+  modules, and safety gates;
 - a selected-section panel with dossier code, summary, current position,
   visible details focus, and read-only row previews;
 - foundation state cards for store, registry, receipt, and installed-module
