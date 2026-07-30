@@ -14,6 +14,7 @@ use std::path::PathBuf;
 
 use rz0_inventory_contract::{
     InventoryEvent, InventoryHost, InventoryReport, InventoryRuntime, InventorySource,
+    validate_inventory_report,
 };
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
@@ -93,6 +94,13 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
         redaction::redact_path_values(&mut report)?;
     }
     report.recalculate_summary();
+    let validation = validate_inventory_report(&report);
+    if !validation.valid {
+        return Err(format!(
+            "inventory report failed its shared contract: {}",
+            validation.errors.join("; ")
+        ));
+    }
     Ok(report)
 }
 
@@ -113,17 +121,17 @@ fn validate_options(options: &InventoryOptions) -> Result<(), String> {
 fn module_report(include_timestamp: bool) -> InventoryReport {
     let mut report = InventoryReport::empty(
         InventoryHost {
-            os: std::env::consts::OS,
-            arch: std::env::consts::ARCH,
+            os: std::env::consts::OS.to_string(),
+            arch: std::env::consts::ARCH.to_string(),
             hostname_included: false,
             current_user_included: false,
         },
         InventoryRuntime {
-            title: "runtime.zero",
-            command: "rz0-inventory",
-            version: env!("CARGO_PKG_VERSION"),
-            scan_mode: "read_only_inventory",
-            mutation_capability: "disabled",
+            title: "runtime.zero".to_string(),
+            command: "rz0-inventory".to_string(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            scan_mode: "read_only_inventory".to_string(),
+            mutation_capability: "disabled".to_string(),
             module_schema_version: 1,
             module_id: Some(MODULE_ID.to_string()),
         },

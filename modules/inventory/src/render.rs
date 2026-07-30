@@ -3,6 +3,13 @@ use std::fmt::Write as FmtWrite;
 use rz0_inventory_contract::InventoryReport;
 
 pub fn render_json(report: &InventoryReport) -> Result<String, String> {
+    let validation = rz0_inventory_contract::validate_inventory_report(report);
+    if !validation.valid {
+        return Err(format!(
+            "inventory report failed its shared contract: {}",
+            validation.errors.join("; ")
+        ));
+    }
     serde_json::to_string_pretty(report)
         .map(|json| format!("{json}\n"))
         .map_err(|error| format!("failed to render inventory JSON: {error}"))

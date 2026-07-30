@@ -7,17 +7,17 @@ use crate::{brand, module_manifest::MODULE_SCHEMA_VERSION};
 pub fn contract_report() -> InventoryReport {
     let mut report = InventoryReport::empty(
         InventoryHost {
-            os: std::env::consts::OS,
-            arch: std::env::consts::ARCH,
+            os: std::env::consts::OS.to_string(),
+            arch: std::env::consts::ARCH.to_string(),
             hostname_included: false,
             current_user_included: false,
         },
         InventoryRuntime {
-            title: brand::TITLE,
-            command: brand::COMMAND,
-            version: env!("CARGO_PKG_VERSION"),
-            scan_mode: "dry_run",
-            mutation_capability: "disabled",
+            title: brand::TITLE.to_string(),
+            command: brand::COMMAND.to_string(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            scan_mode: "dry_run".to_string(),
+            mutation_capability: "disabled".to_string(),
             module_schema_version: MODULE_SCHEMA_VERSION,
             module_id: None,
         },
@@ -54,6 +54,13 @@ pub fn contract_text(report: &InventoryReport) -> String {
 }
 
 pub fn contract_json(report: &InventoryReport) -> Result<String, String> {
+    let validation = validate_inventory_report(report);
+    if !validation.valid {
+        return Err(format!(
+            "inventory report failed its shared contract: {}\n",
+            validation.errors.join("; ")
+        ));
+    }
     serde_json::to_string_pretty(report)
         .map(|json| format!("{json}\n"))
         .map_err(|err| format!("failed to render inventory JSON: {err}\n"))

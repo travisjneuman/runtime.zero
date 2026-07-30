@@ -11,9 +11,10 @@ Schema-1 shared ceilings currently include:
   confirmation documents;
 - 128 KiB per installed-registry document;
 - 2 MiB per immutable transaction journal snapshot;
+- 16 MiB per complete inventory report;
 - 1,024 installed-module records;
-- 512 PATH entries per source;
-- 4,096 application records per bounded collector;
+- 64 inventory sources, 512 PATH entries, 1,024 tool records, 4,096 application
+  records, and 8,192 inventory events/warnings;
 - 8,192 unique report-local redaction tokens;
 - 128 canonical diagnostic checks;
 - 16 performance operations and 100 samples per operation;

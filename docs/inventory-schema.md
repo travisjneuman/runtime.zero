@@ -17,8 +17,9 @@ cargo run -p rz0-module-inventory -- --format json --redact-paths
 ```
 
 The source package is not installed, published, loaded, or executed by the `rz0`
-core. Core and module share only the small serializable model in
-`crates/inventory-contract/`; the module does not depend on the TUI/CLI crate.
+core. Core and module share the owned, strict, serializable/deserializable model
+and validator in `crates/inventory-contract/`; the module does not depend on the
+TUI/CLI crate.
 See [`../modules/inventory/README.md`](../modules/inventory/README.md).
 
 ## Top-level schema
@@ -47,8 +48,8 @@ Schema version `1` includes:
   counts.
 
 JSON field order follows the Rust structure for readable fixtures, but consumers
-must use field names rather than object order. Changes should be additive within
-schema version `1`; incompatible changes require a new schema version.
+must use field names rather than object order. Unknown fields fail closed.
+Changing the exact field shape requires a new schema version.
 
 ## Evidence records
 
@@ -71,6 +72,23 @@ walk drives.
 Application records contain normalized name, optional version/publisher/install
 location, and a non-secret deterministic ID. Raw uninstall-registry key names
 are never emitted.
+
+## Shared validation
+
+The foundation rejects empty or larger-than-16-MiB documents before JSON parsing
+and rejects unknown fields, invalid identity/posture metadata, non-read-only
+sources, duplicate or absent cross-references, malformed path ordering/kinds,
+summary drift, malformed redaction tokens, and collection/warning ceilings.
+Current ceilings are 64 sources, 512 PATH entries, 1,024 tools, 4,096 apps, and
+8,192 events/warnings. Both core and module JSON render paths run the shared
+validator.
+
+`validate_inventory_report` reports base validity separately from
+`private_for_export`. A report containing any path-bearing field is private for
+export only when every such field uses an exact report-local redaction token.
+Raw-path local reports can remain structurally valid but cannot silently satisfy
+the export privacy gate. Host/user identity and raw registry keys invalidate
+schema 1 entirely.
 
 ## Current collectors
 

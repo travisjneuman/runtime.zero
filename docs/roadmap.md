@@ -17,6 +17,8 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 ## Phase 2 — inventory contracts and primitives (implemented; runtime proof remains)
 
 - [x] Versioned inventory JSON and privacy/no-write fields.
+- [x] Owned strict deserialization, exact structural/cross-reference/summary
+  validation, bounded collections, and a separate private-for-export gate.
 - [x] Valid, duplicate, missing, malformed, invalid-entry, and
   unsupported-platform fixtures.
 - [x] Bounded process-PATH normalization on Windows/macOS/Linux.

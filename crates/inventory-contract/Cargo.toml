@@ -10,4 +10,7 @@ rust-version = "1.96"
 publish = false
 
 [dependencies]
+rz0-resource-contract = { version = "0.1.0", path = "../resource-contract" }
+rz0-validation-contract = { version = "0.1.0", path = "../validation-contract" }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
