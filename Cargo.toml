@@ -20,6 +20,7 @@ members = [
     "crates/capability-contract",
     "crates/cancellation-contract",
     "crates/confirmation-contract",
+    "crates/configuration-contract",
     "crates/diagnostics-contract",
     "crates/error-contract",
     "crates/inventory-contract",

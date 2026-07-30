@@ -776,6 +776,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rz0-configuration-contract"
+version = "0.1.0"
+dependencies = [
+ "rz0-resource-contract",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "rz0-confirmation-contract"
 version = "0.1.0"
 dependencies = [
@@ -790,6 +800,7 @@ dependencies = [
 name = "rz0-diagnostics-contract"
 version = "0.1.0"
 dependencies = [
+ "rz0-configuration-contract",
  "rz0-error-contract",
  "rz0-resource-contract",
  "rz0-validation-contract",

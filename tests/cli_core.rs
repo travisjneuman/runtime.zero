@@ -31,6 +31,16 @@ fn doctor_json_is_versioned_and_private_by_default() {
     assert_eq!(value["contract"], "foundation_diagnostics");
     assert_eq!(value["read_only"], true);
     assert_eq!(value["writes_attempted"], false);
+    assert!(
+        value["configuration_sha256"]
+            .as_str()
+            .is_some_and(|digest| {
+                digest.len() == 64
+                    && digest
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            })
+    );
     assert_eq!(value["privacy"]["hostname_included"], false);
     assert_eq!(value["privacy"]["current_directory_included"], false);
     assert!(!out.contains("/Users/"));

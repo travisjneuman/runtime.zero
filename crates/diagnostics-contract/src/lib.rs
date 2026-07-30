@@ -15,6 +15,7 @@ pub struct DiagnosticReport {
     pub product: String,
     pub command: String,
     pub version: String,
+    pub configuration_sha256: String,
     pub platform: DiagnosticPlatform,
     pub read_only: bool,
     pub writes_attempted: bool,
@@ -67,6 +68,7 @@ pub struct DiagnosticCheck {
 pub enum DiagnosticCheckId {
     RuntimeIdentity,
     PlatformIdentity,
+    ConfigurationPolicy,
     SafetyPosture,
     StoreMutationPolicy,
     ModuleExecutionPolicy,
@@ -75,9 +77,10 @@ pub enum DiagnosticCheckId {
     PrivacyDefault,
 }
 
-pub const CANONICAL_DIAGNOSTIC_CHECKS: [DiagnosticCheckId; 8] = [
+pub const CANONICAL_DIAGNOSTIC_CHECKS: [DiagnosticCheckId; 9] = [
     DiagnosticCheckId::RuntimeIdentity,
     DiagnosticCheckId::PlatformIdentity,
+    DiagnosticCheckId::ConfigurationPolicy,
     DiagnosticCheckId::SafetyPosture,
     DiagnosticCheckId::StoreMutationPolicy,
     DiagnosticCheckId::ModuleExecutionPolicy,
@@ -116,6 +119,9 @@ pub fn foundation_diagnostics(
     os: &str,
     arch: &str,
 ) -> DiagnosticReport {
+    let configuration = rz0_configuration_contract::default_configuration();
+    let configuration_sha256 = rz0_configuration_contract::configuration_sha256(&configuration)
+        .expect("built-in foundation configuration is canonical");
     let checks = vec![
         pass(
             DiagnosticCheckId::RuntimeIdentity,
@@ -124,6 +130,10 @@ pub fn foundation_diagnostics(
         pass(
             DiagnosticCheckId::PlatformIdentity,
             "platform identity available",
+        ),
+        pass(
+            DiagnosticCheckId::ConfigurationPolicy,
+            "built-in fail-closed configuration validated",
         ),
         pass(
             DiagnosticCheckId::SafetyPosture,
@@ -160,6 +170,7 @@ pub fn foundation_diagnostics(
         product: product.to_string(),
         command: command.to_string(),
         version: version.to_string(),
+        configuration_sha256,
         platform: DiagnosticPlatform {
             os: os.to_string(),
             arch: arch.to_string(),
@@ -193,6 +204,15 @@ pub fn validate_diagnostic_report(report: &DiagnosticReport) -> DiagnosticValida
         if !rz0_validation_contract::valid_ascii_text(value, max) {
             errors.push(format!("{field} is invalid"));
         }
+    }
+    if !rz0_validation_contract::valid_sha256(&report.configuration_sha256) {
+        errors.push("configuration_sha256 is invalid".to_string());
+    }
+    let expected_configuration_sha256 = rz0_configuration_contract::configuration_sha256(
+        &rz0_configuration_contract::default_configuration(),
+    );
+    if expected_configuration_sha256.as_deref() != Ok(report.configuration_sha256.as_str()) {
+        errors.push("diagnostics do not bind the canonical configuration".to_string());
     }
     if !report.read_only || report.writes_attempted || report.production_execution_authorized {
         errors.push("schema-1 diagnostics must remain read-only and unauthorized".to_string());
@@ -247,12 +267,13 @@ pub fn diagnostic_json(report: &DiagnosticReport) -> Result<String, serde_json::
 
 pub fn diagnostic_text(report: &DiagnosticReport) -> String {
     let mut output = format!(
-        "{} doctor\n\ncontract: {}\nschema_version: {}\ncommand: {}\nversion: {}\nos: {}\narch: {}\nread_only: {}\nwrites_attempted: {}\nproduction_execution_authorized: {}\n",
+        "{} doctor\n\ncontract: {}\nschema_version: {}\ncommand: {}\nversion: {}\nconfiguration_sha256: {}\nos: {}\narch: {}\nread_only: {}\nwrites_attempted: {}\nproduction_execution_authorized: {}\n",
         report.product,
         report.contract,
         report.schema_version,
         report.command,
         report.version,
+        report.configuration_sha256,
         report.platform.os,
         report.platform.arch,
         report.read_only,
@@ -333,6 +354,7 @@ const fn check_id_name(id: DiagnosticCheckId) -> &'static str {
     match id {
         DiagnosticCheckId::RuntimeIdentity => "runtime_identity",
         DiagnosticCheckId::PlatformIdentity => "platform_identity",
+        DiagnosticCheckId::ConfigurationPolicy => "configuration_policy",
         DiagnosticCheckId::SafetyPosture => "safety_posture",
         DiagnosticCheckId::StoreMutationPolicy => "store_mutation_policy",
         DiagnosticCheckId::ModuleExecutionPolicy => "module_execution_policy",
@@ -363,8 +385,8 @@ mod tests {
         let report = report();
         let validation = validate_diagnostic_report(&report);
         assert!(validation.valid, "{:?}", validation.errors);
-        assert_eq!(report.summary.check_count, 8);
-        assert_eq!(report.summary.pass_count, 5);
+        assert_eq!(report.summary.check_count, 9);
+        assert_eq!(report.summary.pass_count, 6);
         assert_eq!(report.summary.blocked_count, 3);
         assert!(!report.production_execution_authorized);
     }
