@@ -151,6 +151,42 @@ pub struct FindingValidation {
     pub errors: Vec<String>,
 }
 
+pub fn build_finding_report(
+    producer_module_id: &str,
+    platform: &str,
+    input_evidence_sha256: &str,
+    mut sources: Vec<FindingSource>,
+    mut findings: Vec<Finding>,
+) -> Result<FindingReport, String> {
+    sources.sort_by(|left, right| left.id.cmp(&right.id));
+    findings.sort_by(|left, right| left.finding_id.cmp(&right.finding_id));
+    let mut report = FindingReport {
+        schema_version: FINDING_SCHEMA_VERSION,
+        contract: FINDING_CONTRACT.to_string(),
+        report_id: String::new(),
+        producer_module_id: producer_module_id.to_string(),
+        platform: platform.to_string(),
+        input_evidence_sha256: input_evidence_sha256.to_string(),
+        read_only: true,
+        writes_attempted: false,
+        action_authorized: false,
+        raw_paths_included: false,
+        sources,
+        findings,
+        summary: FindingSummary {
+            source_count: 0,
+            finding_count: 0,
+            report_only_count: 0,
+            manager_action_candidate_count: 0,
+            quarantine_candidate_count: 0,
+            ignore_count: 0,
+            blocked_count: 0,
+        },
+    };
+    seal_finding_report(&mut report)?;
+    Ok(report)
+}
+
 pub fn seal_finding_report(report: &mut FindingReport) -> Result<(), String> {
     report.summary = summarize_findings(report);
     report.report_id = expected_report_id(report)?;

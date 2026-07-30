@@ -1,0 +1,15 @@
+{
+  "manifest_version": 1,
+  "id": "first-party.updater",
+  "display_name": "Installed Software Updater",
+  "version": "0.1.0",
+  "publisher": "runtime.zero",
+  "kind": "first_party_module",
+  "status": "planned",
+  "summary": "Installed-only manager-owned update finding classification.",
+  "capabilities": ["installed-only-update-findings"],
+  "supported_platforms": ["windows", "macos", "linux"],
+  "risk_level": "dry_run_only",
+  "safety": {"mutates_system": false, "requires_confirmation": true, "dry_run_required": true, "quarantine_supported": false, "remote_execution_allowed": false},
+  "permissions": {"schema_version": 1, "declared": [], "default_grants": [], "explicit_grants": []}
+}

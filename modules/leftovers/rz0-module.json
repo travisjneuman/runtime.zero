@@ -1,0 +1,15 @@
+{
+  "manifest_version": 1,
+  "id": "first-party.leftovers",
+  "display_name": "Leftover Classifier",
+  "version": "0.1.0",
+  "publisher": "runtime.zero",
+  "kind": "first_party_module",
+  "status": "planned",
+  "summary": "Ownership-aware post-uninstall leftover finding classification.",
+  "capabilities": ["leftover-finding-classification"],
+  "supported_platforms": ["windows", "macos", "linux"],
+  "risk_level": "dry_run_only",
+  "safety": {"mutates_system": false, "requires_confirmation": true, "dry_run_required": true, "quarantine_supported": true, "remote_execution_allowed": false},
+  "permissions": {"schema_version": 1, "declared": [], "default_grants": [], "explicit_grants": []}
+}

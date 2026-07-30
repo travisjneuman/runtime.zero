@@ -38,8 +38,13 @@ members = [
     "crates/support-contract",
     "crates/transaction-contract",
     "crates/validation-contract",
+    "modules/cache",
     "modules/inventory",
+    "modules/leftovers",
     "modules/report-export",
+    "modules/security-integrity",
+    "modules/uninstall",
+    "modules/updater",
 ]
 
 [dependencies]

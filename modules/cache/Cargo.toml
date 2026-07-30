@@ -1,0 +1,15 @@
+[package]
+name = "rz0-module-cache"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "Ownership-aware cache finding classifier for runtime.zero"
+license = "Apache-2.0"
+repository = "https://github.com/travisjneuman/runtime.zero"
+rust-version = "1.96"
+publish = false
+
+[dependencies]
+rz0-finding-contract = { version = "0.1.0", path = "../../crates/finding-contract" }
+rz0-resource-contract = { version = "0.1.0", path = "../../crates/resource-contract" }
+serde = { version = "1.0", features = ["derive"] }

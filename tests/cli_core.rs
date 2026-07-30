@@ -190,6 +190,30 @@ fn inventory_source_manifest_declares_explicit_sensitive_reads() {
 }
 
 #[test]
+fn every_first_party_source_manifest_validates_without_execution() {
+    for family in [
+        "updater",
+        "uninstall",
+        "leftovers",
+        "cache",
+        "security-integrity",
+        "report-export",
+    ] {
+        let manifest = format!("modules/{family}/rz0-module.json");
+        let (code, out, err) = run(["modules", "validate", &manifest, "--format", "json"]);
+        assert_eq!(code, ExitCode::Ok, "{family}: {err}");
+        assert!(err.is_empty());
+        let value: serde_json::Value = serde_json::from_str(&out).expect("manifest JSON");
+        assert_eq!(value["valid"], true, "{family}: {out}");
+        assert_eq!(value["manifest"]["status"], "planned");
+        assert_eq!(
+            value["manifest"]["permissions"]["declared"],
+            serde_json::json!([])
+        );
+    }
+}
+
+#[test]
 fn modules_validate_rejects_fixture_hash_mismatch() {
     let (code, out, err) = run([
         "modules",

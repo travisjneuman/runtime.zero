@@ -839,6 +839,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rz0-module-cache"
+version = "0.1.0"
+dependencies = [
+ "rz0-finding-contract",
+ "rz0-resource-contract",
+ "serde",
+]
+
+[[package]]
 name = "rz0-module-inventory"
 version = "0.1.0"
 dependencies = [
@@ -851,6 +860,15 @@ dependencies = [
  "serde_json",
  "time",
  "winreg",
+]
+
+[[package]]
+name = "rz0-module-leftovers"
+version = "0.1.0"
+dependencies = [
+ "rz0-finding-contract",
+ "rz0-resource-contract",
+ "serde",
 ]
 
 [[package]]
@@ -890,6 +908,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rz0-module-security-integrity"
+version = "0.1.0"
+dependencies = [
+ "rz0-finding-contract",
+ "rz0-resource-contract",
+ "serde",
+]
+
+[[package]]
 name = "rz0-module-trust"
 version = "0.1.0"
 dependencies = [
@@ -899,6 +926,24 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+]
+
+[[package]]
+name = "rz0-module-uninstall"
+version = "0.1.0"
+dependencies = [
+ "rz0-finding-contract",
+ "rz0-resource-contract",
+ "serde",
+]
+
+[[package]]
+name = "rz0-module-updater"
+version = "0.1.0"
+dependencies = [
+ "rz0-finding-contract",
+ "rz0-resource-contract",
+ "serde",
 ]
 
 [[package]]
