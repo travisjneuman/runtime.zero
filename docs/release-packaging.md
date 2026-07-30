@@ -6,6 +6,13 @@ The repository contains local, non-publishing build-runner helpers:
 scripts/build-package.sh aarch64-apple-darwin /path/to/output
 ```
 
+On macOS, an unsigned DMG can be assembled from the same canonical portable ZIP
+contract:
+
+```bash
+scripts/build-dmg.sh aarch64-apple-darwin /path/to/output
+```
+
 ```powershell
 ./scripts/build-package.ps1 -Target x86_64-pc-windows-msvc -OutputDirectory C:\output
 ```
@@ -48,10 +55,24 @@ workspace checks for x86 and x86-64; linked EXEs still require the Windows build
 runner. Other targets still require link-capable build runners and artifact-only runtime hosts; `cargo check` is not
 an executable artifact.
 
-The portable ZIP is the first artifact contract. DMG, installer, DEB, RPM, and
-Arch package generation must consume the same final binary/manifest evidence and
-add format-specific install, upgrade, rollback, and uninstall tests rather than
-creating independent trust logic.
+The DMG builder first creates and checksum-verifies the canonical portable ZIP,
+then rejects missing/extra/duplicate/traversal/symlink/oversized entries before
+preparing fixed-metadata content. The mounted image contains the original
+artifact manifest plus `dmg-manifest.json`, which binds source ZIP, source commit,
+target, binary content set, unsigned/notarized posture, and a deterministic
+content digest. Unit tests cover valid preparation, checksum mismatch,
+extra/traversal entries, and symlink entries.
+
+Apple `hdiutil` emits variable filesystem/container metadata, so the DMG manifest
+sets `container_reproducible: false`; the published per-build DMG SHA-256 remains
+mandatory. This is an honest format limitation, not permission to skip content
+reproducibility. The unsigned image will trigger Gatekeeper warnings and is not
+created, uploaded, or installed automatically.
+
+The portable ZIP and unsigned DMG are current artifact contracts. Installer,
+DEB, RPM, and Arch package generation must consume the same final binary/
+manifest evidence and add format-specific install, upgrade, rollback, and
+uninstall tests rather than creating independent trust logic.
 
 See [`free-release-distribution.md`](free-release-distribution.md) and
 [`support-policy.md`](support-policy.md).

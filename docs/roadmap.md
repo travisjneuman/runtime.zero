@@ -183,8 +183,12 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
   compatibility/migrations.
 - [ ] Complete end-to-end/fuzz/race/fault/performance/soak/security/privacy/
   accessibility testing and real runtime matrices.
-- [ ] Produce reproducible signed/notarized artifacts, SBOM/notices, installers,
-  package channels, offline/update/rollback paths, support/incident runbooks,
+- [x] Add a local non-publishing unsigned macOS DMG builder that consumes the
+  canonical portable ZIP, verifies exact entries/checksum/content, binds an
+  honest non-reproducible-container manifest, and has adversarial preparation
+  tests.
+- [ ] Produce release-reviewed signed/notarized artifacts, SBOM/notices,
+  installers, package channels, offline/update/rollback paths, support/incident runbooks,
   and final release evidence.
 - [ ] Declare production readiness only after every required acceptance matrix
   cell passes or has an approved tested not-applicable outcome.

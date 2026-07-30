@@ -265,6 +265,9 @@ cargo run -- scan --dry-run --format json
 cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
 cargo run -p rz0-module-inventory -- --format json
 cargo run -p rz0-module-inventory -- --include-apps --format json
+python3 -m unittest scripts.tests.test_prepare_macos_dmg
+scripts/build-package.sh aarch64-apple-darwin /tmp/runtime-zero-package
+scripts/build-dmg.sh aarch64-apple-darwin /tmp/runtime-zero-dmg
 cargo deny check
 ```
 

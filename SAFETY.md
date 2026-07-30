@@ -14,6 +14,8 @@
 - Require explicit confirmation before any mutating action.
 - Keep substantial capabilities outside the core unless a user explicitly installs or enables the relevant module.
 - Never execute remote module code or publish direct-run bootstrap commands before checksum/signing/release safety is designed.
+- Local ZIP/DMG builders may create only explicitly selected output artifacts;
+  they never upload, install, mount, sign, notarize, publish, or mutate accounts.
 
 ## Module safety metadata
 
