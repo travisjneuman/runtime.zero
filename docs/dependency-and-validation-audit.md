@@ -40,8 +40,9 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo-deny 0.20.2` advisory, license, ban, and source-policy checks using the
   committed `deny.toml`.
 
-The default workspace suite passed 269 tests. The all-features suite passed 279.
-Coverage includes shared capability/error/resource/validation/confirmation,
+The default workspace suite passed 271 tests. The all-features suite passed 281.
+Coverage includes shared capability families plus exact manifest/protocol/action
+grant validation, error/resource/validation/confirmation,
 four privacy-redaction tests, four fail-closed configuration tests, four strict
 config-digest-bound diagnostic tests, four final-artifact performance contract
 tests, two process-host

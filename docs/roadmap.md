@@ -87,8 +87,9 @@ See [`action-planning.md`](action-planning.md).
   manifest.
 - [ ] Final per-target legal/license and artifact reproducibility review; native
   generation is local evidence, not release approval.
-- [x] Shared foundation capability vocabulary with disjoint read-only protocol/
-  manifest and action-plan schema subsets; classification grants no authority.
+- [x] Shared foundation capability vocabulary and exact manifest partition/
+  protocol/action list validators with disjoint schema subsets; validation grants
+  no authority.
 - [x] Shared typed machine-error vocabulary with redacted-detail defaults and no
   schema-1 automatic retry; module protocol rejects free-form error codes.
 - [x] Shared resource contract for artifact/document/collector/probe/process,

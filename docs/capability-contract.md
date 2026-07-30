@@ -22,8 +22,10 @@ The current vocabulary is:
 | `restore_write` | Action plan | Restore a verified receipt-listed payload |
 
 The enum exposes classification helpers for manifest/protocol/action schemas,
-explicit grants, network, mutation, and elevation. Each owning validator still
-enforces its narrower schema:
+explicit grants, network, mutation, and elevation. Shared validation now also
+requires exact manifest default/explicit partitioning and unique sorted bounded
+protocol/action lists; read and action families cannot be mixed. Each owning
+validator still enforces its narrower platform/operation schema:
 
 - manifest permission schema 1 rejects action/mutation capabilities;
 - module protocol schema 1 rejects every non-read capability;
@@ -31,7 +33,10 @@ enforces its narrower schema:
   network/elevation/manager requirements;
 - sensitive application/probe reads can never be default manifest grants.
 
-This crate is vocabulary and classification only. It does not grant authority,
+Core manifest validation, module protocol, and action plans consume these shared
+checks instead of maintaining separate escalation grammars.
+
+This crate is vocabulary and non-authorizing validation only. It does not grant authority,
 open files, contact a network, elevate, invoke a manager, write state, or execute
 a module. A valid declared capability is not an OS-enforced capability. The
 production execution assessment remains blocked until a platform broker proves

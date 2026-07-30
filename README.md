@@ -132,8 +132,9 @@ gates while remaining structurally unable to authorize execution. The
 `crates/artifact-identity/` hashes and identifies one receipt-relative file
 through the same returned handle and can issue a non-authorizing Linux/Windows
 spawn-identity lease; macOS deliberately remains unsupported pending an exact
-primitive. `crates/capability-contract/` supplies one shared least-privilege vocabulary
-for manifests, protocols, and action plans while granting no authority.
+primitive. `crates/capability-contract/` supplies one shared least-privilege
+vocabulary plus exact partition/list validation for manifests, protocols, and
+action plans while granting no authority.
 `crates/cancellation-contract/` provides a one-atomic first-reason cancellation
 and monotonic-deadline primitive. `crates/module-lifecycle/` owns dry-run,
 digest-bound install/activate/invoke/repair/migrate/upgrade/deactivate/uninstall
