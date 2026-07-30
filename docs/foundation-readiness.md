@@ -20,15 +20,15 @@ The current foundation provides these module-facing contracts:
 - explicit `store init --dry-run` and `store init --yes` scaffolding limited to runtime.zero-owned user-local store paths;
 - read-only Ratatui TUI dashboard with focus regions, command previews, status panels, compact/standard/wide layout tiers, and no command execution from TUI.
 
-The core now emits the empty, versioned `inventory_report` through
-`rz0 scan --dry-run --format json`. The first-party `modules/inventory/` source
-package targets that contract with bounded read-only collectors, but it remains
-neither installed nor executable through the core. TUI content identifies it as
-read-only/not installed and previews its separate command without running it.
+The core now emits live path-redacted `inventory_report` evidence through
+`rz0 scan --dry-run --format json` and a path-free installed-software catalog
+through `rz0 apps`. The first-party `modules/inventory/` library supplies the
+bounded read-only collector as a built-in dependency. TUI content lists local
+software and previews exact uninstall-review commands without running them.
 
 ## First-module starting boundary
 
-The first first-party module has begun as the separate read-only `modules/inventory/` source package. It exercises the contracts above through local discovery, reporting, fixture-backed validation, optional bounded probes, and preview-only TUI/CLI surfacing without adding core module execution or mutation.
+The first first-party module began as the separate read-only `modules/inventory/` source package. Its library is now embedded for local discovery and reporting while its development binary and lifecycle package stay separate; this adds no module execution or mutation.
 
 The first module must not:
 

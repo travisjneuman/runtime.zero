@@ -40,11 +40,14 @@ rz0 store status --format json
 rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
 rz0 store init --dry-run
 rz0 store init --yes
+rz0 apps
+rz0 apps --format json
+rz0 uninstall plan <installed-software-id>
 rz0 scan --dry-run
 rz0 scan --dry-run --format json
 ```
 
-Bare `rz0` opens the read-only TUI dashboard shell in an interactive terminal.
+Bare `rz0` opens the live, read-only local software dashboard in an interactive terminal.
 It uses raw key handling, so `q` exits without echoing typed input, and it
 filters terminal key events so Windows key-release events do not double-advance
 selection. The current interactive dashboard uses a Ratatui widget layer for bounded
@@ -71,16 +74,16 @@ automation can distinguish foundation review output from future mutating
 module surfaces.
 
 Current commands are read-only, dry-run, or explicit user-local store
-scaffolding. They exist to prove the binary, brand metadata, test harness,
-documentation foundation, TUI shell, module contract surface, and the first
-versioned inventory output contract. Core `scan --dry-run --format json` emits
-an intentionally empty schema-1 report. The separate `modules/inventory/`
-workspace package now supplies fixture-backed and live read-only collectors; it
-is not installed, loaded, or executed by the core.
+scaffolding. The installed core now embeds the bounded first-party inventory
+adapter: `rz0 apps` lists path-free local software, `rz0 scan --dry-run`
+collects live redacted evidence, and the TUI shows installed applications,
+Homebrew formulae/casks, versions when available, and ownership-specific
+uninstall reviews. Protected system applications remain blocked. Reviews never
+execute or authorize removal.
 
 ## Core vs modules
 
-The installed `rz0` foundation is not meant to contain every feature. It should remain useful with zero optional modules installed:
+The installed `rz0` foundation is not meant to contain every domain feature. It remains useful with zero optional modules installed because bounded read-only inventory is a built-in foundation adapter:
 
 - `core.cli` handles command routing and output.
 - `core.policy` defines shared safety metadata and future mutation gates.
@@ -106,18 +109,22 @@ The dry-run planner also reports future local store and CLI/TUI routing
 contract metadata in JSON output. These fields describe where future state would
 live and why explicit subcommands remain scriptable; they do not create files.
 
-The first feature-module source package lives at
-[`modules/inventory/`](modules/inventory/). It reads process PATH on supported
+The first-party inventory source package lives at
+[`modules/inventory/`](modules/inventory/), and its library is embedded by the
+installed core as the local read-only collector. It reads process PATH on supported
 platforms, reads persisted User/Machine PATH on Windows, detects a bounded set
 of known executables, supports opt-in Unix version probes with cleared
 environment, shared bounded drains/deadlines/process-group teardown, and can read
 normalized platform application evidence when explicitly requested. Windows
 version probes fail closed pending race-free production containment.
-Windows uses read-only uninstall registry views, macOS enumerates only direct
-`.app` bundles under known roots, and Linux parses bounded XDG desktop entries.
+Windows uses read-only uninstall registry views, macOS enumerates direct
+`.app` bundles under known roots plus bounded Homebrew Cellar/Caskroom metadata,
+and Linux parses bounded XDG desktop entries.
 Paths are redacted by default; raw local values require the explicit
 `--include-raw-paths` flag. It does not run package
-managers, modify the system, or make the module installable through `rz0`.
+managers or modify the system. Its separate development binary remains
+available for fixture and adapter testing, while `rz0` owns the user-facing
+catalog, scan, and TUI surfaces.
 
 The report/export source package, [`modules/report-export/`](modules/report-export/),
 accepts a bounded strict inventory/diagnostics envelope on standard input and

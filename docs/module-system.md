@@ -55,10 +55,10 @@ rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-re
 rz0 store init --dry-run
 ```
 
-Bare `rz0` opens a read-only foundation TUI dashboard shell in interactive
-terminals. That dashboard may show module posture, the installed count, planned
-first-party families, and future module slots, but it must not claim planned
-module families are installed or executable. Explicit subcommands remain the
+Bare `rz0` opens a live read-only installed-software TUI in interactive
+terminals. It shows bounded local applications/Homebrew records and uninstall
+reviews alongside module posture, but it must not claim planned module families
+are installed or executable. Explicit subcommands remain the
 scriptable CLI surface. See [`tui.md`](tui.md) for the raw-key TUI contract,
 layout boundaries, and maintenance boundaries.
 
@@ -142,11 +142,11 @@ remote fetch, bootstrap/direct-run commands, cleanup, repair, or broad system
 mutation. See [`foundation-readiness.md`](foundation-readiness.md) for the
 handoff gate and acceptance checklist.
 
-The schema-1 output from `rz0 scan --dry-run --format json` is the core inventory
-contract. The `modules/inventory/` workspace package now targets it with
-fixture-backed and live read-only collectors while remaining absent from the
-core dependency and execution paths. Its manifest stays `planned`: it is source
-for development, not a published/installed artifact. See
+The schema-1 output from `rz0 scan --dry-run --format json` is the live,
+path-redacted core inventory contract. The `modules/inventory/` workspace
+library supplies fixture-backed and live read-only collectors and is now a
+built-in core dependency. Its separate development binary and lifecycle
+manifest remain unpublished and uninstalled. See
 [`inventory-schema.md`](inventory-schema.md).
 
 `modules/report-export/` is also a development-only `planned` source package. It

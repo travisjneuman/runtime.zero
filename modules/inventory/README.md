@@ -2,8 +2,9 @@
 
 This workspace package is the first read-only feature module for
 `runtime.zero`. It is source-available for development and contract validation;
-it is not a published or installed module package and the `rz0` core does not
-load or execute it. A small `rz0-inventory-contract` workspace crate shares the
+it is not a published or installed lifecycle package. The `rz0` core embeds its
+library as the built-in read-only collector but does not execute its development
+binary. A small `rz0-inventory-contract` workspace crate shares the
 JSON model without making this package depend on the core TUI/CLI stack.
 
 ## Development commands
@@ -35,8 +36,9 @@ disabled. `--include-apps` is available on supported platforms and remains
 explicit:
 
 - Windows reads standard uninstall registry views and omits raw key names;
-- macOS enumerates only direct `.app` directories under known system/user roots
-  and does not open bundle contents, so version and publisher remain unknown;
+- macOS enumerates direct `.app` directories under known system/user roots,
+  reads bounded direct `Info.plist` version metadata, and reads Homebrew
+  Cellar/Caskroom directory metadata without running Homebrew;
 - Linux parses only regular XDG `.desktop` files up to 64 KiB, honors user-root
   and `Hidden=true` precedence, emits only `Type=Application` names/paths, and
   never emits or executes `Exec` values.
@@ -62,7 +64,7 @@ The module does not:
 
 - write PATH or registry state;
 - install, update, uninstall, repair, clean, quarantine, or restore anything;
-- list package-manager catalogs or contact a network source;
+- invoke package managers or contact a network source;
 - load third-party code;
 - create services, tasks, persistence, or account actions;
 - publish or install itself.

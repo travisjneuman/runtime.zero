@@ -31,10 +31,13 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 - [x] Report-local path redaction for share-oriented output.
 - [x] Opt-in normalized Windows application registry evidence.
 - [x] Opt-in bounded macOS `.app` and Linux XDG desktop-entry evidence.
+- [x] Built-in path-free software catalog and live redacted core scan.
+- [x] Bounded macOS `Info.plist` versions and Homebrew Cellar/Caskroom metadata
+  without manager execution or network access.
 - [ ] Real Windows runtime smoke for persisted PATH, registry views, apps,
   version-probe timeout, and redaction.
-- [ ] Package-manager listing adapters; intentionally deferred until each
-  manager's version/locale/network/source-agreement behavior is proven safe.
+- [ ] Additional package-manager listing adapters; intentionally deferred until
+  each manager's version/locale/network/source-agreement behavior is proven safe.
 
 See [`inventory-schema.md`](inventory-schema.md).
 
@@ -42,10 +45,11 @@ See [`inventory-schema.md`](inventory-schema.md).
 
 - [x] Separate `modules/inventory/` workspace package and `rz0-inventory` binary.
 - [x] Deterministic text/JSON output and fixture support.
-- [x] Read-only TUI slot/command preview without execution.
-- [x] Planned first-party manifest for development validation.
-- [ ] Signed immutable artifact, package integrity manifest, installation,
-  activation, and core execution; blocked by the trust gate.
+- [x] Inventory library embedded as the installed core's bounded read-only
+  adapter, with live TUI, `rz0 apps`, and `rz0 scan` surfaces.
+- [x] Planned first-party lifecycle manifest retained for development validation.
+- [ ] Signed immutable lifecycle artifact, activation, and out-of-process module
+  execution; blocked by the trust gate and not needed for built-in reads.
 
 ## Phase 4 — updater planning
 
@@ -66,10 +70,13 @@ See [`inventory-schema.md`](inventory-schema.md).
   verified-copy-before-remove, conflict refusal, failure injection, and receipts.
 - [x] Separate synthetic uninstall, leftovers, and cache classifiers requiring
   manager ownership or exact runtime-owned evidence and preserving protected/
-  unknown blocking; no live adapter or execution.
+  unknown blocking; no live mutation adapter or execution.
+- [x] Live path-free ownership-specific uninstall reviews for protected macOS
+  apps, local/user bundles, and Homebrew records.
 - [ ] Platform-specific manager, ownership, ACL, reparse/symlink, locked-file,
   cross-filesystem, and partial-failure proof.
-- [ ] Mutation remains blocked pending explicit approval.
+- [ ] Mutation remains blocked pending exact macOS manager-spawn/bundle-move
+  primitives and disposable-host runtime proof.
 
 See [`action-planning.md`](action-planning.md).
 
@@ -77,7 +84,8 @@ See [`action-planning.md`](action-planning.md).
 
 - [x] Terminal review flow, focus regions, preview-only command rail, and
   responsive layout tiers.
-- [x] Inventory module posture visible without implying installation.
+- [x] Live installed-software and uninstall-review sections with scroll-following
+  row selection and path-free command previews.
 - [ ] Manual Windows Terminal/PowerShell TUI smoke and installed-binary refresh.
 - [ ] Linux/macOS terminal-emulator accessibility/restore smoke.
 - [ ] Website parity and final brand-asset pass after explicit production/site

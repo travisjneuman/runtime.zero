@@ -6,14 +6,14 @@ This backlog intentionally does not edit `site/`. Website work remains a separat
 
 ## Current terminal TUI structure to mirror later
 
-- `RZ0 // FOUNDATION CONTROL SURFACE` header with read-only status and Dossier Navy / Burnished Brass posture;
+- `RZ0 // FOUNDATION CONTROL SURFACE` header with live-inventory status and Dossier Navy / Burnished Brass posture;
 - named layout tiers: very-small, compact, standard, wide;
-- left navigation/index for foundation, local store, modules, and safety gates;
+- left navigation/index for overview, local store, installed software, uninstall options, modules, and safety gates;
 - selected dossier/details panel with visible focus state;
 - foundation state cards for store, registry, receipts, and installed modules;
 - command rail that is explicitly preview-only and does not run commands;
-- the separate inventory module shown as read-only/not installed, with its
-  `rz0-inventory --format json --redact-paths` command only as a preview;
+- the built-in read-only inventory adapter shown through live local records,
+  `rz0 apps`, and exact `rz0 uninstall plan <id>` previews;
 - persistent `SAFETY // LOCKED` footer;
 - help/focus guidance that reinforces CLI/JSON escape hatches.
 
@@ -22,7 +22,7 @@ This backlog intentionally does not edit `site/`. Website work remains a separat
 - [ ] Update the website TUI mock/screens so labels, panel titles, and safety posture match the real terminal TUI.
 - [ ] Represent compact/standard/wide behavior without implying unsupported website interactivity.
 - [ ] Keep copy honest: the TUI is a read-only foundation dashboard and command preview surface, not a feature-module runner.
-- [ ] Show inventory as a separate source package, not a bundled/installed module; do not display local evidence or machine paths in public mockups.
+- [ ] Show synthetic installed-software rows without machine paths or implying that uninstall reviews execute from the public mockup.
 - [ ] Preserve `BRAND.md` color semantics: Dossier Navy / Burnished Brass, red only for danger/error/destructive states.
 - [ ] Run static-site safety checks for `innerHTML`, `document.write`, `eval(`, `new Function`, rejected red/rust/copper accents, footer/link integrity, and viewport rendering.
 - [ ] Avoid Cloudflare, release, bootstrap, or dependency changes unless separately approved.

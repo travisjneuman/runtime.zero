@@ -3,23 +3,26 @@
 `runtime.zero` uses a versioned inventory contract so platform evidence remains
 deterministic, privacy-explicit, and separate from future action planning.
 
-The foundation surface remains an empty contract preview:
+The installed foundation now embeds the bounded first-party collector:
 
 ```bash
+rz0 apps
+rz0 apps --format json
 rz0 scan --dry-run --format json
 ```
 
-The separately built first-party workspace module implements local collection:
+`rz0 apps` intentionally omits paths. Scan paths are report-locally redacted by
+default; `--include-raw-paths` is an explicit local-only override. The separate
+development binary remains available for fixtures and adapter work:
 
 ```bash
 cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
 cargo run -p rz0-module-inventory -- --format json --redact-paths
 ```
 
-The source package is not installed, published, loaded, or executed by the `rz0`
-core. Core and module share the owned, strict, serializable/deserializable model
-and validator in `crates/inventory-contract/`; the module does not depend on the
-TUI/CLI crate.
+The core depends on the source package's library, while the collector remains
+independent of the TUI/CLI crate. Both share the owned, strict,
+serializable/deserializable model and validator in `crates/inventory-contract/`.
 See [`../modules/inventory/README.md`](../modules/inventory/README.md).
 
 ## Top-level schema
@@ -99,9 +102,10 @@ schema 1 entirely.
 | Known executable discovery | On | Exact allowlisted filenames under PATH only |
 | Known executable version probes | Off | Explicit `--probe-versions`; exact path, symlink/reparse-component rejection, static arguments, no shell, cleared environment, `/` working directory, shared descriptor audit/Unix process-group teardown, atomic 2-second deadline, 64 KiB per-stream capture; Windows fails closed pending race-free containment |
 | Windows installed applications | Off | Explicit `--include-apps`; standard uninstall views, read only, 4,096-record cap |
-| macOS application bundles | Off | Explicit `--include-apps`; direct `.app` directories under five known roots, metadata only, no bundle-content reads |
-| Linux desktop entries | Off | Explicit `--include-apps`; regular XDG `.desktop` files up to 64 KiB, user/hidden precedence, no `Exec` output or execution |
-| Package-manager listings/catalogs | Off | Deferred because behavior can vary by version, locale, source agreements, and network access |
+| macOS application bundles | On in installed core; opt-in in development binary | Direct `.app` directories under five known roots; bounded `Info.plist` reads provide versions |
+| macOS Homebrew metadata | On in installed core; opt-in in development binary | Direct Cellar/Caskroom directories only; no manager process or network access |
+| Linux desktop entries | On in installed core; opt-in in development binary | Regular XDG `.desktop` files up to 64 KiB, user/hidden precedence, no `Exec` output or execution |
+| Other package-manager listings/catalogs | Off | Deferred because behavior can vary by version, locale, source agreements, and network access |
 
 Script-based executable probes remain disabled. The module detects package manager executables but does not invoke manager
 list/update/install/uninstall commands. Application collectors reject symlinked
@@ -129,7 +133,7 @@ the same lower-priority desktop ID. The parser does not treat the desktop-spec
 
 Inventory evidence is not an instruction or trust decision. This layer does not
 write PATH/registry state, install/update/uninstall software, clean files, run
-package managers, fetch remote metadata, load module code into `rz0`, or approve
+package managers, fetch remote metadata, or approve
 third-party modules.
 
 ## Implementation references
@@ -154,5 +158,5 @@ views, app normalization, timeout behavior, redaction, and the installed
 terminal experience. The macOS app
 adapter was exercised on the development host and Linux parser behavior is
 fixture-tested plus Linux-target compiled, but a real Linux runtime and broader
-macOS/Linux package-manager, service, and persistence inventory remain later
-adapter work.
+non-Homebrew macOS/Linux package-manager, service, and persistence inventory
+remain later adapter work.

@@ -14,7 +14,7 @@
 
 ## Foundation boundary
 
-The core may include self-description, `doctor`, safe dry-run scaffolding, manifest schemas, output contracts, and policy primitives. It must not bundle substantial feature modules by default. First-party modules should be optional packages with declared capabilities, risk level, supported platforms, and safety behavior. Third-party modules require a separate trust model before implementation.
+The core may include self-description, `doctor`, safe dry-run scaffolding, manifest schemas, output contracts, policy primitives, and bounded read-only inventory adapters needed for a useful zero-module product. It must not bundle write-capable domain modules by default. First-party modules should be optional packages with declared capabilities, risk level, supported platforms, and safety behavior. Third-party modules require a separate trust model before implementation.
 
 Local manifest loading is read-only and declarative. Loading a manifest means
 parsing and validating JSON metadata; it does not load code, fetch dependencies,
@@ -28,10 +28,10 @@ platform-neutral; only the narrowest adapter layer may differ.
 
 ## Inventory contract boundary
 
-Core `rz0 scan --dry-run --format json` emits the versioned, empty
-`inventory_report`. The first feature implementation is a separate workspace
-package under `modules/inventory/`; the core does not depend on, install, load,
-or execute it.
+Core `rz0 scan --dry-run --format json` emits a live, path-redacted versioned
+`inventory_report`; `rz0 apps` emits the path-free installed-software view used
+by the TUI. The collector library remains a separate workspace package under
+`modules/inventory/`, but it is now a deliberate built-in core dependency.
 
 A small `crates/inventory-contract/` library owns strict owned serialization,
 deserialization, cross-reference/summary validation, resource ceilings, and a
@@ -39,12 +39,12 @@ separate private-for-export gate so the feature package does not depend on the
 CLI/TUI core or pull its terminal stack into the module binary. The module uses deterministic fixtures, bounded
 process-PATH collection on
 Windows/macOS/Linux, read-only persisted PATH and optional app registry reads on
-Windows, bounded opt-in `.app`/XDG desktop-entry evidence on macOS/Linux,
+Windows, bounded `.app`/Homebrew/XDG desktop-entry evidence on macOS/Linux,
 allowlisted direct executable discovery, opt-in Unix probes using shared
 cleared-environment drains/deadlines/process groups (Windows fails closed),
 report-local path redaction, and structured source events. It does not invoke
-package managers, execute desktop entries, inspect macOS bundle contents, or
-recursively scan drives. See
+package managers, execute desktop entries, or recursively scan drives. macOS
+reads only bounded direct `Info.plist` files for display versions. See
 [`inventory-schema.md`](inventory-schema.md).
 
 `crates/capability-contract/` owns the shared read/action capability vocabulary

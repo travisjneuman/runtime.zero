@@ -176,9 +176,10 @@ modules, copy packages, execute code, fetch remote content, edit PATH, create
 services/tasks/persistence, or touch credentials, browser profiles, OAuth
 sessions, backups, project workspaces, or unknown user data.
 
-Bare `rz0` may open a minimal TUI dashboard in an interactive terminal. That
-dashboard is a review surface only: it may display foundation state, store
-status, module posture, and safety boundaries, but it must not install, update,
+Bare `rz0` may open the local software TUI in an interactive terminal. That
+dashboard performs bounded read-only inventory and may display application and
+package names, versions, ownership-specific uninstall reviews, foundation
+state, store status, module posture, and safety boundaries, but it must not install, update,
 uninstall, repair, execute module code, create store state, or mutate the
 system. `rz0 <subcommand>`, JSON output, redirected/piped output,
 non-interactive contexts, and `rz0 --no-tui` must stay scriptable and must not
@@ -204,21 +205,24 @@ Color is never required for understanding state. Human-readable output accepts
 the global `--color=auto|always|never` flag, respects `NO_COLOR` in auto mode,
 and keeps JSON ANSI-free. Status labels remain the authority.
 
-`rz0 scan --dry-run --format json` exposes the empty schema-1 inventory report
-contract. The separate `modules/inventory/` workspace package implements bounded
-read-only collection without making it part of the core execution surface. It
+`rz0 scan --dry-run --format json` exposes live, path-redacted schema-1
+inventory, while `rz0 apps` exposes a path-free installed-software catalog. The
+`modules/inventory/` library implements bounded read-only collection and is a
+built-in core dependency; its development binary remains separate. It
 uses fixture-first PATH normalization, reads process PATH, uses `KEY_READ` for
 persisted Windows PATH, detects only allowlisted executable names directly under
 PATH entries, omits hostname/current-user identity and raw registry keys, and
 redacts paths by default. Raw local paths require `--include-raw-paths` and must
 never satisfy the production protocol.
 
-Version probes require explicit `--probe-versions`; they invoke an exact
+The installed core enables bounded platform application evidence by default;
+the separate development binary still requires `--include-apps`. Version
+probes require explicit `--probe-versions`; they invoke an exact
 discovered path without a shell, use static version-only arguments, cap captured
 output, and kill the child after two seconds. Script-based probes remain
-disabled. Platform application evidence requires explicit `--include-apps` and
-is bounded. Windows reads standard uninstall views only; macOS enumerates direct
-`.app` directories under known roots without reading bundle contents; Linux
+disabled. Windows reads standard uninstall views only; macOS enumerates direct `.app`
+directories, reads bounded direct `Info.plist` version metadata, and enumerates
+Homebrew Cellar/Caskroom directories without invoking Homebrew; Linux
 reads only bounded XDG desktop-entry files, honors hidden user overrides, and
 never emits command lines. Symlinked roots and application records fail closed.
 `--redact-paths` replaces path values before sharing. Package-manager
@@ -264,7 +268,11 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 
 ## Current status
 
-The current CLI/TUI does not include update, uninstall, cleanup, install execution, malware-removal, persistence, or remote module execution behavior. The foundation is limited to read-only diagnostics, a read-only TUI dashboard, the schema-1 inventory contract, a separately built read-only inventory source package, dry-run placeholders, explicit user-local store initialization, dry-run module
+The current CLI/TUI includes live installed-software inventory and read-only
+ownership-specific uninstall reviews, but not uninstall execution, update,
+cleanup, install execution, malware removal, persistence, or remote module
+execution. The foundation is limited to read-only diagnostics, a live read-only
+TUI/catalog/scan, dry-run placeholders, explicit user-local store initialization, dry-run module
 install planning, module registry contracts, test-only OS-temp transaction
 simulations, an invocation protocol that authorizes no module, and an
 explicit-feature Cargo test-helper transport with no core integration.

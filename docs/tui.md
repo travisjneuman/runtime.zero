@@ -63,22 +63,19 @@ Minimum keys:
 
 ## Dashboard content
 
-The dashboard is read-only and may show only foundation state:
+The dashboard performs bounded local reads at startup and shows:
 
-- foundation safety posture;
-- store initialization readiness or initialized state;
-- store path/status summary;
-- installed-module registry validity;
-- receipt validation state;
-- installed module count;
-- planned first-party module family count;
-- dry-run-only module install posture;
-- the separate first-party inventory source package as read-only and not
-  installed, plus a preview-only `rz0-inventory` command.
+- a live installed-software total;
+- direct macOS application bundles and Homebrew formula/cask records;
+- versions when bounded bundle or manager-directory metadata provides them;
+- protected, manager-review, quarantine-review, or unsupported uninstall posture;
+- a dedicated uninstall-options section with exact `rz0 uninstall plan <id>` previews;
+- store, registry, receipt, and module lifecycle state;
+- the built-in first-party inventory adapter and scriptable `rz0 apps` surface.
 
-The dashboard must not claim planned modules are installed or active, must not
-run module code, and must not trigger installs, updates, cleanup, remote
-fetches, or destructive actions.
+The dashboard must not claim planned modules are installed or active. Enter
+opens an exact review command but does not run it. Protected system software is
+blocked, and uninstall reviews cannot authorize mutation.
 
 
 ## Current shell layout
@@ -86,17 +83,16 @@ fetches, or destructive actions.
 The TUI is intentionally more than a command transcript. The interactive shell
 now renders the existing dashboard data model through Ratatui widgets:
 
-- a bounded header panel with product/version, brand posture, and read-only status badge;
-- a navigation rail/index for numbered dossier sections: foundation, local
-  store, modules, and safety gates;
+- a bounded header panel with product/version and live-inventory status;
+- a navigation rail/index for overview, runtime state, installed software,
+  uninstall options, modules, and safety gates;
 - a selected-section panel with dossier code, summary, current position,
   visible details focus, and read-only row previews;
 - foundation state cards for store, registry, receipt, and installed-module
   posture with reusable status-pair formatting;
 - a command rail that supports selection and read-only previews of equivalent
-  scriptable CLI commands without running them, including the separate
-  `rz0-inventory --format json --redact-paths` source-package surface, with
-  explicit `PREVIEW ONLY` copy;
+  scriptable CLI commands without running them, including `rz0 apps` and
+  `rz0 uninstall plan <id>`, with explicit `PREVIEW ONLY` copy;
 - a persistent safety footer and optional help overlay.
 
 Interactive rendering applies Dossier Navy / Burnished Brass status tones to
