@@ -1,0 +1,19 @@
+[package]
+name = "rz0-support-contract"
+version = "0.1.0"
+edition = "2024"
+authors = ["Travis J. Neuman <travis@neuman.dev>"]
+description = "Privacy-reviewed deterministic support report contract for runtime.zero"
+license = "Apache-2.0"
+repository = "https://github.com/travisjneuman/runtime.zero"
+rust-version = "1.96"
+publish = false
+
+[dependencies]
+rz0-diagnostics-contract = { version = "0.1.0", path = "../diagnostics-contract" }
+rz0-inventory-contract = { version = "0.1.0", path = "../inventory-contract" }
+rz0-resource-contract = { version = "0.1.0", path = "../resource-contract" }
+rz0-validation-contract = { version = "0.1.0", path = "../validation-contract" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"

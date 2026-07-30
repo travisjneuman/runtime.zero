@@ -1,0 +1,29 @@
+{
+  "manifest_version": 1,
+  "id": "first-party.report-export",
+  "display_name": "Report and Support Export",
+  "version": "0.1.0",
+  "publisher": "runtime.zero",
+  "kind": "first_party_module",
+  "status": "planned",
+  "summary": "Privacy-reviewed deterministic summary reports from validated local input.",
+  "capabilities": [
+    "validated-report-summary",
+    "privacy-reviewed-support-export"
+  ],
+  "supported_platforms": ["windows", "macos", "linux"],
+  "risk_level": "read_only",
+  "safety": {
+    "mutates_system": false,
+    "requires_confirmation": false,
+    "dry_run_required": false,
+    "quarantine_supported": false,
+    "remote_execution_allowed": false
+  },
+  "permissions": {
+    "schema_version": 1,
+    "declared": [],
+    "default_grants": [],
+    "explicit_grants": []
+  }
+}

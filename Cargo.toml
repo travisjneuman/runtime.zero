@@ -34,9 +34,11 @@ members = [
     "crates/registry-contract",
     "crates/resource-contract",
     "crates/secure-fs",
+    "crates/support-contract",
     "crates/transaction-contract",
     "crates/validation-contract",
     "modules/inventory",
+    "modules/report-export",
 ]
 
 [dependencies]

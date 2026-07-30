@@ -261,6 +261,20 @@ pub fn validate_diagnostic_report(report: &DiagnosticReport) -> DiagnosticValida
     }
 }
 
+pub fn decode_diagnostic_report(bytes: &[u8]) -> Result<DiagnosticReport, String> {
+    if bytes.is_empty() || bytes.len() as u64 > rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES {
+        return Err("diagnostic report is empty or oversized".to_string());
+    }
+    let report: DiagnosticReport = serde_json::from_slice(bytes)
+        .map_err(|error| format!("parse diagnostic report: {error}"))?;
+    let validation = validate_diagnostic_report(&report);
+    if validation.valid {
+        Ok(report)
+    } else {
+        Err(validation.errors.join("; "))
+    }
+}
+
 pub fn diagnostic_json(report: &DiagnosticReport) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(report).map(|json| format!("{json}\n"))
 }
@@ -417,13 +431,15 @@ mod tests {
     }
 
     #[test]
-    fn unknown_fields_fail_deserialization() {
+    fn decoding_rejects_unknown_fields_and_oversized_documents() {
         let json = diagnostic_json(&report()).unwrap();
+        assert_eq!(decode_diagnostic_report(json.as_bytes()).unwrap(), report());
         let drifted = json.replacen(
             "\"schema_version\": 1",
             "\"schema_version\": 1,\n  \"future\": true",
             1,
         );
-        assert!(serde_json::from_str::<DiagnosticReport>(&drifted).is_err());
+        assert!(decode_diagnostic_report(drifted.as_bytes()).is_err());
+        assert!(decode_diagnostic_report(&vec![b'x'; 64 * 1024 + 1]).is_err());
     }
 }
