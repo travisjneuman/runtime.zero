@@ -171,22 +171,17 @@ fn validate_command(action: &PlanAction, validation: &mut ActionPlanValidation) 
 }
 
 fn validate_capabilities(action: &PlanAction, validation: &mut ActionPlanValidation) {
+    let capability_validation =
+        rz0_capability_contract::validate_schema_one_action_grants(&action.capabilities, 16);
+    for error in capability_validation.errors {
+        let error = if error == "capability grant is outside its schema family" {
+            "includes a capability outside action-plan schema 1"
+        } else {
+            error
+        };
+        validation.fail(format!("action '{}' {error}", action.action_id));
+    }
     let capabilities = action.capabilities.iter().copied().collect::<BTreeSet<_>>();
-    if capabilities.len() != action.capabilities.len() {
-        validation.fail(format!(
-            "action '{}' has duplicate capabilities",
-            action.action_id
-        ));
-    }
-    if capabilities
-        .iter()
-        .any(|capability| !capability.is_schema1_action_capability())
-    {
-        validation.fail(format!(
-            "action '{}' includes a capability outside action-plan schema 1",
-            action.action_id
-        ));
-    }
     if action.network_required && !capabilities.contains(&ActionCapability::NetworkMetadata) {
         validation.fail(format!(
             "action '{}' requires the network_metadata capability",

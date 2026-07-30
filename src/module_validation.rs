@@ -155,57 +155,12 @@ fn validate_permissions(
         errors.push("permissions schema 1 supports read-only modules only".to_string());
     }
 
-    let declared = permissions
-        .declared
-        .iter()
-        .copied()
-        .collect::<BTreeSet<_>>();
-    let defaults = permissions
-        .default_grants
-        .iter()
-        .copied()
-        .collect::<BTreeSet<_>>();
-    let explicit = permissions
-        .explicit_grants
-        .iter()
-        .copied()
-        .collect::<BTreeSet<_>>();
-    if declared.len() != permissions.declared.len()
-        || defaults.len() != permissions.default_grants.len()
-        || explicit.len() != permissions.explicit_grants.len()
-    {
-        errors.push("permissions lists must not contain duplicates".to_string());
-    }
-    if !defaults.is_disjoint(&explicit) {
-        errors.push("permission cannot be both default and explicit".to_string());
-    }
-    for permission in defaults.union(&explicit) {
-        if !declared.contains(permission) {
-            errors.push("granted permissions must also appear in declared".to_string());
-            break;
-        }
-    }
-    for permission in &declared {
-        if !defaults.contains(permission) && !explicit.contains(permission) {
-            errors.push("each declared permission must be default or explicit".to_string());
-            break;
-        }
-    }
-    if declared
-        .iter()
-        .any(|permission| !permission.is_schema1_manifest_permission())
-    {
-        errors.push("permission is outside read-only manifest schema 1".to_string());
-    }
-    if defaults
-        .iter()
-        .any(|permission| permission.requires_explicit_manifest_grant())
-    {
-        errors.push(
-            "command probes and application inventory reads must require explicit grants"
-                .to_string(),
-        );
-    }
+    let validation = rz0_capability_contract::validate_schema_one_manifest_permissions(
+        &permissions.declared,
+        &permissions.default_grants,
+        &permissions.explicit_grants,
+    );
+    errors.extend(validation.errors.into_iter().map(str::to_string));
 }
 
 fn validate_safety(manifest: &ModuleManifest, errors: &mut Vec<String>) {

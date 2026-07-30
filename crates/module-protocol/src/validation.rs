@@ -182,19 +182,18 @@ fn validate_environment(plan: &InvocationPlan, errors: &mut Vec<String>) {
 }
 
 fn validate_capabilities(plan: &InvocationPlan, errors: &mut Vec<String>) {
+    let validation = rz0_capability_contract::validate_schema_one_protocol_grants(
+        &plan.capabilities,
+        MAX_CAPABILITIES,
+    );
+    errors.extend(validation.errors.into_iter().map(|error| {
+        if error == "capability grant is outside its schema family" {
+            "schema-1 protocol grant includes a non-read capability".to_string()
+        } else {
+            error.to_string()
+        }
+    }));
     let capabilities = plan.capabilities.iter().copied().collect::<BTreeSet<_>>();
-    if capabilities.len() != plan.capabilities.len()
-        || capabilities.len() > MAX_CAPABILITIES
-        || plan.capabilities.windows(2).any(|pair| pair[0] >= pair[1])
-    {
-        errors.push("capability grant must be unique, sorted, and bounded".to_string());
-    }
-    if capabilities
-        .iter()
-        .any(|capability| !capability.is_schema1_protocol_capability())
-    {
-        errors.push("schema-1 protocol grant includes a non-read capability".to_string());
-    }
     for required in [
         ProtocolCapability::ProcessEnvironmentRead,
         ProtocolCapability::FilesystemMetadataRead,
