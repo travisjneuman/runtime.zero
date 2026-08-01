@@ -27,6 +27,7 @@ pub struct InstalledSoftware {
     pub id: String,
     pub name: String,
     pub version: Option<String>,
+    pub source_id: String,
     pub kind: SoftwareKind,
     pub scope: InstallScope,
     pub uninstall_option: UninstallOption,
@@ -58,6 +59,174 @@ pub enum UninstallOption {
     ManagerReview,
     QuarantineReview,
     Unsupported,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SoftwareFilter {
+    All,
+    Applications,
+    PackageManagers,
+    Reviewable,
+}
+
+impl SoftwareFilter {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Applications => "applications",
+            Self::PackageManagers => "package managers",
+            Self::Reviewable => "reviewable",
+        }
+    }
+
+    fn matches(self, app: &InstalledSoftware) -> bool {
+        match self {
+            Self::All => true,
+            Self::Applications => matches!(app.kind, SoftwareKind::ApplicationBundle),
+            Self::PackageManagers => matches!(
+                app.kind,
+                SoftwareKind::HomebrewFormula
+                    | SoftwareKind::HomebrewCask
+                    | SoftwareKind::PlatformPackage
+            ),
+            Self::Reviewable => matches!(
+                app.uninstall_option,
+                UninstallOption::ManagerReview | UninstallOption::QuarantineReview
+            ),
+        }
+    }
+
+    pub const fn next(self) -> Self {
+        match self {
+            Self::All => Self::Applications,
+            Self::Applications => Self::PackageManagers,
+            Self::PackageManagers => Self::Reviewable,
+            Self::Reviewable => Self::All,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SoftwareSort {
+    Name,
+    Version,
+    Kind,
+}
+
+impl SoftwareSort {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::Version => "version",
+            Self::Kind => "kind",
+        }
+    }
+
+    pub const fn next(self) -> Self {
+        match self {
+            Self::Name => Self::Version,
+            Self::Version => Self::Kind,
+            Self::Kind => Self::Name,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SoftwareView {
+    query: String,
+    pub filter: SoftwareFilter,
+    pub sort: SoftwareSort,
+}
+
+impl Default for SoftwareView {
+    fn default() -> Self {
+        Self {
+            query: String::new(),
+            filter: SoftwareFilter::All,
+            sort: SoftwareSort::Name,
+        }
+    }
+}
+
+impl SoftwareView {
+    pub const MAX_QUERY_BYTES: usize = 80;
+
+    pub fn query(&self) -> &str {
+        &self.query
+    }
+
+    pub fn push_query(&mut self, value: char) {
+        if value.is_control() || self.query.len() >= Self::MAX_QUERY_BYTES {
+            return;
+        }
+        let mut encoded = [0u8; 4];
+        let width = value.encode_utf8(&mut encoded).len();
+        if self.query.len().saturating_add(width) <= Self::MAX_QUERY_BYTES {
+            self.query.push(value);
+        }
+    }
+
+    pub fn pop_query(&mut self) {
+        self.query.pop();
+    }
+
+    pub fn clear_query(&mut self) {
+        self.query.clear();
+    }
+
+    pub fn matches(&self, app: &InstalledSoftware) -> bool {
+        self.filter.matches(app)
+            && (self.query.is_empty()
+                || app
+                    .name
+                    .to_ascii_lowercase()
+                    .contains(&self.query.to_ascii_lowercase())
+                || app
+                    .id
+                    .to_ascii_lowercase()
+                    .contains(&self.query.to_ascii_lowercase())
+                || app
+                    .source_id
+                    .to_ascii_lowercase()
+                    .contains(&self.query.to_ascii_lowercase()))
+    }
+
+    pub fn compare(
+        &self,
+        left: &InstalledSoftware,
+        right: &InstalledSoftware,
+    ) -> std::cmp::Ordering {
+        let ordering = match self.sort {
+            SoftwareSort::Name => left
+                .name
+                .to_ascii_lowercase()
+                .cmp(&right.name.to_ascii_lowercase()),
+            SoftwareSort::Version => left
+                .version
+                .as_deref()
+                .unwrap_or("")
+                .cmp(right.version.as_deref().unwrap_or("")),
+            SoftwareSort::Kind => {
+                software_kind_label(left.kind).cmp(software_kind_label(right.kind))
+            }
+        };
+        ordering
+            .then_with(|| {
+                left.name
+                    .to_ascii_lowercase()
+                    .cmp(&right.name.to_ascii_lowercase())
+            })
+            .then_with(|| left.id.cmp(&right.id))
+    }
+}
+
+fn software_kind_label(kind: SoftwareKind) -> &'static str {
+    match kind {
+        SoftwareKind::ApplicationBundle => "application_bundle",
+        SoftwareKind::HomebrewFormula => "homebrew_formula",
+        SoftwareKind::HomebrewCask => "homebrew_cask",
+        SoftwareKind::PlatformPackage => "platform_package",
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -128,6 +297,7 @@ fn classify_app(app: &AppRecord) -> InstalledSoftware {
         id: app.id.clone(),
         name: app.name.clone(),
         version: app.version.clone(),
+        source_id: app.source_id.clone(),
         kind,
         scope,
         uninstall_option,
@@ -458,6 +628,7 @@ mod tests {
             id: "macos.app.local".to_string(),
             name: "Local App".to_string(),
             version: None,
+            source_id: "macos.application_bundles".to_string(),
             kind: SoftwareKind::ApplicationBundle,
             scope: InstallScope::Local,
             uninstall_option: UninstallOption::QuarantineReview,
@@ -466,5 +637,35 @@ mod tests {
         assert_eq!(review.status, "review_available");
         assert!(!review.product_execution_authorized);
         assert!(!review.writes_attempted);
+    }
+
+    #[test]
+    fn software_view_matches_source_and_sorts_deterministically() {
+        let mut view = SoftwareView::default();
+        view.push_query('b');
+        view.push_query('r');
+        let brew = InstalledSoftware {
+            id: "macos.package.brew".to_string(),
+            name: "Brew Tool".to_string(),
+            version: Some("2.0".to_string()),
+            source_id: "macos.homebrew.formulae".to_string(),
+            kind: SoftwareKind::HomebrewFormula,
+            scope: InstallScope::Manager,
+            uninstall_option: UninstallOption::ManagerReview,
+        };
+        let app = InstalledSoftware {
+            id: "macos.app.other".to_string(),
+            name: "Other App".to_string(),
+            version: Some("1.0".to_string()),
+            source_id: "macos.application_bundles".to_string(),
+            kind: SoftwareKind::ApplicationBundle,
+            scope: InstallScope::Local,
+            uninstall_option: UninstallOption::QuarantineReview,
+        };
+        assert!(view.matches(&brew));
+        assert!(!view.matches(&app));
+        assert_eq!(view.compare(&brew, &app), std::cmp::Ordering::Less);
+        assert_eq!(SoftwareFilter::Reviewable.next(), SoftwareFilter::All);
+        assert_eq!(SoftwareSort::Kind.next(), SoftwareSort::Name);
     }
 }

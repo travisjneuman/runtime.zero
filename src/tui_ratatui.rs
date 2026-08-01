@@ -231,15 +231,22 @@ fn render_selected_panel(
 }
 
 fn render_help(frame: &mut Frame<'_>, area: Rect, state: &TuiState, color: bool) {
-    let lines = if state.show_help {
+    let lines = if state.search_active() {
+        vec![Line::raw(format!(
+            "search: {} · type to filter · Backspace edit · Enter accept · Esc cancel",
+            state.search_query()
+        ))]
+    } else if state.show_help {
         vec![
             Line::raw("Tab/Shift+Tab focus · ↑/↓/j/k move within focus · Enter/Space preview"),
-            Line::raw("r refreshes local data · Esc closes preview/help · q quits"),
+            Line::raw(
+                "/ search · f filter · s sort · r refresh · Esc closes preview/help · q quits",
+            ),
             Line::raw("subcommands, --json, pipes, and --no-tui stay CLI-only"),
         ]
     } else {
         vec![Line::raw(
-            "keys: Tab focus · ↑/↓/j/k move · Enter preview · r refresh · h help · Esc back · q quit",
+            "keys: Tab focus · / search · f filter · s sort · r refresh · Enter preview · h help · q quit",
         )]
     };
     frame.render_widget(

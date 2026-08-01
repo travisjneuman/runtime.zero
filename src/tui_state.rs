@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use crate::apps::SoftwareView;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TuiState {
     pub selected_section: usize,
     pub selected_detail_row: usize,
@@ -6,6 +8,8 @@ pub struct TuiState {
     pub focus_region: TuiFocusRegion,
     pub show_help: bool,
     pub preview_open: bool,
+    software_view: SoftwareView,
+    search_active: bool,
     section_count: usize,
     command_count: usize,
     previous_focus_region: TuiFocusRegion,
@@ -39,6 +43,12 @@ pub enum TuiInput {
     Activate,
     Back,
     Refresh,
+    BeginSearch,
+    EndSearch,
+    SearchCharacter(char),
+    SearchBackspace,
+    FilterNext,
+    SortNext,
     Resize,
     Other,
 }
@@ -54,8 +64,26 @@ impl TuiState {
             preview_open: false,
             section_count,
             command_count: crate::tui_command_rail::COMMANDS.len(),
+            software_view: SoftwareView::default(),
+            search_active: false,
             previous_focus_region: TuiFocusRegion::LeftNavigation,
         }
+    }
+
+    pub fn software_view(&self) -> &SoftwareView {
+        &self.software_view
+    }
+
+    pub fn set_software_view(&mut self, view: SoftwareView) {
+        self.software_view = view;
+    }
+
+    pub fn search_active(&self) -> bool {
+        self.search_active
+    }
+
+    pub fn search_query(&self) -> &str {
+        self.software_view.query()
     }
 
     pub fn clamp_detail_row(&mut self, row_count: usize) {
@@ -67,6 +95,9 @@ impl TuiState {
     }
 
     pub fn apply(&mut self, input: TuiInput) -> TuiAction {
+        if self.search_active {
+            return self.apply_search_input(input);
+        }
         match input {
             TuiInput::Quit => TuiAction::Quit,
             TuiInput::ToggleHelp => {
@@ -134,7 +165,63 @@ impl TuiState {
                 TuiAction::Refresh
             }
             TuiInput::Refresh => TuiAction::Continue,
+            TuiInput::BeginSearch if !self.show_help => {
+                self.software_view.clear_query();
+                self.search_active = true;
+                self.preview_open = false;
+                TuiAction::Continue
+            }
+            TuiInput::FilterNext if !self.show_help => {
+                self.software_view.filter = self.software_view.filter.next();
+                self.selected_detail_row = 0;
+                TuiAction::Continue
+            }
+            TuiInput::SortNext if !self.show_help => {
+                self.software_view.sort = self.software_view.sort.next();
+                self.selected_detail_row = 0;
+                TuiAction::Continue
+            }
+            TuiInput::EndSearch
+            | TuiInput::SearchCharacter(_)
+            | TuiInput::SearchBackspace
+            | TuiInput::Resize
+            | TuiInput::Other
+            | TuiInput::BeginSearch
+            | TuiInput::FilterNext
+            | TuiInput::SortNext => TuiAction::Continue,
+        }
+    }
+
+    fn apply_search_input(&mut self, input: TuiInput) -> TuiAction {
+        match input {
+            TuiInput::EndSearch | TuiInput::Back => {
+                self.search_active = false;
+                TuiAction::Continue
+            }
+            TuiInput::SearchCharacter(value) => {
+                self.software_view.push_query(value);
+                self.selected_detail_row = 0;
+                TuiAction::Continue
+            }
+            TuiInput::SearchBackspace => {
+                self.software_view.pop_query();
+                self.selected_detail_row = 0;
+                TuiAction::Continue
+            }
+            TuiInput::Quit => TuiAction::Quit,
+            TuiInput::Refresh => TuiAction::Continue,
             TuiInput::Resize | TuiInput::Other => TuiAction::Continue,
+            TuiInput::BeginSearch
+            | TuiInput::FilterNext
+            | TuiInput::SortNext
+            | TuiInput::ToggleHelp
+            | TuiInput::FocusNext
+            | TuiInput::FocusPrevious
+            | TuiInput::NextItem
+            | TuiInput::PreviousItem
+            | TuiInput::FirstSection
+            | TuiInput::LastSection
+            | TuiInput::Activate => TuiAction::Continue,
         }
     }
 
@@ -229,6 +316,10 @@ impl TuiState {
         if self.show_help {
             self.show_help = false;
             self.focus_region = self.previous_focus_region;
+            return TuiAction::Continue;
+        }
+        if self.search_active {
+            self.search_active = false;
             return TuiAction::Continue;
         }
         if self.preview_open {

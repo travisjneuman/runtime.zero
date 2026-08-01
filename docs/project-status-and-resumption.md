@@ -238,7 +238,7 @@ weaken them.
 | Family | Source package | Current state | Missing before production support |
 | --- | --- | --- | --- |
 | Inventory/environment | `modules/inventory` | Library embedded for bounded reads; separate fixture/development binary | Broader managers/services/persistence and full platform runtime parity |
-| Updater | `modules/updater` | Synthetic installed/manager-owned finding classifier | Live availability adapters, source agreement, execution, rollback |
+| Updater | `modules/updater` | Synthetic installed/manager-owned classifier plus dry-run action-plan binding | Live availability adapters, source agreement, execution, rollback |
 | Uninstall | `modules/uninstall` | Synthetic manager classifier; core has Mac review UX | Finding/action-plan integration and safe platform execution |
 | Leftovers | `modules/leftovers` | Synthetic exact-runtime-owned classifier | Live ownership adapters and quarantine execution |
 | Cache management | `modules/cache` | Synthetic ownership/exact-evidence classifier | Live adapters, risk budgets, quarantine/restore execution |
@@ -259,8 +259,9 @@ These are intentional continuation facts, not hidden production claims:
   records. Future identity reconciliation must preserve both provenance sources
   without hiding disagreement.
 - The TUI takes one inventory snapshot at launch and supports an explicit `r`
-  refresh; it has no search, filter, or sort selection yet. Long detail lists
-  expose the current item position while scrolling.
+  refresh. Bounded `/` search, `f` filter cycling, and `s` sort cycling now
+  operate on the cached snapshot without triggering a new scan. Long detail
+  lists expose the current item position while scrolling.
 - Per-item options currently mean details plus uninstall posture. Update,
   repair, integrity, export, and cleanup options are not yet live.
 - Application publisher identity is unknown unless a future trusted adapter
@@ -339,8 +340,9 @@ Resume in this order unless new evidence changes a dependency:
    merging records merely by display name.
 2. Add synthetic reconciliation fixtures for app/cask duplicates, disagreement,
    renamed apps, multiple versions, missing plist data, and moved roots.
-3. Add search/filter/sort while preserving bounded memory, no background
-   daemon, explicit refresh semantics, and private JSON behavior.
+3. Complete the software identity/provenance reconciliation fixtures while
+   preserving bounded memory, no background daemon, explicit refresh semantics,
+   and private JSON behavior.
 4. Add explicit performance operations only through a schema-compatible or new
    schema contract.
 

@@ -32,7 +32,7 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
     render(terminal, &dashboard, &state, launch_context, color)?;
     loop {
         let input = match event::read()? {
-            Event::Key(key) => input_from_key(key),
+            Event::Key(key) => input_from_key(key, state.search_active()),
             Event::Resize(_, _) => Some(TuiInput::Resize),
             _ => None,
         };
@@ -44,15 +44,18 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
                     let selected_detail_row = state.selected_detail_row;
                     let selected_command = state.selected_command;
                     let focus_region = state.focus_region;
+                    let software_view = state.software_view().clone();
                     dashboard = tui_dashboard::dashboard();
                     state = TuiState::new(dashboard.sections.len());
                     state.selected_section = selected_section;
                     state.selected_detail_row = selected_detail_row;
                     state.selected_command = selected_command;
                     state.focus_region = focus_region;
+                    state.set_software_view(software_view);
                 }
                 TuiAction::Continue => {}
             }
+            dashboard.apply_software_view(state.software_view());
             let row_count = dashboard
                 .sections
                 .get(state.selected_section)
@@ -74,9 +77,18 @@ fn render<B: Backend<Error = io::Error>>(
     draw_dashboard(terminal, dashboard, state, color)
 }
 
-fn input_from_key(key: KeyEvent) -> Option<TuiInput> {
+fn input_from_key(key: KeyEvent, search_active: bool) -> Option<TuiInput> {
     if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
         return None;
+    }
+    if search_active {
+        return Some(match key.code {
+            KeyCode::Esc => TuiInput::Back,
+            KeyCode::Enter => TuiInput::EndSearch,
+            KeyCode::Backspace => TuiInput::SearchBackspace,
+            KeyCode::Char(value) => TuiInput::SearchCharacter(value),
+            _ => TuiInput::Other,
+        });
     }
     if key.kind == KeyEventKind::Repeat
         && matches!(key.code, KeyCode::Char('r') | KeyCode::Char('R'))
@@ -95,6 +107,9 @@ fn input_from_key(key: KeyEvent) -> Option<TuiInput> {
         KeyCode::BackTab => TuiInput::FocusPrevious,
         KeyCode::Enter | KeyCode::Char(' ') => TuiInput::Activate,
         KeyCode::Char('r') | KeyCode::Char('R') => TuiInput::Refresh,
+        KeyCode::Char('/') => TuiInput::BeginSearch,
+        KeyCode::Char('f') | KeyCode::Char('F') => TuiInput::FilterNext,
+        KeyCode::Char('s') | KeyCode::Char('S') => TuiInput::SortNext,
         KeyCode::Down | KeyCode::Right => TuiInput::NextItem,
         KeyCode::Up | KeyCode::Left => TuiInput::PreviousItem,
         _ => TuiInput::Other,
@@ -130,51 +145,74 @@ mod tests {
 
     #[test]
     fn q_key_maps_to_quit_without_printable_output() {
-        let input = input_from_key(KeyEvent::from(KeyCode::Char('q')));
+        let input = input_from_key(KeyEvent::from(KeyCode::Char('q')), false);
         assert_eq!(input, Some(TuiInput::Quit));
     }
 
     #[test]
     fn help_and_navigation_keys_are_supported() {
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('?'))),
+            input_from_key(KeyEvent::from(KeyCode::Char('?')), false),
             Some(TuiInput::ToggleHelp)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('r'))),
+            input_from_key(KeyEvent::from(KeyCode::Char('r')), false),
             Some(TuiInput::Refresh)
         );
         assert_eq!(
-            input_from_key(KeyEvent::new_with_kind(
-                KeyCode::Char('r'),
-                KeyModifiers::NONE,
-                KeyEventKind::Repeat,
-            )),
+            input_from_key(
+                KeyEvent::new_with_kind(
+                    KeyCode::Char('r'),
+                    KeyModifiers::NONE,
+                    KeyEventKind::Repeat,
+                ),
+                false
+            ),
             Some(TuiInput::Other)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Tab)),
+            input_from_key(KeyEvent::from(KeyCode::Tab), false),
             Some(TuiInput::FocusNext)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Up)),
+            input_from_key(KeyEvent::from(KeyCode::Up), false),
             Some(TuiInput::PreviousItem)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('j'))),
+            input_from_key(KeyEvent::from(KeyCode::Char('j')), false),
             Some(TuiInput::NextItem)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('k'))),
+            input_from_key(KeyEvent::from(KeyCode::Char('k')), false),
             Some(TuiInput::PreviousItem)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Home)),
+            input_from_key(KeyEvent::from(KeyCode::Home), false),
             Some(TuiInput::FirstSection)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::End)),
+            input_from_key(KeyEvent::from(KeyCode::End), false),
             Some(TuiInput::LastSection)
+        );
+    }
+
+    #[test]
+    fn search_keys_are_text_input_only_while_search_is_active() {
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Char('q')), true),
+            Some(TuiInput::SearchCharacter('q'))
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Backspace), true),
+            Some(TuiInput::SearchBackspace)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Enter), true),
+            Some(TuiInput::EndSearch)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Esc), true),
+            Some(TuiInput::Back)
         );
     }
 
@@ -184,22 +222,22 @@ mod tests {
             KeyEvent::new_with_kind(KeyCode::Down, KeyModifiers::NONE, KeyEventKind::Release);
         let repeat =
             KeyEvent::new_with_kind(KeyCode::Down, KeyModifiers::NONE, KeyEventKind::Repeat);
-        assert_eq!(input_from_key(release), None);
-        assert_eq!(input_from_key(repeat), Some(TuiInput::NextItem));
+        assert_eq!(input_from_key(release, false), None);
+        assert_eq!(input_from_key(repeat, false), Some(TuiInput::NextItem));
     }
 
     #[test]
     fn activation_and_back_keys_are_read_only_navigation_inputs() {
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Enter)),
+            input_from_key(KeyEvent::from(KeyCode::Enter), false),
             Some(TuiInput::Activate)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char(' '))),
+            input_from_key(KeyEvent::from(KeyCode::Char(' ')), false),
             Some(TuiInput::Activate)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Esc)),
+            input_from_key(KeyEvent::from(KeyCode::Esc), false),
             Some(TuiInput::Back)
         );
     }

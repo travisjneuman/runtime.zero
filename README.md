@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy and contracts plus the bounded read-only inventory needed for a useful zero-module product; write-capable domain behavior remains isolated behind explicit modules and lifecycle gates.
 
-> **Paused project snapshot — 2026-07-30:** pre-alpha, not production-ready. The installed Mac surface now provides a live software catalog and one canonical TUI software list with per-item details/protection/uninstall-review posture. All seven first-party source families exist, but destructive software execution remains absent. Start future work with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md).
+> **Current pre-alpha snapshot:** the installed Mac surface provides a live bounded software catalog and one canonical TUI software list with per-item details/protection/uninstall-review posture plus cached search/filter/sort controls. All seven first-party source families exist as planned or synthetic slices; destructive software execution and live update availability remain gated. Start future work with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md).
 
 ## The promise
 
@@ -53,8 +53,10 @@ filters terminal key events so Windows key-release events do not double-advance
 selection. The current interactive dashboard uses a Ratatui widget layer for bounded
 componentized panels, status badges, numbered dossier sections, explicit focus regions, a navigation rail,
 selected-section details, read-only command previews, Home/End jumps,
-Tab/Shift+Tab focus cycling, arrow movement, `j`/`k` keyboard shortcuts, and
-`r` refresh for operator-style terminal use. It now chooses explicit wide,
+Tab/Shift+Tab focus cycling, arrow movement, `j`/`k` keyboard shortcuts, `/`
+search, `f` filter cycling, `s` sort cycling, and `r` refresh for operator-style
+terminal use. Search/filter/sort use the cached snapshot; `r` is the explicit
+live refresh. It now chooses explicit wide,
 standard, compact, and very-small layout tiers so constrained terminals keep
 visible focus and read-only/preview-only labels instead of clipping into
 misleading panes. Esc

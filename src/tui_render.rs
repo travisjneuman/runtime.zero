@@ -225,9 +225,17 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
         color,
         Some(tui_theme::TuiTone::DryRun),
     ));
-    if interactive && state.show_help {
+    if interactive && state.search_active() {
         lines.push(line_plain(
-            "keys: Esc back · q quit · r refresh · Tab focus · ↑/↓/j/k move · Enter preview",
+            &format!(
+                "search: {} · type to filter · Backspace edit · Enter accept · Esc cancel",
+                state.search_query()
+            ),
+            width,
+        ));
+    } else if interactive && state.show_help {
+        lines.push(line_plain(
+            "keys: Esc back · q quit · / search · f filter · s sort · r refresh · Tab focus · Enter preview",
             width,
         ));
         lines.push(line_plain(
@@ -236,7 +244,7 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
         ));
     } else if interactive {
         lines.push(line_plain(
-            "keys: q quit · r refresh · Tab focus · ↑/↓/j/k move · Enter preview · h help",
+            "keys: q quit · Tab focus · / search · f filter · s sort · r refresh · Enter preview · h help",
             width,
         ));
     } else {

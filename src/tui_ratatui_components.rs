@@ -89,7 +89,7 @@ pub(crate) fn render_compact_dashboard(
         lines.push(preview_only_line(color));
     }
     lines.push(Line::raw(
-        "Tab focus · arrows · Enter · r refresh · q exits",
+        "q exits · / search · f filter · s sort · r refresh",
     ));
     frame.render_widget(
         Paragraph::new(lines).block(block("COMPACT // SAFE DASHBOARD", "info", color)),

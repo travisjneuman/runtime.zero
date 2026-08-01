@@ -980,9 +980,13 @@ dependencies = [
 name = "rz0-module-updater"
 version = "0.1.0"
 dependencies = [
+ "rz0-action-plan",
+ "rz0-capability-contract",
  "rz0-finding-contract",
  "rz0-resource-contract",
+ "rz0-validation-contract",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

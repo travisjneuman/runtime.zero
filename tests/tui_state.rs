@@ -20,6 +20,36 @@ fn refresh_requests_a_new_read_only_snapshot_without_quitting() {
 }
 
 #[test]
+fn search_filter_and_sort_stay_bounded_and_read_only() {
+    let mut state = TuiState::new(3);
+    assert_eq!(state.apply(TuiInput::BeginSearch), TuiAction::Continue);
+    for value in "brew".chars() {
+        state.apply(TuiInput::SearchCharacter(value));
+    }
+    assert!(state.search_active());
+    assert_eq!(state.search_query(), "brew");
+    state.apply(TuiInput::EndSearch);
+    assert!(!state.search_active());
+
+    state.apply(TuiInput::FilterNext);
+    state.apply(TuiInput::SortNext);
+    assert_eq!(state.software_view().filter.label(), "applications");
+    assert_eq!(state.software_view().sort.label(), "version");
+    assert_eq!(state.apply(TuiInput::Refresh), TuiAction::Refresh);
+}
+
+#[test]
+fn escape_cancels_search_before_quitting() {
+    let mut state = TuiState::new(3);
+    state.apply(TuiInput::BeginSearch);
+    state.apply(TuiInput::SearchCharacter('x'));
+    assert_eq!(state.apply(TuiInput::Back), TuiAction::Continue);
+    assert!(!state.search_active());
+    assert_eq!(state.search_query(), "x");
+    assert_eq!(state.apply(TuiInput::Back), TuiAction::Quit);
+}
+
+#[test]
 fn help_toggles_and_navigation_wraps() {
     let mut state = TuiState::new(2);
     assert_eq!(state.apply(TuiInput::ToggleHelp), TuiAction::Continue);

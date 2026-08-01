@@ -58,6 +58,9 @@ Minimum keys:
 
 - `q`: quit safely;
 - `r`: refresh the bounded local snapshot without executing commands;
+- `/`: begin bounded software-name/source/ID search; Enter accepts and Esc cancels;
+- `f`: cycle software filters (all, applications, package managers, reviewable);
+- `s`: cycle software sort order (name, version, kind);
 - Esc: close preview/help, back out to navigation, or quit from the base navigation focus;
 - `h` or `?`: toggle keyboard/safety help;
 - Tab: cycle focus forward through left navigation, details, and command rail;
@@ -76,6 +79,7 @@ The dashboard performs bounded local reads at startup and shows:
 - versions when bounded bundle or manager-directory metadata provides them;
 - one installed-software list where every row exposes its available details and
   uninstall posture; applicable rows preview exact `rz0 uninstall plan <id>` commands;
+- cached search/filter/sort controls that do not re-run inventory until `r` is pressed;
 - store, registry, receipt, and module lifecycle state;
 - the built-in first-party inventory adapter and scriptable `rz0 apps` surface.
 
@@ -209,7 +213,7 @@ Rendering, app state, input handling, and data shaping are deliberately split:
 - `src/tui_ratatui_rail.rs` renders the read-only command preview rail;
 - `src/tui_ratatui_support.rs` owns Ratatui style/layout helper primitives;
 - `src/tui_command_rail.rs` owns command preview metadata;
-- `src/tui_state.rs` owns focus, navigation, preview, and help state transitions;
+- `src/tui_state.rs` owns focus, navigation, preview, search/filter/sort, and help state transitions;
 - `src/tui_app.rs` owns terminal raw-mode lifecycle and event handling;
 - `src/tui_theme.rs` owns tokens/status label constants.
 

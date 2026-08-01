@@ -1,6 +1,8 @@
 use serde::Serialize;
 
-use crate::apps::{AppCatalog, SoftwareKind, UninstallOption, collect_app_catalog};
+use crate::apps::{
+    AppCatalog, InstalledSoftware, SoftwareKind, SoftwareView, UninstallOption, collect_app_catalog,
+};
 use crate::brand;
 use crate::install_receipt::ReceiptInventoryState;
 use crate::installed_registry::InstalledRegistryState;
@@ -34,6 +36,10 @@ pub struct TuiDashboard {
     pub inventory_status: String,
     pub sections: Vec<TuiSection>,
     pub palette: TuiPalette,
+    #[serde(skip)]
+    software_catalog: Option<AppCatalog>,
+    #[serde(skip)]
+    inventory_error: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -86,7 +92,10 @@ fn build_dashboard(
     modules: &ModuleRegistryReport,
     inventory: Option<Result<AppCatalog, String>>,
 ) -> TuiDashboard {
-    let catalog = inventory.as_ref().and_then(|result| result.as_ref().ok());
+    let catalog = inventory
+        .as_ref()
+        .and_then(|result| result.as_ref().ok())
+        .cloned();
     let inventory_status = match &inventory {
         Some(Ok(catalog)) => format!("live · {} items", catalog.app_count),
         Some(Err(_)) => "unavailable".to_string(),
@@ -94,7 +103,8 @@ fn build_dashboard(
     };
     let inventory_error = inventory
         .as_ref()
-        .and_then(|result| result.as_ref().err().map(String::as_str));
+        .and_then(|result| result.as_ref().err().cloned());
+    let default_view = SoftwareView::default();
     TuiDashboard {
         schema_version: 1,
         read_only: true,
@@ -111,10 +121,19 @@ fn build_dashboard(
         store_init_status: init_status,
         installed_module_count: store.registry.installed_module_count,
         planned_module_family_count: modules.summary.planned_family_count,
-        installed_software_count: catalog.map_or(0, |catalog| catalog.app_count),
+        installed_software_count: catalog.as_ref().map_or(0, |catalog| catalog.app_count),
         inventory_status,
-        sections: sections(store, init_status, modules, catalog, inventory_error),
+        sections: sections(
+            store,
+            init_status,
+            modules,
+            catalog.as_ref(),
+            inventory_error.as_deref(),
+            &default_view,
+        ),
         palette: palette(),
+        software_catalog: catalog,
+        inventory_error,
     }
 }
 
@@ -124,9 +143,10 @@ fn sections(
     modules: &ModuleRegistryReport,
     catalog: Option<&AppCatalog>,
     inventory_error: Option<&str>,
+    view: &SoftwareView,
 ) -> Vec<TuiSection> {
     vec![
-        overview_section(catalog, inventory_error),
+        overview_section(catalog, inventory_error, view),
         TuiSection {
             code: "02",
             title: "local store",
@@ -154,7 +174,7 @@ fn sections(
                 ),
             ],
         },
-        installed_software_section(catalog, inventory_error),
+        installed_software_section(catalog, inventory_error, view),
         TuiSection {
             code: "04",
             title: "modules",
@@ -210,7 +230,11 @@ fn sections(
     ]
 }
 
-fn overview_section(catalog: Option<&AppCatalog>, inventory_error: Option<&str>) -> TuiSection {
+fn overview_section(
+    catalog: Option<&AppCatalog>,
+    inventory_error: Option<&str>,
+    view: &SoftwareView,
+) -> TuiSection {
     let mut rows = vec![row(
         tui_theme::LABEL_OK,
         "local control surface loaded",
@@ -228,12 +252,21 @@ fn overview_section(catalog: Option<&AppCatalog>, inventory_error: Option<&str>)
                     )
                 })
                 .count();
+            let visible_count = catalog.apps.iter().filter(|app| view.matches(app)).count();
             rows.push(row_count(
                 tui_theme::LABEL_OK,
-                catalog.app_count,
-                "installed software records loaded",
+                visible_count,
+                "software records shown",
                 "safe",
             ));
+            if visible_count != catalog.app_count || !view.query().is_empty() {
+                rows.push(TuiRow {
+                    label: tui_theme::LABEL_INFO,
+                    value: view_description(view),
+                    tone: "info",
+                    preview: None,
+                });
+            }
             rows.push(row_count(
                 tui_theme::LABEL_PLAN,
                 uninstall_reviews,
@@ -268,22 +301,40 @@ fn overview_section(catalog: Option<&AppCatalog>, inventory_error: Option<&str>)
 fn installed_software_section(
     catalog: Option<&AppCatalog>,
     inventory_error: Option<&str>,
+    view: &SoftwareView,
 ) -> TuiSection {
     let mut rows = Vec::new();
     match catalog {
         Some(catalog) => {
+            let mut visible = catalog
+                .apps
+                .iter()
+                .filter(|app| view.matches(app))
+                .collect::<Vec<&InstalledSoftware>>();
+            visible.sort_by(|left, right| view.compare(left, right));
             rows.push(row_count(
                 tui_theme::LABEL_OK,
-                catalog.app_count,
-                "installed software records",
+                visible.len(),
+                "software records shown",
                 "safe",
             ));
-            rows.push(row(
-                tui_theme::LABEL_INFO,
-                "select an item and press Enter to preview its available options",
-                "info",
-            ));
-            for app in &catalog.apps {
+            rows.push(TuiRow {
+                label: tui_theme::LABEL_INFO,
+                value: format!(
+                    "{} · select an item and press Enter to preview its available options",
+                    view_description(view)
+                ),
+                tone: "info",
+                preview: None,
+            });
+            if visible.is_empty() {
+                rows.push(row(
+                    tui_theme::LABEL_WARN,
+                    "no software records match the current search/filter",
+                    "warn",
+                ));
+            }
+            for app in visible {
                 let label = match app.kind {
                     SoftwareKind::HomebrewFormula | SoftwareKind::HomebrewCask => "[PKG]",
                     SoftwareKind::ApplicationBundle | SoftwareKind::PlatformPackage => "[APP]",
@@ -339,8 +390,36 @@ fn installed_software_section(
     TuiSection {
         code: "03",
         title: "installed software",
-        summary: "live bounded macOS applications and package-manager records",
+        summary: "live bounded applications and package-manager records",
         rows,
+    }
+}
+
+fn view_description(view: &SoftwareView) -> String {
+    let search = if view.query().is_empty() {
+        "search=none".to_string()
+    } else {
+        format!("search={}", view.query())
+    };
+    format!(
+        "filter={} · sort={} · {search}",
+        view.filter.label(),
+        view.sort.label()
+    )
+}
+
+impl TuiDashboard {
+    pub fn apply_software_view(&mut self, view: &SoftwareView) {
+        self.sections[0] = overview_section(
+            self.software_catalog.as_ref(),
+            self.inventory_error.as_deref(),
+            view,
+        );
+        self.sections[2] = installed_software_section(
+            self.software_catalog.as_ref(),
+            self.inventory_error.as_deref(),
+            view,
+        );
     }
 }
 
