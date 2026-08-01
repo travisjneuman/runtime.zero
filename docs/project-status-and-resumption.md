@@ -6,7 +6,7 @@
   production work remains gated.
 - **Source status:** pre-alpha; not a production or 1.0 release.
 - **Canonical branch:** `main`.
-- **Verified product implementation commit:** pending current mutation-lane commit.
+- **Verified product implementation commit:** `c9a43c59b2e39005c7d74d9087bb6671a8798752`.
 - **Previous synchronized commit:** `3a86d2b5709a2100f94fdc1a528c07ad8ef501d1`.
 - **Paused baseline commit:** `53d1e3de4df8b0cbf15bf58ca520a56e81df6e5a`.
 - **Current CLI version:** `0.1.0`.
