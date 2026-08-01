@@ -6,8 +6,8 @@
   production work remains gated.
 - **Source status:** pre-alpha; not a production or 1.0 release.
 - **Canonical branch:** `main`.
-- **Verified product implementation commit:** `473ea27f0a6c763dadabbef1f61604bc4d880ed2`.
-- **Previous synchronized commit:** `f41df2fd56d97536161de26007a9217a0a1a731e`.
+- **Verified product implementation commit:** `1825beb9bf8e02b81f516b4c9dbf3c8cadfeb5f0`.
+- **Previous synchronized commit:** `97818cf5654485dc7c6cab01f1e37bfa3d57620c`.
 - **Paused baseline commit:** `53d1e3de4df8b0cbf15bf58ca520a56e81df6e5a`.
 - **Current CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
@@ -24,8 +24,11 @@ public repository.
 The 2026-08-01 continuation added explicit TUI refresh/live update discovery,
 long-list position/jump behavior, safer compact previews, consistent CLI
 format/option parsing, a bottom-safe details panel with mouse-wheel list
-scrolling, and a bounded updater apply lane. Update execution is still not
-implicit: live evidence, exact manager identity, explicit network-
+scrolling, a native cross-platform system monitor, and a bounded updater apply
+lane. The monitor has a scriptable snapshot and one-second TUI refresh; it uses
+native macOS Mach/libproc, Linux kernel interfaces, and Windows Win32 APIs
+without a separate btop/top/task-manager install. Update execution is still
+not implicit: live evidence, exact manager identity, explicit network-
 write approval, initialized private state, short-lived confirmation, journal,
 receipt, and fresh verification are mandatory. See the private project
 implementation record for validation evidence.
