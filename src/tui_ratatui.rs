@@ -148,14 +148,25 @@ fn render_selected_panel(
         && section.rows.get(selected_row).is_some()
         && area.height >= 10;
     if show_details {
-        let preview_height = 4.min(area.height.saturating_sub(6));
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(5), Constraint::Length(preview_height)])
-            .split(area);
-        render_selected_list(frame, chunks[0], dashboard, state, color);
-        if let Some(row) = section.rows.get(selected_row) {
-            render_selected_details(frame, chunks[1], row, color);
+        if area.width >= 120 {
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Min(60), Constraint::Length(48)])
+                .split(area);
+            render_selected_list(frame, chunks[0], dashboard, state, color);
+            if let Some(row) = section.rows.get(selected_row) {
+                render_selected_details(frame, chunks[1], row, color);
+            }
+        } else {
+            let preview_height = 4.min(area.height.saturating_sub(6));
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Min(5), Constraint::Length(preview_height)])
+                .split(area);
+            render_selected_list(frame, chunks[0], dashboard, state, color);
+            if let Some(row) = section.rows.get(selected_row) {
+                render_selected_details(frame, chunks[1], row, color);
+            }
         }
     } else {
         render_selected_list(frame, area, dashboard, state, color);
