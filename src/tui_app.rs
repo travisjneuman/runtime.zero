@@ -78,6 +78,11 @@ fn input_from_key(key: KeyEvent) -> Option<TuiInput> {
     if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
         return None;
     }
+    if key.kind == KeyEventKind::Repeat
+        && matches!(key.code, KeyCode::Char('r') | KeyCode::Char('R'))
+    {
+        return Some(TuiInput::Other);
+    }
     Some(match key.code {
         KeyCode::Char('q') | KeyCode::Char('Q') => TuiInput::Quit,
         KeyCode::Esc => TuiInput::Back,
@@ -138,6 +143,14 @@ mod tests {
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Char('r'))),
             Some(TuiInput::Refresh)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::new_with_kind(
+                KeyCode::Char('r'),
+                KeyModifiers::NONE,
+                KeyEventKind::Repeat,
+            )),
+            Some(TuiInput::Other)
         );
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Tab)),
