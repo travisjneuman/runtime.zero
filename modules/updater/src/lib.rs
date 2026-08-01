@@ -6,8 +6,8 @@ use rz0_capability_contract::Capability;
 mod adapters;
 
 pub use adapters::{
-    ManagerKind, ManagerParseContext, ManagerProbeSpec, manager_probe_specs,
-    manager_probe_specs_for_platform, parse_manager_output,
+    ManagerKind, ManagerParseContext, ManagerProbeSpec, manager_executable_allowed,
+    manager_probe_specs, manager_probe_specs_for_platform, parse_manager_output,
 };
 
 use rz0_finding_contract::{
@@ -50,6 +50,7 @@ pub struct SerialUpdateItem {
 #[serde(rename_all = "snake_case")]
 pub enum SerialUpdateItemStatus {
     Pending,
+    Blocked,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -177,7 +178,7 @@ pub fn build_update_action_plan(
         .filter(|record| {
             record.installed && record.manager_record_present && record.update_available
         })
-        .map(build_update_action)
+        .map(|record| build_update_action(record, &input.platform))
         .collect::<Vec<_>>();
     if actions.is_empty() {
         return Err("update action plan contains no update candidates".to_string());
@@ -223,7 +224,11 @@ pub fn build_serial_update_queue(plan: &ActionPlan) -> Result<SerialUpdateQueueP
             action_id: action.action_id.clone(),
             finding_id: action.finding_id.clone(),
             target: action.target.clone(),
-            status: SerialUpdateItemStatus::Pending,
+            status: if action.rollback.supported {
+                SerialUpdateItemStatus::Pending
+            } else {
+                SerialUpdateItemStatus::Blocked
+            },
         })
         .collect::<Vec<_>>();
     if items.is_empty() {
@@ -241,21 +246,24 @@ pub fn build_serial_update_queue(plan: &ActionPlan) -> Result<SerialUpdateQueueP
         items,
         warnings: vec![
             "queue items are serial and each item requires fresh evidence before any future execution".to_string(),
+            "items without proven manager rollback remain blocked even when their dry-run action is valid".to_string(),
             "a failure, drift, cancellation, or recovery requirement pauses the queue".to_string(),
         ],
     })
 }
 
-fn build_update_action(record: &UpdateRecord) -> PlanAction {
-    let exact_command = record
-        .manager
-        .as_deref()
-        .filter(|value| !value.is_empty())
-        .is_some()
-        && record
-            .executable
-            .as_deref()
-            .is_some_and(rz0_validation_contract::is_absolute_local_path);
+fn build_update_action(record: &UpdateRecord, platform: &str) -> PlanAction {
+    let manager = record.manager.as_deref();
+    let executable = record.executable.as_deref();
+    let known_platform = matches!(platform, "windows" | "macos" | "linux");
+    let exact_command = manager.filter(|value| !value.is_empty()).is_some()
+        && executable.is_some_and(rz0_validation_contract::is_absolute_local_path)
+        && (!known_platform
+            || manager_executable_allowed(
+                manager.unwrap_or_default(),
+                platform,
+                executable.unwrap_or_default(),
+            ));
     let planned = exact_command;
     let mut capabilities = Vec::new();
     if planned && record.network_required {

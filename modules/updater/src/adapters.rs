@@ -146,6 +146,14 @@ pub fn manager_probe_specs_for_platform(platform: &str) -> Vec<ManagerProbeSpec>
         .collect()
 }
 
+pub fn manager_executable_allowed(manager: &str, platform: &str, executable: &str) -> bool {
+    manager_probe_specs().into_iter().any(|spec| {
+        spec.platform == platform
+            && spec.manager.manager_name() == manager
+            && spec.executable_candidates.contains(&executable)
+    })
+}
+
 fn spec(
     manager: ManagerKind,
     executable_candidates: &'static [&'static str],
@@ -421,6 +429,20 @@ mod tests {
             assert!(!specs.is_empty(), "{platform}");
             assert!(specs.iter().all(|spec| spec.read_only));
         }
+    }
+
+    #[test]
+    fn manager_executable_policy_rejects_unlisted_paths_on_real_platforms() {
+        assert!(manager_executable_allowed(
+            "homebrew",
+            "macos",
+            "/opt/homebrew/bin/brew"
+        ));
+        assert!(!manager_executable_allowed(
+            "homebrew",
+            "macos",
+            "/usr/bin/true"
+        ));
     }
 
     #[test]

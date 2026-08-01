@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 
 use rz0_action_plan::{ActionDisposition, ActionPlan};
 use rz0_module_updater::{
-    ManagerKind, ManagerParseContext, SerialUpdateQueuePlan, UPDATE_QUEUE_CONTRACT,
-    UpdaterFindingInput, build_serial_update_queue, build_update_action_plan, classify_updates,
-    manager_probe_specs, parse_manager_output,
+    ManagerKind, ManagerParseContext, SerialUpdateItemStatus, SerialUpdateQueuePlan,
+    UPDATE_QUEUE_CONTRACT, UpdaterFindingInput, build_serial_update_queue,
+    build_update_action_plan, classify_updates, manager_probe_specs, parse_manager_output,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -389,9 +389,19 @@ fn render_plan(plan: &ActionPlan, format: OutputFormat) -> Result<String, String
 fn render_queue(queue: &SerialUpdateQueuePlan, format: OutputFormat) -> Result<String, String> {
     match format {
         OutputFormat::Text => Ok(format!(
-            "runtime.zero serial updater queue\n\ncontract: {UPDATE_QUEUE_CONTRACT}\nqueue_id: {}\nitems: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n\nThe queue is review-only and pauses on failure, drift, cancellation, or recovery.\n",
+            "runtime.zero serial updater queue\n\ncontract: {UPDATE_QUEUE_CONTRACT}\nqueue_id: {}\nitems: {}\npending: {}\nblocked: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n\nThe queue is review-only and pauses on failure, drift, cancellation, or recovery.\n",
             queue.queue_id,
             queue.items.len(),
+            queue
+                .items
+                .iter()
+                .filter(|item| item.status == SerialUpdateItemStatus::Pending)
+                .count(),
+            queue
+                .items
+                .iter()
+                .filter(|item| item.status == SerialUpdateItemStatus::Blocked)
+                .count(),
         )),
         OutputFormat::Json => render_json(&CliReview::Queue(queue)),
     }

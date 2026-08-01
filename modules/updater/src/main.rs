@@ -1,7 +1,8 @@
 use std::io::{self, IsTerminal, Read as _, Write as _};
 
 use rz0_module_updater::{
-    UpdaterFindingInput, build_serial_update_queue, build_update_action_plan, classify_updates,
+    SerialUpdateItemStatus, UpdaterFindingInput, build_serial_update_queue,
+    build_update_action_plan, classify_updates,
 };
 
 const MAX_INPUT_BYTES: u64 = rz0_resource_contract::MAX_FINDING_REPORT_BYTES;
@@ -115,9 +116,19 @@ fn render_report_text(report: &rz0_finding_contract::FindingReport) -> String {
 
 fn render_queue_text(queue: &rz0_module_updater::SerialUpdateQueuePlan) -> String {
     format!(
-        "runtime.zero serial update queue\n\nqueue_id: {}\nactions: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n\nThe queue is review-only and pauses on failure, drift, cancellation, or recovery.\n",
+        "runtime.zero serial update queue\n\nqueue_id: {}\nactions: {}\npending: {}\nblocked: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n\nThe queue is review-only and pauses on failure, drift, cancellation, or recovery.\n",
         queue.queue_id,
         queue.items.len(),
+        queue
+            .items
+            .iter()
+            .filter(|item| item.status == SerialUpdateItemStatus::Pending)
+            .count(),
+        queue
+            .items
+            .iter()
+            .filter(|item| item.status == SerialUpdateItemStatus::Blocked)
+            .count(),
     )
 }
 
