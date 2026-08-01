@@ -1,8 +1,10 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as FmtWrite;
 
 use rz0_inventory_contract::AppRecord;
 use rz0_module_inventory::{InventoryOptions, collect_inventory};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 use crate::ExitCode;
 
@@ -18,6 +20,8 @@ pub struct AppCatalog {
     pub platform: &'static str,
     pub source_count: usize,
     pub app_count: usize,
+    pub identity_group_count: usize,
+    pub identity_groups: Vec<SoftwareIdentityGroup>,
     pub apps: Vec<InstalledSoftware>,
     pub warnings: Vec<String>,
 }
@@ -28,6 +32,8 @@ pub struct InstalledSoftware {
     pub name: String,
     pub version: Option<String>,
     pub source_id: String,
+    pub identity_group_id: String,
+    pub identity_confidence: IdentityConfidence,
     pub kind: SoftwareKind,
     pub scope: InstallScope,
     pub uninstall_option: UninstallOption,
@@ -59,6 +65,37 @@ pub enum UninstallOption {
     ManagerReview,
     QuarantineReview,
     Unsupported,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityConfidence {
+    ExactEvidence,
+    Corroborated,
+    Heuristic,
+    Disputed,
+}
+
+impl IdentityConfidence {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::ExactEvidence => "exact evidence",
+            Self::Corroborated => "corroborated",
+            Self::Heuristic => "heuristic",
+            Self::Disputed => "disputed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SoftwareIdentityGroup {
+    pub group_id: String,
+    pub normalized_name: String,
+    pub evidence_ids: Vec<String>,
+    pub source_ids: Vec<String>,
+    pub versions: Vec<String>,
+    pub confidence: IdentityConfidence,
+    pub version_disagreement: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -254,6 +291,7 @@ pub fn collect_app_catalog() -> Result<AppCatalog, String> {
         include_apps: true,
     })?;
     let mut apps = report.apps.iter().map(classify_app).collect::<Vec<_>>();
+    let identity_groups = assign_identity_groups(&mut apps);
     apps.sort_by(|left, right| {
         left.name
             .to_ascii_lowercase()
@@ -274,6 +312,8 @@ pub fn collect_app_catalog() -> Result<AppCatalog, String> {
         platform: std::env::consts::OS,
         source_count: report.summary.source_count,
         app_count: apps.len(),
+        identity_group_count: identity_groups.len(),
+        identity_groups,
         apps,
         warnings,
     })
@@ -298,10 +338,87 @@ fn classify_app(app: &AppRecord) -> InstalledSoftware {
         name: app.name.clone(),
         version: app.version.clone(),
         source_id: app.source_id.clone(),
+        identity_group_id: String::new(),
+        identity_confidence: IdentityConfidence::ExactEvidence,
         kind,
         scope,
         uninstall_option,
     }
+}
+
+fn assign_identity_groups(apps: &mut [InstalledSoftware]) -> Vec<SoftwareIdentityGroup> {
+    let mut by_key = BTreeMap::<String, Vec<usize>>::new();
+    for (index, app) in apps.iter().enumerate() {
+        by_key.entry(identity_key(app)).or_default().push(index);
+    }
+    let mut groups = Vec::with_capacity(by_key.len());
+    for (key, indexes) in by_key {
+        let group_id = identity_group_id(&key);
+        let evidence_ids = indexes
+            .iter()
+            .map(|index| apps[*index].id.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let source_ids = indexes
+            .iter()
+            .map(|index| apps[*index].source_id.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let versions = indexes
+            .iter()
+            .filter_map(|index| apps[*index].version.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let version_disagreement = versions.len() > 1;
+        let confidence = if version_disagreement {
+            IdentityConfidence::Disputed
+        } else if source_ids.len() > 1 {
+            IdentityConfidence::Heuristic
+        } else if evidence_ids.len() > 1 {
+            IdentityConfidence::Corroborated
+        } else {
+            IdentityConfidence::ExactEvidence
+        };
+        for index in indexes {
+            apps[index].identity_group_id = group_id.clone();
+            apps[index].identity_confidence = confidence;
+        }
+        groups.push(SoftwareIdentityGroup {
+            group_id,
+            normalized_name: key,
+            evidence_ids,
+            source_ids,
+            versions,
+            confidence,
+            version_disagreement,
+        });
+    }
+    groups.sort_by(|left, right| left.group_id.cmp(&right.group_id));
+    groups
+}
+
+fn identity_key(app: &InstalledSoftware) -> String {
+    let mut normalized = app
+        .name
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .flat_map(char::to_lowercase)
+        .collect::<String>();
+    if normalized.len() < 3 {
+        normalized = app.id.clone();
+    }
+    normalized
+}
+
+fn identity_group_id(key: &str) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"runtime.zero.software-identity.v1\0");
+    digest.update(key.as_bytes());
+    let digest = format!("{:x}", digest.finalize());
+    format!("software.{}", &digest[..24])
 }
 
 fn classify_bundle(location: Option<&str>) -> (SoftwareKind, InstallScope, UninstallOption) {
@@ -629,6 +746,8 @@ mod tests {
             name: "Local App".to_string(),
             version: None,
             source_id: "macos.application_bundles".to_string(),
+            identity_group_id: "software.fixture".to_string(),
+            identity_confidence: IdentityConfidence::ExactEvidence,
             kind: SoftwareKind::ApplicationBundle,
             scope: InstallScope::Local,
             uninstall_option: UninstallOption::QuarantineReview,
@@ -637,6 +756,37 @@ mod tests {
         assert_eq!(review.status, "review_available");
         assert!(!review.product_execution_authorized);
         assert!(!review.writes_attempted);
+    }
+
+    #[test]
+    fn identity_groups_preserve_disagreement_without_merging_evidence() {
+        let mut apps = vec![
+            classify_app(&AppRecord {
+                id: "macos.app.alpha".to_string(),
+                name: "Alpha Tool".to_string(),
+                source_id: "macos.application_bundles".to_string(),
+                version: Some("1.0".to_string()),
+                publisher: None,
+                install_location: Some("/Applications/Alpha Tool.app".to_string()),
+                warnings: Vec::new(),
+            }),
+            classify_app(&AppRecord {
+                id: "macos.package.alpha".to_string(),
+                name: "Alpha Tool".to_string(),
+                source_id: "macos.homebrew.casks".to_string(),
+                version: Some("2.0".to_string()),
+                publisher: Some("Homebrew".to_string()),
+                install_location: Some("/opt/homebrew/Caskroom/alpha".to_string()),
+                warnings: Vec::new(),
+            }),
+        ];
+        let groups = assign_identity_groups(&mut apps);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].confidence, IdentityConfidence::Disputed);
+        assert!(groups[0].version_disagreement);
+        assert_eq!(groups[0].evidence_ids.len(), 2);
+        assert_ne!(apps[0].id, apps[1].id);
+        assert_eq!(apps[0].identity_group_id, apps[1].identity_group_id);
     }
 
     #[test]
@@ -649,6 +799,8 @@ mod tests {
             name: "Brew Tool".to_string(),
             version: Some("2.0".to_string()),
             source_id: "macos.homebrew.formulae".to_string(),
+            identity_group_id: "software.brew".to_string(),
+            identity_confidence: IdentityConfidence::ExactEvidence,
             kind: SoftwareKind::HomebrewFormula,
             scope: InstallScope::Manager,
             uninstall_option: UninstallOption::ManagerReview,
@@ -658,6 +810,8 @@ mod tests {
             name: "Other App".to_string(),
             version: Some("1.0".to_string()),
             source_id: "macos.application_bundles".to_string(),
+            identity_group_id: "software.other".to_string(),
+            identity_confidence: IdentityConfidence::ExactEvidence,
             kind: SoftwareKind::ApplicationBundle,
             scope: InstallScope::Local,
             uninstall_option: UninstallOption::QuarantineReview,

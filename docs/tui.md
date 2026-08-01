@@ -76,6 +76,8 @@ The dashboard performs bounded local reads at startup and shows:
 
 - a live installed-software total;
 - direct macOS application bundles and Homebrew formula/cask records;
+- deterministic identity groups with explicit provenance/confidence and version
+  disagreement, while keeping source records separate;
 - versions when bounded bundle or manager-directory metadata provides them;
 - one installed-software list where every row exposes its available details and
   uninstall posture; applicable rows preview exact `rz0 uninstall plan <id>` commands;

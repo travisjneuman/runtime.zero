@@ -257,9 +257,10 @@ These are intentional continuation facts, not hidden production claims:
 - The catalog is not literally every installed component. It does not yet cover
   Apple package receipts, MacPorts, Nix, language package managers, services,
   launch agents/daemons, browser extensions, drivers, or persistence entries.
-- A Homebrew cask and its installed `.app` may appear as separate evidence
-  records. Future identity reconciliation must preserve both provenance sources
-  without hiding disagreement.
+- A Homebrew cask and its installed `.app` remain separate evidence records.
+  The catalog now assigns deterministic identity groups and explicitly labels
+  heuristic/disputed version relationships without merging provenance or
+  authorizing an action.
 - The TUI takes one inventory snapshot at launch and supports an explicit `r`
   refresh. Bounded `/` search, `f` filter cycling, and `s` sort cycling now
   operate on the cached snapshot without triggering a new scan. Long detail

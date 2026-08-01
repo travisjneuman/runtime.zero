@@ -268,6 +268,12 @@ fn overview_section(
                 });
             }
             rows.push(row_count(
+                tui_theme::LABEL_INFO,
+                catalog.identity_group_count,
+                "identity groups",
+                "info",
+            ));
+            rows.push(row_count(
                 tui_theme::LABEL_PLAN,
                 uninstall_reviews,
                 "uninstall reviews available",
@@ -363,6 +369,12 @@ fn installed_software_section(
                             .to_string(),
                     ),
                 };
+                let preview = format!(
+                    "{preview}; source: {} · identity: {} ({})",
+                    app.source_id,
+                    app.identity_group_id,
+                    app.identity_confidence.label()
+                );
                 rows.push(TuiRow {
                     label,
                     value: format!(
