@@ -104,7 +104,7 @@ Every module must reach the same lifecycle bar on every supported platform:
 | Module | Windows | macOS | Linux | Current maturity |
 | --- | --- | --- | --- | --- |
 | Inventory/environment | Required | Required | Required | Built-in read-only catalog/scan; macOS apps + Homebrew live, broader package/service/persistence and runtime parity incomplete |
-| Updater | Required | Required | Required | Synthetic installed/manager classifier + plan fixtures only |
+| Updater | Required | Required | Required | Synthetic/captured-output manager parsers + dry-run plan/queue; no live discovery or execution |
 | Uninstall | Required | Required | Required | Live path-free macOS ownership reviews + synthetic classifier/transaction fixtures; no execution |
 | Leftovers | Required | Required | Required | Synthetic protected-data/exact-runtime classifier + quarantine fixtures only |
 | Cache management | Required | Required | Required | Synthetic ownership/exact-evidence classifier only |

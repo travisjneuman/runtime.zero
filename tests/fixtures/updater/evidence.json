@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "contract": "updater_finding_input",
+  "platform": "fixture",
+  "input_evidence_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_id": "manager.fixture",
+  "source_evidence_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "records": [
+    {
+      "finding_id": "update.alpha",
+      "subject_reference": "package:alpha",
+      "installed": true,
+      "manager_record_present": true,
+      "update_available": true,
+      "installed_version": "1.0",
+      "available_version": "1.1",
+      "manager": "fixture-manager",
+      "executable": "/usr/bin/fixture-manager",
+      "arguments": ["upgrade", "alpha"],
+      "network_required": true,
+      "requires_elevation": false,
+      "rollback_supported": true
+    },
+    {
+      "finding_id": "update.missing-manager",
+      "subject_reference": "package:missing-manager",
+      "installed": true,
+      "manager_record_present": true,
+      "update_available": true,
+      "installed_version": "2.0",
+      "available_version": "2.1",
+      "manager": null,
+      "executable": null,
+      "arguments": [],
+      "network_required": false,
+      "requires_elevation": false,
+      "rollback_supported": false
+    }
+  ]
+}

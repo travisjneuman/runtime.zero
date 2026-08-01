@@ -71,6 +71,7 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("rz0 --tui"));
     assert!(out.contains("rz0 apps [--format text|json]"));
     assert!(out.contains("rz0 uninstall plan <installed-software-id>"));
+    assert!(out.contains("rz0 updates --dry-run --fixture"));
 }
 
 #[test]
@@ -403,6 +404,42 @@ fn scan_json_exposes_live_private_read_only_inventory_contract() {
     assert_eq!(value["path_values_redacted"], true);
     assert!(value["summary"]["source_count"].as_u64().unwrap_or(0) > 0);
     assert!(!out.contains("\u{1b}["));
+}
+
+#[test]
+fn updater_fixture_can_emit_a_read_only_serial_queue() {
+    let (code, out, err) = run([
+        "updates",
+        "--dry-run",
+        "--fixture",
+        "tests/fixtures/updater/evidence.json",
+        "--plan",
+        "--queue",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("updater queue JSON");
+    assert_eq!(value["contract"], "serial_update_queue_plan");
+    assert_eq!(value["dry_run"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["product_execution_authorized"], false);
+    assert_eq!(value["items"].as_array().map(Vec::len), Some(1));
+    assert!(!out.contains("/Users/"));
+}
+
+#[test]
+fn updater_requires_explicit_dry_run_and_fixture() {
+    let (code, out, err) = run(["updates"]);
+    assert_eq!(code, ExitCode::Usage);
+    assert!(out.is_empty());
+    assert!(err.contains("requires --dry-run"));
+
+    let (code, out, err) = run(["updates", "--dry-run"]);
+    assert_eq!(code, ExitCode::Usage);
+    assert!(out.is_empty());
+    assert!(err.contains("local evidence fixture"));
 }
 
 #[test]
