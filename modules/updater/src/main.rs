@@ -1,6 +1,8 @@
 use std::io::{self, IsTerminal, Read as _, Write as _};
 
-use rz0_module_updater::{UpdaterFindingInput, build_update_action_plan, classify_updates};
+use rz0_module_updater::{
+    UpdaterFindingInput, build_serial_update_queue, build_update_action_plan, classify_updates,
+};
 
 const MAX_INPUT_BYTES: u64 = rz0_resource_contract::MAX_FINDING_REPORT_BYTES;
 
@@ -29,6 +31,16 @@ fn run(arguments: Vec<String>) -> Result<String, String> {
     let report = classify_updates(&input)?;
     if command.plan {
         let plan = build_update_action_plan(&input, &report)?;
+        if command.queue {
+            let queue = build_serial_update_queue(&plan)?;
+            return if command.json {
+                serde_json::to_string_pretty(&queue)
+                    .map(|json| format!("{json}\n"))
+                    .map_err(|error| format!("render updater queue: {error}"))
+            } else {
+                Ok(render_queue_text(&queue))
+            };
+        }
         return if command.json {
             serde_json::to_string_pretty(&plan)
                 .map(|json| format!("{json}\n"))
@@ -36,6 +48,9 @@ fn run(arguments: Vec<String>) -> Result<String, String> {
         } else {
             Ok(render_plan_text(&plan))
         };
+    }
+    if command.queue {
+        return Err("--queue requires --plan".to_string());
     }
     if command.json {
         serde_json::to_string_pretty(&report)
@@ -50,12 +65,14 @@ fn run(arguments: Vec<String>) -> Result<String, String> {
 struct Command {
     json: bool,
     plan: bool,
+    queue: bool,
 }
 
 fn parse_arguments(arguments: &[String]) -> Result<Command, String> {
     let mut command = Command {
         json: false,
         plan: false,
+        queue: false,
     };
     let mut index = 0usize;
     while index < arguments.len() {
@@ -70,6 +87,7 @@ fn parse_arguments(arguments: &[String]) -> Result<Command, String> {
                 };
             }
             "--plan" => command.plan = true,
+            "--queue" => command.queue = true,
             "--help" | "-h" | "help" => return Err(usage().to_string()),
             value if value.starts_with("--format=") => {
                 if value != "--format=json" && value != "--format=text" {
@@ -92,6 +110,14 @@ fn render_report_text(report: &rz0_finding_contract::FindingReport) -> String {
         report.platform,
         report.summary.manager_action_candidate_count,
         report.summary.blocked_count,
+    )
+}
+
+fn render_queue_text(queue: &rz0_module_updater::SerialUpdateQueuePlan) -> String {
+    format!(
+        "runtime.zero serial update queue\n\nqueue_id: {}\nactions: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n\nThe queue is review-only and pauses on failure, drift, cancellation, or recovery.\n",
+        queue.queue_id,
+        queue.items.len(),
     )
 }
 
@@ -139,6 +165,7 @@ mod tests {
             Command {
                 json: true,
                 plan: true,
+                queue: false,
             }
         );
         assert!(

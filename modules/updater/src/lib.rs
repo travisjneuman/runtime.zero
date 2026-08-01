@@ -12,6 +12,38 @@ use serde::{Deserialize, Serialize};
 
 pub const MODULE_ID: &str = "first-party.updater";
 pub const INPUT_CONTRACT: &str = "updater_finding_input";
+pub const UPDATE_QUEUE_CONTRACT: &str = "serial_update_queue_plan";
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SerialUpdateQueuePlan {
+    pub schema_version: u16,
+    pub contract: String,
+    pub queue_id: String,
+    pub action_plan_sha256: String,
+    pub write_set_sha256: String,
+    pub dry_run: bool,
+    pub writes_attempted: bool,
+    pub product_execution_authorized: bool,
+    pub items: Vec<SerialUpdateItem>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SerialUpdateItem {
+    pub sequence: u32,
+    pub action_id: String,
+    pub finding_id: String,
+    pub target: String,
+    pub status: SerialUpdateItemStatus,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SerialUpdateItemStatus {
+    Pending,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -165,6 +197,45 @@ pub fn build_update_action_plan(
     }
 }
 
+pub fn build_serial_update_queue(plan: &ActionPlan) -> Result<SerialUpdateQueuePlan, String> {
+    let validation = validate_action_plan(plan);
+    if !validation.valid {
+        return Err(validation.errors.join("; "));
+    }
+    let digests = rz0_action_plan::action_plan_digests(plan).map_err(|errors| errors.join("; "))?;
+    let items = plan
+        .actions
+        .iter()
+        .filter(|action| action.disposition == ActionDisposition::Planned)
+        .enumerate()
+        .map(|(index, action)| SerialUpdateItem {
+            sequence: index as u32 + 1,
+            action_id: action.action_id.clone(),
+            finding_id: action.finding_id.clone(),
+            target: action.target.clone(),
+            status: SerialUpdateItemStatus::Pending,
+        })
+        .collect::<Vec<_>>();
+    if items.is_empty() {
+        return Err("serial update queue contains no planned actions".to_string());
+    }
+    Ok(SerialUpdateQueuePlan {
+        schema_version: 1,
+        contract: UPDATE_QUEUE_CONTRACT.to_string(),
+        queue_id: format!("update.queue.{}", &digests.plan_sha256[..24]),
+        action_plan_sha256: digests.plan_sha256,
+        write_set_sha256: digests.write_set_sha256,
+        dry_run: true,
+        writes_attempted: false,
+        product_execution_authorized: false,
+        items,
+        warnings: vec![
+            "queue items are serial and each item requires fresh evidence before any future execution".to_string(),
+            "a failure, drift, cancellation, or recovery requirement pauses the queue".to_string(),
+        ],
+    })
+}
+
 fn build_update_action(record: &UpdateRecord) -> PlanAction {
     let exact_command = record
         .manager
@@ -296,6 +367,10 @@ mod tests {
         assert_eq!(plan.actions.len(), 1);
         assert!(!plan.actions[0].would_write);
         assert!(rz0_action_plan::validate_action_plan(&plan).valid);
+        let queue = build_serial_update_queue(&plan).expect("serial update queue");
+        assert_eq!(queue.items.len(), 1);
+        assert_eq!(queue.items[0].sequence, 1);
+        assert!(!queue.product_execution_authorized);
     }
 
     #[test]

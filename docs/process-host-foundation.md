@@ -13,7 +13,12 @@ The default library provides:
   yet implemented;
 - Unix pre-exec dedicated process-group setup and whole-group `SIGKILL` teardown.
   This contains ordinary descendants but is not a sandbox and cannot prevent a
-  hostile child from creating a new session.
+  hostile child from creating a new session;
+- an explicit read-only probe transport with absolute direct-executable and
+  working-directory checks, cleared environment, null stdin, bounded concurrent
+  stdout/stderr drains, and a monotonic timeout. The transport is a primitive,
+  not manager/module authority, and still requires artifact identity, trust,
+  capabilities, and platform proof before product use.
 
 The opt-in inventory version-probe adapter now consumes the shared drain,
 descriptor audit, Unix group teardown, process ceilings, and atomic deadline

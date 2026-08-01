@@ -1,7 +1,10 @@
 use std::{
     fmt,
     io::Read,
-    process::{Child, Command},
+    path::PathBuf,
+    process::{Child, Command, ExitStatus, Stdio},
+    thread,
+    time::{Duration, Instant},
 };
 
 use rz0_error_contract::FoundationErrorCode;
@@ -55,6 +58,146 @@ pub struct BoundedCapture {
     pub bytes: Vec<u8>,
     pub total_bytes: u64,
     pub truncated: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadOnlyProcessRequest {
+    pub executable: PathBuf,
+    pub arguments: Vec<String>,
+    pub working_directory: PathBuf,
+    pub timeout: Duration,
+    pub output_limit: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadOnlyProcessOutput {
+    pub status: ExitStatus,
+    pub stdout: BoundedCapture,
+    pub stderr: BoundedCapture,
+    pub timed_out: bool,
+}
+
+/// Runs one explicitly selected, no-stdin process with bounded output and a
+/// dedicated Unix process group. This is a foundation transport primitive, not
+/// module or manager authority: callers still need artifact identity, trust,
+/// capability, confirmation, and transaction gates before using any result for
+/// an action.
+pub fn run_read_only_process(
+    request: &ReadOnlyProcessRequest,
+) -> Result<ReadOnlyProcessOutput, ProcessHostError> {
+    if !request.executable.is_absolute()
+        || request.executable.as_os_str().is_empty()
+        || request.timeout.is_zero()
+        || request.output_limit == 0
+    {
+        return Err(ProcessHostError::new(
+            ProcessHostErrorCode::LimitExceeded,
+            "read-only process request has invalid path, timeout, or output limit",
+        ));
+    }
+    let executable_metadata = std::fs::symlink_metadata(&request.executable).map_err(|error| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::PlatformIo,
+            format!("inspect exact process executable: {error}"),
+        )
+    })?;
+    if executable_metadata.file_type().is_symlink() || !executable_metadata.is_file() {
+        return Err(ProcessHostError::new(
+            ProcessHostErrorCode::UnsupportedContainment,
+            "process executable must be a direct regular file, not a symlink",
+        ));
+    }
+    let working_directory_metadata = std::fs::symlink_metadata(&request.working_directory)
+        .map_err(|error| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                format!("inspect process working directory: {error}"),
+            )
+        })?;
+    if working_directory_metadata.file_type().is_symlink() || !working_directory_metadata.is_dir() {
+        return Err(ProcessHostError::new(
+            ProcessHostErrorCode::UnsupportedContainment,
+            "process working directory must be a direct directory, not a symlink",
+        ));
+    }
+    audit_inheritable_process_handles()?;
+    let mut command = Command::new(&request.executable);
+    command
+        .args(&request.arguments)
+        .current_dir(&request.working_directory)
+        .env_clear()
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    configure_child_process_group(&mut command)?;
+    let mut child = command.spawn().map_err(|error| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::PlatformIo,
+            format!("spawn bounded read-only process: {error}"),
+        )
+    })?;
+    let stdout = child.stdout.take().ok_or_else(|| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::PlatformIo,
+            "bounded read-only process did not provide stdout",
+        )
+    })?;
+    let stderr = child.stderr.take().ok_or_else(|| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::PlatformIo,
+            "bounded read-only process did not provide stderr",
+        )
+    })?;
+    let output_limit = request.output_limit;
+    let stdout_thread = thread::spawn(move || drain_bounded(stdout, output_limit));
+    let stderr_thread = thread::spawn(move || drain_bounded(stderr, output_limit));
+    let deadline = Instant::now() + request.timeout;
+    let mut timed_out = false;
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|error| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                format!("poll bounded read-only process: {error}"),
+            )
+        })? {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            timed_out = true;
+            terminate_child_process_group(&mut child)?;
+            break child.wait().map_err(|error| {
+                ProcessHostError::new(
+                    ProcessHostErrorCode::PlatformIo,
+                    format!("reap timed-out read-only process: {error}"),
+                )
+            })?;
+        }
+        thread::sleep(Duration::from_millis(10));
+    };
+    let stdout = stdout_thread.join().map_err(|_| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::PlatformIo,
+            "read-only process stdout drain panicked",
+        )
+    })??;
+    let stderr = stderr_thread.join().map_err(|_| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::PlatformIo,
+            "read-only process stderr drain panicked",
+        )
+    })??;
+    if stdout.truncated || stderr.truncated {
+        return Err(ProcessHostError::new(
+            ProcessHostErrorCode::LimitExceeded,
+            "read-only process output exceeded its retention ceiling",
+        ));
+    }
+    Ok(ReadOnlyProcessOutput {
+        status,
+        stdout,
+        stderr,
+        timed_out,
+    })
 }
 
 /// Drains to EOF while retaining at most `limit` bytes.
@@ -383,5 +526,37 @@ mod tests {
     #[test]
     fn ordinary_test_process_has_no_nonstandard_inheritable_descriptors() {
         audit_inheritable_process_handles().expect("descriptor audit");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_read_only_process_clears_environment_and_captures_output() {
+        let request = ReadOnlyProcessRequest {
+            executable: PathBuf::from("/bin/sh"),
+            arguments: vec!["-c".to_string(), "printf %s \"$RZ0_UNSET\"".to_string()],
+            working_directory: PathBuf::from("/"),
+            timeout: Duration::from_secs(2),
+            output_limit: 1_024,
+        };
+        let output = run_read_only_process(&request).expect("bounded process");
+        assert!(output.status.success());
+        assert!(output.stdout.bytes.is_empty());
+        assert!(!output.timed_out);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_read_only_process_terminates_after_deadline() {
+        let request = ReadOnlyProcessRequest {
+            executable: PathBuf::from("/bin/sh"),
+            arguments: vec!["-c".to_string(), "sleep 30".to_string()],
+            working_directory: PathBuf::from("/"),
+            timeout: Duration::from_millis(100),
+            output_limit: 1_024,
+        };
+        let started = Instant::now();
+        let output = run_read_only_process(&request).expect("timed-out process");
+        assert!(output.timed_out);
+        assert!(started.elapsed() < Duration::from_secs(5));
     }
 }
