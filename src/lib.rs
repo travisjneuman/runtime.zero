@@ -37,6 +37,7 @@ pub mod tui_render;
 mod tui_render_support;
 pub mod tui_state;
 pub mod tui_theme;
+pub mod update_cli;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitCode {
@@ -71,6 +72,7 @@ where
         Some("modules") => module_cli::modules_command(&args[1..]),
         Some("store") => store_cli::store_command(&args[1..]),
         Some("scan") => scan_command(&args[1..]),
+        Some("updates") => update_cli::updates_command(&args[1..]),
         Some(command) => unknown_command(command),
     }
 }
@@ -87,7 +89,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} apps [--format text|json]\n  {cmd} uninstall plan <installed-software-id> [--format text|json]\n  {cmd} modules [--format text|json]\n  {cmd} modules --from <dir> [--format text|json]\n  {cmd} modules validate <manifest.json> [--format text|json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--include-raw-paths] [--format text|json]\n\nFoundation safety posture:\n  {safety}\n\nThe core includes bounded read-only local inventory, validates local manifests, and lists installed modules. Uninstall remains review-only until an exact quarantine/manager transaction is confirmed and authorized.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} apps [--format text|json]\n  {cmd} uninstall plan <installed-software-id> [--format text|json]\n  {cmd} modules [--format text|json]\n  {cmd} modules --from <dir> [--format text|json]\n  {cmd} modules validate <manifest.json> [--format text|json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--include-raw-paths] [--format text|json]\n  {cmd} updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n\nFoundation safety posture:\n  {safety}\n\nThe core includes bounded read-only local inventory, validates local manifests, and lists installed modules. Uninstall remains review-only until an exact quarantine/manager transaction is confirmed and authorized.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,

@@ -3,6 +3,13 @@ use rz0_action_plan::{
     validate_action_plan,
 };
 use rz0_capability_contract::Capability;
+mod adapters;
+
+pub use adapters::{
+    ManagerKind, ManagerParseContext, ManagerProbeSpec, manager_probe_specs,
+    manager_probe_specs_for_platform, parse_manager_output,
+};
+
 use rz0_finding_contract::{
     Finding, FindingCategory, FindingConfidence, FindingDataClass, FindingDisposition,
     FindingOwnership, FindingReport, FindingRisk, FindingSource, FindingSourceStatus,
