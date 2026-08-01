@@ -1,3 +1,6 @@
+use std::fs;
+use std::path::Path;
+
 use serde::Serialize;
 
 use crate::apps::{
@@ -119,7 +122,7 @@ fn build_dashboard(
         title: brand::TITLE,
         command: brand::COMMAND,
         version: env!("CARGO_PKG_VERSION"),
-        mode: "safe review dashboard",
+        mode: "interactive dashboard",
         safety_posture: brand::SAFETY_POSTURE,
         store_state: store.overall_state,
         registry_state: store.registry.status,
@@ -210,32 +213,36 @@ fn sections(
                     "accent",
                 ),
                 row(
-                    tui_theme::LABEL_DRY_RUN,
-                    "install planner remains dry-run only",
-                    "dry_run",
+                    tui_theme::LABEL_INFO,
+                    "module package checks are available from the CLI",
+                    "info",
                 ),
             ],
         },
         TuiSection {
             code: "05",
-            title: "safety gates",
-            summary: "blocked mutation and trust gates",
+            title: "actions",
+            summary: "available actions and permissions",
             rows: vec![
                 row(
                     tui_theme::LABEL_OK,
-                    "TUI is read-only review surface",
+                    "software list and update checks are available",
                     "safe",
                 ),
                 row(
                     tui_theme::LABEL_DRY_RUN,
-                    "store init stays explicit",
-                    "dry_run",
+                    "initialize local state with `rz0 store init --yes`",
+                    "info",
                 ),
-                row(tui_theme::LABEL_SKIP, "module execution blocked", "muted"),
+                row(
+                    tui_theme::LABEL_INFO,
+                    "module package checks are available from the CLI",
+                    "info",
+                ),
                 row(
                     tui_theme::LABEL_SKIP,
-                    "remote fetch and trust blocked",
-                    "muted",
+                    "updates use the selected manager and confirmation",
+                    "info",
                 ),
             ],
         },
@@ -336,7 +343,7 @@ fn overview_section(
     }
     rows.push(row(
         tui_theme::LABEL_INFO,
-        "Tab details · Enter preview · u updates · r refresh",
+        "Tab details · Enter details · u checks updates · r refresh",
         "info",
     ));
     TuiSection {
@@ -371,7 +378,7 @@ fn installed_software_section(
             rows.push(TuiRow {
                 label: tui_theme::LABEL_INFO,
                 value: format!(
-                    "{} · select an item and press Enter to preview its available options; u checks updates",
+                    "{} · select an item and press Enter for details; u checks updates",
                     view_description(view)
                 ),
                 tone: "info",
@@ -424,13 +431,24 @@ fn installed_software_section(
                         "update available: {} · {}",
                         update.available_version, options
                     );
-                    preview = format!(
-                        "update review: {} {} -> {}; {}",
-                        update.manager,
-                        update.installed_version.as_deref().unwrap_or("unknown"),
-                        update.available_version,
-                        preview
-                    );
+                    let apply_command = update_apply_command(app.kind);
+                    preview = match apply_command {
+                        Some(command) => format!(
+                            "update: {} {} -> {}; command: {}; {}",
+                            update.manager,
+                            update.installed_version.as_deref().unwrap_or("unknown"),
+                            update.available_version,
+                            command,
+                            preview
+                        ),
+                        None => format!(
+                            "update: {} {} -> {}; use the matching `rz0 updates --apply` command; {}",
+                            update.manager,
+                            update.installed_version.as_deref().unwrap_or("unknown"),
+                            update.available_version,
+                            preview
+                        ),
+                    };
                 }
                 preview = format!(
                     "{preview}; source: {} · identity: {} ({})",
@@ -468,6 +486,25 @@ fn installed_software_section(
         summary: "live bounded applications and package-manager records",
         rows,
     }
+}
+
+fn update_apply_command(kind: SoftwareKind) -> Option<String> {
+    let manager_id = match kind {
+        SoftwareKind::HomebrewFormula => "homebrew-formula",
+        SoftwareKind::HomebrewCask => "homebrew-cask",
+        SoftwareKind::ApplicationBundle | SoftwareKind::PlatformPackage => return None,
+    };
+    let executable = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+        .iter()
+        .map(Path::new)
+        .find(|path| {
+            fs::symlink_metadata(path)
+                .is_ok_and(|metadata| metadata.is_file() && !metadata.file_type().is_symlink())
+        })?;
+    Some(format!(
+        "rz0 updates --apply --probe --manager {manager_id} --executable {} --allow-network-read --allow-network-write --all --accept-no-rollback",
+        executable.display()
+    ))
 }
 
 fn view_description(view: &SoftwareView) -> String {

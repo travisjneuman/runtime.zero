@@ -6,8 +6,7 @@ use ratatui::widgets::Paragraph;
 use crate::tui_dashboard::TuiDashboard;
 use crate::tui_layout::TuiLayoutTier;
 use crate::tui_ratatui_support::{
-    block, focus_summary, label_line, selected_index, selected_row_index, selected_section,
-    tone_style,
+    block, label_line, selected_index, selected_row_index, selected_section, tone_style,
 };
 use crate::tui_state::{TuiFocusRegion, TuiState};
 use crate::tui_theme;
@@ -20,7 +19,7 @@ pub(crate) fn render_compact_notice(
 ) {
     let lines = vec![
         Line::styled("runtime.zero", tone_style("accent", color)),
-        Line::raw("safe review dashboard"),
+        Line::raw("installed software and available actions"),
         Line::raw(format!(
             "layout: {} · min {}",
             tier.name(),
@@ -31,7 +30,7 @@ pub(crate) fn render_compact_notice(
         Line::raw("q/Esc exits when interactive."),
     ];
     frame.render_widget(
-        Paragraph::new(lines).block(block("COMPACT // SAFE FALLBACK", "info", color)),
+        Paragraph::new(lines).block(block("COMPACT // DASHBOARD", "info", color)),
         area,
     );
 }
@@ -51,17 +50,15 @@ pub(crate) fn render_compact_dashboard(
             Span::styled("runtime.zero rz0", tone_style("accent", color)),
             Span::raw("   "),
             Span::styled(tui_theme::LABEL_OK, tone_style("safe", color)),
-            Span::raw(" read-only"),
+            Span::raw(" ready"),
         ]),
         Line::raw(format!(
-            "layout: {} · min {} · section {} / {}",
+            "layout: {} · section {} / {}",
             tier.name(),
-            tier.minimum_size(),
             selected_index(dashboard, state) + 1,
             dashboard.sections.len()
         )),
-        Line::raw(format!("focus: {}", focus_summary(state.focus_region))),
-        Line::raw(format!("dossier {} · {}", section.code, section.title)),
+        Line::raw(format!("section {} · {}", section.code, section.title)),
         Line::raw(section.summary),
         Line::raw(format!(
             "store {:?} · registry {:?} · modules {}",
@@ -77,22 +74,24 @@ pub(crate) fn render_compact_dashboard(
             row.value
         )));
         if state.preview_open && state.focus_region == TuiFocusRegion::DetailsPanel {
-            lines.push(preview_only_line(color));
-            lines.push(Line::raw(row.preview.clone().unwrap_or_else(|| {
-                format!("context: {} {}", row.label, row.value)
-            })));
+            lines.push(details_line(color));
+            lines.push(Line::raw(
+                row.preview
+                    .clone()
+                    .unwrap_or_else(|| format!("{}: {}", row.label, row.value)),
+            ));
         }
     } else {
         lines.push(Line::raw("item: no detail rows reported"));
     }
     if !(state.preview_open && state.focus_region == TuiFocusRegion::DetailsPanel) {
-        lines.push(preview_only_line(color));
+        lines.push(details_line(color));
     }
     lines.push(Line::raw(
         "q exits · u updates · / search · f filter · s sort · r refresh",
     ));
     frame.render_widget(
-        Paragraph::new(lines).block(block("COMPACT // SAFE DASHBOARD", "info", color)),
+        Paragraph::new(lines).block(block("COMPACT // DASHBOARD", "info", color)),
         area,
     );
 }
@@ -115,18 +114,18 @@ pub(crate) fn render_header(
             Span::raw(" live local inventory"),
         ]),
         Line::from(vec![
-            Span::styled("Dossier Navy / Burnished Brass", tone_style("muted", color)),
+            Span::styled("local inventory", tone_style("muted", color)),
             Span::raw(" · "),
             Span::raw(tier.name()),
             Span::raw(" · "),
             Span::styled(
-                "inventory live · uninstall requires review and confirmation",
-                tone_style("dry_run", color),
+                "inventory live · updates available from the actions",
+                tone_style("info", color),
             ),
         ]),
     ];
     frame.render_widget(
-        Paragraph::new(lines).block(block("RZ0 // FOUNDATION CONTROL SURFACE", "accent", color)),
+        Paragraph::new(lines).block(block("RZ0 // INSTALLED SOFTWARE", "accent", color)),
         area,
     );
 }
@@ -154,32 +153,29 @@ pub(crate) fn render_state_cards(
         ),
     ];
     frame.render_widget(
-        Paragraph::new(lines).block(block("FOUNDATION STATE // LIVE", "info", color)),
+        Paragraph::new(lines).block(block("STATUS", "info", color)),
         area,
     );
 }
 
 pub(crate) fn render_footer(frame: &mut Frame<'_>, area: Rect, color: bool) {
     let line = Line::from(vec![
-        Span::styled(tui_theme::LABEL_DRY_RUN, tone_style("dry_run", color)),
-        Span::raw(" report-first "),
-        Span::styled(
-            "installed software is selectable",
-            tone_style("accent", color),
-        ),
-        Span::raw(" · no mutation without exact confirmation"),
+        Span::styled(tui_theme::LABEL_OK, tone_style("safe", color)),
+        Span::raw(" "),
+        Span::styled("installed software", tone_style("accent", color)),
+        Span::raw(" · Enter details · u checks updates"),
     ]);
     frame.render_widget(
-        Paragraph::new(vec![line]).block(block("SAFETY // LOCKED", "dry_run", color)),
+        Paragraph::new(vec![line]).block(block("ACTIONS", "info", color)),
         area,
     );
 }
 
-pub(crate) fn preview_only_line(color: bool) -> Line<'static> {
+pub(crate) fn details_line(color: bool) -> Line<'static> {
     label_line(
-        tui_theme::LABEL_DRY_RUN,
-        "PREVIEW ONLY; no command execution from TUI",
-        "dry_run",
+        tui_theme::LABEL_INFO,
+        "selected item details",
+        "info",
         color,
     )
 }

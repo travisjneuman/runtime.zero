@@ -72,7 +72,7 @@ fn header_lines(dashboard: &TuiDashboard, width: usize, color: bool) -> Vec<Stri
         Some(tui_theme::TuiTone::Accent),
     ));
     lines.push(line(
-        "foundation control surface · safe review dashboard · local-first",
+        "installed software · local-first · updates available from the actions",
         width,
         color,
         Some(tui_theme::TuiTone::Info),
@@ -149,7 +149,7 @@ fn compact_body_lines(
 }
 
 fn navigation_lines(dashboard: &TuiDashboard, state: &TuiState, interactive: bool) -> Vec<String> {
-    let mut lines = vec!["NAVIGATION".to_string()];
+    let mut lines = vec!["SECTIONS".to_string()];
     for (index, section) in dashboard.sections.iter().enumerate() {
         let selected = interactive && index == selected_index(dashboard, state);
         let marker = if selected { "▸" } else { " " };
@@ -159,26 +159,19 @@ fn navigation_lines(dashboard: &TuiDashboard, state: &TuiState, interactive: boo
             section.code, section.title, suffix
         ));
     }
-    lines.push(String::new());
-    lines.push("POSTURE".to_string());
-    lines.push(format!("{} safe review", tui_theme::LABEL_INFO));
-    lines.push(format!(
-        "{} mutation requires exact confirmation",
-        tui_theme::LABEL_BLOCKED
-    ));
     lines
 }
 
 fn selected_panel_lines(dashboard: &TuiDashboard, state: &TuiState, width: usize) -> Vec<String> {
     let section = selected_section(dashboard, state);
     let mut lines = vec![format!(
-        "DOSSIER {} · {}",
+        "{} · {}",
         section.code,
         section.title.to_uppercase()
     )];
     lines.push(truncate(section.summary, width));
     lines.push(format!(
-        "section {} / {} · read-only",
+        "section {} of {}",
         selected_index(dashboard, state) + 1,
         dashboard.sections.len()
     ));
@@ -190,7 +183,7 @@ fn selected_panel_lines(dashboard: &TuiDashboard, state: &TuiState, width: usize
 }
 
 fn status_card_lines(dashboard: &TuiDashboard, width: usize) -> Vec<String> {
-    let mut lines = vec![String::new(), "FOUNDATION STATE / live".to_string()];
+    let mut lines = vec![String::new(), "STATUS".to_string()];
     lines.push(card_line(
         "store",
         &humanize_debug(&format!("{:?}", dashboard.store_init_status)),
@@ -211,7 +204,7 @@ fn status_card_lines(dashboard: &TuiDashboard, width: usize) -> Vec<String> {
 fn command_rail_lines(width: usize) -> Vec<String> {
     vec![
         String::new(),
-        "SCRIPTABLE CLI RAIL".to_string(),
+        "COMMANDS".to_string(),
         truncate("rz0 apps · rz0 scan --dry-run · rz0 --json", width),
         truncate("rz0 uninstall plan <id> · rz0 doctor", width),
     ]
@@ -220,7 +213,7 @@ fn command_rail_lines(width: usize) -> Vec<String> {
 fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) -> Vec<String> {
     let mut lines = vec![separator(width)];
     lines.push(line(
-        "live inventory · uninstall review · no mutation without confirmation",
+        "installed software · Enter details · u checks updates",
         width,
         color,
         Some(tui_theme::TuiTone::DryRun),
@@ -235,16 +228,16 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
         ));
     } else if interactive && state.show_help {
         lines.push(line_plain(
-            "keys: Esc back · q quit · u updates · / search · f filter · s sort · r refresh · Tab focus · Enter preview",
+            "keys: Esc back · q quit · u updates · / search · f filter · s sort · r refresh · Tab areas · Enter details",
             width,
         ));
         lines.push(line_plain(
-            "automation: subcommands, --json, pipes, and --no-tui stay CLI-only",
+            "mouse wheel scrolls lists · Home/End jump to the first/last item",
             width,
         ));
     } else if interactive {
         lines.push(line_plain(
-            "keys: q quit · u updates · Tab focus · / search · f filter · s sort · r refresh · Enter preview · h help",
+            "keys: q quit · u updates · Tab areas · / search · f filter · s sort · r refresh · Enter details · h help",
             width,
         ));
     } else {

@@ -129,8 +129,9 @@ and runtime evidence:
 4. Finding and action-plan schemas with immutable evidence digests, exact
    capabilities, risk, expiry, drift invalidation, and expected before/after
    state.
-5. Text, JSON, and TUI review surfaces that never imply execution or support
-   beyond evidence.
+5. Text, JSON, and TUI surfaces that distinguish evidence, details, and
+   executable action entry points without claiming unavailable support. The
+   updater TUI entry currently hands off to the explicit CLI apply lane.
 6. Exact foundation-enforced capability grant and platform isolation.
 7. Explicit confirmation for the exact action, target, manager, network,
    privilege, and write set.
@@ -202,8 +203,9 @@ parallel once its shared foundation dependency is stable.
    evidence as the prerequisite for mutating modules.
 8. Implement updater, uninstall, leftovers, cache, security/integrity, and
    report/export modules against foundation APIs, maintaining platform parity.
-9. Complete CLI/JSON/TUI action review, accessibility, terminal compatibility,
-   help, manual pages, completions, recovery UX, and support diagnostics.
+9. Complete CLI/JSON/TUI action review, including direct TUI update handoff,
+   accessibility, terminal compatibility, help, manual pages, completions,
+   recovery UX, and support diagnostics.
 10. Complete dependency/supply-chain review, unsafe-code review, fuzzing,
     performance/soak/fault testing, external security review, and release audit.
 11. Produce reproducible artifacts, checksums, SBOMs/notices, installers,

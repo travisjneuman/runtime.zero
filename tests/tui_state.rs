@@ -1,4 +1,4 @@
-use runtime_zero::tui_state::{TuiAction, TuiFocusRegion, TuiInput, TuiState};
+use runtime_zero::tui_state::{TuiAction, TuiFocusRegion, TuiInput, TuiMouseTarget, TuiState};
 
 #[test]
 fn q_requests_quit_without_state_mutation() {
@@ -126,12 +126,32 @@ fn enter_space_only_toggle_read_only_preview() {
 }
 
 #[test]
-fn activation_from_navigation_moves_to_details_without_execution_preview() {
+fn activation_from_navigation_opens_selected_details() {
     let mut state = TuiState::new(4);
     assert_eq!(state.focus_region, TuiFocusRegion::LeftNavigation);
     assert_eq!(state.apply(TuiInput::Activate), TuiAction::Continue);
     assert_eq!(state.focus_region, TuiFocusRegion::DetailsPanel);
-    assert!(!state.preview_open);
+    assert!(state.preview_open);
+}
+
+#[test]
+fn mouse_scroll_moves_the_list_under_the_pointer() {
+    let mut state = TuiState::new(4);
+    assert_eq!(
+        state.apply(TuiInput::ScrollDown(TuiMouseTarget::Details)),
+        TuiAction::Continue
+    );
+    assert_eq!(state.focus_region, TuiFocusRegion::DetailsPanel);
+    assert_eq!(state.selected_detail_row, 3);
+    assert_eq!(
+        state.apply(TuiInput::ScrollUp(TuiMouseTarget::Details)),
+        TuiAction::Continue
+    );
+    assert_eq!(state.selected_detail_row, 0);
+
+    let _ = state.apply(TuiInput::ScrollDown(TuiMouseTarget::Navigation));
+    assert_eq!(state.focus_region, TuiFocusRegion::LeftNavigation);
+    assert_eq!(state.selected_section, 3);
 }
 
 #[test]

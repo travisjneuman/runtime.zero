@@ -34,10 +34,10 @@ pub(crate) fn store_state_label(state: StoreOverallState) -> &'static str {
 
 pub(crate) fn init_status_label(status: StoreInitStatus) -> &'static str {
     match status {
-        StoreInitStatus::Ready => "store init dry-run ready",
+        StoreInitStatus::Ready => "local state ready to initialize",
         StoreInitStatus::AlreadyInitialized => "store scaffolding initialized",
         StoreInitStatus::Applied => "store init applied",
-        StoreInitStatus::Blocked => "store init blocked",
+        StoreInitStatus::Blocked => "local state initialization blocked",
     }
 }
 
@@ -45,7 +45,7 @@ pub(crate) fn init_label(status: StoreInitStatus) -> &'static str {
     match status {
         StoreInitStatus::Blocked => tui_theme::LABEL_WARN,
         StoreInitStatus::AlreadyInitialized | StoreInitStatus::Applied => tui_theme::LABEL_OK,
-        StoreInitStatus::Ready => tui_theme::LABEL_DRY_RUN,
+        StoreInitStatus::Ready => tui_theme::LABEL_INFO,
     }
 }
 
@@ -53,7 +53,7 @@ pub(crate) fn init_tone(status: StoreInitStatus) -> &'static str {
     match status {
         StoreInitStatus::Blocked => "warn",
         StoreInitStatus::AlreadyInitialized | StoreInitStatus::Applied => "safe",
-        StoreInitStatus::Ready => "dry_run",
+        StoreInitStatus::Ready => "info",
     }
 }
 

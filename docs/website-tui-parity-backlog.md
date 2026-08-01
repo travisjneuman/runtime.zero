@@ -6,22 +6,24 @@ This backlog intentionally does not edit `site/`. Website work remains a separat
 
 ## Current terminal TUI structure to mirror later
 
-- `RZ0 // FOUNDATION CONTROL SURFACE` header with live-inventory status and Dossier Navy / Burnished Brass posture;
+- `RZ0 // INSTALLED SOFTWARE` header with live-inventory status and Dossier Navy / Burnished Brass posture;
 - named layout tiers: very-small, compact, standard, wide;
-- left navigation/index for overview, local store, installed software, modules, and safety gates;
-- selected dossier/details panel with visible focus state;
-- foundation state cards for store, registry, receipts, and installed modules;
-- command rail that is explicitly preview-only and does not run commands;
-- the built-in read-only inventory adapter shown as one software list with
-  per-item options, plus `rz0 apps` and applicable `rz0 uninstall plan <id>` previews;
-- persistent `SAFETY // LOCKED` footer;
-- help/focus guidance that reinforces CLI/JSON escape hatches.
+- left navigation for overview, local store, installed software, modules, and actions;
+- selected section/details panel with a fixed position counter and visible selected row;
+- status cards for store, registry, receipts, and installed modules;
+- command rail listing exact CLI entry points;
+- one software list with per-item details, mouse-wheel scrolling, and applicable
+  `rz0 apps`/`rz0 uninstall plan <id>` commands;
+- persistent actions footer;
+- help guidance for keyboard and mouse navigation.
 
 ## Future website update checklist
 
 - [ ] Update the website TUI mock/screens so labels, panel titles, and safety posture match the real terminal TUI.
 - [ ] Represent compact/standard/wide behavior without implying unsupported website interactivity.
-- [ ] Keep copy honest: the TUI is a read-only foundation dashboard and command preview surface, not a feature-module runner.
+- [ ] Keep copy honest: inventory reads/details are read-only, while explicit
+  updater writes remain in the confirmation-bound CLI lane; do not imply module
+  activation or uninstall execution.
 - [ ] Show synthetic installed-software rows without machine paths or implying that uninstall reviews execute from the public mockup.
 - [ ] Preserve `BRAND.md` color semantics: Dossier Navy / Burnished Brass, red only for danger/error/destructive states.
 - [ ] Run static-site safety checks for `innerHTML`, `document.write`, `eval(`, `new Function`, rejected red/rust/copper accents, footer/link integrity, and viewport rendering.

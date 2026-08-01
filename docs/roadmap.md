@@ -15,10 +15,12 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 ## Phase 1 — foundation baseline (complete)
 
 - [x] Public Rust CLI, safety/security/contribution docs, brand, and static site.
-- [x] Read-only Ratatui/Crossterm dashboard with text/JSON fallbacks.
+- [x] Interactive Ratatui/Crossterm dashboard with text/JSON fallbacks, visible
+  selection/details, and mouse-wheel list navigation.
 - [x] Module manifest validation and local SHA-256 package integrity.
 - [x] Dry-run install planning and user-local store/registry/receipt contracts.
-- [x] Explicit store scaffolding as the only foundation write surface.
+- [x] Explicit store scaffolding and confirmation-bound updater manager
+  execution as foundation write surfaces.
 
 ## Phase 2 — inventory contracts and primitives (implemented; runtime proof remains)
 
@@ -62,7 +64,8 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [x] Public plan-first/no-surprise-install design contract.
 - [x] Fixture-only schema-1 update-plan model and fail-closed policy tests.
 - [x] Separate installed/manager-owned synthetic update finding classifier over
-  the shared path-free finding contract; no live adapter or execution.
+  the shared path-free finding contract; live availability and manager execution
+  are owned by the core updater lane.
 - [x] Installed-only availability adapters after explicit network review;
   bounded live Homebrew formula/cask probes are integrated into the TUI and CLI.
 - [x] Explicit one-item and interactive serial manager execution with exact
@@ -79,7 +82,7 @@ See [`inventory-schema.md`](inventory-schema.md).
   verified-copy-before-remove, conflict refusal, failure injection, and receipts.
 - [x] Separate synthetic uninstall, leftovers, and cache classifiers requiring
   manager ownership or exact runtime-owned evidence and preserving protected/
-  unknown blocking; no live mutation adapter or execution.
+  unknown blocking; live mutation adapters remain gated.
 - [x] Live path-free ownership-specific uninstall reviews for protected macOS
   apps, local/user bundles, and Homebrew records.
 - [ ] Platform-specific manager, ownership, ACL, reparse/symlink, locked-file,
@@ -91,10 +94,10 @@ See [`action-planning.md`](action-planning.md).
 
 ## Phase 6 — interactive UX and site
 
-- [x] Terminal review flow, focus regions, preview-only command rail, and
-  responsive layout tiers.
+- [x] Interactive terminal flow, section navigation, details panel, command
+  rail, responsive layout tiers, and mouse capture.
 - [x] One live installed-software section with per-item details/uninstall posture,
-  scroll-following row selection, and path-free command previews.
+  bottom-safe row selection, mouse-wheel scrolling, and exact CLI action entries.
 - [ ] Manual Windows Terminal/PowerShell TUI smoke and installed-binary refresh.
 - [ ] Linux/macOS terminal-emulator accessibility/restore smoke.
 - [ ] Website parity and final brand-asset pass after explicit production/site

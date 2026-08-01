@@ -42,11 +42,9 @@ fn strip_ansi(value: &str) -> String {
 fn render_plain_dashboard_without_ansi() {
     let rendered = render_dashboard(&tui_dashboard::dashboard(), false);
     assert!(rendered.contains("runtime.zero rz0"));
-    assert!(rendered.contains("SCRIPTABLE CLI RAIL"));
+    assert!(rendered.contains("COMMANDS"));
     assert!(rendered.contains("rz0 store status"));
-    assert!(
-        rendered.contains("live inventory · uninstall review · no mutation without confirmation")
-    );
+    assert!(rendered.contains("installed software · Enter details · u checks updates"));
     assert!(!rendered.contains('…'));
     assert!(!rendered.contains("\x1b["));
 }
@@ -56,11 +54,11 @@ fn render_wide_dashboard_has_navigation_and_selected_section() {
     let mut state = TuiState::new(4);
     state.selected_section = 1;
     let rendered = render_dashboard_with_state(&tui_dashboard::dashboard(), false, 118, 30, &state);
-    assert!(rendered.contains("NAVIGATION"));
+    assert!(rendered.contains("SECTIONS"));
     assert!(rendered.contains("▸ 02 local store"));
-    assert!(rendered.contains("DOSSIER 02 · LOCAL STORE"));
+    assert!(rendered.contains("02 · LOCAL STORE"));
     assert!(rendered.contains("user-local store and registry health"));
-    assert!(rendered.contains("FOUNDATION STATE"));
+    assert!(rendered.contains("STATUS"));
 }
 
 #[test]
@@ -73,8 +71,8 @@ fn interactive_color_render_styles_body_without_breaking_text() {
         &TuiState::new(4),
     );
     assert!(rendered.contains("\x1b["));
-    assert!(rendered.contains("[BLOCKED]"));
-    assert!(rendered.contains("DOSSIER 01 · OVERVIEW"));
+    assert!(rendered.contains("[INFO]"));
+    assert!(rendered.contains("01 · OVERVIEW"));
 }
 
 #[test]
@@ -83,7 +81,7 @@ fn render_handles_narrow_terminal_and_help() {
     state.show_help = true;
     let rendered = render_dashboard_with_state(&tui_dashboard::dashboard(), false, 40, 16, &state);
     assert!(rendered.contains("Esc back"));
-    assert!(rendered.contains("NAVIGATION"));
+    assert!(rendered.contains("SECTIONS"));
     assert!(!rendered.contains("\x1b["));
 }
 
@@ -161,8 +159,10 @@ fn all_sections_render_with_accessible_labels_across_terminal_sizes() {
                             "line exceeded visible frame width {frame_width}: {line:?}"
                         );
                     }
-                    assert!(plain.contains("NAVIGATION"));
-                    assert!(plain.contains("read-only") || plain.contains("live inventory"));
+                    assert!(plain.contains("SECTIONS"));
+                    assert!(
+                        plain.contains("installed software") || plain.contains("local inventory")
+                    );
                     if !show_help || requested_height >= 24 {
                         assert!(
                             plain.contains(section.title)
@@ -171,9 +171,9 @@ fn all_sections_render_with_accessible_labels_across_terminal_sizes() {
                     }
                     if show_help {
                         assert!(plain.contains("Esc back"));
-                        assert!(plain.contains("automation: subcommands"));
+                        assert!(plain.contains("mouse wheel scrolls lists"));
                     } else {
-                        assert!(plain.contains("Tab focus"));
+                        assert!(plain.contains("Tab areas"));
                     }
                 }
             }
@@ -193,6 +193,6 @@ fn colorized_frames_preserve_plain_text_contract() {
 
     assert!(colorized.contains("\x1b["));
     assert_eq!(strip_ansi(&colorized), plain);
-    assert!(plain.contains("[BLOCKED]"));
+    assert!(plain.contains("[INFO]"));
     assert!(plain.contains("[PLAN]"));
 }

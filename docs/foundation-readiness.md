@@ -18,13 +18,16 @@ The current foundation provides these module-facing contracts:
 - dry-run-only module install planning that reports proposed state without writing, fetching, trusting, or executing;
 - local store contract, `store plan`, `store status`, fixture `--store-root` inspection, installed registry parsing, and receipt validation;
 - explicit `store init --dry-run` and `store init --yes` scaffolding limited to runtime.zero-owned user-local store paths;
-- read-only Ratatui TUI dashboard with focus regions, command previews, status panels, compact/standard/wide layout tiers, and no command execution from TUI.
+- interactive Ratatui TUI dashboard with visible selection/details, mouse-wheel
+  scrolling, status panels, compact/standard/wide layout tiers, and exact CLI
+  action entries; it does not silently execute manager or destructive commands;
 
 The core now emits live path-redacted `inventory_report` evidence through
 `rz0 scan --dry-run --format json` and a path-free installed-software catalog
 through `rz0 apps`. The first-party `modules/inventory/` library supplies the
 bounded read-only collector as a built-in dependency. TUI content lists local
-software and previews exact uninstall-review commands without running them.
+software, opens visible details, and shows exact uninstall/update CLI commands.
+The separately gated updater lane performs confirmed manager writes.
 
 ## First-module starting boundary
 
@@ -46,7 +49,9 @@ A first-party module can rely on these invariants:
 
 - core output stays text-first, label-first, and color-optional;
 - JSON contracts are additive and versioned;
-- TUI content mirrors existing dashboard/module/store state and remains read-only;
+- TUI content mirrors existing dashboard/module/store state; its inventory and
+  details reads are read-only, while explicit update writes remain in the
+  confirmation-bound CLI lane;
 - dry-run reports must disclose proposed writes with `would_write: false` until a separate approval enables writes;
 - local file paths must remain under declared module/store roots and must reject traversal, absolute package paths, URL-like paths, symlinks, reparse points, unsafe receipts, and unsupported integrity algorithms;
 - installed-module registry and receipts are evidence surfaces, not trust or activation decisions;
@@ -56,7 +61,8 @@ A first-party module can rely on these invariants:
 
 - [x] Module scope is read-only and first-party.
 - [x] CLI output and JSON output are specified before implementation.
-- [x] TUI presentation is a review surface only and does not imply activation.
+- [x] TUI presentation exposes real details/action entry points and does not
+  imply activation of an uninstalled module.
 - [x] Test fixtures cover valid, duplicate, missing, malformed, invalid-entry,
   and unsupported-platform paths.
 - [x] Safety docs name every blocked mutation/trust boundary.

@@ -23,8 +23,9 @@ public repository.
 
 The 2026-08-01 continuation added explicit TUI refresh/live update discovery,
 long-list position/jump behavior, safer compact previews, consistent CLI
-format/option parsing, and a bounded updater apply lane. Update execution is
-still not implicit: live evidence, exact manager identity, explicit network-
+format/option parsing, a bottom-safe details panel with mouse-wheel list
+scrolling, and a bounded updater apply lane. Update execution is still not
+implicit: live evidence, exact manager identity, explicit network-
 write approval, initialized private state, short-lived confirmation, journal,
 receipt, and fresh verification are mandatory. See the private project
 implementation record for validation evidence.
@@ -68,7 +69,7 @@ The current navigation has five sections:
 3. **installed software** — the canonical local software list with per-item
    options;
 4. **modules** — installed and planned first-party module posture;
-5. **safety gates** — mutation, trust, and execution boundaries.
+5. **actions** — available operations and required permissions.
 
 Within **installed software**:
 
@@ -77,12 +78,14 @@ Within **installed software**:
 - Homebrew records offer a manager-owned uninstall review;
 - local/user application bundles offer a quarantine-first uninstall review;
 - unknown or unsupported ownership offers no uninstall command;
-- Enter opens a preview; it never executes the command;
-- selection follows long lists as the details panel scrolls.
+- Enter opens a visible details panel with the exact available command;
+- selection follows long lists, remains visible at the bottom, and moves three
+  rows per mouse-wheel event.
 
 The command rail includes `rz0 apps`, `rz0 uninstall plan <id>`, scan, doctor,
-and automation-oriented dashboard commands. It previews commands but does not
-run them.
+and automation-oriented dashboard commands. Enter shows their descriptions;
+scriptable commands run from the CLI. Explicit manager updates run through
+`rz0 updates --apply` after confirmation.
 
 ### Scriptable commands
 
@@ -272,10 +275,12 @@ These are intentional continuation facts, not hidden production claims:
 - The TUI takes one inventory snapshot at launch and supports an explicit `r`
   refresh. Bounded `/` search, `f` filter cycling, and `s` sort cycling now
   operate on the cached snapshot without triggering a new scan. Long detail
-  lists expose the current item position while scrolling.
+  lists keep the selected row visible, expose a fixed position counter, support
+  mouse-wheel scrolling, and open a separate details panel on Enter.
 - Per-item TUI options currently mean details plus uninstall posture and update
-  availability. The scriptable updater apply lane is live; TUI mutation controls
-  and repair/integrity/export/cleanup execution are not yet wired.
+  availability. The scriptable updater apply lane is live; TUI update writes,
+  uninstall execution, and repair/integrity/export/cleanup execution are not
+  yet wired.
 - Application publisher identity is unknown unless a future trusted adapter
   provides it.
 - Bundle IDs are deterministic evidence IDs, not permanent global product IDs;

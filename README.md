@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot:** the installed Mac surface provides a live bounded software catalog, Homebrew update discovery, and an explicit CLI update execution lane with exact confirmation, journal, receipt, and fresh verification. The TUI remains a review surface; uninstall, cleanup, module installation/activation, and third-party execution remain separately gated. Start future work with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md).
+> **Current pre-alpha snapshot:** the installed Mac surface provides a live bounded software catalog, Homebrew update discovery, visible TUI selection/details, mouse-wheel navigation, and an explicit CLI update execution lane with exact confirmation, journal, receipt, and fresh verification. TUI update writes are not wired yet; uninstall, cleanup, module installation/activation, and third-party execution remain separately gated. Start future work with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md).
 
 ## The promise
 
@@ -51,22 +51,21 @@ rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homeb
 rz0 updates --apply --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
 ```
 
-Bare `rz0` opens the live local software dashboard in an interactive terminal. The dashboard is still a review surface; explicit update writes use the scriptable `rz0 updates --apply` lane.
-It uses raw key handling, so `q` exits without echoing typed input, and it
-filters terminal key events so Windows key-release events do not double-advance
-selection. The current interactive dashboard uses a Ratatui widget layer for bounded
-componentized panels, status badges, numbered dossier sections, explicit focus regions, a navigation rail,
-selected-section details, read-only command previews, Home/End jumps,
-Tab/Shift+Tab focus cycling, arrow movement, `j`/`k` keyboard shortcuts, `/`
-search, `f` filter cycling, `s` sort cycling, and `r` refresh for operator-style
-terminal use. Search/filter/sort use the cached snapshot; `r` is the explicit
-live refresh. It now chooses explicit wide,
-standard, compact, and very-small layout tiers so constrained terminals keep
-visible focus and read-only/preview-only labels instead of clipping into
-misleading panes. Esc
-closes help/previews or backs out before quitting from the base navigation
-focus. Use `rz0 --no-tui` for the scriptable text
-dashboard, or `rz0 --json` for a machine-readable foundation dashboard.
+Bare `rz0` opens the live local software dashboard in an interactive terminal.
+It uses raw key handling, mouse capture, visible selection, fixed position
+counters, a separate details panel, and direct action entry points. Enter opens
+selected-item details; the mouse wheel advances the list three rows at a time;
+`u` checks manager availability; and `r` refreshes the local snapshot. Explicit
+manager update writes use the confirmation-bound `rz0 updates --apply` lane.
+The dashboard does not silently execute destructive actions, and it does not
+present unavailable module or uninstall operations as implemented.
+The current Ratatui widget layer provides componentized panels, status badges,
+section navigation, Home/End jumps, Tab/Shift+Tab focus cycling, arrow and
+`j`/`k` movement, `/` search, `f` filter cycling, `s` sort cycling, and
+wide/standard/compact layout tiers that keep the selected row visible. Esc
+closes details/help or backs out before quitting. Use `rz0 --no-tui` for the
+scriptable text dashboard, or `rz0 --json` for a machine-readable foundation
+dashboard.
 `rz0 <subcommand>` remains scriptable and never opens the TUI.
 `rz0 --tui` explicitly requests the full-screen TUI and fails clearly if the
 terminal is non-interactive or automation is detected; plain `rz0` falls back
@@ -80,21 +79,33 @@ metadata (`schema_version`, `contract`, `read_only`, and `writes_attempted`) so
 automation can distinguish foundation review output from future mutating
 module surfaces.
 
-Inventory, diagnostics, and review commands remain read-only by design. The
-installed core now embeds the bounded first-party inventory adapter: `rz0 apps`
-lists path-free local software, `rz0 scan --dry-run` collects live redacted
-evidence, and the TUI shows installed applications, Homebrew formulae/casks,
-versions when available, and ownership-specific uninstall reviews. Explicit
-Homebrew/manager updates use `rz0 updates --apply`; protected system
-applications and uninstall reviews remain blocked from execution.
+Inventory, diagnostics, and evidence collection remain read-only by design;
+that is different from the platform being unable to act. The installed core
+embeds the bounded first-party inventory adapter: `rz0 apps` lists path-free
+local software, `rz0 scan --dry-run` collects live redacted evidence, and the
+TUI shows installed applications, Homebrew formulae/casks, versions when
+available, and ownership-specific uninstall commands. Explicit Homebrew/manager
+updates use `rz0 updates --apply`; protected system applications and uninstall
+reviews remain blocked from execution until their own transaction lanes are
+complete.
 
 ## Core vs modules
 
-The installed `rz0` foundation is not meant to contain every domain feature. It remains useful with zero optional modules installed because bounded read-only inventory is a built-in foundation adapter:
+The installed `rz0` foundation is not meant to contain every domain feature.
+It remains useful with zero optional modules installed because inventory is a
+built-in foundation adapter, while executable actions are owned by explicit
+foundation lanes:
 
 - `core.cli` handles command routing and output.
-- `core.policy` defines shared safety metadata and future mutation gates.
+- `core.policy` defines shared safety metadata and executable action gates.
 - `core.registry` lists core primitives and explicitly installed modules.
+
+**Implementation standard:** a feature is `implemented` only when its normal
+user path is callable, its result is observable, and its failure/recovery path
+is tested. A schema, fixture parser, dry-run planner, or preview is a
+foundation component, not a completed end-user capability. Safe confirmation,
+rollback, and privilege gates may pause an action, but they must not hide an
+otherwise available action behind permanent read-only wording.
 
 First-party feature modules are planned as separate install/use choices. A full bundle may exist later as a convenience distribution, but it should not redefine the core. Third-party modules require a hardened trust model before support is added.
 
@@ -361,12 +372,11 @@ The project is intentionally modular:
 - Rust CLI core for command parsing, built-in bounded inventory, policy, contracts, JSON output, and non-authorizing action/recovery planning.
 - Platform adapters for Windows, macOS, and Linux.
 - Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
-- Live read-only local-software TUI for review, using crossterm for raw
-  terminal lifecycle and Ratatui for the interactive widget dashboard, with
-  componentized panels/status badges, focus regions, navigation rail, numbered dossier sections, selected-section
-  panel, foundation status cards, read-only command previews, Home/End and
-  `j`/`k` navigation, and command rail; subcommands remain the stable
-  automation/script surface.
+- Interactive local-software TUI using crossterm for raw/mouse terminal
+  lifecycle and Ratatui for the widget dashboard, with componentized panels,
+  visible selected rows, section navigation, details, mouse-wheel scrolling,
+  Home/End and `j`/`k` navigation, and exact CLI action entry points;
+  subcommands remain the stable automation/script surface.
 
 Start with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md)
 for the paused source snapshot, current behavior, known limitations, evidence,
@@ -379,8 +389,8 @@ and dependency-ordered restart checklist. Then see
 the local module store, store initialization, and CLI/TUI launch-routing
 contract.
 
-[`docs/tui.md`](docs/tui.md) for the read-only terminal UI foundation,
-keyboard behavior, rendering boundaries, and brand/theme structure. See
+[`docs/tui.md`](docs/tui.md) for the terminal UI foundation, keyboard/mouse
+behavior, rendering boundaries, and brand/theme structure. See
 [`docs/inventory-schema.md`](docs/inventory-schema.md) for the inventory report
 and collector contract. Module execution/trust prerequisites are in
 [`docs/module-trust-and-execution.md`](docs/module-trust-and-execution.md), with

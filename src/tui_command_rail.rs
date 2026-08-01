@@ -9,32 +9,32 @@ pub(crate) const COMMANDS: [TuiCommandPreview; 6] = [
     TuiCommandPreview {
         label: "doctor",
         command: "rz0 doctor",
-        preview: "read-only environment and safety posture check",
+        preview: "check the local environment and version",
     },
     TuiCommandPreview {
         label: "store status",
         command: "rz0 store status",
-        preview: "inspect local store/registry/receipt state without writes",
+        preview: "show local transaction, registry, and receipt state",
     },
     TuiCommandPreview {
         label: "dashboard json",
         command: "rz0 --json",
-        preview: "emit stable foundation_dashboard JSON for automation",
+        preview: "export the dashboard as JSON",
     },
     TuiCommandPreview {
         label: "software",
         command: "rz0 apps",
-        preview: "list live bounded application and package-manager evidence",
+        preview: "list installed applications and packages",
     },
     TuiCommandPreview {
         label: "uninstall",
         command: "rz0 uninstall plan <id>",
-        preview: "review ownership-specific uninstall handling without changing software",
+        preview: "create an uninstall review for one installed item",
     },
     TuiCommandPreview {
         label: "install dry-run",
         command: "rz0 modules install --dry-run <package>",
-        preview: "validate a local module package plan without installing it",
+        preview: "check a module package before installation",
     },
 ];
 

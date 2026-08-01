@@ -24,6 +24,23 @@ pub enum TuiFocusRegion {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TuiMouseTarget {
+    Navigation,
+    Details,
+    Commands,
+}
+
+impl TuiMouseTarget {
+    const fn focus_region(self) -> TuiFocusRegion {
+        match self {
+            Self::Navigation => TuiFocusRegion::LeftNavigation,
+            Self::Details => TuiFocusRegion::DetailsPanel,
+            Self::Commands => TuiFocusRegion::CommandRail,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TuiAction {
     Quit,
     Refresh,
@@ -51,6 +68,8 @@ pub enum TuiInput {
     SearchBackspace,
     FilterNext,
     SortNext,
+    ScrollUp(TuiMouseTarget),
+    ScrollDown(TuiMouseTarget),
     Resize,
     Other,
 }
@@ -127,6 +146,16 @@ impl TuiState {
             }
             TuiInput::PreviousItem => {
                 self.move_item_backward();
+                TuiAction::Continue
+            }
+            TuiInput::ScrollDown(target) => {
+                self.focus_region = target.focus_region();
+                self.move_item_forward_by(3);
+                TuiAction::Continue
+            }
+            TuiInput::ScrollUp(target) => {
+                self.focus_region = target.focus_region();
+                self.move_item_backward_by(3);
                 TuiAction::Continue
             }
             TuiInput::FirstSection => {
@@ -214,6 +243,7 @@ impl TuiState {
             }
             TuiInput::Quit => TuiAction::Quit,
             TuiInput::Refresh | TuiInput::CheckUpdates => TuiAction::Continue,
+            TuiInput::ScrollUp(_) | TuiInput::ScrollDown(_) => TuiAction::Continue,
             TuiInput::Resize | TuiInput::Other => TuiAction::Continue,
             TuiInput::BeginSearch
             | TuiInput::FilterNext
@@ -258,33 +288,47 @@ impl TuiState {
     }
 
     fn move_item_forward(&mut self) {
-        match self.focus_region {
-            TuiFocusRegion::LeftNavigation => self.next_section(),
-            TuiFocusRegion::DetailsPanel => {
-                self.selected_detail_row = self.selected_detail_row.saturating_add(1);
-            }
-            TuiFocusRegion::CommandRail => {
-                if self.command_count > 0 {
-                    self.selected_command = (self.selected_command + 1) % self.command_count;
+        self.move_item_forward_by(1);
+    }
+
+    fn move_item_forward_by(&mut self, count: usize) {
+        self.preview_open = false;
+        for _ in 0..count {
+            match self.focus_region {
+                TuiFocusRegion::LeftNavigation => self.next_section(),
+                TuiFocusRegion::DetailsPanel => {
+                    self.selected_detail_row = self.selected_detail_row.saturating_add(1);
                 }
+                TuiFocusRegion::CommandRail => {
+                    if self.command_count > 0 {
+                        self.selected_command = (self.selected_command + 1) % self.command_count;
+                    }
+                }
+                TuiFocusRegion::HelpOverlay => {}
             }
-            TuiFocusRegion::HelpOverlay => {}
         }
     }
 
     fn move_item_backward(&mut self) {
-        match self.focus_region {
-            TuiFocusRegion::LeftNavigation => self.previous_section(),
-            TuiFocusRegion::DetailsPanel => {
-                self.selected_detail_row = self.selected_detail_row.saturating_sub(1);
-            }
-            TuiFocusRegion::CommandRail => {
-                if self.command_count > 0 {
-                    self.selected_command =
-                        (self.selected_command + self.command_count - 1) % self.command_count;
+        self.move_item_backward_by(1);
+    }
+
+    fn move_item_backward_by(&mut self, count: usize) {
+        self.preview_open = false;
+        for _ in 0..count {
+            match self.focus_region {
+                TuiFocusRegion::LeftNavigation => self.previous_section(),
+                TuiFocusRegion::DetailsPanel => {
+                    self.selected_detail_row = self.selected_detail_row.saturating_sub(1);
                 }
+                TuiFocusRegion::CommandRail => {
+                    if self.command_count > 0 {
+                        self.selected_command =
+                            (self.selected_command + self.command_count - 1) % self.command_count;
+                    }
+                }
+                TuiFocusRegion::HelpOverlay => {}
             }
-            TuiFocusRegion::HelpOverlay => {}
         }
     }
 
@@ -307,7 +351,7 @@ impl TuiState {
         match self.focus_region {
             TuiFocusRegion::LeftNavigation => {
                 self.focus_region = TuiFocusRegion::DetailsPanel;
-                self.preview_open = false;
+                self.preview_open = true;
             }
             TuiFocusRegion::DetailsPanel | TuiFocusRegion::CommandRail => {
                 self.preview_open = !self.preview_open;

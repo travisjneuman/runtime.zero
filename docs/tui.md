@@ -15,10 +15,11 @@ Scriptable output is written through guarded stdout/stderr handling so common
 pipe consumers can stop reading without turning a closed pipe into a user-facing
 panic.
 
-The TUI is a safe review dashboard. It is part of the foundation, not an
-optional feature module, but it does not replace the CLI contracts. Every
-capability shown in the TUI must remain available through stable text or JSON
-commands.
+The TUI is the interactive local-software dashboard. It is part of the
+foundation, not an optional feature module, and it does not replace stable CLI
+contracts. Every displayed operation must either work from the TUI or identify
+the exact CLI entry point that performs it; planned or unavailable operations
+must not be presented as completed capabilities.
 
 ## Terminal behavior
 
@@ -43,7 +44,7 @@ Runtime behavior:
 - uses a very-small safe fallback below 50x12;
 - uses a compact single-frame dashboard from 50x12 when width/height are constrained;
 - uses standard and wide full dashboard layouts from 72x20 and 110x24 respectively;
-- keeps focus, section, read-only, and preview-only labels visible in compact mode instead of hiding actions behind clipped panes;
+- keeps the selected section, selected item, and available actions visible in compact mode instead of hiding them behind clipped panes;
 - enters raw mode so single-key actions do not require Enter and do not echo;
 - uses an alternate screen for the dashboard;
 - hides the cursor while active;
@@ -57,19 +58,20 @@ Runtime behavior:
 Minimum keys:
 
 - `q`: quit safely;
-- `r`: refresh the bounded local snapshot without executing commands;
-- `u`: explicitly check configured manager availability sources using bounded
-  read-only probes; this may request network metadata but never updates software;
+- `r`: refresh the bounded local snapshot;
+- `u`: check configured manager availability sources using bounded probes; this
+  may request network metadata but never updates software;
 - `/`: begin bounded software-name/source/ID search; Enter accepts and Esc cancels;
 - `f`: cycle software filters (all, applications, package managers, reviewable);
 - `s`: cycle software sort order (name, version, kind);
-- Esc: close preview/help, back out to navigation, or quit from the base navigation focus;
+- Esc: close details/help, back out to navigation, or quit from the base navigation focus;
 - `h` or `?`: toggle keyboard/safety help;
 - Tab: cycle focus forward through left navigation, details, and command rail;
 - Shift+Tab / BackTab: cycle focus backward when exposed by the terminal;
 - down/right arrow or `j`: move within the focused region;
 - up/left arrow or `k`: move backward within the focused region;
-- Enter/Space: toggle a read-only details or command preview, never execution;
+- Enter/Space: open or close details for the selected item or command;
+- mouse wheel: scroll the list under the pointer by three rows;
 - Home/End: first/last dashboard section in navigation, or first/last row/command in the focused details or command rail.
 
 ## Dashboard content
@@ -82,14 +84,15 @@ The dashboard performs bounded local reads at startup and shows:
   disagreement, while keeping source records separate;
 - versions when bounded bundle or manager-directory metadata provides them;
 - one installed-software list where every row exposes its available details and
-  uninstall posture; applicable rows preview exact `rz0 uninstall plan <id>` commands;
+  uninstall posture; applicable rows show the exact `rz0 uninstall plan <id>` command;
 - cached search/filter/sort controls that do not re-run inventory until `r` is pressed;
 - store, registry, receipt, and module lifecycle state;
 - the built-in first-party inventory adapter and scriptable `rz0 apps` surface.
 
 The dashboard must not claim planned modules are installed or active. Enter
-opens an exact review command but does not run it. Protected system software is
-blocked, and uninstall reviews cannot authorize mutation.
+shows the selected item's details and exact available command. Protected system
+software is blocked. Update writes use the explicit, confirmation-bound
+`rz0 updates --apply` CLI lane; the dashboard does not silently execute them.
 
 
 ## Current shell layout
@@ -100,20 +103,19 @@ now renders the existing dashboard data model through Ratatui widgets:
 - a bounded header panel with product/version and live-inventory status;
 - a navigation rail/index for overview, runtime state, installed software,
   modules, and safety gates;
-- a selected-section panel with dossier code, summary, current position,
-  visible details focus, and read-only row previews;
+- a selected-section panel with the section summary, fixed position counter,
+  visible selected row, and a separate details panel;
 - foundation state cards for store, registry, receipt, and installed-module
   posture with reusable status-pair formatting;
-- a command rail that supports selection and read-only previews of equivalent
-  scriptable CLI commands without running them, including `rz0 apps` and
-  `rz0 uninstall plan <id>`, with explicit `PREVIEW ONLY` copy;
-- a persistent safety footer and optional help overlay.
+- a command rail that lists exact scriptable CLI commands, including `rz0 apps`
+  and `rz0 uninstall plan <id>`, with Enter showing the command description;
+- an actions footer and optional help overlay; mouse capture is enabled and
+  restored on exit.
 
 Interactive rendering applies Dossier Navy / Burnished Brass status tones to
-headers, selected navigation, focus titles, status badges, and blocked/dry-run
-rows. Reusable Ratatui component helpers own the header, state cards,
-preview-only copy, command rail, and safety footer so later visual tuning stays
-narrow. Text labels remain the source of truth: `[OK]`, `[INFO]`, `[PLAN]`,
+headers, selected navigation, status badges, and action rows. Reusable Ratatui
+component helpers own the header, state cards, details panel, command rail, and
+actions footer so later visual tuning stays narrow. Text labels remain the source of truth: `[OK]`, `[INFO]`, `[PLAN]`,
 `[DRY-RUN]`, `[BLOCKED]`, and `[SKIP]` must still explain the state when color
 is disabled or unavailable.
 
@@ -151,7 +153,7 @@ terminal dimensions, color mode, raw mode, or Ratatui rendering state.
 ## Website parity backlog
 
 The terminal TUI is now the source of truth for labels, state hierarchy,
-responsive layout vocabulary, and read-only command preview posture. Website
+responsive layout vocabulary, and interactive action entry points. Website
 mockups should be updated only in a separate website lane after Travis approves
 the visual direction. See [`website-tui-parity-backlog.md`](website-tui-parity-backlog.md)
 for the exact backlog and checks.
@@ -191,13 +193,15 @@ Manual check after refreshing the installed binary:
 2. Press down arrow once while the left navigation is focused; selection should advance exactly one section.
 3. Hold down arrow; repeat navigation should continue predictably.
 4. Press Tab and Shift+Tab; focus should move visibly among left navigation, details, and command rail.
-5. In details or command rail focus, press Enter/Space; a read-only preview should appear and no command should run.
-6. Press `u`; explicit manager availability checks should render update
+5. In details or command focus, press Enter/Space; the details panel should appear.
+6. Scroll the mouse over the installed-software list; the selected row should
+   advance three rows per wheel event and remain visible at the bottom.
+7. Press `u`; explicit manager availability checks should render update
    candidates or an unavailable-source warning without executing updates.
-7. Press `r`; the live local snapshot should refresh without executing a command.
-8. Press Esc; preview/help should close or focus should back out before quitting from base navigation.
-9. Press `h` or `?`; help should toggle without typed input echo and show focus-region guidance.
-10. Press `q`; the TUI should exit and restore the normal prompt.
+8. Press `r`; the local snapshot should refresh.
+9. Press Esc; details/help should close or focus should back out before quitting.
+10. Press `h` or `?`; help should toggle without typed input echo.
+11. Press `q`; the TUI should exit and restore the normal prompt.
 
 ## Brand and maintainability
 
@@ -208,18 +212,19 @@ terminals, and with color disabled through `NO_COLOR`.
 
 Rendering, app state, input handling, and data shaping are deliberately split:
 
-- `src/tui_dashboard.rs` builds the read-only data model;
+- `src/tui_dashboard.rs` builds the bounded dashboard data model;
 - `src/tui_canvas.rs` owns frame, padding, truncation, and line helpers;
 - `src/tui_render.rs` renders the resize-safe scriptable text dashboard shell;
 - `src/tui_render_support.rs` owns render-only text helpers and tone mapping;
 - `src/tui_ratatui.rs` composes the interactive widget dashboard;
 - `src/tui_layout.rs` owns named layout tiers and minimum terminal dimensions;
-- `src/tui_ratatui_components.rs` owns reusable header, state card,
-  preview-only, compact, and safety-footer components;
-- `src/tui_ratatui_rail.rs` renders the read-only command preview rail;
+- `src/tui_ratatui_components.rs` owns reusable header, state card, details,
+  compact, and actions-footer components;
+- `src/tui_ratatui_rail.rs` renders the command rail;
 - `src/tui_ratatui_support.rs` owns Ratatui style/layout helper primitives;
 - `src/tui_command_rail.rs` owns command preview metadata;
-- `src/tui_state.rs` owns focus, navigation, preview, search/filter/sort, and help state transitions;
+- `src/tui_state.rs` owns focus, navigation, details, mouse-scroll,
+  search/filter/sort, and help state transitions;
 - `src/tui_app.rs` owns terminal raw-mode lifecycle and event handling;
 - `src/tui_theme.rs` owns tokens/status label constants.
 

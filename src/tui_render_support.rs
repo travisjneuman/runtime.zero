@@ -53,15 +53,11 @@ pub(crate) fn humanize_debug(value: &str) -> String {
 
 pub(crate) fn tone_for_text(value: &str) -> Option<tui_theme::TuiTone> {
     let trimmed = value.trim_start();
-    if trimmed.starts_with('▸')
-        || trimmed.starts_with("DOSSIER")
-        || trimmed.starts_with("SCRIPTABLE")
-    {
+    if trimmed.starts_with('▸') || trimmed.starts_with("COMMANDS") {
         return Some(tui_theme::TuiTone::Accent);
     }
-    if trimmed.starts_with("NAVIGATION")
-        || trimmed.starts_with("POSTURE")
-        || trimmed.starts_with("FOUNDATION STATE")
+    if trimmed.starts_with("SECTIONS")
+        || trimmed.starts_with("STATUS")
         || trimmed.contains(tui_theme::LABEL_INFO)
     {
         return Some(tui_theme::TuiTone::Info);
@@ -78,7 +74,7 @@ pub(crate) fn tone_for_text(value: &str) -> Option<tui_theme::TuiTone> {
     if trimmed.contains(tui_theme::LABEL_WARN) || trimmed.contains(tui_theme::LABEL_BLOCKED) {
         return Some(tui_theme::TuiTone::Warn);
     }
-    if trimmed.contains(tui_theme::LABEL_SKIP) || trimmed.ends_with("read-only") {
+    if trimmed.contains(tui_theme::LABEL_SKIP) || trimmed.ends_with("blocked") {
         return Some(tui_theme::TuiTone::Muted);
     }
     None

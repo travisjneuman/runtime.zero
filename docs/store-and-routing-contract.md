@@ -291,8 +291,8 @@ paths.
 
 The current routing contract is deterministic:
 
-- bare `rz0` with interactive stdin/stdout opens the live read-only local-
-  software TUI when automation is not detected;
+- bare `rz0` with interactive stdin/stdout opens the live local-software TUI
+  when automation is not detected;
 - bare `rz0` falls back to safe CLI dashboard text when non-interactive or
   automated;
 - `rz0 --tui` explicitly requests the TUI and returns a clear usage error when
@@ -313,13 +313,14 @@ PATH setup, release publication, or bootstrap command.
 The TUI key contract is:
 
 - `q` quits immediately without echoing typed input;
-- Esc closes preview/help, returns focus toward navigation, or quits from base
+- Esc closes details/help, returns focus toward navigation, or quits from base
   navigation;
 - `h` or `?` toggles help;
 - Tab and Shift+Tab cycle navigation, details, and command-rail focus;
 - arrows or `j`/`k` move within the focused region;
 - Home and End jump to the first and last section while navigation is focused;
-- Enter/Space opens or closes a read-only row/command preview;
+- Enter/Space opens or closes selected row/command details;
+- mouse wheel scrolls the list under the pointer by three rows;
 - terminal resize events re-render without changing selected evidence;
 - key release events are ignored, while press and repeat events remain
   intentional so Windows terminals do not double-advance navigation.
@@ -328,12 +329,13 @@ The terminal guard must restore raw mode, cursor visibility, and the normal
 screen on exit or panic unwinding.
 
 The TUI may show built-in bounded read-only software evidence plus foundation
-store/module/safety state. Its five sections are overview, local store,
-installed software, modules, and safety gates. Installed software is one
-canonical object list: each row shows details and only an applicable protected,
-manager-review, quarantine-review, or unsupported uninstall posture. Previewing
-a row never executes it. The TUI must not imply optional modules are installed
-or active when the installed registry is empty.
+store/module state. Its five sections are overview, local store, installed
+software, modules, and actions. Installed software is one canonical object list:
+each row shows details and only an applicable protected, manager-review,
+quarantine-review, or unsupported uninstall posture. Details show exact CLI
+entry points; manager update writes use the separate confirmation-bound updater
+lane. The TUI must not imply optional modules are installed or active when the
+installed registry is empty.
 
 ## Brand and output constraints
 

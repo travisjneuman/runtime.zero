@@ -4,8 +4,8 @@ use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 
 use crate::tui_command_rail::{COMMANDS, selected_command};
-use crate::tui_ratatui_components::preview_only_line;
-use crate::tui_ratatui_support::{block, command_line, focused_title, label_line, tone_style};
+use crate::tui_ratatui_components::details_line;
+use crate::tui_ratatui_support::{block, command_line, label_line};
 use crate::tui_state::{TuiFocusRegion, TuiState};
 use crate::tui_theme;
 
@@ -15,34 +15,59 @@ pub(crate) fn render_command_rail(
     state: &TuiState,
     color: bool,
 ) {
-    let mut lines = Vec::new();
-    if state.preview_open && state.focus_region == TuiFocusRegion::CommandRail {
-        let command = selected_command(state.selected_command);
-        lines.push(preview_only_line(color));
-        lines.push(Line::styled(command.preview, tone_style("muted", color)));
-        lines.push(Line::raw(format!("selected: {}", command.command)));
+    let panel = block("COMMANDS", "accent", color);
+    let inner = panel.inner(area);
+    frame.render_widget(panel, area);
+
+    let selected = state.selected_command.min(COMMANDS.len().saturating_sub(1));
+    let show_details = state.preview_open && state.focus_region == TuiFocusRegion::CommandRail;
+    let detail_height = if show_details { 2 } else { 1 }.min(inner.height);
+    let detail_area = Rect {
+        x: inner.x,
+        y: inner.y,
+        width: inner.width,
+        height: detail_height,
+    };
+    let detail_lines = if show_details {
+        let command = selected_command(selected);
+        vec![
+            details_line(color),
+            Line::raw(format!("{} · {}", command.preview, command.command)),
+        ]
     } else {
-        lines.push(label_line(
+        vec![label_line(
             tui_theme::LABEL_INFO,
-            "select to preview; TUI will not run commands",
+            "available command",
             "info",
             color,
-        ));
-    }
-    for (index, command) in COMMANDS.iter().enumerate() {
-        let focused = state.focus_region == TuiFocusRegion::CommandRail
-            && index == state.selected_command.min(COMMANDS.len().saturating_sub(1));
-        lines.push(command_line(*command, focused, color));
-    }
+        )]
+    };
+    frame.render_widget(Paragraph::new(detail_lines), detail_area);
+
+    let list_area = Rect {
+        x: inner.x,
+        y: inner.y.saturating_add(detail_height),
+        width: inner.width,
+        height: inner.height.saturating_sub(detail_height),
+    };
+    let rows = COMMANDS
+        .iter()
+        .enumerate()
+        .map(|(index, command)| {
+            command_line(
+                *command,
+                state.focus_region == TuiFocusRegion::CommandRail && index == selected,
+                color,
+            )
+        })
+        .collect::<Vec<_>>();
+    let list_height = usize::from(list_area.height);
+    let max_scroll = rows.len().saturating_sub(list_height);
+    let scroll = selected
+        .saturating_sub(list_height.saturating_sub(1))
+        .min(max_scroll);
     frame.render_widget(
-        Paragraph::new(lines).block(block(
-            focused_title(
-                "SCRIPTABLE CLI RAIL",
-                state.focus_region == TuiFocusRegion::CommandRail,
-            ),
-            "accent",
-            color,
-        )),
-        area,
+        Paragraph::new(rows).scroll((u16::try_from(scroll).unwrap_or(u16::MAX), 0)),
+        list_area,
     );
 }

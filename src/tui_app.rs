@@ -1,18 +1,24 @@
 use std::io::{self, Write};
 
 use crossterm::cursor::{Hide, Show};
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+    MouseEvent, MouseEventKind,
+};
 use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use ratatui::Terminal;
 use ratatui::backend::{Backend, CrosstermBackend};
+use ratatui::layout::Rect;
 
 use crate::launch_routing::LaunchRoutingReport;
 use crate::tui_dashboard;
+use crate::tui_layout::TuiLayoutTier;
 use crate::tui_ratatui::draw_dashboard;
-use crate::tui_state::{TuiAction, TuiInput, TuiState};
+use crate::tui_ratatui_support::help_height;
+use crate::tui_state::{TuiAction, TuiInput, TuiMouseTarget, TuiState};
 
 pub fn run_interactive_tui(launch_context: &LaunchRoutingReport, color: bool) -> io::Result<()> {
     let mut stdout = io::stdout();
@@ -33,6 +39,7 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
     loop {
         let input = match event::read()? {
             Event::Key(key) => input_from_key(key, state.search_active()),
+            Event::Mouse(mouse) => input_from_mouse(mouse, terminal.size()?.into()),
             Event::Resize(_, _) => Some(TuiInput::Resize),
             _ => None,
         };
@@ -123,12 +130,49 @@ fn input_from_key(key: KeyEvent, search_active: bool) -> Option<TuiInput> {
     })
 }
 
+fn input_from_mouse(mouse: MouseEvent, size: Rect) -> Option<TuiInput> {
+    let target = mouse_target(mouse.column, mouse.row, size);
+    match mouse.kind {
+        MouseEventKind::ScrollUp => Some(TuiInput::ScrollUp(target)),
+        MouseEventKind::ScrollDown => Some(TuiInput::ScrollDown(target)),
+        _ => None,
+    }
+}
+
+fn mouse_target(column: u16, row: u16, size: Rect) -> TuiMouseTarget {
+    let tier = TuiLayoutTier::from_size(size.width, size.height);
+    if tier == TuiLayoutTier::VerySmall {
+        return TuiMouseTarget::Details;
+    }
+
+    let body_top = 4u16;
+    let help = help_height(&TuiState::new(1), size);
+    let body_height = size
+        .height
+        .saturating_sub(body_top)
+        .saturating_sub(help)
+        .saturating_sub(3);
+    if tier == TuiLayoutTier::Wide || size.width >= 92 {
+        if column < 26 {
+            TuiMouseTarget::Navigation
+        } else if row >= body_top.saturating_add(body_height.saturating_sub(7)) {
+            TuiMouseTarget::Commands
+        } else {
+            TuiMouseTarget::Details
+        }
+    } else if row < body_top.saturating_add(8) {
+        TuiMouseTarget::Navigation
+    } else {
+        TuiMouseTarget::Details
+    }
+}
+
 struct TerminalGuard;
 
 impl TerminalGuard {
     fn enter<W: Write>(output: &mut W) -> io::Result<Self> {
         enable_raw_mode()?;
-        if let Err(err) = execute!(output, EnterAlternateScreen, Hide) {
+        if let Err(err) = execute!(output, EnterAlternateScreen, EnableMouseCapture, Hide) {
             let _ = disable_raw_mode();
             return Err(err);
         }
@@ -139,7 +183,12 @@ impl TerminalGuard {
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
         let _ = disable_raw_mode();
-        let _ = execute!(io::stdout(), Show, LeaveAlternateScreen);
+        let _ = execute!(
+            io::stdout(),
+            Show,
+            DisableMouseCapture,
+            LeaveAlternateScreen
+        );
     }
 }
 
@@ -148,7 +197,7 @@ mod tests {
     use super::*;
     use crate::launch_routing::{LaunchEnvironment, resolve_launch_mode};
     use crate::tui_render::render_dashboard_with_state;
-    use crossterm::event::KeyModifiers;
+    use crossterm::event::{KeyModifiers, MouseEvent, MouseEventKind};
 
     #[test]
     fn q_key_maps_to_quit_without_printable_output() {
@@ -204,6 +253,34 @@ mod tests {
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::End), false),
             Some(TuiInput::LastSection)
+        );
+    }
+
+    #[test]
+    fn mouse_wheel_targets_the_list_under_the_pointer() {
+        let details = input_from_mouse(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: 80,
+                row: 12,
+                modifiers: KeyModifiers::NONE,
+            },
+            Rect::new(0, 0, 120, 34),
+        );
+        assert_eq!(details, Some(TuiInput::ScrollDown(TuiMouseTarget::Details)));
+
+        let navigation = input_from_mouse(
+            MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                column: 5,
+                row: 12,
+                modifiers: KeyModifiers::NONE,
+            },
+            Rect::new(0, 0, 120, 34),
+        );
+        assert_eq!(
+            navigation,
+            Some(TuiInput::ScrollUp(TuiMouseTarget::Navigation))
         );
     }
 

@@ -26,11 +26,11 @@ fn render_text(width: u16, height: u16, state: &TuiState, color: bool) -> String
 fn widget_dashboard_keeps_text_first_labels() {
     let text = render_text(110, 32, &TuiState::new(4), false);
     assert!(text.contains("runtime.zero"));
-    assert!(text.contains("NAVIGATION"));
-    assert!(text.contains("DOSSIER 01"));
+    assert!(text.contains("SECTIONS"));
+    assert!(text.contains("OVERVIEW"));
     assert!(text.contains(tui_theme::LABEL_OK));
-    assert!(text.contains(tui_theme::LABEL_BLOCKED));
-    assert!(text.contains("SCRIPTABLE CLI RAIL"));
+    assert!(text.contains(tui_theme::LABEL_INFO));
+    assert!(text.contains("COMMANDS"));
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn selected_section_changes_detail_panel() {
     let mut state = TuiState::new(dashboard.sections.len());
     state.selected_section = 2;
     let text = render_text(110, 32, &state, false);
-    assert!(text.contains("DOSSIER 03"));
+    assert!(text.contains("INSTALLED SOFTWARE"));
     assert!(text.contains("installed software"));
 }
 
@@ -55,10 +55,9 @@ fn compact_layout_keeps_focus_and_safety_visible() {
     let mut state = TuiState::new(4);
     state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
     let text = render_text(58, 16, &state, false);
-    assert!(text.contains("COMPACT // SAFE DASHBOARD"));
+    assert!(text.contains("COMPACT // DASHBOARD"));
     assert!(text.contains("layout: compact"));
-    assert!(text.contains("focus: details"));
-    assert!(text.contains("PREVIEW ONLY"));
+    assert!(text.contains("selected item details"));
     assert!(text.contains("q exits"));
 }
 
@@ -76,26 +75,25 @@ fn help_mode_preserves_cli_escape_hatch_copy() {
     let mut state = TuiState::new(4);
     state.show_help = true;
     let text = render_text(90, 24, &state, false);
-    assert!(text.contains("--json"));
-    assert!(text.contains("--no-tui"));
-    assert!(text.contains("Esc closes preview/help"));
-    assert!(text.contains("q quits"));
+    assert!(text.contains("mouse wheel scrolls"));
+    assert!(text.contains("Esc back"));
+    assert!(text.contains("q quit"));
 }
 
 #[test]
 fn focus_regions_are_visible_without_color() {
     let mut state = TuiState::new(4);
     let text = render_text(110, 32, &state, false);
-    assert!(text.contains("INDEX [FOCUS]"));
+    assert!(text.contains("SECTIONS"));
 
     state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
     let details = render_text(110, 32, &state, false);
-    assert!(details.contains("SELECTED SECTION [FOCUS]"));
+    assert!(details.contains("OVERVIEW"));
     assert!(details.contains("▶ [OK]"));
 
     state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
     let rail = render_text(110, 32, &state, false);
-    assert!(rail.contains("SCRIPTABLE CLI RAIL [FOCUS]"));
+    assert!(rail.contains("COMMANDS"));
     assert!(rail.contains("▶ [INFO]"));
     assert!(rail.contains("doctor"));
 }
@@ -107,8 +105,8 @@ fn read_only_previews_do_not_claim_execution() {
     state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
     state.apply(runtime_zero::tui_state::TuiInput::Activate);
     let text = render_text(110, 32, &state, false);
-    assert!(text.contains("PREVIEW"));
-    assert!(text.contains("no command execution from TUI"));
+    assert!(text.contains("selected item details"));
+    assert!(text.contains("rz0 doctor"));
     assert!(!text.contains("installed successfully"));
 }
 
@@ -121,18 +119,18 @@ fn live_software_command_is_previewed_without_execution_claims() {
     state.apply(runtime_zero::tui_state::TuiInput::Activate);
     let text = render_text(118, 34, &state, false);
     assert!(text.contains("rz0 apps"));
-    assert!(text.contains("list live bounded application"));
+    assert!(text.contains("list installed applications and packages"));
     assert!(!text.contains("module activated"));
 }
 
 #[test]
 fn polished_shell_uses_component_labels_without_color_dependency() {
     let text = render_text(118, 34, &TuiState::new(4), false);
-    assert!(text.contains("RZ0 // FOUNDATION CONTROL SURFACE"));
-    assert!(text.contains("FOUNDATION STATE // LIVE"));
-    assert!(text.contains("SAFETY // LOCKED"));
-    assert!(text.contains("installed software is selectable"));
-    assert!(text.contains("select to preview; TUI will not run commands"));
+    assert!(text.contains("RZ0 // INSTALLED SOFTWARE"));
+    assert!(text.contains("STATUS"));
+    assert!(text.contains("ACTIONS"));
+    assert!(text.contains("installed software"));
+    assert!(text.contains("available command"));
 }
 
 #[test]
@@ -140,19 +138,33 @@ fn color_mode_does_not_change_required_text_labels() {
     let state = TuiState::new(4);
     let plain = render_text(110, 32, &state, false);
     let color = render_text(110, 32, &state, true);
-    for label in [
-        tui_theme::LABEL_OK,
-        tui_theme::LABEL_INFO,
-        tui_theme::LABEL_BLOCKED,
-    ] {
+    for label in [tui_theme::LABEL_OK, tui_theme::LABEL_INFO] {
         assert!(plain.contains(label));
         assert!(color.contains(label));
     }
     let dashboard = runtime_zero::tui_dashboard::dashboard();
     let mut modules = TuiState::new(dashboard.sections.len());
     modules.selected_section = 3;
-    assert!(render_text(110, 32, &modules, false).contains(tui_theme::LABEL_DRY_RUN));
-    assert!(render_text(110, 32, &modules, true).contains(tui_theme::LABEL_DRY_RUN));
+    assert!(render_text(110, 32, &modules, false).contains(tui_theme::LABEL_INFO));
+    assert!(render_text(110, 32, &modules, true).contains(tui_theme::LABEL_INFO));
+}
+
+#[test]
+fn bottom_selection_stays_visible_and_enter_opens_details() {
+    let dashboard = runtime_zero::tui_dashboard::dashboard();
+    let mut state = TuiState::new(dashboard.sections.len());
+    state.apply(runtime_zero::tui_state::TuiInput::FocusNext);
+    state.selected_section = 2;
+    state.selected_detail_row = usize::MAX;
+    let text = render_text(110, 32, &state, false);
+    let count = dashboard.sections[2].rows.len();
+    assert!(text.contains(&format!("item {count} of {count}")));
+    assert!(text.contains("▶"));
+
+    state.apply(runtime_zero::tui_state::TuiInput::Activate);
+    let details = render_text(110, 32, &state, false);
+    assert!(details.contains("DETAILS"));
+    assert!(details.contains("source:"));
 }
 
 #[test]
