@@ -353,6 +353,7 @@ fn format_load(load: [Option<u32>; 3]) -> String {
         .join(" ")
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn load_from_values(values: [f64; 3]) -> [Option<u32>; 3] {
     values.map(|value| {
         if value.is_finite() && value >= 0.0 {
@@ -1212,7 +1213,7 @@ mod windows_collector {
             exe_file: [0; 260],
         };
         let mut rows = Vec::new();
-        let mut running = 0usize;
+        let running = 0usize;
         let mut total = 0usize;
         let mut has_entry = unsafe { Process32FirstW(handle, &mut entry) } != 0;
         while has_entry {
@@ -1314,6 +1315,7 @@ mod tests {
         assert_eq!(format_duration(3_661), "01h 01m 01s");
     }
 
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
     fn load_values_reject_invalid_samples() {
         let values = load_from_values([0.5, f64::NAN, -1.0]);
