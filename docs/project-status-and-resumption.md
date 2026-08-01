@@ -2,10 +2,12 @@
 
 ## Snapshot identity
 
-- **Work status:** paused by the owner on 2026-07-30.
+- **Work status:** current usability continuation completed on 2026-08-01;
+  production work remains gated.
 - **Source status:** pre-alpha; not a production or 1.0 release.
 - **Canonical branch:** `main`.
-- **Verified product implementation commit:** `53d1e3de4df8b0cbf15bf58ca520a56e81df6e5a`.
+- **Verified product implementation commit:** `ae28f095df02d8ab20abce7c63542d8d2d83f74f`.
+- **Paused baseline commit:** `53d1e3de4df8b0cbf15bf58ca520a56e81df6e5a`.
 - **Current CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -15,6 +17,12 @@ This document is the public-safe starting point for future work. Read it before
 changing code, then follow the topic-specific contracts linked below. Historical
 runtime evidence, host-local paths, and operator-only details belong outside the
 public repository.
+
+The 2026-08-01 usability continuation added an explicit TUI refresh key,
+long-list position/jump behavior, safer compact previews, and consistent CLI
+format/option parsing without changing the read-only product boundary. See the
+repository commit above and the private project implementation record for
+validation evidence.
 
 ## Why the last implementation changed direction
 
