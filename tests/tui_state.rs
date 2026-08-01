@@ -14,6 +14,7 @@ fn refresh_requests_a_new_read_only_snapshot_without_quitting() {
     state.apply(TuiInput::Activate);
     assert_eq!(state.apply(TuiInput::Refresh), TuiAction::Refresh);
     assert!(!state.preview_open);
+    assert_eq!(state.apply(TuiInput::CheckUpdates), TuiAction::CheckUpdates);
 
     state.apply(TuiInput::ToggleHelp);
     assert_eq!(state.apply(TuiInput::Refresh), TuiAction::Continue);

@@ -240,13 +240,13 @@ fn render_help(frame: &mut Frame<'_>, area: Rect, state: &TuiState, color: bool)
         vec![
             Line::raw("Tab/Shift+Tab focus · ↑/↓/j/k move within focus · Enter/Space preview"),
             Line::raw(
-                "/ search · f filter · s sort · r refresh · Esc closes preview/help · q quits",
+                "u updates · q quits · / search · f filter · s sort · r refresh · Esc closes preview/help",
             ),
             Line::raw("subcommands, --json, pipes, and --no-tui stay CLI-only"),
         ]
     } else {
         vec![Line::raw(
-            "keys: Tab focus · / search · f filter · s sort · r refresh · Enter preview · h help · q quit",
+            "keys: Tab focus · u updates · / search · f filter · s sort · r refresh · Enter preview · h help · q quit",
         )]
     };
     frame.render_widget(

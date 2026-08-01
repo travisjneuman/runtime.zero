@@ -28,6 +28,8 @@ cancellation, or recovery requirements. Missing installed/manager evidence or
 an exact absolute manager executable remains blocked. The module includes bounded, locale-reviewed parser slices for Homebrew JSON,
 APT, DNF, Pacman, and MacPorts fixture output, plus explicit probe specifications
 for Windows Winget and the major Linux/macOS managers. Locale-unsafe sources
-fail closed. The module still does not discover packages, access a network, run
-managers, or execute updates; live process integration and production
+fail closed. The module itself still does not discover packages, access a
+network, run managers, or execute updates. The core exposes a separately
+explicit probe path for one bounded manager query; that path remains subject to
+platform identity/process proof. Update execution and production
 process/transaction gates remain separate work.

@@ -39,6 +39,9 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
         if let Some(input) = input {
             match state.apply(input) {
                 TuiAction::Quit => break,
+                TuiAction::CheckUpdates => {
+                    dashboard.check_updates();
+                }
                 TuiAction::Refresh => {
                     let selected_section = state.selected_section;
                     let selected_detail_row = state.selected_detail_row;
@@ -91,7 +94,10 @@ fn input_from_key(key: KeyEvent, search_active: bool) -> Option<TuiInput> {
         });
     }
     if key.kind == KeyEventKind::Repeat
-        && matches!(key.code, KeyCode::Char('r') | KeyCode::Char('R'))
+        && matches!(
+            key.code,
+            KeyCode::Char('r') | KeyCode::Char('R') | KeyCode::Char('u') | KeyCode::Char('U')
+        )
     {
         return Some(TuiInput::Other);
     }
@@ -107,6 +113,7 @@ fn input_from_key(key: KeyEvent, search_active: bool) -> Option<TuiInput> {
         KeyCode::BackTab => TuiInput::FocusPrevious,
         KeyCode::Enter | KeyCode::Char(' ') => TuiInput::Activate,
         KeyCode::Char('r') | KeyCode::Char('R') => TuiInput::Refresh,
+        KeyCode::Char('u') | KeyCode::Char('U') => TuiInput::CheckUpdates,
         KeyCode::Char('/') => TuiInput::BeginSearch,
         KeyCode::Char('f') | KeyCode::Char('F') => TuiInput::FilterNext,
         KeyCode::Char('s') | KeyCode::Char('S') => TuiInput::SortNext,
@@ -158,6 +165,10 @@ mod tests {
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Char('r')), false),
             Some(TuiInput::Refresh)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Char('u')), false),
+            Some(TuiInput::CheckUpdates)
         );
         assert_eq!(
             input_from_key(

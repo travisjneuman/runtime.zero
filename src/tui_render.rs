@@ -235,7 +235,7 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
         ));
     } else if interactive && state.show_help {
         lines.push(line_plain(
-            "keys: Esc back · q quit · / search · f filter · s sort · r refresh · Tab focus · Enter preview",
+            "keys: Esc back · q quit · u updates · / search · f filter · s sort · r refresh · Tab focus · Enter preview",
             width,
         ));
         lines.push(line_plain(
@@ -244,7 +244,7 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
         ));
     } else if interactive {
         lines.push(line_plain(
-            "keys: q quit · Tab focus · / search · f filter · s sort · r refresh · Enter preview · h help",
+            "keys: q quit · u updates · Tab focus · / search · f filter · s sort · r refresh · Enter preview · h help",
             width,
         ));
     } else {

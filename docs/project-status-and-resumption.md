@@ -94,6 +94,7 @@ rz0 uninstall plan <installed-software-id> [--format json]
 rz0 scan --dry-run [--include-raw-paths] [--format json]
 rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format json]
 rz0 updates --dry-run --manager <id> --manager-output <path> --executable <path> [--plan] [--queue] [--format json]
+rz0 updates --dry-run --probe --manager <id> --executable <path> --allow-network-read [--plan] [--queue] [--format json]
 rz0 modules [--format json]
 rz0 modules --from <dir> [--format json]
 rz0 modules validate <manifest.json> [--format json]
@@ -240,7 +241,7 @@ weaken them.
 | Family | Source package | Current state | Missing before production support |
 | --- | --- | --- | --- |
 | Inventory/environment | `modules/inventory` | Library embedded for bounded reads; separate fixture/development binary | Broader managers/services/persistence and full platform runtime parity |
-| Updater | `modules/updater` | Synthetic/captured-output manager parsers, dry-run action-plan binding, and serial queue contract | In-process manager discovery, source agreement, execution, rollback |
+| Updater | `modules/updater` | Synthetic/captured-output manager parsers, dry-run action-plan binding, serial queue contract, and explicit read-only probe transport | Platform identity/source-agreement proof, execution, rollback |
 | Uninstall | `modules/uninstall` | Synthetic manager classifier; core has Mac review UX | Finding/action-plan integration and safe platform execution |
 | Leftovers | `modules/leftovers` | Synthetic exact-runtime-owned classifier | Live ownership adapters and quarantine execution |
 | Cache management | `modules/cache` | Synthetic ownership/exact-evidence classifier | Live adapters, risk budgets, quarantine/restore execution |

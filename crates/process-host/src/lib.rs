@@ -65,6 +65,7 @@ pub struct ReadOnlyProcessRequest {
     pub executable: PathBuf,
     pub arguments: Vec<String>,
     pub working_directory: PathBuf,
+    pub environment: Vec<(String, String)>,
     pub timeout: Duration,
     pub output_limit: u64,
 }
@@ -89,10 +90,18 @@ pub fn run_read_only_process(
         || request.executable.as_os_str().is_empty()
         || request.timeout.is_zero()
         || request.output_limit == 0
+        || request.environment.len() > 32
+        || request.environment.iter().any(|(key, value)| {
+            key.is_empty()
+                || key.len() > 128
+                || value.len() > 4096
+                || key.chars().any(char::is_control)
+                || value.chars().any(char::is_control)
+        })
     {
         return Err(ProcessHostError::new(
             ProcessHostErrorCode::LimitExceeded,
-            "read-only process request has invalid path, timeout, or output limit",
+            "read-only process request has invalid path, environment, timeout, or output limit",
         ));
     }
     let executable_metadata = std::fs::symlink_metadata(&request.executable).map_err(|error| {
@@ -126,6 +135,7 @@ pub fn run_read_only_process(
         .args(&request.arguments)
         .current_dir(&request.working_directory)
         .env_clear()
+        .envs(request.environment.iter().map(|(key, value)| (key, value)))
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -535,6 +545,7 @@ mod tests {
             executable: PathBuf::from("/bin/sh"),
             arguments: vec!["-c".to_string(), "printf %s \"$RZ0_UNSET\"".to_string()],
             working_directory: PathBuf::from("/"),
+            environment: Vec::new(),
             timeout: Duration::from_secs(2),
             output_limit: 1_024,
         };
@@ -551,6 +562,7 @@ mod tests {
             executable: PathBuf::from("/bin/sh"),
             arguments: vec!["-c".to_string(), "sleep 30".to_string()],
             working_directory: PathBuf::from("/"),
+            environment: Vec::new(),
             timeout: Duration::from_millis(100),
             output_limit: 1_024,
         };

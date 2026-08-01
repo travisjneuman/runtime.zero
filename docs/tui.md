@@ -58,6 +58,8 @@ Minimum keys:
 
 - `q`: quit safely;
 - `r`: refresh the bounded local snapshot without executing commands;
+- `u`: explicitly check configured manager availability sources using bounded
+  read-only probes; this may request network metadata but never updates software;
 - `/`: begin bounded software-name/source/ID search; Enter accepts and Esc cancels;
 - `f`: cycle software filters (all, applications, package managers, reviewable);
 - `s`: cycle software sort order (name, version, kind);
@@ -190,10 +192,12 @@ Manual check after refreshing the installed binary:
 3. Hold down arrow; repeat navigation should continue predictably.
 4. Press Tab and Shift+Tab; focus should move visibly among left navigation, details, and command rail.
 5. In details or command rail focus, press Enter/Space; a read-only preview should appear and no command should run.
-6. Press `r`; the live local snapshot should refresh without executing a command.
-7. Press Esc; preview/help should close or focus should back out before quitting from base navigation.
-8. Press `h` or `?`; help should toggle without typed input echo and show focus-region guidance.
-9. Press `q`; the TUI should exit and restore the normal prompt.
+6. Press `u`; explicit manager availability checks should render update
+   candidates or an unavailable-source warning without executing updates.
+7. Press `r`; the live local snapshot should refresh without executing a command.
+8. Press Esc; preview/help should close or focus should back out before quitting from base navigation.
+9. Press `h` or `?`; help should toggle without typed input echo and show focus-region guidance.
+10. Press `q`; the TUI should exit and restore the normal prompt.
 
 ## Brand and maintainability
 

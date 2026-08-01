@@ -14,6 +14,7 @@ use crate::tui_dashboard_labels::{
     registry_label, registry_state_label, registry_tone, row, row_count, store_state_label,
 };
 use crate::tui_theme;
+use crate::updates::{LiveUpdateCatalog, collect_live_update_catalog};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TuiDashboard {
@@ -34,12 +35,17 @@ pub struct TuiDashboard {
     pub planned_module_family_count: usize,
     pub installed_software_count: usize,
     pub inventory_status: String,
+    pub update_check_status: String,
+    pub update_source_count: usize,
+    pub update_candidate_count: usize,
     pub sections: Vec<TuiSection>,
     pub palette: TuiPalette,
     #[serde(skip)]
     software_catalog: Option<AppCatalog>,
     #[serde(skip)]
     inventory_error: Option<String>,
+    #[serde(skip)]
+    update_catalog: Option<LiveUpdateCatalog>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -123,6 +129,9 @@ fn build_dashboard(
         planned_module_family_count: modules.summary.planned_family_count,
         installed_software_count: catalog.as_ref().map_or(0, |catalog| catalog.app_count),
         inventory_status,
+        update_check_status: "not checked".to_string(),
+        update_source_count: 0,
+        update_candidate_count: 0,
         sections: sections(
             store,
             init_status,
@@ -130,10 +139,12 @@ fn build_dashboard(
             catalog.as_ref(),
             inventory_error.as_deref(),
             &default_view,
+            None,
         ),
         palette: palette(),
         software_catalog: catalog,
         inventory_error,
+        update_catalog: None,
     }
 }
 
@@ -144,9 +155,10 @@ fn sections(
     catalog: Option<&AppCatalog>,
     inventory_error: Option<&str>,
     view: &SoftwareView,
+    updates: Option<&LiveUpdateCatalog>,
 ) -> Vec<TuiSection> {
     vec![
-        overview_section(catalog, inventory_error, view),
+        overview_section(catalog, inventory_error, view, updates),
         TuiSection {
             code: "02",
             title: "local store",
@@ -174,7 +186,7 @@ fn sections(
                 ),
             ],
         },
-        installed_software_section(catalog, inventory_error, view),
+        installed_software_section(catalog, inventory_error, view, updates),
         TuiSection {
             code: "04",
             title: "modules",
@@ -234,6 +246,7 @@ fn overview_section(
     catalog: Option<&AppCatalog>,
     inventory_error: Option<&str>,
     view: &SoftwareView,
+    updates: Option<&LiveUpdateCatalog>,
 ) -> TuiSection {
     let mut rows = vec![row(
         tui_theme::LABEL_OK,
@@ -273,6 +286,36 @@ fn overview_section(
                 "identity groups",
                 "info",
             ));
+            match updates {
+                Some(updates) => {
+                    rows.push(row_count(
+                        tui_theme::LABEL_PLAN,
+                        updates.candidate_count,
+                        "update candidates found",
+                        "accent",
+                    ));
+                    rows.push(TuiRow {
+                        label: tui_theme::LABEL_INFO,
+                        value: format!(
+                            "update sources: {}/{} ready · warnings: {}",
+                            updates.source_ok_count,
+                            updates.source_count,
+                            updates.warnings.len()
+                        ),
+                        tone: if updates.warnings.is_empty() {
+                            "info"
+                        } else {
+                            "warn"
+                        },
+                        preview: None,
+                    });
+                }
+                None => rows.push(row(
+                    tui_theme::LABEL_INFO,
+                    "updates not checked · press u to check",
+                    "info",
+                )),
+            }
             rows.push(row_count(
                 tui_theme::LABEL_PLAN,
                 uninstall_reviews,
@@ -293,7 +336,7 @@ fn overview_section(
     }
     rows.push(row(
         tui_theme::LABEL_INFO,
-        "Tab details; arrows select; Enter previews; r refreshes",
+        "Tab details · Enter preview · u updates · r refresh",
         "info",
     ));
     TuiSection {
@@ -308,6 +351,7 @@ fn installed_software_section(
     catalog: Option<&AppCatalog>,
     inventory_error: Option<&str>,
     view: &SoftwareView,
+    updates: Option<&LiveUpdateCatalog>,
 ) -> TuiSection {
     let mut rows = Vec::new();
     match catalog {
@@ -327,7 +371,7 @@ fn installed_software_section(
             rows.push(TuiRow {
                 label: tui_theme::LABEL_INFO,
                 value: format!(
-                    "{} · select an item and press Enter to preview its available options",
+                    "{} · select an item and press Enter to preview its available options; u checks updates",
                     view_description(view)
                 ),
                 tone: "info",
@@ -345,7 +389,7 @@ fn installed_software_section(
                     SoftwareKind::HomebrewFormula | SoftwareKind::HomebrewCask => "[PKG]",
                     SoftwareKind::ApplicationBundle | SoftwareKind::PlatformPackage => "[APP]",
                 };
-                let (options, tone, preview) = match app.uninstall_option {
+                let (uninstall_options, tone, mut preview) = match app.uninstall_option {
                     UninstallOption::Protected => (
                         "options: details · system protected",
                         "muted",
@@ -369,7 +413,26 @@ fn installed_software_section(
                             .to_string(),
                     ),
                 };
-                let preview = format!(
+                let mut options = uninstall_options.to_string();
+                if let Some(update) = updates.and_then(|updates| {
+                    updates
+                        .candidates
+                        .iter()
+                        .find(|update| update.software_id == app.id)
+                }) {
+                    options = format!(
+                        "update available: {} · {}",
+                        update.available_version, options
+                    );
+                    preview = format!(
+                        "update review: {} {} -> {}; {}",
+                        update.manager,
+                        update.installed_version.as_deref().unwrap_or("unknown"),
+                        update.available_version,
+                        preview
+                    );
+                }
+                preview = format!(
                     "{preview}; source: {} · identity: {} ({})",
                     app.source_id,
                     app.identity_group_id,
@@ -426,12 +489,29 @@ impl TuiDashboard {
             self.software_catalog.as_ref(),
             self.inventory_error.as_deref(),
             view,
+            self.update_catalog.as_ref(),
         );
         self.sections[2] = installed_software_section(
             self.software_catalog.as_ref(),
             self.inventory_error.as_deref(),
             view,
+            self.update_catalog.as_ref(),
         );
+    }
+
+    pub fn check_updates(&mut self) {
+        let Some(catalog) = self.software_catalog.as_ref() else {
+            self.update_check_status = "unavailable · private summary".to_string();
+            return;
+        };
+        let updates = collect_live_update_catalog(catalog);
+        self.update_source_count = updates.source_count;
+        self.update_candidate_count = updates.candidate_count;
+        self.update_check_status = format!(
+            "checked · {} candidates · {}/{} sources",
+            updates.candidate_count, updates.source_ok_count, updates.source_count
+        );
+        self.update_catalog = Some(updates);
     }
 }
 

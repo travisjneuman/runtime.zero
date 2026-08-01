@@ -47,6 +47,7 @@ rz0 scan --dry-run
 rz0 scan --dry-run --format json
 rz0 updates --dry-run --fixture tests/fixtures/updater/evidence.json --plan --queue --format json
 rz0 updates --dry-run --manager homebrew-formula --manager-output /tmp/out.json --executable /opt/homebrew/bin/brew --plan --queue --format json
+rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --plan --queue --format json
 ```
 
 Bare `rz0` opens the live, read-only local software dashboard in an interactive terminal.
@@ -98,8 +99,10 @@ First-party feature modules are planned as separate install/use choices. A full 
 
 The foundation can validate local module manifests without executing module
 code. The fixture/captured-output `rz0 updates --dry-run` surface can classify updater
-evidence and emit a serial, review-only action queue; it does not invoke
-managers, access a network, execute commands, or write state. Installed
+evidence and emit a serial, review-only action queue. An explicit `--probe`
+path may run one bounded, cleared-environment manager query after requiring an
+exact executable path and `--allow-network-read`; it never executes an update
+or writes state. Installed
 manifests must also pass local SHA-256 integrity checks for
 explicitly listed package files:
 

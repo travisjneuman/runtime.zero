@@ -39,6 +39,17 @@ pub struct InstalledSoftware {
     pub uninstall_option: UninstallOption,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SoftwareUpdate {
+    pub software_id: String,
+    pub manager: String,
+    pub installed_version: Option<String>,
+    pub available_version: String,
+    pub network_required: bool,
+    pub requires_elevation: bool,
+    pub rollback_supported: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SoftwareKind {
@@ -400,13 +411,16 @@ fn assign_identity_groups(apps: &mut [InstalledSoftware]) -> Vec<SoftwareIdentit
     groups
 }
 
-fn identity_key(app: &InstalledSoftware) -> String {
-    let mut normalized = app
-        .name
+pub fn software_name_key(value: &str) -> String {
+    value
         .chars()
         .filter(char::is_ascii_alphanumeric)
         .flat_map(char::to_lowercase)
-        .collect::<String>();
+        .collect::<String>()
+}
+
+fn identity_key(app: &InstalledSoftware) -> String {
+    let mut normalized = software_name_key(&app.name);
     if normalized.len() < 3 {
         normalized = app.id.clone();
     }

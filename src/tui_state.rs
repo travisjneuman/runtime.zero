@@ -27,6 +27,7 @@ pub enum TuiFocusRegion {
 pub enum TuiAction {
     Quit,
     Refresh,
+    CheckUpdates,
     Continue,
 }
 
@@ -43,6 +44,7 @@ pub enum TuiInput {
     Activate,
     Back,
     Refresh,
+    CheckUpdates,
     BeginSearch,
     EndSearch,
     SearchCharacter(char),
@@ -165,6 +167,8 @@ impl TuiState {
                 TuiAction::Refresh
             }
             TuiInput::Refresh => TuiAction::Continue,
+            TuiInput::CheckUpdates if !self.show_help => TuiAction::CheckUpdates,
+            TuiInput::CheckUpdates => TuiAction::Continue,
             TuiInput::BeginSearch if !self.show_help => {
                 self.software_view.clear_query();
                 self.search_active = true;
@@ -209,7 +213,7 @@ impl TuiState {
                 TuiAction::Continue
             }
             TuiInput::Quit => TuiAction::Quit,
-            TuiInput::Refresh => TuiAction::Continue,
+            TuiInput::Refresh | TuiInput::CheckUpdates => TuiAction::Continue,
             TuiInput::Resize | TuiInput::Other => TuiAction::Continue,
             TuiInput::BeginSearch
             | TuiInput::FilterNext
