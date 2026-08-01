@@ -160,12 +160,15 @@ pub fn build_update_action_plan(
     report: &FindingReport,
 ) -> Result<ActionPlan, String> {
     let report_validation = rz0_finding_contract::validate_finding_report(report);
+    let expected_report = classify_updates(input)?;
     if !report_validation.valid
         || report.producer_module_id != MODULE_ID
         || report.contract != rz0_finding_contract::FINDING_CONTRACT
+        || report.report_id != expected_report.report_id
     {
         return Err(
-            "update action plan requires a valid sealed updater finding report".to_string(),
+            "update action plan requires a valid report sealed from the exact input evidence"
+                .to_string(),
         );
     }
     let actions = input
@@ -378,6 +381,39 @@ mod tests {
         assert_eq!(queue.items.len(), 1);
         assert_eq!(queue.items[0].sequence, 1);
         assert!(!queue.product_execution_authorized);
+    }
+
+    #[test]
+    fn rejects_a_report_that_does_not_match_the_input_evidence() {
+        let input = UpdaterFindingInput {
+            schema_version: 1,
+            contract: INPUT_CONTRACT.to_string(),
+            platform: "test".to_string(),
+            input_evidence_sha256: A.to_string(),
+            source_id: "manager.fixture".to_string(),
+            source_evidence_sha256: A.to_string(),
+            records: Vec::new(),
+        };
+        let other = UpdaterFindingInput {
+            records: vec![UpdateRecord {
+                finding_id: "update.other".to_string(),
+                subject_reference: "package:other".to_string(),
+                installed: true,
+                manager_record_present: true,
+                update_available: true,
+                installed_version: Some("1.0".to_string()),
+                available_version: Some("2.0".to_string()),
+                manager: Some("manager".to_string()),
+                executable: Some("/usr/bin/manager".to_string()),
+                arguments: vec!["upgrade".to_string(), "other".to_string()],
+                network_required: false,
+                requires_elevation: false,
+                rollback_supported: true,
+            }],
+            ..input.clone()
+        };
+        let report = classify_updates(&other).expect("other report");
+        assert!(build_update_action_plan(&input, &report).is_err());
     }
 
     #[test]
