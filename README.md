@@ -45,6 +45,8 @@ rz0 apps --format json
 rz0 uninstall plan <installed-software-id>
 rz0 scan --dry-run
 rz0 scan --dry-run --format json
+rz0 monitor --format text
+rz0 monitor --format json
 rz0 updates --dry-run --fixture tests/fixtures/updater/evidence.json --plan --queue --format json
 rz0 updates --dry-run --manager homebrew-formula --manager-output /tmp/out.json --executable /opt/homebrew/bin/brew --plan --queue --format json
 rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --plan --queue --format json
@@ -55,12 +57,15 @@ Bare `rz0` opens the live local software dashboard in an interactive terminal.
 It uses raw key handling, mouse capture, visible selection, fixed position
 counters, a separate details panel, and direct action entry points. Enter opens
 selected-item details; the mouse wheel advances the list three rows at a time;
+`m` opens the built-in system monitor; it uses native macOS/Linux/Windows
+collectors and does not require a separate btop/top/task-manager install.
 `u` checks manager availability; and `r` refreshes the local snapshot. Explicit
 manager update writes use the confirmation-bound `rz0 updates --apply` lane.
 The dashboard does not silently execute destructive actions, and it does not
 present unavailable module or uninstall operations as implemented.
 The current Ratatui widget layer provides componentized panels, status badges,
-section navigation, Home/End jumps, Tab/Shift+Tab focus cycling, arrow and
+section navigation, a live native system monitor, Home/End jumps, Tab/Shift+Tab
+focus cycling, arrow and
 `j`/`k` movement, `/` search, `f` filter cycling, `s` sort cycling, and
 wide/standard/compact layout tiers that keep the selected row visible. Esc
 closes details/help or backs out before quitting. Use `rz0 --no-tui` for the
@@ -225,6 +230,7 @@ canonical installed-state shape and digest. `crates/release-contract/` generates
 [`docs/support-report-contract.md`](docs/support-report-contract.md),
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md),
 [`docs/process-host-foundation.md`](docs/process-host-foundation.md),
+[`docs/system-monitor.md`](docs/system-monitor.md),
 [`docs/performance-contract.md`](docs/performance-contract.md),
 [`docs/module-lifecycle-contract.md`](docs/module-lifecycle-contract.md),
 [`docs/finding-contract.md`](docs/finding-contract.md),
@@ -375,7 +381,8 @@ The project is intentionally modular:
 - Interactive local-software TUI using crossterm for raw/mouse terminal
   lifecycle and Ratatui for the widget dashboard, with componentized panels,
   visible selected rows, section navigation, details, mouse-wheel scrolling,
-  Home/End and `j`/`k` navigation, and exact CLI action entry points;
+  a live native system monitor, Home/End and `j`/`k` navigation, and exact CLI
+  action entry points;
   subcommands remain the stable automation/script surface.
 
 Start with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md)

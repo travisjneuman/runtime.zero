@@ -16,7 +16,7 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 
 - [x] Public Rust CLI, safety/security/contribution docs, brand, and static site.
 - [x] Interactive Ratatui/Crossterm dashboard with text/JSON fallbacks, visible
-  selection/details, and mouse-wheel list navigation.
+  selection/details, mouse-wheel list navigation, and a live system monitor.
 - [x] Module manifest validation and local SHA-256 package integrity.
 - [x] Dry-run install planning and user-local store/registry/receipt contracts.
 - [x] Explicit store scaffolding and confirmation-bound updater manager
@@ -95,7 +95,7 @@ See [`action-planning.md`](action-planning.md).
 ## Phase 6 — interactive UX and site
 
 - [x] Interactive terminal flow, section navigation, details panel, command
-  rail, responsive layout tiers, and mouse capture.
+  rail, responsive layout tiers, mouse capture, and one-second monitor refresh.
 - [x] One live installed-software section with per-item details/uninstall posture,
   bottom-safe row selection, mouse-wheel scrolling, and exact CLI action entries.
 - [ ] Manual Windows Terminal/PowerShell TUI smoke and installed-binary refresh.

@@ -8,12 +8,13 @@ This backlog intentionally does not edit `site/`. Website work remains a separat
 
 - `RZ0 // INSTALLED SOFTWARE` header with live-inventory status and Dossier Navy / Burnished Brass posture;
 - named layout tiers: very-small, compact, standard, wide;
-- left navigation for overview, local store, installed software, modules, and actions;
+- left navigation for overview, local store, installed software, modules, actions, and system monitor;
 - selected section/details panel with a fixed position counter and visible selected row;
 - status cards for store, registry, receipts, and installed modules;
 - command rail listing exact CLI entry points;
 - one software list with per-item details, mouse-wheel scrolling, and applicable
   `rz0 apps`/`rz0 uninstall plan <id>` commands;
+- native system-monitor rows for CPU, memory, disk, network, uptime, and processes;
 - persistent actions footer;
 - help guidance for keyboard and mouse navigation.
 

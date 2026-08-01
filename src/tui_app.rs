@@ -1,4 +1,5 @@
 use std::io::{self, Write};
+use std::time::Duration;
 
 use crossterm::cursor::{Hide, Show};
 use crossterm::event::{
@@ -37,17 +38,24 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
     let mut state = TuiState::new(dashboard.sections.len());
     render(terminal, &dashboard, &state, launch_context, color)?;
     loop {
-        let input = match event::read()? {
-            Event::Key(key) => input_from_key(key, state.search_active()),
-            Event::Mouse(mouse) => input_from_mouse(mouse, terminal.size()?.into()),
-            Event::Resize(_, _) => Some(TuiInput::Resize),
-            _ => None,
+        let input = if event::poll(Duration::from_secs(1))? {
+            match event::read()? {
+                Event::Key(key) => input_from_key(key, state.search_active()),
+                Event::Mouse(mouse) => input_from_mouse(mouse, terminal.size()?.into()),
+                Event::Resize(_, _) => Some(TuiInput::Resize),
+                _ => None,
+            }
+        } else {
+            Some(TuiInput::RefreshMonitor)
         };
         if let Some(input) = input {
             match state.apply(input) {
                 TuiAction::Quit => break,
                 TuiAction::CheckUpdates => {
                     dashboard.check_updates();
+                }
+                TuiAction::RefreshMonitor => {
+                    dashboard.refresh_monitor();
                 }
                 TuiAction::Refresh => {
                     let selected_section = state.selected_section;
@@ -121,6 +129,7 @@ fn input_from_key(key: KeyEvent, search_active: bool) -> Option<TuiInput> {
         KeyCode::Enter | KeyCode::Char(' ') => TuiInput::Activate,
         KeyCode::Char('r') | KeyCode::Char('R') => TuiInput::Refresh,
         KeyCode::Char('u') | KeyCode::Char('U') => TuiInput::CheckUpdates,
+        KeyCode::Char('m') | KeyCode::Char('M') => TuiInput::OpenMonitor,
         KeyCode::Char('/') => TuiInput::BeginSearch,
         KeyCode::Char('f') | KeyCode::Char('F') => TuiInput::FilterNext,
         KeyCode::Char('s') | KeyCode::Char('S') => TuiInput::SortNext,
@@ -218,6 +227,10 @@ mod tests {
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Char('u')), false),
             Some(TuiInput::CheckUpdates)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Char('m')), false),
+            Some(TuiInput::OpenMonitor)
         );
         assert_eq!(
             input_from_key(

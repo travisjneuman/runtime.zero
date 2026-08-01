@@ -279,12 +279,14 @@ fn render_help(frame: &mut Frame<'_>, area: Rect, state: &TuiState, color: bool)
     } else if state.show_help {
         vec![
             Line::raw("Tab/Shift+Tab areas · ↑/↓/j/k move · mouse wheel scrolls · Enter details"),
-            Line::raw("u check updates · / search · f filter · s sort · r refresh · Esc back"),
+            Line::raw(
+                "m monitor · u check updates · / search · f filter · s sort · r refresh · Esc back",
+            ),
             Line::raw("q quit · h or ? close this help"),
         ]
     } else {
         vec![Line::raw(
-            "Tab areas · ↑/↓/j/k move · mouse wheel scrolls · Enter details · u updates · q quit",
+            "Tab areas · ↑/↓/j/k move · mouse wheel scrolls · Enter details · m monitor · u updates · q quit",
         )]
     };
     frame.render_widget(

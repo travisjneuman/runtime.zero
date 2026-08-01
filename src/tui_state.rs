@@ -44,6 +44,7 @@ impl TuiMouseTarget {
 pub enum TuiAction {
     Quit,
     Refresh,
+    RefreshMonitor,
     CheckUpdates,
     Continue,
 }
@@ -61,7 +62,9 @@ pub enum TuiInput {
     Activate,
     Back,
     Refresh,
+    RefreshMonitor,
     CheckUpdates,
+    OpenMonitor,
     BeginSearch,
     EndSearch,
     SearchCharacter(char),
@@ -196,8 +199,19 @@ impl TuiState {
                 TuiAction::Refresh
             }
             TuiInput::Refresh => TuiAction::Continue,
+            TuiInput::RefreshMonitor => TuiAction::RefreshMonitor,
             TuiInput::CheckUpdates if !self.show_help => TuiAction::CheckUpdates,
             TuiInput::CheckUpdates => TuiAction::Continue,
+            TuiInput::OpenMonitor if !self.show_help => {
+                if self.section_count > 0 {
+                    self.selected_section = self.section_count - 1;
+                    self.selected_detail_row = 0;
+                    self.focus_region = TuiFocusRegion::DetailsPanel;
+                    self.preview_open = false;
+                }
+                TuiAction::Continue
+            }
+            TuiInput::OpenMonitor => TuiAction::Continue,
             TuiInput::BeginSearch if !self.show_help => {
                 self.software_view.clear_query();
                 self.search_active = true;
@@ -242,7 +256,10 @@ impl TuiState {
                 TuiAction::Continue
             }
             TuiInput::Quit => TuiAction::Quit,
-            TuiInput::Refresh | TuiInput::CheckUpdates => TuiAction::Continue,
+            TuiInput::Refresh | TuiInput::RefreshMonitor | TuiInput::CheckUpdates => {
+                TuiAction::Continue
+            }
+            TuiInput::OpenMonitor => TuiAction::Continue,
             TuiInput::ScrollUp(_) | TuiInput::ScrollDown(_) => TuiAction::Continue,
             TuiInput::Resize | TuiInput::Other => TuiAction::Continue,
             TuiInput::BeginSearch

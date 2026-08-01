@@ -59,6 +59,7 @@ Minimum keys:
 
 - `q`: quit safely;
 - `r`: refresh the bounded local snapshot;
+- `m`: jump to the live system monitor;
 - `u`: check configured manager availability sources using bounded probes; this
   may request network metadata but never updates software;
 - `/`: begin bounded software-name/source/ID search; Enter accepts and Esc cancels;
@@ -101,12 +102,14 @@ The TUI is intentionally more than a command transcript. The interactive shell
 now renders the existing dashboard data model through Ratatui widgets:
 
 - a bounded header panel with product/version and live-inventory status;
-- a navigation rail/index for overview, runtime state, installed software,
-  modules, and safety gates;
+- a navigation rail/index for overview, local store, installed software,
+  modules, actions, and the system monitor;
 - a selected-section panel with the section summary, fixed position counter,
   visible selected row, and a separate details panel;
 - foundation state cards for store, registry, receipt, and installed-module
   posture with reusable status-pair formatting;
+- a live system monitor section with native CPU, memory, disk, network, uptime,
+  and process counters;
 - a command rail that lists exact scriptable CLI commands, including `rz0 apps`
   and `rz0 uninstall plan <id>`, with Enter showing the command description;
 - an actions footer and optional help overlay; mouse capture is enabled and
@@ -196,12 +199,14 @@ Manual check after refreshing the installed binary:
 5. In details or command focus, press Enter/Space; the details panel should appear.
 6. Scroll the mouse over the installed-software list; the selected row should
    advance three rows per wheel event and remain visible at the bottom.
-7. Press `u`; explicit manager availability checks should render update
+7. Press `m`; the system monitor section should show live native resource and
+   process counters and refresh once per second.
+8. Press `u`; explicit manager availability checks should render update
    candidates or an unavailable-source warning without executing updates.
-8. Press `r`; the local snapshot should refresh.
-9. Press Esc; details/help should close or focus should back out before quitting.
-10. Press `h` or `?`; help should toggle without typed input echo.
-11. Press `q`; the TUI should exit and restore the normal prompt.
+9. Press `r`; the local snapshot should refresh.
+10. Press Esc; details/help should close or focus should back out before quitting.
+11. Press `h` or `?`; help should toggle without typed input echo.
+12. Press `q`; the TUI should exit and restore the normal prompt.
 
 ## Brand and maintainability
 

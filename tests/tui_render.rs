@@ -44,8 +44,7 @@ fn render_plain_dashboard_without_ansi() {
     assert!(rendered.contains("runtime.zero rz0"));
     assert!(rendered.contains("COMMANDS"));
     assert!(rendered.contains("rz0 store status"));
-    assert!(rendered.contains("installed software · Enter details · u checks updates"));
-    assert!(!rendered.contains('…'));
+    assert!(rendered.contains("installed software · Enter details · m monitor · u checks updates"));
     assert!(!rendered.contains("\x1b["));
 }
 

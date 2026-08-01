@@ -135,6 +135,14 @@ fn activation_from_navigation_opens_selected_details() {
 }
 
 #[test]
+fn monitor_shortcut_jumps_to_the_last_section() {
+    let mut state = TuiState::new(6);
+    assert_eq!(state.apply(TuiInput::OpenMonitor), TuiAction::Continue);
+    assert_eq!(state.selected_section, 5);
+    assert_eq!(state.focus_region, TuiFocusRegion::DetailsPanel);
+}
+
+#[test]
 fn mouse_scroll_moves_the_list_under_the_pointer() {
     let mut state = TuiState::new(4);
     assert_eq!(

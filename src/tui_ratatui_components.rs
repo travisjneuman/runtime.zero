@@ -88,7 +88,7 @@ pub(crate) fn render_compact_dashboard(
         lines.push(details_line(color));
     }
     lines.push(Line::raw(
-        "q exits · u updates · / search · f filter · s sort · r refresh",
+        "q exits · m monitor · u updates · / search · f filter · s sort · r refresh",
     ));
     frame.render_widget(
         Paragraph::new(lines).block(block("COMPACT // DASHBOARD", "info", color)),
@@ -163,7 +163,7 @@ pub(crate) fn render_footer(frame: &mut Frame<'_>, area: Rect, color: bool) {
         Span::styled(tui_theme::LABEL_OK, tone_style("safe", color)),
         Span::raw(" "),
         Span::styled("installed software", tone_style("accent", color)),
-        Span::raw(" · Enter details · u checks updates"),
+        Span::raw(" · Enter details · m monitor · u checks updates"),
     ]);
     frame.render_widget(
         Paragraph::new(vec![line]).block(block("ACTIONS", "info", color)),

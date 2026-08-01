@@ -10,6 +10,24 @@ fn version_includes_brand_and_command() {
 }
 
 #[test]
+fn monitor_has_a_scriptable_read_only_snapshot_contract() {
+    let (code, out, err) = run(["monitor", "--format", "json"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("monitor JSON");
+    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["contract"], "system_monitor_snapshot");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+
+    let (code, out, err) = run(["monitor"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("runtime.zero system monitor"));
+    assert!(out.contains("writes_attempted: false"));
+}
+
+#[test]
 fn doctor_is_read_only_bootstrap_diagnostic() {
     let (code, out, err) = run(["doctor"]);
     assert_eq!(code, ExitCode::Ok);

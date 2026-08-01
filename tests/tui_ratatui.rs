@@ -34,6 +34,17 @@ fn widget_dashboard_keeps_text_first_labels() {
 }
 
 #[test]
+fn monitor_shortcut_renders_live_resource_rows() {
+    let dashboard = runtime_zero::tui_dashboard::dashboard();
+    let mut state = TuiState::new(dashboard.sections.len());
+    state.apply(runtime_zero::tui_state::TuiInput::OpenMonitor);
+    let text = render_text(118, 34, &state, false);
+    assert!(text.contains("SYSTEM MONITOR"));
+    assert!(text.contains("memory"));
+    assert!(text.contains("processes"));
+}
+
+#[test]
 fn selected_section_changes_detail_panel() {
     let dashboard = runtime_zero::tui_dashboard::dashboard();
     let mut state = TuiState::new(dashboard.sections.len());

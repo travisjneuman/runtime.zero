@@ -12,6 +12,7 @@ use crate::installed_registry::InstalledRegistryState;
 use crate::module_registry::ModuleRegistryReport;
 use crate::store_init::{StoreInitMode, StoreInitOptions, StoreInitStatus, store_init_report};
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
+use crate::system_monitor::{self, SystemSnapshot};
 use crate::tui_dashboard_labels::{
     init_label, init_status_label, init_tone, receipt_label, receipt_state_label, receipt_tone,
     registry_label, registry_state_label, registry_tone, row, row_count, store_state_label,
@@ -49,6 +50,8 @@ pub struct TuiDashboard {
     inventory_error: Option<String>,
     #[serde(skip)]
     update_catalog: Option<LiveUpdateCatalog>,
+    #[serde(skip)]
+    monitor_snapshot: Option<SystemSnapshot>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -92,7 +95,8 @@ fn dashboard_with_inventory(include_software_names: bool) -> TuiDashboard {
     );
     let modules = ModuleRegistryReport::empty_installed();
     let inventory = include_software_names.then(collect_app_catalog);
-    build_dashboard(&store, init.status, &modules, inventory)
+    let monitor = include_software_names.then(|| system_monitor::collect_snapshot(None));
+    build_dashboard(&store, init.status, &modules, inventory, monitor)
 }
 
 fn build_dashboard(
@@ -100,6 +104,7 @@ fn build_dashboard(
     init_status: StoreInitStatus,
     modules: &ModuleRegistryReport,
     inventory: Option<Result<AppCatalog, String>>,
+    monitor: Option<SystemSnapshot>,
 ) -> TuiDashboard {
     let catalog = inventory
         .as_ref()
@@ -135,32 +140,47 @@ fn build_dashboard(
         update_check_status: "not checked".to_string(),
         update_source_count: 0,
         update_candidate_count: 0,
-        sections: sections(
+        sections: sections(SectionContext {
             store,
             init_status,
             modules,
-            catalog.as_ref(),
-            inventory_error.as_deref(),
-            &default_view,
-            None,
-        ),
+            catalog: catalog.as_ref(),
+            inventory_error: inventory_error.as_deref(),
+            view: &default_view,
+            updates: None,
+            monitor: monitor.as_ref(),
+        }),
         palette: palette(),
         software_catalog: catalog,
         inventory_error,
         update_catalog: None,
+        monitor_snapshot: monitor,
     }
 }
 
-fn sections(
-    store: &StoreStatusReport,
+struct SectionContext<'a> {
+    store: &'a StoreStatusReport,
     init_status: StoreInitStatus,
-    modules: &ModuleRegistryReport,
-    catalog: Option<&AppCatalog>,
-    inventory_error: Option<&str>,
-    view: &SoftwareView,
-    updates: Option<&LiveUpdateCatalog>,
-) -> Vec<TuiSection> {
-    vec![
+    modules: &'a ModuleRegistryReport,
+    catalog: Option<&'a AppCatalog>,
+    inventory_error: Option<&'a str>,
+    view: &'a SoftwareView,
+    updates: Option<&'a LiveUpdateCatalog>,
+    monitor: Option<&'a SystemSnapshot>,
+}
+
+fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
+    let SectionContext {
+        store,
+        init_status,
+        modules,
+        catalog,
+        inventory_error,
+        view,
+        updates,
+        monitor,
+    } = context;
+    let mut sections = vec![
         overview_section(catalog, inventory_error, view, updates),
         TuiSection {
             code: "02",
@@ -230,7 +250,7 @@ fn sections(
                     "safe",
                 ),
                 row(
-                    tui_theme::LABEL_DRY_RUN,
+                    tui_theme::LABEL_INFO,
                     "initialize local state with `rz0 store init --yes`",
                     "info",
                 ),
@@ -240,13 +260,111 @@ fn sections(
                     "info",
                 ),
                 row(
-                    tui_theme::LABEL_SKIP,
+                    tui_theme::LABEL_INFO,
                     "updates use the selected manager and confirmation",
                     "info",
                 ),
             ],
         },
-    ]
+    ];
+    if let Some(monitor) = monitor {
+        sections.push(system_monitor_section(monitor));
+    }
+    sections
+}
+
+fn system_monitor_section(snapshot: &SystemSnapshot) -> TuiSection {
+    let mut rows = vec![
+        row(
+            tui_theme::LABEL_OK,
+            &format!(
+                "CPU {} · load {} · {} logical CPUs",
+                snapshot
+                    .cpu
+                    .usage_percent
+                    .map(|value| format!("{value}%"))
+                    .unwrap_or_else(|| "sampling".to_string()),
+                snapshot
+                    .cpu
+                    .load_average_milli
+                    .iter()
+                    .map(|value| {
+                        value
+                            .map(|value| format!("{}.{:03}", value / 1000, value % 1000))
+                            .unwrap_or_else(|| "?".to_string())
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                snapshot.cpu.logical_cpus.unwrap_or(0)
+            ),
+            "safe",
+        ),
+        row(
+            tui_theme::LABEL_INFO,
+            &format!(
+                "memory {} used · {} available of {}",
+                system_monitor::format_bytes(snapshot.memory.used_bytes),
+                system_monitor::format_bytes(snapshot.memory.available_bytes),
+                system_monitor::format_bytes(snapshot.memory.total_bytes)
+            ),
+            "info",
+        ),
+        row(
+            tui_theme::LABEL_INFO,
+            &format!(
+                "network {} interfaces · received {} · sent {}",
+                snapshot.network.interface_count,
+                system_monitor::format_bytes(snapshot.network.received_bytes),
+                system_monitor::format_bytes(snapshot.network.transmitted_bytes)
+            ),
+            "info",
+        ),
+        row(
+            tui_theme::LABEL_INFO,
+            &format!(
+                "processes {} total · {} running",
+                snapshot.processes.total, snapshot.processes.running
+            ),
+            "info",
+        ),
+    ];
+    for disk in &snapshot.disks {
+        rows.push(row(
+            tui_theme::LABEL_INFO,
+            &format!(
+                "disk {} · {} used · {} available",
+                disk.mount,
+                system_monitor::format_bytes(disk.used_bytes),
+                system_monitor::format_bytes(disk.available_bytes)
+            ),
+            "info",
+        ));
+    }
+    for process in &snapshot.processes.top {
+        rows.push(row(
+            tui_theme::LABEL_INFO,
+            &format!(
+                "{} (pid {}) · cpu {} · memory {}",
+                process.name,
+                process.pid,
+                process
+                    .cpu_percent
+                    .map(|value| format!("{value}%"))
+                    .unwrap_or_else(|| "sampling".to_string()),
+                system_monitor::format_bytes(process.memory_bytes)
+            ),
+            "muted",
+        ));
+    }
+    for warning in &snapshot.warnings {
+        rows.push(row(tui_theme::LABEL_WARN, warning, "warn"));
+    }
+    TuiSection {
+        code: "06",
+        title: "system monitor",
+        summary: "live CPU, memory, disk, network, and process activity",
+        rows,
+    }
 }
 
 fn overview_section(
@@ -343,7 +461,7 @@ fn overview_section(
     }
     rows.push(row(
         tui_theme::LABEL_INFO,
-        "Tab details · Enter details · u checks updates · r refresh",
+        "Tab details · Enter details · m monitor · u checks updates · r refresh",
         "info",
     ));
     TuiSection {
@@ -534,6 +652,22 @@ impl TuiDashboard {
             view,
             self.update_catalog.as_ref(),
         );
+    }
+
+    pub fn refresh_monitor(&mut self) {
+        let Some(previous) = self.monitor_snapshot.as_ref() else {
+            return;
+        };
+        let snapshot = system_monitor::collect_snapshot(Some(previous));
+        self.monitor_snapshot = Some(snapshot.clone());
+        if self
+            .sections
+            .last()
+            .is_some_and(|section| section.code == "06")
+        {
+            let index = self.sections.len() - 1;
+            self.sections[index] = system_monitor_section(&snapshot);
+        }
     }
 
     pub fn check_updates(&mut self) {

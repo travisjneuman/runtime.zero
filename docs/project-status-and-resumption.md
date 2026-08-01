@@ -43,6 +43,9 @@ A second UX correction removed a redundant `uninstall options` navigation
 section. Installed software is the user object; actions belong on each software
 row. The TUI therefore has one canonical software list. Each row shows details
 and only the uninstall posture that actually applies to that record.
+The foundation now also includes a native system monitor: `rz0 monitor` is a
+scriptable snapshot, and the TUI's `m` section refreshes once per second without
+external btop/top/task-manager dependencies.
 
 Do not reintroduce an empty installed product or parallel action-specific lists
 for the same software objects.
@@ -61,7 +64,7 @@ for the same software objects.
 
 ### TUI information architecture
 
-The current navigation has five sections:
+The current navigation has six sections:
 
 1. **overview** — live software count, available uninstall-review count, and
    basic interaction help;
@@ -69,7 +72,8 @@ The current navigation has five sections:
 3. **installed software** — the canonical local software list with per-item
    options;
 4. **modules** — installed and planned first-party module posture;
-5. **actions** — available operations and required permissions.
+5. **actions** — available operations and required permissions;
+6. **system monitor** — live native resource and process counters.
 
 Within **installed software**:
 
@@ -100,6 +104,7 @@ rz0 doctor [--format json]
 rz0 apps [--format json]
 rz0 uninstall plan <installed-software-id> [--format json]
 rz0 scan --dry-run [--include-raw-paths] [--format json]
+rz0 monitor [--format text|json]
 rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format json]
 rz0 updates --dry-run --manager <id> --manager-output <path> --executable <path> [--plan] [--queue] [--format json]
 rz0 updates --dry-run --probe --manager <id> --executable <path> --allow-network-read [--plan] [--queue] [--format json]
@@ -419,6 +424,7 @@ cargo test --workspace --locked --all-features
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo run -- apps --format json
 cargo run -- scan --dry-run --format json
+cargo run -- monitor --format json
 cargo run -- doctor --format json
 git diff --check
 ```

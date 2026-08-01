@@ -329,8 +329,8 @@ The terminal guard must restore raw mode, cursor visibility, and the normal
 screen on exit or panic unwinding.
 
 The TUI may show built-in bounded read-only software evidence plus foundation
-store/module state. Its five sections are overview, local store, installed
-software, modules, and actions. Installed software is one canonical object list:
+store/module state. Its six sections are overview, local store, installed
+software, modules, actions, and system monitor. Installed software is one canonical object list:
 each row shows details and only an applicable protected, manager-review,
 quarantine-review, or unsupported uninstall posture. Details show exact CLI
 entry points; manager update writes use the separate confirmation-bound updater

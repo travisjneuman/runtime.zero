@@ -213,7 +213,7 @@ fn command_rail_lines(width: usize) -> Vec<String> {
 fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) -> Vec<String> {
     let mut lines = vec![separator(width)];
     lines.push(line(
-        "installed software · Enter details · u checks updates",
+        "installed software · Enter details · m monitor · u checks updates",
         width,
         color,
         Some(tui_theme::TuiTone::DryRun),
@@ -228,7 +228,7 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
         ));
     } else if interactive && state.show_help {
         lines.push(line_plain(
-            "keys: Esc back · q quit · u updates · / search · f filter · s sort · r refresh · Tab areas · Enter details",
+            "keys: Esc back · q quit · m monitor · u updates · / search · f filter · s sort · r refresh · Tab areas · Enter details",
             width,
         ));
         lines.push(line_plain(
@@ -237,7 +237,7 @@ fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) 
         ));
     } else if interactive {
         lines.push(line_plain(
-            "keys: q quit · u updates · Tab areas · / search · f filter · s sort · r refresh · Enter details · h help",
+            "keys: q quit · m monitor · u updates · Tab areas · / search · f filter · s sort · r refresh · Enter details · h help",
             width,
         ));
     } else {
