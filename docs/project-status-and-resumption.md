@@ -6,8 +6,8 @@
   production work remains gated.
 - **Source status:** pre-alpha; not a production or 1.0 release.
 - **Canonical branch:** `main`.
-- **Verified product implementation commit:** `99e31e0de2d361476b65eb6dec8bb1f655c15341`.
-- **Previous synchronized commit:** `77e77e43cdb2c97a6731264fa09f83676fa73680`.
+- **Verified product implementation commit:** `473ea27f0a6c763dadabbef1f61604bc4d880ed2`.
+- **Previous synchronized commit:** `f41df2fd56d97536161de26007a9217a0a1a731e`.
 - **Paused baseline commit:** `53d1e3de4df8b0cbf15bf58ca520a56e81df6e5a`.
 - **Current CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
