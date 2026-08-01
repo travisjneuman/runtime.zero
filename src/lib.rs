@@ -87,7 +87,7 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} apps [--format json]\n  {cmd} uninstall plan <installed-software-id> [--format json]\n  {cmd} modules [--format json]\n  {cmd} modules --from <dir> [--format json]\n  {cmd} modules validate <manifest.json> [--format json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--include-raw-paths] [--format json]\n\nFoundation safety posture:\n  {safety}\n\nThe core includes bounded read-only local inventory, validates local manifests, and lists installed modules. Uninstall remains review-only until an exact quarantine/manager transaction is confirmed and authorized.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} apps [--format text|json]\n  {cmd} uninstall plan <installed-software-id> [--format text|json]\n  {cmd} modules [--format text|json]\n  {cmd} modules --from <dir> [--format text|json]\n  {cmd} modules validate <manifest.json> [--format text|json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--include-raw-paths] [--format text|json]\n\nFoundation safety posture:\n  {safety}\n\nThe core includes bounded read-only local inventory, validates local manifests, and lists installed modules. Uninstall remains review-only until an exact quarantine/manager transaction is confirmed and authorized.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
@@ -158,25 +158,36 @@ fn unknown_command(command: &str) -> (ExitCode, String, String) {
 }
 
 fn scan_command(args: &[String]) -> (ExitCode, String, String) {
-    let Some(first) = args.first() else {
-        return scan_usage_error();
-    };
-    if first != "--dry-run" {
-        return scan_usage_error();
+    if matches!(args, [help] if matches!(help.as_str(), "--help" | "-h" | "help")) {
+        return (ExitCode::Ok, scan_usage(), String::new());
     }
+    let mut dry_run = false;
     let mut format = ScanOutputFormat::Text;
     let mut include_raw_paths = false;
-    let mut index = 1usize;
+    let mut index = 0usize;
     while index < args.len() {
         match args[index].as_str() {
+            "--dry-run" if !dry_run => dry_run = true,
+            "--dry-run" => return scan_usage_error(),
             "--include-raw-paths" => include_raw_paths = true,
-            "--format" if args.get(index + 1).is_some_and(|value| value == "json") => {
-                format = ScanOutputFormat::Json;
+            "--json" => format = ScanOutputFormat::Json,
+            "--format" => {
+                let Some(value) = args.get(index + 1).map(String::as_str) else {
+                    return scan_usage_error();
+                };
+                format = match value {
+                    "text" => ScanOutputFormat::Text,
+                    "json" => ScanOutputFormat::Json,
+                    _ => return scan_usage_error(),
+                };
                 index += 1;
             }
             _ => return scan_usage_error(),
         }
         index += 1;
+    }
+    if !dry_run {
+        return scan_usage_error();
     }
 
     let report = match inventory::live_report(!include_raw_paths) {
@@ -202,13 +213,20 @@ fn scan_command(args: &[String]) -> (ExitCode, String, String) {
     }
 }
 
+fn scan_usage() -> String {
+    format!(
+        "Usage: {} scan --dry-run [--include-raw-paths] [--format text|json]\n\nReports bounded local evidence without writing system state.\n",
+        brand::COMMAND
+    )
+}
+
 fn scan_usage_error() -> (ExitCode, String, String) {
     (
         ExitCode::Usage,
         String::new(),
         format!(
-            "scan is report-only and requires dry-run mode\n\nUsage: {} scan --dry-run [--include-raw-paths] [--format json]\n",
-            brand::COMMAND
+            "scan is report-only and requires dry-run mode\n\n{}",
+            scan_usage()
         ),
     )
 }

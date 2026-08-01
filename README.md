@@ -53,10 +53,11 @@ filters terminal key events so Windows key-release events do not double-advance
 selection. The current interactive dashboard uses a Ratatui widget layer for bounded
 componentized panels, status badges, numbered dossier sections, explicit focus regions, a navigation rail,
 selected-section details, read-only command previews, Home/End jumps,
-Tab/Shift+Tab focus cycling, arrow movement, and `j`/`k` keyboard shortcuts for
-operator-style terminal use. It now chooses explicit wide, standard, compact,
-and very-small layout tiers so constrained terminals keep visible focus and
-read-only/preview-only labels instead of clipping into misleading panes. Esc
+Tab/Shift+Tab focus cycling, arrow movement, `j`/`k` keyboard shortcuts, and
+`r` refresh for operator-style terminal use. It now chooses explicit wide,
+standard, compact, and very-small layout tiers so constrained terminals keep
+visible focus and read-only/preview-only labels instead of clipping into
+misleading panes. Esc
 closes help/previews or backs out before quitting from the base navigation
 focus. Use `rz0 --no-tui` for the scriptable text
 dashboard, or `rz0 --json` for a machine-readable foundation dashboard.

@@ -8,6 +8,18 @@ fn q_requests_quit_without_state_mutation() {
 }
 
 #[test]
+fn refresh_requests_a_new_read_only_snapshot_without_quitting() {
+    let mut state = TuiState::new(3);
+    state.apply(TuiInput::FocusNext);
+    state.apply(TuiInput::Activate);
+    assert_eq!(state.apply(TuiInput::Refresh), TuiAction::Refresh);
+    assert!(!state.preview_open);
+
+    state.apply(TuiInput::ToggleHelp);
+    assert_eq!(state.apply(TuiInput::Refresh), TuiAction::Continue);
+}
+
+#[test]
 fn help_toggles_and_navigation_wraps() {
     let mut state = TuiState::new(2);
     assert_eq!(state.apply(TuiInput::ToggleHelp), TuiAction::Continue);
@@ -28,6 +40,13 @@ fn home_and_end_jump_to_edges() {
     assert_eq!(state.selected_section, 3);
     let _ = state.apply(TuiInput::FirstSection);
     assert_eq!(state.selected_section, 0);
+
+    let _ = state.apply(TuiInput::FocusNext);
+    state.selected_detail_row = 2;
+    let _ = state.apply(TuiInput::FirstSection);
+    assert_eq!(state.selected_detail_row, 0);
+    let _ = state.apply(TuiInput::LastSection);
+    assert_eq!(state.selected_detail_row, usize::MAX);
 }
 
 #[test]

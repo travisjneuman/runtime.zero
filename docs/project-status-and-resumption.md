@@ -250,8 +250,9 @@ These are intentional continuation facts, not hidden production claims:
 - A Homebrew cask and its installed `.app` may appear as separate evidence
   records. Future identity reconciliation must preserve both provenance sources
   without hiding disagreement.
-- The TUI takes one inventory snapshot at launch. It has no refresh key, search,
-  filter, sort selection, or dedicated paging indicator yet.
+- The TUI takes one inventory snapshot at launch and supports an explicit `r`
+  refresh; it has no search, filter, or sort selection yet. Long detail lists
+  expose the current item position while scrolling.
 - Per-item options currently mean details plus uninstall posture. Update,
   repair, integrity, export, and cleanup options are not yet live.
 - Application publisher identity is unknown unless a future trusted adapter
@@ -330,8 +331,8 @@ Resume in this order unless new evidence changes a dependency:
    merging records merely by display name.
 2. Add synthetic reconciliation fixtures for app/cask duplicates, disagreement,
    renamed apps, multiple versions, missing plist data, and moved roots.
-3. Add search/filter/sort and explicit refresh while preserving bounded memory,
-   no background daemon, and private JSON behavior.
+3. Add search/filter/sort while preserving bounded memory, no background
+   daemon, explicit refresh semantics, and private JSON behavior.
 4. Add explicit performance operations only through a schema-compatible or new
    schema contract.
 

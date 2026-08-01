@@ -57,6 +57,7 @@ Runtime behavior:
 Minimum keys:
 
 - `q`: quit safely;
+- `r`: refresh the bounded local snapshot without executing commands;
 - Esc: close preview/help, back out to navigation, or quit from the base navigation focus;
 - `h` or `?`: toggle keyboard/safety help;
 - Tab: cycle focus forward through left navigation, details, and command rail;
@@ -64,7 +65,7 @@ Minimum keys:
 - down/right arrow or `j`: move within the focused region;
 - up/left arrow or `k`: move backward within the focused region;
 - Enter/Space: toggle a read-only details or command preview, never execution;
-- Home/End: first/last dashboard section when left navigation is focused.
+- Home/End: first/last dashboard section in navigation, or first/last row/command in the focused details or command rail.
 
 ## Dashboard content
 
@@ -183,9 +184,10 @@ Manual check after refreshing the installed binary:
 3. Hold down arrow; repeat navigation should continue predictably.
 4. Press Tab and Shift+Tab; focus should move visibly among left navigation, details, and command rail.
 5. In details or command rail focus, press Enter/Space; a read-only preview should appear and no command should run.
-6. Press Esc; preview/help should close or focus should back out before quitting from base navigation.
-7. Press `h` or `?`; help should toggle without typed input echo and show focus-region guidance.
-8. Press `q`; the TUI should exit and restore the normal prompt.
+6. Press `r`; the live local snapshot should refresh without executing a command.
+7. Press Esc; preview/help should close or focus should back out before quitting from base navigation.
+8. Press `h` or `?`; help should toggle without typed input echo and show focus-region guidance.
+9. Press `q`; the TUI should exit and restore the normal prompt.
 
 ## Brand and maintainability
 

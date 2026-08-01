@@ -69,7 +69,7 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("store status [--store-root <path>]"));
     assert!(out.contains("--color auto|always|never"));
     assert!(out.contains("rz0 --tui"));
-    assert!(out.contains("rz0 apps [--format json]"));
+    assert!(out.contains("rz0 apps [--format text|json]"));
     assert!(out.contains("rz0 uninstall plan <installed-software-id>"));
 }
 
@@ -327,6 +327,48 @@ fn scan_requires_dry_run() {
     assert_eq!(code, ExitCode::Usage);
     assert!(out.is_empty());
     assert!(err.contains("--dry-run"));
+}
+
+#[test]
+fn implemented_command_flags_are_order_independent_and_consistent() {
+    let (code, out, err) = run(["apps", "--json"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("apps JSON");
+    assert_eq!(value["contract"], "installed_software_catalog");
+
+    let (code, out, err) = run(["scan", "--format", "json", "--dry-run"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("scan JSON");
+    assert_eq!(value["contract"], "inventory_report");
+
+    let (code, out, err) = run(["modules", "--format", "json", "--from", "modules/inventory"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("modules JSON");
+    assert_eq!(
+        value["validation_reports"].as_array().map(Vec::len),
+        Some(1)
+    );
+
+    let (code, out, err) = run([
+        "modules",
+        "install",
+        "tests/fixtures/module-packages/valid-inventory",
+        "--dry-run",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("install JSON");
+    assert_eq!(value["valid"], true);
+
+    let (code, out, err) = run(["uninstall", "plan", "--format", "json", "bad/id"]);
+    assert_eq!(code, ExitCode::Usage);
+    assert!(out.is_empty());
+    assert!(err.contains("installed software id is invalid"));
 }
 
 #[test]

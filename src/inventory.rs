@@ -23,7 +23,7 @@ pub fn contract_report() -> InventoryReport {
         },
     );
     report.warnings.push(
-        "core scan does not collect local evidence; the separate inventory module is not loaded"
+        "no live local evidence was collected; use the live report path for bounded inventory"
             .to_string(),
     );
     report.recalculate_summary();

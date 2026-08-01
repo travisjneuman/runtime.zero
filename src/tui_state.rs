@@ -22,6 +22,7 @@ pub enum TuiFocusRegion {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TuiAction {
     Quit,
+    Refresh,
     Continue,
 }
 
@@ -37,6 +38,7 @@ pub enum TuiInput {
     LastSection,
     Activate,
     Back,
+    Refresh,
     Resize,
     Other,
 }
@@ -95,16 +97,30 @@ impl TuiState {
                 TuiAction::Continue
             }
             TuiInput::FirstSection => {
-                if self.focus_region == TuiFocusRegion::LeftNavigation {
-                    self.selected_section = 0;
-                    self.selected_detail_row = 0;
+                match self.focus_region {
+                    TuiFocusRegion::LeftNavigation => {
+                        self.selected_section = 0;
+                        self.selected_detail_row = 0;
+                    }
+                    TuiFocusRegion::DetailsPanel => self.selected_detail_row = 0,
+                    TuiFocusRegion::CommandRail => self.selected_command = 0,
+                    TuiFocusRegion::HelpOverlay => {}
                 }
                 TuiAction::Continue
             }
             TuiInput::LastSection => {
-                if self.focus_region == TuiFocusRegion::LeftNavigation && self.section_count > 0 {
-                    self.selected_section = self.section_count - 1;
-                    self.selected_detail_row = 0;
+                match self.focus_region {
+                    TuiFocusRegion::LeftNavigation if self.section_count > 0 => {
+                        self.selected_section = self.section_count - 1;
+                        self.selected_detail_row = 0;
+                    }
+                    TuiFocusRegion::DetailsPanel => self.selected_detail_row = usize::MAX,
+                    TuiFocusRegion::CommandRail if self.command_count > 0 => {
+                        self.selected_command = self.command_count - 1;
+                    }
+                    TuiFocusRegion::LeftNavigation
+                    | TuiFocusRegion::CommandRail
+                    | TuiFocusRegion::HelpOverlay => {}
                 }
                 TuiAction::Continue
             }
@@ -113,6 +129,11 @@ impl TuiState {
                 TuiAction::Continue
             }
             TuiInput::Back => self.back_or_quit(),
+            TuiInput::Refresh if !self.show_help => {
+                self.preview_open = false;
+                TuiAction::Refresh
+            }
+            TuiInput::Refresh => TuiAction::Continue,
             TuiInput::Resize | TuiInput::Other => TuiAction::Continue,
         }
     }

@@ -171,13 +171,12 @@ fn classify_bundle(location: Option<&str>) -> (SoftwareKind, InstallScope, Unins
 }
 
 pub fn apps_command(args: &[String]) -> (ExitCode, String, String) {
-    let format = match args {
-        [] => AppOutputFormat::Text,
-        [flag, value] if flag == "--format" && value == "json" => AppOutputFormat::Json,
-        [help] if matches!(help.as_str(), "--help" | "-h" | "help") => {
-            return (ExitCode::Ok, apps_usage(), String::new());
-        }
-        _ => {
+    if matches!(args, [help] if matches!(help.as_str(), "--help" | "-h" | "help")) {
+        return (ExitCode::Ok, apps_usage(), String::new());
+    }
+    let format = match parse_output_format(args) {
+        Ok(format) => format,
+        Err(_) => {
             return (
                 ExitCode::Usage,
                 String::new(),
@@ -205,21 +204,60 @@ pub fn apps_command(args: &[String]) -> (ExitCode, String, String) {
 }
 
 pub fn uninstall_command(args: &[String]) -> (ExitCode, String, String) {
-    let (app_id, format) = match args {
-        [plan, app_id] if plan == "plan" => (app_id, AppOutputFormat::Text),
-        [plan, app_id, flag, value] if plan == "plan" && flag == "--format" && value == "json" => {
-            (app_id, AppOutputFormat::Json)
+    if matches!(args, [help] if matches!(help.as_str(), "--help" | "-h" | "help")) {
+        return (ExitCode::Ok, uninstall_usage(), String::new());
+    }
+    if args.first().map(String::as_str) != Some("plan") {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            format!("uninstall requires a review plan\n\n{}", uninstall_usage()),
+        );
+    }
+    let mut app_id = None;
+    let mut format = AppOutputFormat::Text;
+    let mut index = 1usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--json" => format = AppOutputFormat::Json,
+            "--format" => {
+                let Some(value) = args.get(index + 1).map(String::as_str) else {
+                    return (
+                        ExitCode::Usage,
+                        String::new(),
+                        format!("uninstall requires a review plan\n\n{}", uninstall_usage()),
+                    );
+                };
+                format = match value {
+                    "text" => AppOutputFormat::Text,
+                    "json" => AppOutputFormat::Json,
+                    _ => {
+                        return (
+                            ExitCode::Usage,
+                            String::new(),
+                            format!("uninstall requires a review plan\n\n{}", uninstall_usage()),
+                        );
+                    }
+                };
+                index += 1;
+            }
+            value if app_id.is_none() => app_id = Some(value),
+            _ => {
+                return (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!("uninstall requires a review plan\n\n{}", uninstall_usage()),
+                );
+            }
         }
-        [help] if matches!(help.as_str(), "--help" | "-h" | "help") => {
-            return (ExitCode::Ok, uninstall_usage(), String::new());
-        }
-        _ => {
-            return (
-                ExitCode::Usage,
-                String::new(),
-                format!("uninstall requires a review plan\n\n{}", uninstall_usage()),
-            );
-        }
+        index += 1;
+    }
+    let Some(app_id) = app_id else {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            format!("uninstall requires a review plan\n\n{}", uninstall_usage()),
+        );
     };
     if !rz0_validation_contract::valid_dotted_id(app_id, 100) {
         return (
@@ -238,7 +276,7 @@ pub fn uninstall_command(args: &[String]) -> (ExitCode, String, String) {
             );
         }
     };
-    let Some(app) = catalog.apps.iter().find(|app| app.id == *app_id) else {
+    let Some(app) = catalog.apps.iter().find(|app| app.id == app_id) else {
         return (
             ExitCode::Usage,
             String::new(),
@@ -334,12 +372,37 @@ fn render_uninstall_text(review: &UninstallReview) -> String {
     )
 }
 
+fn parse_output_format(args: &[String]) -> Result<AppOutputFormat, ()> {
+    let mut format = AppOutputFormat::Text;
+    let mut index = 0usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--json" => format = AppOutputFormat::Json,
+            "--format" => {
+                let Some(value) = args.get(index + 1).map(String::as_str) else {
+                    return Err(());
+                };
+                format = match value {
+                    "text" => AppOutputFormat::Text,
+                    "json" => AppOutputFormat::Json,
+                    _ => return Err(()),
+                };
+                index += 1;
+            }
+            _ => return Err(()),
+        }
+        index += 1;
+    }
+    Ok(format)
+}
+
 fn apps_usage() -> String {
-    "Usage: rz0 apps [--format json]\n\nLists bounded local application and package-manager evidence without paths or writes.\n".to_string()
+    "Usage: rz0 apps [--format text|json]\n\nLists bounded local application and package-manager evidence without paths or writes.\n"
+        .to_string()
 }
 
 fn uninstall_usage() -> String {
-    "Usage: rz0 uninstall plan <installed-software-id> [--format json]\n\nBuilds a read-only uninstall review. It does not remove software.\n".to_string()
+    "Usage: rz0 uninstall plan <installed-software-id> [--format text|json]\n\nBuilds a read-only uninstall review. It does not remove software.\n".to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

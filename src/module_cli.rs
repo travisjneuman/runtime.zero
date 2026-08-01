@@ -46,49 +46,103 @@ pub fn modules_json() -> Result<String, String> {
 }
 
 fn parse_modules_args(args: &[String]) -> Result<ModulesAction, String> {
-    match args {
-        [flag] if matches!(flag.as_str(), "--help" | "-h" | "help") => Ok(ModulesAction::Help),
-        [] => Ok(list_action(OutputFormat::Text, None)),
-        [flag] if flag == "--json" => Ok(list_action(OutputFormat::Json, None)),
-        [flag, value] if flag == "--format" && value == "json" => {
-            Ok(list_action(OutputFormat::Json, None))
+    match args.first().map(String::as_str) {
+        Some(flag) if matches!(flag, "--help" | "-h" | "help") && args.len() == 1 => {
+            Ok(ModulesAction::Help)
         }
-        [flag, path] if flag == "--from" => Ok(list_action(OutputFormat::Text, Some(path))),
-        [flag, path, json] if flag == "--from" && json == "--json" => {
-            Ok(list_action(OutputFormat::Json, Some(path)))
+        Some("validate") => parse_validate_args(&args[1..]),
+        Some("install") => parse_install_args(&args[1..]),
+        _ => parse_list_args(args),
+    }
+}
+
+fn parse_list_args(args: &[String]) -> Result<ModulesAction, String> {
+    let mut format = OutputFormat::Text;
+    let mut from = None;
+    let mut index = 0usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--json" => format = OutputFormat::Json,
+            "--format" => {
+                format = parse_format(args, &mut index)?;
+            }
+            "--from" => {
+                let Some(path) = args.get(index + 1) else {
+                    return Err(usage_error(args));
+                };
+                if from.replace(path.clone()).is_some() {
+                    return Err("module source directory was provided more than once".to_string());
+                }
+                index += 1;
+            }
+            _ => return Err(usage_error(args)),
         }
-        [flag, path, fmt, value] if flag == "--from" && fmt == "--format" && value == "json" => {
-            Ok(list_action(OutputFormat::Json, Some(path)))
+        index += 1;
+    }
+    Ok(list_action(format, from.as_ref()))
+}
+
+fn parse_validate_args(args: &[String]) -> Result<ModulesAction, String> {
+    let mut format = OutputFormat::Text;
+    let mut path = None;
+    let mut index = 0usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--json" => format = OutputFormat::Json,
+            "--format" => format = parse_format(args, &mut index)?,
+            value if path.is_none() => path = Some(value.to_string()),
+            _ => return Err(usage_error(args)),
         }
-        [cmd, path] if cmd == "validate" => Ok(validate_action(path, OutputFormat::Text)),
-        [cmd, path, json] if cmd == "validate" && json == "--json" => {
-            Ok(validate_action(path, OutputFormat::Json))
+        index += 1;
+    }
+    let Some(path) = path else {
+        return Err(usage_error(args));
+    };
+    Ok(validate_action(&path, format))
+}
+
+fn parse_install_args(args: &[String]) -> Result<ModulesAction, String> {
+    let mut format = OutputFormat::Text;
+    let mut dry_run = false;
+    let mut path = None;
+    let mut index = 0usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--dry-run" if !dry_run => dry_run = true,
+            "--dry-run" => return Err(install_dry_run_usage()),
+            "--json" => format = OutputFormat::Json,
+            "--format" => format = parse_format(args, &mut index)?,
+            value if path.is_none() => path = Some(value.to_string()),
+            _ => return Err(install_dry_run_usage()),
         }
-        [cmd, path, fmt, value] if cmd == "validate" && fmt == "--format" && value == "json" => {
-            Ok(validate_action(path, OutputFormat::Json))
-        }
-        [cmd, dry_run, path] if cmd == "install" && dry_run == "--dry-run" => {
-            Ok(install_dry_run_action(path, OutputFormat::Text))
-        }
-        [cmd, dry_run, path, json]
-            if cmd == "install" && dry_run == "--dry-run" && json == "--json" =>
-        {
-            Ok(install_dry_run_action(path, OutputFormat::Json))
-        }
-        [cmd, dry_run, path, fmt, value]
-            if cmd == "install"
-                && dry_run == "--dry-run"
-                && fmt == "--format"
-                && value == "json" =>
-        {
-            Ok(install_dry_run_action(path, OutputFormat::Json))
-        }
-        [cmd, ..] if cmd == "install" => Err(format!(
-            "module install planning is dry-run only\n\nUsage: {} modules install --dry-run <package-dir-or-manifest> [--format json]\n",
-            brand::COMMAND
-        )),
+        index += 1;
+    }
+    if !dry_run {
+        return Err(install_dry_run_usage());
+    }
+    let Some(path) = path else {
+        return Err(usage_error(args));
+    };
+    Ok(install_dry_run_action(&path, format))
+}
+
+fn parse_format(args: &[String], index: &mut usize) -> Result<OutputFormat, String> {
+    let Some(value) = args.get(*index + 1).map(String::as_str) else {
+        return Err(usage_error(args));
+    };
+    *index += 1;
+    match value {
+        "text" => Ok(OutputFormat::Text),
+        "json" => Ok(OutputFormat::Json),
         _ => Err(usage_error(args)),
     }
+}
+
+fn install_dry_run_usage() -> String {
+    format!(
+        "module install planning is dry-run only\n\nUsage: {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n",
+        brand::COMMAND
+    )
 }
 
 fn list_action(format: OutputFormat, from: Option<&String>) -> ModulesAction {
@@ -285,7 +339,7 @@ fn usage_error(args: &[String]) -> String {
 
 fn modules_usage() -> String {
     format!(
-        "Usage: {} modules [--from <dir>] [--format json]\n       {} modules validate <manifest.json> [--format json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format json]\n\nSafety: module install planning is dry-run only; modules are not executed or fetched.\n",
+        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n\nSafety: module install planning is dry-run only; modules are not executed or fetched.\n",
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND

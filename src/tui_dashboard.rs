@@ -254,7 +254,7 @@ fn overview_section(catalog: Option<&AppCatalog>, inventory_error: Option<&str>)
     }
     rows.push(row(
         tui_theme::LABEL_INFO,
-        "Tab details; arrows select; Enter previews",
+        "Tab details; arrows select; Enter previews; r refreshes",
         "info",
     ));
     TuiSection {

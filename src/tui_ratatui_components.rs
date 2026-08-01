@@ -6,9 +6,10 @@ use ratatui::widgets::Paragraph;
 use crate::tui_dashboard::TuiDashboard;
 use crate::tui_layout::TuiLayoutTier;
 use crate::tui_ratatui_support::{
-    block, focus_summary, label_line, selected_index, selected_section, tone_style,
+    block, focus_summary, label_line, selected_index, selected_row_index, selected_section,
+    tone_style,
 };
-use crate::tui_state::TuiState;
+use crate::tui_state::{TuiFocusRegion, TuiState};
 use crate::tui_theme;
 
 pub(crate) fn render_compact_notice(
@@ -44,7 +45,8 @@ pub(crate) fn render_compact_dashboard(
     color: bool,
 ) {
     let section = selected_section(dashboard, state);
-    let lines = vec![
+    let selected_row = selected_row_index(section, state);
+    let mut lines = vec![
         Line::from(vec![
             Span::styled("runtime.zero rz0", tone_style("accent", color)),
             Span::raw("   "),
@@ -65,9 +67,30 @@ pub(crate) fn render_compact_dashboard(
             "store {:?} · registry {:?} · modules {}",
             dashboard.store_init_status, dashboard.registry_state, dashboard.installed_module_count
         )),
-        preview_only_line(color),
-        Line::raw("Tab focus · arrows/j/k move · Enter previews · q exits"),
     ];
+    if let Some(row) = section.rows.get(selected_row) {
+        lines.push(Line::raw(format!(
+            "item {}/{}: {} {}",
+            selected_row + 1,
+            section.rows.len(),
+            row.label,
+            row.value
+        )));
+        if state.preview_open && state.focus_region == TuiFocusRegion::DetailsPanel {
+            lines.push(preview_only_line(color));
+            lines.push(Line::raw(row.preview.clone().unwrap_or_else(|| {
+                format!("context: {} {}", row.label, row.value)
+            })));
+        }
+    } else {
+        lines.push(Line::raw("item: no detail rows reported"));
+    }
+    if !(state.preview_open && state.focus_region == TuiFocusRegion::DetailsPanel) {
+        lines.push(preview_only_line(color));
+    }
+    lines.push(Line::raw(
+        "Tab focus · arrows · Enter · r refresh · q exits",
+    ));
     frame.render_widget(
         Paragraph::new(lines).block(block("COMPACT // SAFE DASHBOARD", "info", color)),
         area,

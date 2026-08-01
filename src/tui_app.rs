@@ -27,7 +27,7 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
     launch_context: &LaunchRoutingReport,
     color: bool,
 ) -> io::Result<()> {
-    let dashboard = tui_dashboard::dashboard();
+    let mut dashboard = tui_dashboard::dashboard();
     let mut state = TuiState::new(dashboard.sections.len());
     render(terminal, &dashboard, &state, launch_context, color)?;
     loop {
@@ -37,8 +37,21 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
             _ => None,
         };
         if let Some(input) = input {
-            if state.apply(input) == TuiAction::Quit {
-                break;
+            match state.apply(input) {
+                TuiAction::Quit => break,
+                TuiAction::Refresh => {
+                    let selected_section = state.selected_section;
+                    let selected_detail_row = state.selected_detail_row;
+                    let selected_command = state.selected_command;
+                    let focus_region = state.focus_region;
+                    dashboard = tui_dashboard::dashboard();
+                    state = TuiState::new(dashboard.sections.len());
+                    state.selected_section = selected_section;
+                    state.selected_detail_row = selected_detail_row;
+                    state.selected_command = selected_command;
+                    state.focus_region = focus_region;
+                }
+                TuiAction::Continue => {}
             }
             let row_count = dashboard
                 .sections
@@ -76,6 +89,7 @@ fn input_from_key(key: KeyEvent) -> Option<TuiInput> {
         KeyCode::Tab => TuiInput::FocusNext,
         KeyCode::BackTab => TuiInput::FocusPrevious,
         KeyCode::Enter | KeyCode::Char(' ') => TuiInput::Activate,
+        KeyCode::Char('r') | KeyCode::Char('R') => TuiInput::Refresh,
         KeyCode::Down | KeyCode::Right => TuiInput::NextItem,
         KeyCode::Up | KeyCode::Left => TuiInput::PreviousItem,
         _ => TuiInput::Other,
@@ -120,6 +134,10 @@ mod tests {
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Char('?'))),
             Some(TuiInput::ToggleHelp)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Char('r'))),
+            Some(TuiInput::Refresh)
         );
         assert_eq!(
             input_from_key(KeyEvent::from(KeyCode::Tab)),

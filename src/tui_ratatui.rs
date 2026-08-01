@@ -183,6 +183,14 @@ fn render_selected_panel(
             focus_summary(state.focus_region),
             tone_style("muted", color),
         ),
+        Line::styled(
+            if section.rows.is_empty() {
+                "item 0 / 0".to_string()
+            } else {
+                format!("item {} / {}", selected_row + 1, section.rows.len())
+            },
+            tone_style("muted", color),
+        ),
         Line::raw(""),
     ];
     for (index, row) in section.rows.iter().enumerate() {
@@ -193,8 +201,10 @@ fn render_selected_panel(
             lines.push(row_line(row, color));
         }
     }
-    if state.preview_open && state.focus_region == TuiFocusRegion::DetailsPanel {
-        let row = &section.rows[selected_row];
+    if state.preview_open
+        && state.focus_region == TuiFocusRegion::DetailsPanel
+        && let Some(row) = section.rows.get(selected_row)
+    {
         lines.push(Line::raw(""));
         lines.push(preview_only_line(color));
         lines.push(Line::raw(row.preview.clone().unwrap_or_else(|| {
@@ -224,12 +234,12 @@ fn render_help(frame: &mut Frame<'_>, area: Rect, state: &TuiState, color: bool)
     let lines = if state.show_help {
         vec![
             Line::raw("Tab/Shift+Tab focus · ↑/↓/j/k move within focus · Enter/Space preview"),
-            Line::raw("Esc closes preview/help or backs out · q quits"),
+            Line::raw("r refreshes local data · Esc closes preview/help · q quits"),
             Line::raw("subcommands, --json, pipes, and --no-tui stay CLI-only"),
         ]
     } else {
         vec![Line::raw(
-            "keys: Tab focus · ↑/↓/j/k move · Enter preview · h help · Esc back · q quit",
+            "keys: Tab focus · ↑/↓/j/k move · Enter preview · r refresh · h help · Esc back · q quit",
         )]
     };
     frame.render_widget(
