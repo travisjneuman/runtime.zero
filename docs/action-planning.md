@@ -2,8 +2,9 @@
 
 Inventory evidence must become a reviewable plan before any updater, uninstall,
 leftover, cleanup, quarantine, or restore module can mutate a system. This
-contract defines that future boundary; current commands do not execute these
-actions.
+contract defines the shared boundary; the updater's explicit `--apply` lane is
+the first production-shaped mutation consumer, while uninstall, cleanup, and
+module lifecycle consumers remain gated.
 
 ## Pipeline
 
@@ -141,7 +142,18 @@ confirmed into execution, and always sets `product_execution_authorized: false`.
 Before mutation, a review must be replaced or bound by exact finding-report and
 shared action-plan evidence rather than becoming a second action system.
 
-There is no manager adapter, staging executor, production filesystem mover, or
-runtime software-mutation path. Real package-manager commands and non-fixture
-filesystem mutation require the exact foundation implementation, disposable-host
-proof, and current external-action authorization applicable at that time.
+The updater now has a bounded, explicit manager-execution lane for live
+platform probes: `rz0 updates --apply` requires an exact action ID (or the
+interactive serial `--all` queue), explicit network-write approval, an
+initialized private store, an exact short-lived challenge, and a manual-recovery
+acknowledgement when manager rollback is not proven. It publishes a hash-chained
+transaction journal and single-use confirmation before invoking the direct
+allowlisted manager path, captures bounded output, verifies fresh manager
+availability evidence, and writes a redacted receipt. It never invokes `sudo`
+or an interactive privilege helper; elevated managers require an already-root
+process. A failed command or verification leaves `recovery_required` evidence.
+
+This does not authorize arbitrary module execution, third-party packages,
+uninstall, cleanup, or filesystem mutation. Windows process containment and
+manager-specific runtime proof remain fail-closed, and production use still
+requires the platform/disposable-host evidence applicable to the target.

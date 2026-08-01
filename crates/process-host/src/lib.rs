@@ -61,7 +61,7 @@ pub struct BoundedCapture {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReadOnlyProcessRequest {
+pub struct ProcessRequest {
     pub executable: PathBuf,
     pub arguments: Vec<String>,
     pub working_directory: PathBuf,
@@ -70,22 +70,23 @@ pub struct ReadOnlyProcessRequest {
     pub output_limit: u64,
 }
 
+pub type ReadOnlyProcessRequest = ProcessRequest;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReadOnlyProcessOutput {
+pub struct ProcessOutput {
     pub status: ExitStatus,
     pub stdout: BoundedCapture,
     pub stderr: BoundedCapture,
     pub timed_out: bool,
 }
 
+pub type ReadOnlyProcessOutput = ProcessOutput;
+
 /// Runs one explicitly selected, no-stdin process with bounded output and a
-/// dedicated Unix process group. This is a foundation transport primitive, not
-/// module or manager authority: callers still need artifact identity, trust,
-/// capability, confirmation, and transaction gates before using any result for
-/// an action.
-pub fn run_read_only_process(
-    request: &ReadOnlyProcessRequest,
-) -> Result<ReadOnlyProcessOutput, ProcessHostError> {
+/// dedicated Unix process group. This is a transport primitive, not module or
+/// manager authority: callers still need artifact identity, trust, capability,
+/// confirmation, and transaction gates before using a result for mutation.
+pub fn run_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHostError> {
     if !request.executable.is_absolute()
         || request.executable.as_os_str().is_empty()
         || request.timeout.is_zero()
@@ -101,7 +102,7 @@ pub fn run_read_only_process(
     {
         return Err(ProcessHostError::new(
             ProcessHostErrorCode::LimitExceeded,
-            "read-only process request has invalid path, environment, timeout, or output limit",
+            "process request has invalid path, environment, timeout, or output limit",
         ));
     }
     let executable_metadata = std::fs::symlink_metadata(&request.executable).map_err(|error| {
@@ -143,19 +144,19 @@ pub fn run_read_only_process(
     let mut child = command.spawn().map_err(|error| {
         ProcessHostError::new(
             ProcessHostErrorCode::PlatformIo,
-            format!("spawn bounded read-only process: {error}"),
+            format!("spawn bounded process: {error}"),
         )
     })?;
     let stdout = child.stdout.take().ok_or_else(|| {
         ProcessHostError::new(
             ProcessHostErrorCode::PlatformIo,
-            "bounded read-only process did not provide stdout",
+            "bounded process did not provide stdout",
         )
     })?;
     let stderr = child.stderr.take().ok_or_else(|| {
         ProcessHostError::new(
             ProcessHostErrorCode::PlatformIo,
-            "bounded read-only process did not provide stderr",
+            "bounded process did not provide stderr",
         )
     })?;
     let output_limit = request.output_limit;
@@ -167,7 +168,7 @@ pub fn run_read_only_process(
         if let Some(status) = child.try_wait().map_err(|error| {
             ProcessHostError::new(
                 ProcessHostErrorCode::PlatformIo,
-                format!("poll bounded read-only process: {error}"),
+                format!("poll bounded process: {error}"),
             )
         })? {
             break status;
@@ -178,7 +179,7 @@ pub fn run_read_only_process(
             break child.wait().map_err(|error| {
                 ProcessHostError::new(
                     ProcessHostErrorCode::PlatformIo,
-                    format!("reap timed-out read-only process: {error}"),
+                    format!("reap timed-out process: {error}"),
                 )
             })?;
         }
@@ -187,27 +188,40 @@ pub fn run_read_only_process(
     let stdout = stdout_thread.join().map_err(|_| {
         ProcessHostError::new(
             ProcessHostErrorCode::PlatformIo,
-            "read-only process stdout drain panicked",
+            "process stdout drain panicked",
         )
     })??;
     let stderr = stderr_thread.join().map_err(|_| {
         ProcessHostError::new(
             ProcessHostErrorCode::PlatformIo,
-            "read-only process stderr drain panicked",
+            "process stderr drain panicked",
         )
     })??;
     if stdout.truncated || stderr.truncated {
         return Err(ProcessHostError::new(
             ProcessHostErrorCode::LimitExceeded,
-            "read-only process output exceeded its retention ceiling",
+            "process output exceeded its retention ceiling",
         ));
     }
-    Ok(ReadOnlyProcessOutput {
+    Ok(ProcessOutput {
         status,
         stdout,
         stderr,
         timed_out,
     })
+}
+
+/// Runs an explicitly approved mutating manager command through the same
+/// bounded transport as discovery. Authority remains with the caller's exact
+/// plan, confirmation, transaction, and post-action verification gates.
+pub fn run_mutating_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHostError> {
+    run_process(request)
+}
+
+pub fn run_read_only_process(
+    request: &ReadOnlyProcessRequest,
+) -> Result<ReadOnlyProcessOutput, ProcessHostError> {
+    run_process(request)
 }
 
 /// Drains to EOF while retaining at most `limit` bytes.
@@ -553,6 +567,22 @@ mod tests {
         assert!(output.status.success());
         assert!(output.stdout.bytes.is_empty());
         assert!(!output.timed_out);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_mutating_transport_runs_only_the_explicit_direct_command() {
+        let request = ProcessRequest {
+            executable: PathBuf::from("/usr/bin/printf"),
+            arguments: vec!["%s".to_string(), "mutation-transport-test".to_string()],
+            working_directory: PathBuf::from("/"),
+            environment: Vec::new(),
+            timeout: Duration::from_secs(2),
+            output_limit: 1_024,
+        };
+        let output = run_mutating_process(&request).expect("bounded mutating transport");
+        assert!(output.status.success());
+        assert_eq!(output.stdout.bytes, b"mutation-transport-test");
     }
 
     #[cfg(unix)]

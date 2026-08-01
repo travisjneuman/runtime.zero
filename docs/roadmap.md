@@ -63,9 +63,12 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [x] Fixture-only schema-1 update-plan model and fail-closed policy tests.
 - [x] Separate installed/manager-owned synthetic update finding classifier over
   the shared path-free finding contract; no live adapter or execution.
-- [ ] Installed-only availability adapters after explicit network review.
-- [ ] Execution remains blocked until trust, transaction, receipt, rollback, and
-  confirmation gates are complete.
+- [x] Installed-only availability adapters after explicit network review;
+  bounded live Homebrew formula/cask probes are integrated into the TUI and CLI.
+- [x] Explicit one-item and interactive serial manager execution with exact
+  confirmation, transaction journal, receipt, and post-action verification.
+- [ ] Native rollback, Windows containment, manager-specific runtime proof, and
+  equal-platform production acceptance remain.
 
 ## Phase 5 — uninstall, leftovers, quarantine, and restore
 

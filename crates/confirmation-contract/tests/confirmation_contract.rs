@@ -176,6 +176,7 @@ fn challenge() -> ConfirmationChallenge {
         dry_run_writes_attempted: false,
         rollback_available: true,
         quarantine_available: false,
+        manual_recovery_acknowledged: false,
         expected_phrase: String::new(),
         challenge_sha256: String::new(),
     };

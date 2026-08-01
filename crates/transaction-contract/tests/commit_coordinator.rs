@@ -681,6 +681,7 @@ fn prepared_evidence(
         dry_run_writes_attempted: false,
         rollback_available: true,
         quarantine_available: true,
+        manual_recovery_acknowledged: false,
         expected_phrase: String::new(),
         challenge_sha256: String::new(),
     };

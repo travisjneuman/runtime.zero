@@ -3,9 +3,9 @@
 **System Management Toolkit**  
 Command: `rz0`
 
-`runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy and contracts plus the bounded read-only inventory needed for a useful zero-module product; write-capable domain behavior remains isolated behind explicit modules and lifecycle gates.
+`runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot:** the installed Mac surface provides a live bounded software catalog and one canonical TUI software list with per-item details/protection/uninstall-review posture plus cached search/filter/sort controls. All seven first-party source families exist as planned or synthetic slices; destructive software execution and live update availability remain gated. Start future work with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md).
+> **Current pre-alpha snapshot:** the installed Mac surface provides a live bounded software catalog, Homebrew update discovery, and an explicit CLI update execution lane with exact confirmation, journal, receipt, and fresh verification. The TUI remains a review surface; uninstall, cleanup, module installation/activation, and third-party execution remain separately gated. Start future work with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md).
 
 ## The promise
 
@@ -48,9 +48,10 @@ rz0 scan --dry-run --format json
 rz0 updates --dry-run --fixture tests/fixtures/updater/evidence.json --plan --queue --format json
 rz0 updates --dry-run --manager homebrew-formula --manager-output /tmp/out.json --executable /opt/homebrew/bin/brew --plan --queue --format json
 rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --plan --queue --format json
+rz0 updates --apply --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
 ```
 
-Bare `rz0` opens the live, read-only local software dashboard in an interactive terminal.
+Bare `rz0` opens the live local software dashboard in an interactive terminal. The dashboard is still a review surface; explicit update writes use the scriptable `rz0 updates --apply` lane.
 It uses raw key handling, so `q` exits without echoing typed input, and it
 filters terminal key events so Windows key-release events do not double-advance
 selection. The current interactive dashboard uses a Ratatui widget layer for bounded
@@ -79,13 +80,13 @@ metadata (`schema_version`, `contract`, `read_only`, and `writes_attempted`) so
 automation can distinguish foundation review output from future mutating
 module surfaces.
 
-Current commands are read-only, dry-run, or explicit user-local store
-scaffolding. The installed core now embeds the bounded first-party inventory
-adapter: `rz0 apps` lists path-free local software, `rz0 scan --dry-run`
-collects live redacted evidence, and the TUI shows installed applications,
-Homebrew formulae/casks, versions when available, and ownership-specific
-uninstall reviews. Protected system applications remain blocked. Reviews never
-execute or authorize removal.
+Inventory, diagnostics, and review commands remain read-only by design. The
+installed core now embeds the bounded first-party inventory adapter: `rz0 apps`
+lists path-free local software, `rz0 scan --dry-run` collects live redacted
+evidence, and the TUI shows installed applications, Homebrew formulae/casks,
+versions when available, and ownership-specific uninstall reviews. Explicit
+Homebrew/manager updates use `rz0 updates --apply`; protected system
+applications and uninstall reviews remain blocked from execution.
 
 ## Core vs modules
 
@@ -98,13 +99,14 @@ The installed `rz0` foundation is not meant to contain every domain feature. It 
 First-party feature modules are planned as separate install/use choices. A full bundle may exist later as a convenience distribution, but it should not redefine the core. Third-party modules require a hardened trust model before support is added.
 
 The foundation can validate local module manifests without executing module
-code. The fixture/captured-output `rz0 updates --dry-run` surface can classify updater
-evidence and emit a serial, review-only action queue. An explicit `--probe`
-path may run one bounded, cleared-environment manager query after requiring an
-exact executable path and `--allow-network-read`; it never executes an update
-or writes state. Installed
-manifests must also pass local SHA-256 integrity checks for
-explicitly listed package files:
+code. The fixture/captured-output `rz0 updates --dry-run` surface can classify
+updater evidence and emit a serial review queue. The explicit `--probe` path
+runs one bounded, cleared-environment manager query after requiring an exact
+executable path and `--allow-network-read`; `--apply` is the separate write
+lane and additionally requires `--allow-network-write`, exact confirmation,
+an initialized private store, journal/receipt publication, and fresh
+verification. Installed manifests must also pass local SHA-256 integrity checks
+for explicitly listed package files:
 
 ```bash
 rz0 modules validate path/to/rz0-module.json
@@ -112,9 +114,10 @@ rz0 modules --from path/to/installed-modules --format json
 rz0 modules install --dry-run path/to/module-package
 ```
 
-This is local, read-only validation and planning only. The install planner
-reports proposed locations and state changes, but it does not write files,
-install, update, fetch, trust, enable, or run modules.
+Module validation and installation planning remain local and bounded. The
+current module planner does not fetch, trust, activate, or run module code;
+module installation writes remain a separate lifecycle implementation and must
+not be confused with manager update execution.
 
 The dry-run planner also reports future local store and CLI/TUI routing
 contract metadata in JSON output. These fields describe where future state would

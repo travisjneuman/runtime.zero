@@ -280,10 +280,12 @@ fn build_update_action(record: &UpdateRecord, platform: &str) -> PlanAction {
     } else {
         ActionDisposition::Blocked
     };
-    let risk = if planned {
+    let risk = if !planned {
+        ActionRisk::Blocked
+    } else if record.rollback_supported {
         ActionRisk::Medium
     } else {
-        ActionRisk::Blocked
+        ActionRisk::High
     };
     let target = match record.available_version.as_deref() {
         Some(version) => format!("{}@{version}", record.subject_reference),
@@ -313,7 +315,7 @@ fn build_update_action(record: &UpdateRecord, platform: &str) -> PlanAction {
             description: if record.rollback_supported {
                 "manager-native rollback evidence must be recorded before execution".to_string()
             } else {
-                "rollback evidence is not established; execution must remain blocked".to_string()
+                "rollback evidence is not established; explicit execution requires a manual-recovery acknowledgement".to_string()
             },
         },
     }
@@ -383,6 +385,7 @@ mod tests {
         assert!(!report.action_authorized);
         let plan = build_update_action_plan(&input, &report).expect("update action plan");
         assert_eq!(plan.actions.len(), 1);
+        assert_eq!(plan.actions[0].risk, ActionRisk::Medium);
         assert!(!plan.actions[0].would_write);
         assert!(rz0_action_plan::validate_action_plan(&plan).valid);
         let queue = build_serial_update_queue(&plan).expect("serial update queue");
@@ -452,6 +455,7 @@ mod tests {
         let report = classify_updates(&input).expect("finding report");
         let plan = build_update_action_plan(&input, &report).expect("blocked plan");
         assert_eq!(plan.actions[0].disposition, ActionDisposition::Blocked);
+        assert_eq!(plan.actions[0].risk, ActionRisk::Blocked);
         assert!(!plan.actions[0].requires_confirmation);
     }
 }

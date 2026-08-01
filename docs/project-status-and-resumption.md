@@ -6,23 +6,28 @@
   production work remains gated.
 - **Source status:** pre-alpha; not a production or 1.0 release.
 - **Canonical branch:** `main`.
-- **Verified product implementation commit:** `73117e9018951424b392802afa7f17751530a3e2`.
+- **Verified product implementation commit:** pending current mutation-lane commit.
+- **Previous synchronized commit:** `3a86d2b5709a2100f94fdc1a528c07ad8ef501d1`.
 - **Paused baseline commit:** `53d1e3de4df8b0cbf15bf58ca520a56e81df6e5a`.
 - **Current CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
-- **Mutation posture:** uninstall/update/cleanup execution remains disabled.
+- **Mutation posture:** explicit updater manager execution is enabled behind
+  exact apply/confirmation/transaction gates; uninstall, cleanup, module
+  install/activation, and third-party execution remain disabled.
 
 This document is the public-safe starting point for future work. Read it before
 changing code, then follow the topic-specific contracts linked below. Historical
 runtime evidence, host-local paths, and operator-only details belong outside the
 public repository.
 
-The 2026-08-01 usability continuation added an explicit TUI refresh key,
-long-list position/jump behavior, safer compact previews, and consistent CLI
-format/option parsing without changing the read-only product boundary. See the
-repository commit above and the private project implementation record for
-validation evidence.
+The 2026-08-01 continuation added explicit TUI refresh/live update discovery,
+long-list position/jump behavior, safer compact previews, consistent CLI
+format/option parsing, and a bounded updater apply lane. Update execution is
+still not implicit: live evidence, exact manager identity, explicit network-
+write approval, initialized private state, short-lived confirmation, journal,
+receipt, and fresh verification are mandatory. See the private project
+implementation record for validation evidence.
 
 ## Why the last implementation changed direction
 
@@ -95,6 +100,7 @@ rz0 scan --dry-run [--include-raw-paths] [--format json]
 rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format json]
 rz0 updates --dry-run --manager <id> --manager-output <path> --executable <path> [--plan] [--queue] [--format json]
 rz0 updates --dry-run --probe --manager <id> --executable <path> --allow-network-read [--plan] [--queue] [--format json]
+rz0 updates --apply --probe --manager <id> --executable <path> --allow-network-read --allow-network-write (--action <id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <phrase>]
 rz0 modules [--format json]
 rz0 modules --from <dir> [--format json]
 rz0 modules validate <manifest.json> [--format json]
@@ -105,8 +111,9 @@ rz0 store init --dry-run [--format json]
 rz0 store init --yes [--format json]
 ```
 
-`store init --yes` is the only current product write surface. It is limited to
-runtime.zero-owned user-local scaffolding and is not software mutation.
+`store init --yes` writes only runtime.zero-owned user-local scaffolding.
+`updates --apply` is the first product system-mutation surface; it is limited to
+exact live manager actions and requires the separate gates described below.
 
 ## Current Mac inventory behavior
 
@@ -222,7 +229,7 @@ weaken them.
 | `inventory-contract` | Strict inventory shape, validation, bounds, and export privacy | Evidence is not an action or trust decision |
 | `finding-contract` | Path-free typed findings and protected-data policy | Findings cannot authorize mutation |
 | `support-contract` | Privacy-reviewed support input and summary output | Summaries cannot authorize release or execution |
-| `action-plan` | Finding-bound update/uninstall/quarantine/restore plans | Current plans validate only; production mover absent |
+| `action-plan` | Finding-bound update/uninstall/quarantine/restore plans | Plans remain dry-run artifacts; the core updater executor consumes one exact action |
 | `confirmation-contract` | Plan-specific five-minute challenge and durable consumption | Confirmation evidence is necessary but not authority by itself |
 | `cancellation-contract` | First-writer-wins cancellation and monotonic deadlines | A token is a signal, never spawn/kill/write authority |
 | `secure-fs` | Opened-directory state I/O, locks, privacy, sync, publication | Windows mutation remains blocked pending runtime ACL proof |
@@ -241,7 +248,7 @@ weaken them.
 | Family | Source package | Current state | Missing before production support |
 | --- | --- | --- | --- |
 | Inventory/environment | `modules/inventory` | Library embedded for bounded reads; separate fixture/development binary | Broader managers/services/persistence and full platform runtime parity |
-| Updater | `modules/updater` | Synthetic/captured-output manager parsers, dry-run action-plan binding, serial queue contract, and explicit read-only probe transport | Platform identity/source-agreement proof, execution, rollback |
+| Updater | `modules/updater` | Synthetic/captured-output parsers, live bounded probes, dry-run action-plan binding, serial queue, and explicit core manager apply lane | Platform-specific runtime proof, native rollback, Windows containment, and production acceptance matrix |
 | Uninstall | `modules/uninstall` | Synthetic manager classifier; core has Mac review UX | Finding/action-plan integration and safe platform execution |
 | Leftovers | `modules/leftovers` | Synthetic exact-runtime-owned classifier | Live ownership adapters and quarantine execution |
 | Cache management | `modules/cache` | Synthetic ownership/exact-evidence classifier | Live adapters, risk budgets, quarantine/restore execution |
@@ -266,8 +273,9 @@ These are intentional continuation facts, not hidden production claims:
   refresh. Bounded `/` search, `f` filter cycling, and `s` sort cycling now
   operate on the cached snapshot without triggering a new scan. Long detail
   lists expose the current item position while scrolling.
-- Per-item options currently mean details plus uninstall posture. Update,
-  repair, integrity, export, and cleanup options are not yet live.
+- Per-item TUI options currently mean details plus uninstall posture and update
+  availability. The scriptable updater apply lane is live; TUI mutation controls
+  and repair/integrity/export/cleanup execution are not yet wired.
 - Application publisher identity is unknown unless a future trusted adapter
   provides it.
 - Bundle IDs are deterministic evidence IDs, not permanent global product IDs;

@@ -14,7 +14,8 @@ A schema-1 challenge binds:
   capabilities;
 - issue and expiration time with a maximum five-minute lifetime;
 - proof that dry-run completed without writes;
-- an explicit rollback or quarantine story;
+- an explicit rollback or quarantine story, or a separately displayed manual-
+  recovery acknowledgement for an action whose native rollback is unavailable;
 - a domain-separated challenge digest and plan-specific phrase.
 
 `rz0-action-plan` provides deterministic domain-separated plan and write-set
@@ -41,10 +42,11 @@ response-digest-derived filename. Reusing the response must conflict with the
 existing consumption record. The transaction commit receipt binds challenge,
 response, and consumption digests and requires consumption evidence.
 
-The contract does not currently write the consumption record, invoke a module,
-approve elevation, grant a capability, or mutate a target. Durable create-new
-consumption belongs in the foundation transaction coordinator, never in a
-module.
+The contract does not itself approve elevation, grant a capability, or mutate
+a target. The core updater now uses the durable consumption coordinator before
+an explicit manager apply; module invocation and other domain mutation lanes
+remain separately gated. Durable create-new consumption belongs in the
+foundation transaction coordinator, never in a module.
 
 See [`action-planning.md`](action-planning.md),
 [`transaction-journal.md`](transaction-journal.md), and

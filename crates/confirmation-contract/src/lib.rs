@@ -32,6 +32,8 @@ pub struct ConfirmationChallenge {
     pub dry_run_writes_attempted: bool,
     pub rollback_available: bool,
     pub quarantine_available: bool,
+    #[serde(default)]
+    pub manual_recovery_acknowledged: bool,
     pub expected_phrase: String,
     pub challenge_sha256: String,
 }
@@ -320,8 +322,13 @@ fn validate_challenge(
     if !challenge.dry_run_completed || challenge.dry_run_writes_attempted {
         errors.push("confirmation requires a completed no-write dry run".to_string());
     }
-    if !challenge.rollback_available && !challenge.quarantine_available {
-        errors.push("confirmation requires rollback or quarantine".to_string());
+    if !challenge.rollback_available
+        && !challenge.quarantine_available
+        && !challenge.manual_recovery_acknowledged
+    {
+        errors.push(
+            "confirmation requires rollback, quarantine, or an explicit manual-recovery acknowledgement".to_string(),
+        );
     }
     let expected_digest = challenge_digest(challenge);
     if challenge.challenge_sha256 != expected_digest
@@ -360,6 +367,7 @@ fn challenge_digest(challenge: &ConfirmationChallenge) -> String {
         challenge.dry_run_writes_attempted,
         challenge.rollback_available,
         challenge.quarantine_available,
+        challenge.manual_recovery_acknowledged,
     ] {
         digest.update([u8::from(value)]);
     }

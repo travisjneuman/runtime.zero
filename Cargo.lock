@@ -727,9 +727,11 @@ name = "runtime-zero"
 version = "0.1.0"
 dependencies = [
  "crossterm",
+ "libc",
  "ratatui",
  "rz0-action-plan",
  "rz0-capability-contract",
+ "rz0-confirmation-contract",
  "rz0-diagnostics-contract",
  "rz0-finding-contract",
  "rz0-inventory-contract",
@@ -740,6 +742,7 @@ dependencies = [
  "rz0-registry-contract",
  "rz0-resource-contract",
  "rz0-secure-fs",
+ "rz0-transaction-contract",
  "rz0-validation-contract",
  "serde",
  "serde_json",

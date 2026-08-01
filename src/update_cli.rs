@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use rz0_action_plan::{ActionDisposition, ActionPlan};
@@ -11,6 +12,11 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::ExitCode;
+use crate::module_store::module_store_plan;
+use crate::update_execution::{
+    UpdateChallengeView, UpdateExecutionReport, UpdateExecutionRequest, build_update_challenge,
+    execute_update_action, make_single_action_plan, validate_update_confirmation,
+};
 
 const MAX_INPUT_BYTES: u64 = rz0_resource_contract::MAX_FINDING_REPORT_BYTES;
 const UPDATES_CONTRACT: &str = "updater_cli_review";
@@ -43,6 +49,9 @@ pub fn updates_command(args: &[String]) -> (ExitCode, String, String) {
             );
         }
     };
+    if command.apply {
+        return apply_update_command(&command, &input, &report);
+    }
     let output = if command.queue {
         let plan = match build_update_action_plan(&input, &report) {
             Ok(plan) => plan,
@@ -83,6 +92,13 @@ struct ParsedArgs {
     dry_run: bool,
     plan: bool,
     queue: bool,
+    apply: bool,
+    action: Option<String>,
+    all: bool,
+    confirm: Option<String>,
+    challenge_issued_unix_seconds: Option<u64>,
+    accept_no_rollback: bool,
+    allow_network_write: bool,
     format: OutputFormat,
 }
 
@@ -97,6 +113,13 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         dry_run: false,
         plan: false,
         queue: false,
+        apply: false,
+        action: None,
+        all: false,
+        confirm: None,
+        challenge_issued_unix_seconds: None,
+        accept_no_rollback: false,
+        allow_network_write: false,
         format: OutputFormat::Text,
     };
     let mut index = 0usize;
@@ -137,6 +160,40 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             "--allow-network-read" => parsed.allow_network_read = true,
             "--plan" => parsed.plan = true,
             "--queue" => parsed.queue = true,
+            "--apply" if !parsed.apply => parsed.apply = true,
+            "--apply" => return Err("updates accepts --apply only once".to_string()),
+            "--action" => {
+                index += 1;
+                parsed.action = Some(
+                    args.get(index)
+                        .ok_or_else(|| "--action requires an exact action ID".to_string())?
+                        .clone(),
+                );
+            }
+            "--all" => parsed.all = true,
+            "--confirm" => {
+                index += 1;
+                parsed.confirm = Some(
+                    args.get(index)
+                        .ok_or_else(|| "--confirm requires the exact challenge phrase".to_string())?
+                        .clone(),
+                );
+            }
+            "--challenge-issued-unix-seconds" => {
+                index += 1;
+                parsed.challenge_issued_unix_seconds = Some(
+                    args.get(index)
+                        .ok_or_else(|| {
+                            "--challenge-issued-unix-seconds requires a Unix timestamp".to_string()
+                        })?
+                        .parse::<u64>()
+                        .map_err(|_| {
+                            "--challenge-issued-unix-seconds requires a Unix timestamp".to_string()
+                        })?,
+                );
+            }
+            "--accept-no-rollback" => parsed.accept_no_rollback = true,
+            "--allow-network-write" => parsed.allow_network_write = true,
             "--json" => parsed.format = OutputFormat::Json,
             "--format" => {
                 index += 1;
@@ -160,7 +217,26 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         }
         index += 1;
     }
-    if !parsed.dry_run {
+    if parsed.apply {
+        if parsed.dry_run {
+            return Err(
+                "--apply performs its own fresh dry-run; do not combine it with --dry-run"
+                    .to_string(),
+            );
+        }
+        if !parsed.probe {
+            return Err("--apply requires an explicit live --probe".to_string());
+        }
+        if !parsed.allow_network_write {
+            return Err("--apply requires --allow-network-write".to_string());
+        }
+        if parsed.plan || parsed.queue {
+            return Err("--apply cannot be combined with --plan or --queue".to_string());
+        }
+        if (parsed.action.is_none() && !parsed.all) || (parsed.action.is_some() && parsed.all) {
+            return Err("--apply requires exactly one --action ID or --all".to_string());
+        }
+    } else if !parsed.dry_run {
         return Err("updates is report-only and requires --dry-run".to_string());
     }
     if parsed.queue && !parsed.plan {
@@ -181,6 +257,39 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
     if parsed.allow_network_read && !parsed.probe {
         return Err("--allow-network-read requires --probe".to_string());
     }
+    if parsed.allow_network_write && !parsed.apply {
+        return Err("--allow-network-write requires --apply".to_string());
+    }
+    if parsed.accept_no_rollback && !parsed.apply {
+        return Err("--accept-no-rollback requires --apply".to_string());
+    }
+    if parsed.action.is_some() && !parsed.apply {
+        return Err("--action requires --apply".to_string());
+    }
+    if parsed.all && !parsed.apply {
+        return Err("--all requires --apply".to_string());
+    }
+    if parsed.action.is_some() && parsed.all {
+        return Err("--action and --all are mutually exclusive".to_string());
+    }
+    if parsed.confirm.is_some() && !parsed.apply {
+        return Err("--confirm requires --apply".to_string());
+    }
+    if parsed.challenge_issued_unix_seconds.is_some() && !parsed.apply {
+        return Err("--challenge-issued-unix-seconds requires --apply".to_string());
+    }
+    if parsed.confirm.is_some() && parsed.challenge_issued_unix_seconds.is_none() {
+        return Err(
+            "--confirm requires --challenge-issued-unix-seconds from the challenge output"
+                .to_string(),
+        );
+    }
+    if parsed.all && (parsed.confirm.is_some() || parsed.challenge_issued_unix_seconds.is_some()) {
+        return Err(
+            "--all requires one interactive confirmation per item and cannot take --confirm"
+                .to_string(),
+        );
+    }
     if parsed.probe && parsed.manager.is_none() {
         return Err("--probe requires --manager".to_string());
     }
@@ -198,7 +307,7 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
         return read_input(path);
     }
     let manager = command.manager.ok_or_else(|| {
-        "live update availability discovery is not enabled yet; provide a local evidence fixture via --fixture, captured manager output via --manager-output, or explicit --probe".to_string()
+        "provide a local evidence fixture via --fixture, captured manager output via --manager-output, or explicit --probe".to_string()
     })?;
     let spec = manager_probe_specs()
         .into_iter()
@@ -225,6 +334,13 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
             .ok_or_else(|| "--probe requires an exact --executable path".to_string())?;
         if !Path::new(&executable).is_absolute() {
             return Err("--executable must be an absolute path".to_string());
+        }
+        if !rz0_module_updater::manager_executable_allowed(
+            manager.manager_name(),
+            manager.platform(),
+            &executable,
+        ) {
+            return Err("--executable is not the allowlisted path for this manager".to_string());
         }
         let output =
             rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
@@ -262,7 +378,6 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
             command.executable.clone().unwrap_or_default(),
         )
     };
-    let digest = sha256(&bytes);
     let context = ManagerParseContext {
         manager,
         executable: (!executable.is_empty()).then_some(executable),
@@ -270,30 +385,377 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
         requires_elevation: spec.requires_elevation,
         rollback_supported: false,
     };
-    let records = parse_manager_output(&context, &bytes)?;
+    let mut records = parse_manager_output(&context, &bytes)?;
+    records.sort_by(|left, right| left.finding_id.cmp(&right.finding_id));
+    let normalized = serde_json::to_vec(&records)
+        .map_err(|error| format!("normalize manager evidence: {error}"))?;
+    let evidence_digest = sha256(&normalized);
     Ok(UpdaterFindingInput {
         schema_version: 1,
         contract: rz0_module_updater::INPUT_CONTRACT.to_string(),
         platform: manager.platform().to_string(),
-        input_evidence_sha256: digest.clone(),
+        input_evidence_sha256: evidence_digest.clone(),
         source_id: format!("manager.{}", manager.id()),
-        source_evidence_sha256: digest,
+        source_evidence_sha256: evidence_digest,
         records,
     })
 }
 
+fn apply_update_command(
+    command: &ParsedArgs,
+    input: &UpdaterFindingInput,
+    report: &rz0_finding_contract::FindingReport,
+) -> (ExitCode, String, String) {
+    if command.all {
+        return apply_all_update_command(command, input, report);
+    }
+    apply_one_update_command(
+        command,
+        input,
+        report,
+        command.action.as_deref().unwrap_or_default(),
+    )
+}
+
+fn apply_one_update_command(
+    command: &ParsedArgs,
+    input: &UpdaterFindingInput,
+    report: &rz0_finding_contract::FindingReport,
+    action_id: &str,
+) -> (ExitCode, String, String) {
+    let plan = match build_update_action_plan(input, report) {
+        Ok(plan) => plan,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("updater action plan failed closed: {error}\n"),
+            );
+        }
+    };
+    let Some(action) = plan
+        .actions
+        .iter()
+        .find(|action| action.action_id == action_id)
+    else {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            format!("exact planned update action '{action_id}' was not found\n"),
+        );
+    };
+    if action.disposition != ActionDisposition::Planned {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            format!("update action '{action_id}' is blocked and cannot execute\n"),
+        );
+    }
+    if !action.rollback.supported && !command.accept_no_rollback {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "this manager has no proven rollback path; pass --accept-no-rollback to acknowledge manual recovery risk\n".to_string(),
+        );
+    }
+    let single_plan = match make_single_action_plan(&plan, action) {
+        Ok(plan) => plan,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("single-action update plan failed closed: {error}\n"),
+            );
+        }
+    };
+    let single_action = &single_plan.actions[0];
+    let now = command
+        .challenge_issued_unix_seconds
+        .unwrap_or_else(unix_seconds);
+    let (challenge, view) = match build_update_challenge(
+        &single_plan,
+        single_action,
+        command.accept_no_rollback,
+        now,
+    ) {
+        Ok(challenge) => challenge,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("update confirmation challenge failed closed: {error}\n"),
+            );
+        }
+    };
+    let Some(phrase) = command.confirm.as_deref() else {
+        return (
+            ExitCode::Ok,
+            render_challenge(&view, command.format),
+            String::new(),
+        );
+    };
+    let response = match validate_update_confirmation(&challenge, phrase, unix_seconds()) {
+        Ok(response) => response,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("update confirmation rejected: {error}\n"),
+            );
+        }
+    };
+    let state_root = PathBuf::from(module_store_plan(None, None, "update execution").state_root);
+    if !Path::new(&state_root).is_dir() {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            format!(
+                "runtime.zero state store is not initialized at {}; run `rz0 store init --yes` first\n",
+                state_root.display()
+            ),
+        );
+    }
+    let finding_id = single_action.finding_id.clone();
+    let execution = execute_update_action(UpdateExecutionRequest {
+        state_root: &state_root,
+        plan: &single_plan,
+        action: single_action,
+        challenge: &challenge,
+        response: &response,
+        now_unix_seconds: unix_seconds(),
+        environment: probe_environment(),
+        verify_after: || verify_update_after(command, &finding_id),
+    });
+    match execution {
+        Ok(report) => (
+            ExitCode::Ok,
+            render_execution(&report, command.format),
+            String::new(),
+        ),
+        Err(error) => (ExitCode::Usage, String::new(), format!("{error}\n")),
+    }
+}
+
+fn apply_all_update_command(
+    command: &ParsedArgs,
+    input: &UpdaterFindingInput,
+    report: &rz0_finding_contract::FindingReport,
+) -> (ExitCode, String, String) {
+    if command.format == OutputFormat::Json
+        || !io::stdin().is_terminal()
+        || !io::stdout().is_terminal()
+    {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "--all requires an interactive text terminal for one confirmation per item".to_string(),
+        );
+    }
+    let state_root = PathBuf::from(module_store_plan(None, None, "update execution").state_root);
+    if !state_root.is_dir() {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            format!(
+                "runtime.zero state store is not initialized at {}; run `rz0 store init --yes` first\n",
+                state_root.display()
+            ),
+        );
+    }
+    let plan = match build_update_action_plan(input, report) {
+        Ok(plan) => plan,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("updater action plan failed closed: {error}\n"),
+            );
+        }
+    };
+    let action_ids = plan
+        .actions
+        .iter()
+        .filter(|action| action.disposition == ActionDisposition::Planned)
+        .map(|action| action.action_id.clone())
+        .collect::<Vec<_>>();
+    if action_ids.is_empty() {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "serial update queue contains no executable candidates".to_string(),
+        );
+    }
+    let mut output = String::new();
+    for action_id in action_ids {
+        let fresh_input = match build_input(command) {
+            Ok(input) => input,
+            Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
+        };
+        let fresh_report = match classify_updates(&fresh_input) {
+            Ok(report) => report,
+            Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
+        };
+        let fresh_plan = match build_update_action_plan(&fresh_input, &fresh_report) {
+            Ok(plan) => plan,
+            Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
+        };
+        let Some(action) = fresh_plan.actions.iter().find(|action| {
+            action.action_id == action_id && action.disposition == ActionDisposition::Planned
+        }) else {
+            output.push_str(&format!(
+                "skipped {action_id}: fresh evidence no longer lists it\n"
+            ));
+            continue;
+        };
+        if !action.rollback.supported && !command.accept_no_rollback {
+            return (
+                ExitCode::Usage,
+                output,
+                format!("{action_id} lacks rollback proof; pass --accept-no-rollback\n"),
+            );
+        }
+        let single_plan = match make_single_action_plan(&fresh_plan, action) {
+            Ok(plan) => plan,
+            Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
+        };
+        let single_action = &single_plan.actions[0];
+        let issued = unix_seconds();
+        let (_challenge, view) = match build_update_challenge(
+            &single_plan,
+            single_action,
+            command.accept_no_rollback,
+            issued,
+        ) {
+            Ok(value) => value,
+            Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
+        };
+        let _ = write!(
+            io::stdout(),
+            "{}Type the phrase to continue (or `cancel`): ",
+            render_challenge(&view, OutputFormat::Text)
+        );
+        let _ = io::stdout().flush();
+        let mut phrase = String::new();
+        if io::stdin().read_line(&mut phrase).is_err() {
+            return (
+                ExitCode::Usage,
+                output,
+                "failed to read update confirmation\n".to_string(),
+            );
+        }
+        let phrase = phrase.trim().to_string();
+        if phrase.eq_ignore_ascii_case("cancel") {
+            output.push_str("serial update queue cancelled before the next item\n");
+            return (ExitCode::Ok, output, String::new());
+        }
+        let mut per_item = command.clone();
+        per_item.action = Some(action_id);
+        per_item.all = false;
+        per_item.confirm = Some(phrase);
+        per_item.challenge_issued_unix_seconds = Some(issued);
+        let (code, stdout, stderr) = apply_one_update_command(
+            &per_item,
+            &fresh_input,
+            &fresh_report,
+            per_item.action.as_deref().unwrap_or_default(),
+        );
+        output.push_str(&stdout);
+        if !stderr.is_empty() {
+            return (code, output, stderr);
+        }
+        if code != ExitCode::Ok {
+            return (
+                code,
+                output,
+                "serial update queue paused after the item failure\n".to_string(),
+            );
+        }
+    }
+    output.push_str("serial update queue completed its current evidence set\n");
+    (ExitCode::Ok, output, String::new())
+}
+
+fn verify_update_after(command: &ParsedArgs, finding_id: &str) -> Result<String, String> {
+    let fresh_input = build_input(command)?;
+    let fresh_report = classify_updates(&fresh_input)?;
+    let fresh_plan = build_update_action_plan(&fresh_input, &fresh_report);
+    if let Ok(plan) = fresh_plan
+        && plan.actions.iter().any(|action| {
+            action.finding_id == finding_id && action.disposition == ActionDisposition::Planned
+        })
+    {
+        return Err(
+            "fresh availability evidence still reports the exact update candidate".to_string(),
+        );
+    }
+    Ok("fresh manager availability evidence no longer reports the exact candidate".to_string())
+}
+
+fn render_challenge(view: &UpdateChallengeView, format: OutputFormat) -> String {
+    match format {
+        OutputFormat::Text => format!(
+            "runtime.zero update confirmation\n\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\nrollback_available: {}\nmanual_recovery_acknowledged: {}\n\nType this exact phrase in a new command invocation and pass --challenge-issued-unix-seconds {}:\n{}\n\nNo manager command was executed.\n",
+            view.plan_id,
+            view.action_id,
+            view.plan_sha256,
+            view.issued_unix_seconds,
+            view.expires_unix_seconds,
+            view.rollback_available,
+            view.manual_recovery_acknowledged,
+            view.issued_unix_seconds,
+            view.expected_phrase,
+        ),
+        OutputFormat::Json => serde_json::to_string_pretty(view).map_or_else(
+            |error| format!("challenge serialization failed: {error}\n"),
+            |json| format!("{json}\n"),
+        ),
+    }
+}
+
+fn render_execution(report: &UpdateExecutionReport, format: OutputFormat) -> String {
+    match format {
+        OutputFormat::Text => format!(
+            "runtime.zero update execution\n\ntransaction_id: {}\naction_id: {}\nmanager: {}\ntarget: {}\nstatus: {:?}\nexit_code: {:?}\nverification: {}\nstdout_bytes: {}\nstderr_bytes: {}\nreceipt_path: {}\nwrites_attempted: yes\nproduct_execution_authorized: yes\n",
+            report.transaction_id,
+            report.action_id,
+            report.manager,
+            report.target,
+            report.status,
+            report.exit_code,
+            report.verification,
+            report.stdout_bytes,
+            report.stderr_bytes,
+            report.receipt_path,
+        ),
+        OutputFormat::Json => serde_json::to_string_pretty(report).map_or_else(
+            |error| format!("execution serialization failed: {error}\n"),
+            |json| format!("{json}\n"),
+        ),
+    }
+}
+
+fn unix_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_secs())
+}
+
 fn probe_environment() -> Vec<(String, String)> {
     let mut environment = Vec::new();
+    if let Some(home) = std::env::var_os("HOME").and_then(|value| value.into_string().ok()) {
+        environment.push(("HOME".to_string(), home));
+    }
+    let path = match std::env::consts::OS {
+        "macos" => "/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin",
+        "linux" => "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        _ => "",
+    };
+    if !path.is_empty() {
+        environment.push(("PATH".to_string(), path.to_string()));
+    }
     if std::env::consts::OS == "macos" {
-        if let Some(home) = std::env::var_os("HOME").and_then(|value| value.into_string().ok()) {
-            environment.push(("HOME".to_string(), home));
-        }
         environment.push(("HOMEBREW_NO_AUTO_UPDATE".to_string(), "1".to_string()));
         environment.push(("HOMEBREW_NO_ENV_HINTS".to_string(), "1".to_string()));
-        environment.push((
-            "PATH".to_string(),
-            "/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin".to_string(),
-        ));
     }
     environment
 }
@@ -422,7 +884,7 @@ fn render_json(value: &impl Serialize) -> Result<String, String> {
 }
 
 fn usage() -> String {
-    "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n\nReads bounded local updater evidence or captured manager output. The explicit probe path runs one direct manager query with cleared environment, bounded output, and a timeout; it still never performs an update or authorizes mutation.".to_string()
+    "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n\n--apply performs a fresh availability dry-run, requires an exact action ID and explicit network-write approval, then requires a short-lived exact confirmation phrase. Without --confirm it only prints the challenge. The manager command is direct, bounded, serial, and followed by fresh verification; no sudo/helper is invoked.".to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -463,6 +925,61 @@ mod tests {
         .expect("probe args");
         assert!(probe.probe);
         assert!(probe.allow_network_read);
+        let apply = parse_args(&[
+            "--apply".to_string(),
+            "--probe".to_string(),
+            "--manager".to_string(),
+            "homebrew-formula".to_string(),
+            "--executable".to_string(),
+            "/opt/homebrew/bin/brew".to_string(),
+            "--allow-network-read".to_string(),
+            "--allow-network-write".to_string(),
+            "--action".to_string(),
+            "update.update.homebrew-formula.alpha".to_string(),
+            "--accept-no-rollback".to_string(),
+            "--challenge-issued-unix-seconds".to_string(),
+            "1700000000".to_string(),
+            "--confirm".to_string(),
+            "confirm update.plan.item abcdef123456".to_string(),
+        ])
+        .expect("apply args");
+        assert!(apply.apply);
+        assert!(apply.allow_network_write);
+        assert_eq!(
+            apply.action.as_deref(),
+            Some("update.update.homebrew-formula.alpha")
+        );
+        assert!(apply.confirm.is_some());
+        let all = parse_args(&[
+            "--apply".to_string(),
+            "--all".to_string(),
+            "--probe".to_string(),
+            "--manager".to_string(),
+            "homebrew-formula".to_string(),
+            "--executable".to_string(),
+            "/opt/homebrew/bin/brew".to_string(),
+            "--allow-network-read".to_string(),
+            "--allow-network-write".to_string(),
+        ])
+        .expect("serial apply args");
+        assert!(all.all);
+        assert!(all.action.is_none());
+        assert!(
+            parse_args(&[
+                "--apply".to_string(),
+                "--dry-run".to_string(),
+                "--probe".to_string(),
+                "--manager".to_string(),
+                "homebrew-formula".to_string(),
+                "--executable".to_string(),
+                "/opt/homebrew/bin/brew".to_string(),
+                "--allow-network-read".to_string(),
+                "--allow-network-write".to_string(),
+                "--action".to_string(),
+                "action".to_string(),
+            ])
+            .is_err()
+        );
     }
 
     #[test]

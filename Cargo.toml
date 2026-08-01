@@ -48,10 +48,12 @@ members = [
 ]
 
 [dependencies]
+libc = "0.2"
 crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm_0_29"] }
 rz0-action-plan = { version = "0.1.0", path = "crates/action-plan" }
 rz0-capability-contract = { version = "0.1.0", path = "crates/capability-contract" }
+rz0-confirmation-contract = { version = "0.1.0", path = "crates/confirmation-contract" }
 rz0-diagnostics-contract = { version = "0.1.0", path = "crates/diagnostics-contract" }
 rz0-finding-contract = { version = "0.1.0", path = "crates/finding-contract" }
 rz0-inventory-contract = { version = "0.1.0", path = "crates/inventory-contract" }
@@ -62,6 +64,7 @@ rz0-process-host = { version = "0.1.0", path = "crates/process-host" }
 rz0-registry-contract = { version = "0.1.0", path = "crates/registry-contract" }
 rz0-resource-contract = { version = "0.1.0", path = "crates/resource-contract" }
 rz0-secure-fs = { version = "0.1.0", path = "crates/secure-fs" }
+rz0-transaction-contract = { version = "0.1.0", path = "crates/transaction-contract" }
 rz0-validation-contract = { version = "0.1.0", path = "crates/validation-contract" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
