@@ -2,441 +2,394 @@
 
 ## Snapshot identity
 
-- **Reviewed:** 2026-08-09.
+- **Reviewed:** 2026-08-10.
 - **Product status:** active pre-alpha development; not production-ready and not
   a supported release.
 - **Canonical branch:** `main`.
-- **Reviewed repository baseline:** `6f6e5d4177ef9772575c8bb4a3931aaa9a156e2e`.
-- **Latest behavior-changing baseline in that snapshot:**
-  `1825beb9bf8e02b81f516b4c9dbf3c8cadfeb5f0`.
+- **Reviewed starting baseline:**
+  `84d52c46bf1cd5f57f4a59d5d15dcb3017bfc2ef`.
+- **Current behavior implementation:**
+  `c2a15c646e9a255f4ac8a6bac48445c015beec30`.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
-- **Current writes:** explicit user-local store scaffolding and an explicit
-  manager-update apply lane exist. Uninstall, cleanup, module installation or
-  activation, quarantine/restore, and third-party module execution remain
+- **Current writes:** explicit user-local Unix store scaffolding and a narrow
+  manager-update coordinator exist. Uninstall, cleanup, quarantine/restore,
+  module lifecycle execution, elevation, and third-party execution remain
   unavailable.
 
-This is the public-safe starting point for future work. The previous 2026-07-30
-pause handoff remains useful historical evidence, but it was superseded by the
-2026-08-01 usability, updater, and native-monitor continuation. Do not resume
-from the old pause commit or its test totals without reviewing all later work.
-
 For document precedence and the full topic map, see
-[`documentation-index.md`](documentation-index.md).
+[`documentation-index.md`](documentation-index.md). The 2026-07-30 pause handoff
+and earlier plans remain historical evidence only.
 
 ## Executive assessment
 
-`runtime.zero` is a substantial safety-contract foundation with a useful Mac
-read surface and one deliberately explicit updater write path. It is not close
-to a defensible 1.0 release yet because most platform runtime cells, six of the
-seven domain families, production module lifecycle/trust, rollback, recovery,
-packaging channels, accessibility, and release operations remain incomplete.
+`runtime.zero` now has a broad read-only product surface and a materially
+hardened updater experiment. It remains far from a defensible 1.0 release because
+full platform source parity, OS capability isolation, rollback, exact recovery
+completion, module trust/lifecycle, uninstall/cleanup execution, accessibility,
+compatibility labs, packaging channels, and release operations are incomplete.
 
 The strongest implemented areas are:
 
-- bounded, privacy-explicit local inventory;
-- path-free installed-software catalog and interactive TUI;
-- native read-only system monitoring;
-- shared validation, resource, privacy, capability, error, confirmation,
-  cancellation, filesystem, transaction, registry, lifecycle, performance, and
-  release-ledger contracts;
-- fixture and synthetic evidence for trust, staging, quarantine/restore,
-  findings, and module transport;
-- deterministic local packaging/SBOM/notice generation;
-- an explicit manager update lane with fresh discovery, exact confirmation,
-  durable local evidence, direct bounded execution, and post-action discovery.
+- bounded, privacy-explicit software/package/service inventory with explicit
+  source status;
+- source-specific software identifiers and deterministic identity grouping that
+  preserves disagreement;
+- path-free installed-software catalog, six-section TUI, and native monitor;
+- privacy-reviewed `rz0 report` summaries with no automatic sharing;
+- shared validation, resource, privacy, capability, error, finding/action,
+  confirmation, cancellation, filesystem, artifact-identity, transaction,
+  registry, lifecycle, performance, and release-ledger contracts;
+- dry-run uninstall findings and sealed manager action plans without execution;
+- Linux opened-executable identity-to-spawn binding, bounded process-group
+  teardown, caller cancellation, exact updater write evidence, canonical
+  external-effect receipts, and read-only recovery assessment;
+- deterministic local packaging/SBOM/notice generation, shell completions, a
+  manual page, and operator guides.
 
 The largest immediate risks are:
 
-- updater execution is production-shaped but does not yet consume every
-  foundation production primitive it documents;
-- executable allowlisting is path-based in the core updater lane and is not yet
-  bound to the opened-artifact lease;
-- the Unix process group is containment, not a sandbox, and Windows production
-  process execution fails closed;
-- updater journal/receipt publication is not yet the full canonical
-  registry-last commit-coordinator flow, and native rollback is absent;
-- no real package update has been accepted as production evidence;
-- public and private documentation had drifted around the old pause state,
-  validation totals, website/TUI maturity, and write-capable commands.
+- macOS manager execution fails closed because no reviewed opened-artifact-to-
+  spawn primitive exists;
+- Windows updater execution fails closed because exact process-image binding and
+  race-free Job Object containment are incomplete;
+- Unix process groups are containment aids, not syscall/filesystem/network/
+  privilege sandboxes, and a hostile child may attempt session escape;
+- cancellation is integrated into confirmed execution but not every discovery,
+  verification, and write boundary;
+- a valid external-effect receipt can identify an interrupted final journal
+  commit, but no exact approval-bound recovery-completion command exists;
+- manager-native rollback/elevation and disposable-host power-loss/fault proof
+  remain absent;
+- inventory service records are metadata presence/configuration evidence, not
+  complete live-status, ownership, dependency, or actionability proof.
 
-## Current user-visible product
-
-### Launch and routing
-
-- Bare `rz0` opens the full-screen TUI only when stdin and stdout are terminals
-  and recognized automation variables are absent.
-- `rz0 --tui` explicitly requires that interactive environment and fails with a
-  usage error rather than silently falling back.
-- `rz0 --no-tui`, `rz0 --json`, explicit subcommands, pipes, redirects, and
-  automation remain scriptable.
-- The TUI uses Crossterm for terminal lifecycle and Ratatui for widgets. Its
-  guard restores raw mode, cursor visibility, mouse capture, and the alternate
-  screen on normal exit and panic unwinding.
-- Scriptable output treats a normal broken pipe as a clean exit.
-
-### Current command surface
+## Current command surface
 
 ```text
-rz0
-rz0 --tui
-rz0 --no-tui
-rz0 --json
-rz0 --color auto|always|never
+rz0 [--tui|--no-tui|--json] [--color auto|always|never]
 rz0 --version
-rz0 doctor [--format json]
+rz0 doctor [--format text|json]
 rz0 apps [--format text|json]
-rz0 uninstall plan <installed-software-id> [--format text|json]
+rz0 report [--format text|json]
+rz0 uninstall plan <installed-software-id> [--executable <absolute-path>] [--format text|json]
 rz0 scan --dry-run [--include-raw-paths] [--format text|json]
 rz0 monitor [--format text|json]
+rz0 completions <bash|zsh|fish|powershell>
 rz0 updates --dry-run --fixture <evidence.json> [--plan] [--queue] [--format text|json]
 rz0 updates --dry-run --manager <id> --manager-output <path> --executable <path> [--plan] [--queue] [--format text|json]
 rz0 updates --dry-run --probe --manager <id> --executable <path> --allow-network-read [--plan] [--queue] [--format text|json]
+rz0 updates --recovery-status --transaction <id> [--format text|json]
 rz0 updates --apply --probe --manager <id> --executable <path> --allow-network-read --allow-network-write (--action <id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <seconds>] [--confirm <phrase>] [--format text|json]
 rz0 modules [--from <directory>] [--format text|json]
 rz0 modules validate <manifest.json> [--format text|json]
 rz0 modules install --dry-run <package> [--format text|json]
-rz0 store plan [--format json]
-rz0 store status [--store-root <path>] [--format json]
-rz0 store init --dry-run [--format json]
-rz0 store init --yes [--format json]
+rz0 store plan [--format text|json]
+rz0 store status [--store-root <path>] [--format text|json]
+rz0 store init --dry-run|--yes [--format text|json]
 ```
 
-Run `rz0 --help` and the subcommand help at the reviewed source revision for the
-exact parser contract. `--json` is accepted by several commands as an alias even
-where compact examples use `--format json`.
+`rz0 --help` and subcommand help are the exact parser contract. Static
+completion source has parser-coverage tests but is not generated by the parser;
+[`docs/man/rz0.1`](man/rz0.1) is manually reviewed and must remain synchronized.
 
-### Capability and write matrix
+## Capability and write matrix
 
-| Surface | Reads | Network | Writes | Current status |
-| --- | --- | --- | --- | --- |
-| `doctor` | Built-in posture/platform class | No | No | Implemented |
-| `apps` | Bounded local inventory | No | No | Implemented; path-free catalog |
-| `scan --dry-run` | Bounded local inventory | No | No | Implemented; paths redacted by default |
-| `monitor` | Native local counters | No | No | Implemented; metric depth varies by platform |
-| TUI startup/`r` | Cached or refreshed local inventory | No | No | Implemented |
-| TUI `u` / updater `--probe` | Direct manager availability query | May read remote metadata | No product write | Implemented for bounded probes; manager/runtime proof incomplete |
-| updater fixture/captured output | Caller-selected local evidence | No | No | Implemented |
-| `updates --apply` | Fresh manager evidence and verification | Explicitly acknowledged; not OS-isolated | Manager plus runtime.zero journal/receipt writes | Implemented pre-alpha lane; not production-supported |
-| module validation/install planning | Local manifest/package bytes | No | No | Implemented; planning only |
-| store plan/status | Local state metadata | No | No | Implemented |
-| `store init --yes` | Existing store state | No | User-local runtime.zero scaffolding | Implemented on Unix; Windows fails closed |
-| uninstall review | Local catalog | No | No | Implemented review only |
-| uninstall/cleanup/module lifecycle execution | — | — | — | Not implemented |
+| Surface | Network | Writes | Current status |
+| --- | --- | --- | --- |
+| `doctor` | No | No | Implemented privacy-safe posture report |
+| `apps` | No | No | Implemented path-free catalog; names/IDs remain sensitive |
+| `scan --dry-run` | No | No | Implemented; paths redacted by default |
+| `monitor` | No | No | Implemented one-shot native snapshot; depth varies |
+| `report` | No | No | Implemented privacy-reviewed summary; external sharing never auto-authorized |
+| TUI startup/`r` | No | No | Implemented inventory/monitor refresh |
+| TUI `u` / updater `--probe` | Manager may read remote metadata after acknowledgement | No product write | Bounded pre-alpha probe |
+| updater fixture/captured output | No | No | Implemented review/planning |
+| `updates --recovery-status` | No | No | Implemented deterministic evidence assessment only |
+| `updates --apply` | Explicit read/write acknowledgement; not OS-isolated | Manager plus private journal/receipt writes | Linux-shaped pre-alpha lane; macOS/Windows blocked |
+| uninstall plan | No | No | Shared finding and optional sealed action plan; no execution |
+| module validation/install planning | No | No | Implemented planning only |
+| store plan/status | No | No | Implemented read-only inspection |
+| `store init --yes` | No | Runtime.zero-owned user-local scaffold | Unix only; Windows blocked |
+| uninstall/cleanup/module lifecycle execution | — | — | Not implemented |
 
-The `--allow-network-read` and `--allow-network-write` flags are explicit intent
-and policy acknowledgements. They do not yet create an operating-system network
-sandbox around a manager process.
+Network flags express intent; they do not create an OS network sandbox. No
+command uploads a report or installs an elevation helper.
 
 ## Interactive TUI
 
-The interactive dashboard currently has six sections:
+Bare `rz0` opens the full-screen TUI only for an interactive stdin/stdout pair
+without recognized automation variables. Explicit subcommands never enter the
+TUI. Terminal guards restore raw mode, cursor, mouse capture, and alternate
+screen on normal exit and panic unwinding; ordinary broken pipes are clean exits
+for scriptable output.
 
-1. **overview** — inventory, identity-group, update-check, and uninstall-review
-   counts;
-2. **local store** — store initialization, registry, and receipt posture;
-3. **installed software** — one canonical software list with per-item details;
-4. **modules** — installed versus planned first-party module posture;
-5. **actions** — available CLI actions and required gates;
-6. **system monitor** — live native resource and bounded process rows.
+The six sections are overview, local store, installed software, modules,
+actions, and system monitor. The overview now separates application/package and
+service/persistence record counts. Controls include `r` inventory refresh, `u`
+explicit manager availability, `m` monitor, `/` search, `f` filter, `s` sort,
+arrows/`j`/`k`, Home/End, Tab/Shift+Tab, Enter/Space, mouse wheel, `h`/`?`, Esc,
+and `q`.
 
-Current controls include:
+The TUI has no independent mutation authority. It displays exact CLI handoffs;
+direct update/uninstall confirmation and recovery UI remain incomplete.
 
-- `r` refreshes bounded inventory while preserving view context;
-- `u` performs an explicit manager availability check and may read network
-  metadata without applying an update;
-- `m` jumps to the monitor, which refreshes once per second;
-- `/` searches the cached catalog; `f` cycles filters and `s` cycles sort;
-- arrows and `j`/`k` move selection;
-- Home/End jump to region boundaries;
-- Tab/Shift+Tab cycle navigation, details, and command focus;
-- Enter/Space toggle details;
-- the mouse wheel advances the targeted list by three rows;
-- Esc backs out through search/details/help/focus before quitting;
-- `h` or `?` toggles help; `q` quits.
+## Inventory and identity
 
-The TUI does not directly execute an update or uninstall. It shows exact CLI
-entry points where an action exists. Keep one software list; do not recreate
-parallel update/uninstall lists that duplicate the same objects.
+The installed core embeds the bounded `modules/inventory` library. Current
+metadata sources include:
 
-## Inventory and software identity
+- process PATH and allowlisted executable discovery;
+- persisted Windows User/Machine PATH, standard uninstall registry views, and
+  service/driver registry metadata;
+- macOS application bundles and bundle IDs, Homebrew Cellar/Caskroom roots,
+  MacPorts roots, Apple Installer receipt plists, and launchd plist labels;
+- Linux XDG desktop entries/desktop IDs, direct dpkg status and pacman local
+  metadata, and systemd unit-file labels;
+- optional exact-path Unix version probes through the shared process host.
 
-The installed core embeds the `modules/inventory` library as a bounded,
-read-only foundation adapter. The separate `rz0-inventory` development binary
-and planned module manifest are not installed or executed by core.
+Collectors do not invoke package managers or service controllers for baseline
+inventory. Every source retains independent `ok`, `partial`, or `unavailable`
+status, bounded duration/warnings, and deterministic records. Path-bearing app,
+package, and service locations participate in report-local redaction.
 
-Current built-in sources include:
+`SoftwareIdentifier { kind, value }` records source-native identity such as a
+bundle ID, package ID, desktop ID, package receipt ID, product code, or registry
+product key. The catalog groups records sharing an identifier before applying a
+name-normalized heuristic. Group confidence and version disagreement remain
+visible. IDs improve local reconciliation but are not universal product IDs and
+never authorize mutation.
 
-- process PATH and allowlisted direct executable discovery;
-- persisted Windows User/Machine PATH and standard uninstall registry views;
-- direct macOS `.app` bundles under known roots, bounded `Info.plist` versions,
-  and Homebrew Cellar/Caskroom directory metadata;
-- bounded Linux XDG desktop entries;
-- optional exact-path version probes on Unix through the shared bounded process
-  host; Windows probes fail closed.
+Coverage remains incomplete: RPM/DNF, Snap, Flatpak, AppImage, Nix, language
+managers, containers, browser extensions, live service status/dependencies,
+MSIX/AppX/Winget/Chocolatey/Scoop, and many persistence/driver details await an
+explicit 1.0 scope and target-native proof.
 
-Privacy posture:
+## Support summary and privacy
 
-- `rz0 apps` omits paths;
-- `rz0 scan --dry-run` redacts paths by default;
-- `--include-raw-paths` is local-only and makes the result unsuitable for the
-  support-export privacy gate;
-- dashboard JSON omits software names through a private summary model;
-- application names, package names, versions, and publishers can still be
-  sensitive and require review before sharing.
+`rz0 report` collects redacted live inventory and private diagnostics, then
+emits only strict support-summary fields and domain-separated digests. It omits
+raw reports, paths, host/user identity, app/service names, process output, and
+free-form warnings. Text and JSON are deterministic for one input. The result
+sets `local_export_ready` only after the privacy gate and always keeps
+`external_sharing_authorized: false`.
 
-Software identity groups are now deterministic and preserve source records and
-version disagreement. They remain heuristic when records are joined primarily
-by normalized display name. They are useful UI provenance, not permanent global
-product IDs or mutation authority.
-
-Coverage remains incomplete. Apple package receipts, MacPorts/Nix/language
-managers, services, launch agents/daemons, drivers, browser extensions,
-persistence, containers, and many Linux/Windows package sources are not yet in
-the installed catalog.
+`apps` is path-free but not support-safe by implication: names, versions,
+publishers, and source identifiers may be sensitive. A raw-path scan is local
+only. See [`privacy-and-sharing.md`](privacy-and-sharing.md).
 
 ## Updater implementation boundary
 
 ### Discovery and planning
 
-The updater can consume:
+The updater consumes strict fixtures, bounded captured output, or one explicit
+live probe. Homebrew JSON and bounded APT/DNF/Pacman/MacPorts parser slices exist.
+Winget/Zypper/Snap/Flatpak specifications fail closed where parsers are not
+accepted. Findings, action plans, and queue plans remain non-authorizing.
 
-- a strict local finding fixture;
-- bounded captured manager output;
-- one explicit live manager probe.
+Live discovery observes the exact manager artifact and seals its SHA-256, size,
+and platform identity into each plan. Replacement invalidates plan/confirmation
+identity.
 
-Homebrew JSON plus APT, DNF, Pacman, and MacPorts text parser slices exist.
-Winget, Zypper, Snap, and Flatpak have probe specifications but currently fail
-closed because their output parser is not yet accepted as locale-safe. Probe
-support is not equivalent to runtime support on the full OS matrix.
+### Confirmed execution sequence
 
-Updater records become shared finding reports, finding-bound action plans, and
-serial queue plans. Those artifacts remain dry-run evidence with
-`writes_attempted: false`; the core apply lane separately selects one exact
-planned action and performs its own confirmation/execution transition.
+The narrow lane requires one exact live plan, network acknowledgements, an
+initialized private store, an action-scoped five-minute phrase, single-use
+confirmation consumption, and no-rollback acknowledgement when applicable.
+It then:
 
-### Explicit apply lane
+1. obtains a `BoundExecutable` before consuming confirmation;
+2. serializes the inheritable-descriptor audit/spawn boundary;
+3. on Linux, launches a direct native ELF manager through the held
+   `/proc/self/fd/<fd>` identity; script/interpreter chains are blocked;
+4. records canonical `prepared`, `apply_started`, exact `write_intent`, and exact
+   `write_verified` journal events;
+5. uses the bounded cancellable process host with dedicated Unix process group,
+   output ceilings, deadline, kill/reap, and post-spawn executable revalidation;
+6. performs fresh installed-only manager verification;
+7. synchronizes a canonical `external_effect_commit_receipt` bound to the
+   transaction, plan/write set, confirmation, executable identity, arguments,
+   bounded process outcome, and verification digest;
+8. appends final `committed` evidence only after the receipt is durable.
 
-`updates --apply` requires:
+On Unix, the first SIGINT during the confirmed lane becomes typed
+`user_requested` cancellation. The host terminates/reaps the process group and
+publishes recovery-required evidence where possible. It does not reverse an
+external effect already performed.
 
-1. an explicit live `--probe` and supported manager/platform pair;
-2. an allowlisted absolute manager path;
-3. explicit network-read and network-write acknowledgement;
-4. exactly one action ID or an interactive serial `--all` flow;
-5. manual-recovery acknowledgement when rollback is unproven;
-6. an initialized private runtime.zero state root;
-7. a newly generated five-minute exact phrase bound to a single-action plan;
-8. durable single-use confirmation evidence;
-9. a direct, environment-cleared, no-shell manager process with bounded output
-   and timeout;
-10. fresh manager evidence showing that the exact candidate is no longer
-    available.
+macOS fails before transaction preparation because the exact identity-to-spawn
+binding is unsupported. Windows remains blocked at production binding and
+process-tree containment. No hidden `sudo`/UAC path exists.
 
-The lane never invokes `sudo` or an interactive privilege helper. Unix actions
-that require elevation require the existing process to be root. Windows
-production execution fails closed because inherited-handle and race-free process
-containment are incomplete.
+### Recovery assessment
 
-### Updater hardening still required
+`updates --recovery-status` validates the exact journal and receipt from the
+private store and selects one conservative action: abort without writes, verify
+an uncertain external effect, require a future explicitly approved final journal
+completion, take no action for consistent committed evidence, or refuse
+inconsistent evidence. It never mutates, repairs, retries, rolls back, or reruns
+a manager.
 
-The lane is intentionally pre-alpha and is not release evidence:
-
-- the allowlisted manager path is not yet pinned through
-  `crates/artifact-identity` into the actual core spawn;
-- Unix process-group teardown does not prevent a hostile child from creating a
-  new session and is not a filesystem, syscall, privilege, or network sandbox;
-- capability and network flags are validated policy, not OS-enforced denial;
-- cancellation is not propagated through every discovery/process/journal/
-  receipt boundary;
-- manager-native rollback and automated safe recovery do not exist;
-- the updater-specific journal and receipt do not yet use the complete canonical
-  commit-receipt/registry-last coordinator, and receipt publication after a
-  successful manager command still needs interruption-proof reconciliation;
-- real update, failure, drift, power-loss, and rollback evidence is missing on
-  disposable Windows/macOS/Linux hosts;
-- no current public release supports this lane.
-
-Treat `product_execution_authorized: true` in an updater execution report as a
-record of that one locally confirmed lane invocation, not as production, module,
-or release authorization.
+Still required: exact receipt-bound completion, manager rollback/manual recovery
+matrices, cancellation through every pre/post-process boundary, OS capability
+and network enforcement, Windows/macOS bindings, and disposable-host drift/
+crash/reboot/power-loss proof.
 
 ## Uninstall and cleanup boundary
 
-`rz0 uninstall plan <id>` emits a path-free `uninstall_review`. It is a UX
-review, not a shared executable action plan. It has no write set and cannot be
-confirmed into execution.
+`rz0 uninstall plan <id>` now converts a live catalog record into the shared
+finding contract instead of a separate temporary review schema. Manager-owned
+software can also receive an exact dry-run action plan when the caller supplies
+an allowlisted executable whose artifact identity is sealed successfully.
+Without that identity the action remains blocked. Protected software remains
+blocked; user/local bundles remain quarantine-first report-only; unknown and
+receipt-only ownership cannot execute.
 
-| Evidence | Current posture |
-| --- | --- |
-| Protected system application | Details only; blocked |
-| Homebrew formula/cask | Manager-owned uninstall review |
-| Local/user application bundle | Quarantine-first review |
-| Unknown ownership/source | Details only; unsupported |
-
-Before uninstall can execute, exact catalog evidence must become a shared
-finding and action plan; manager or bundle identity must be race-resistant; the
-confirmation, transaction, receipt, rollback/quarantine, cancellation, and
-fresh re-inventory paths must all have real platform proof. Direct recursive
-application deletion remains prohibited.
+No process, file move, quarantine, deletion, elevation, dependent-package
+review, verification, rollback, or recovery occurs. A `planned` action still has
+`execution_authorized: false` and cannot be consumed by an uninstall executor
+because none exists.
 
 ## Module catalog and lifecycle
 
-The frozen 1.0 catalog contains seven equal-priority families:
-
-1. inventory/environment;
-2. updater;
-3. uninstall;
-4. leftovers;
-5. cache management;
-6. security/integrity;
-7. report/export.
-
-All seven manifests remain `planned`. Current maturity:
+All seven first-party manifests remain `planned`:
 
 | Family | Current implementation | Major missing work |
 | --- | --- | --- |
-| Inventory/environment | Built-in collector library and separate development binary | Full source/platform parity and signed lifecycle integration |
-| Updater | Synthetic/live evidence parsing, finding/plan/queue, and core explicit apply lane | Production process identity/isolation, rollback/recovery, managers, and complete runtime matrix |
-| Uninstall | Synthetic classifier and live Mac review UX | Live finding/action binding and safe execution on every platform |
-| Leftovers | Synthetic exact-runtime-owned classifier | Live bounded ownership discovery and quarantine execution |
-| Cache management | Synthetic ownership-aware classifier | Live adapters, budgets, quarantine/restore, and manager policy |
-| Security/integrity | Synthetic digest observation classifier | Trusted baselines, live reads, incident semantics, and platform proof |
-| Report/export | Strict summary-only development binary | Core lifecycle/protocol integration and final-artifact runtime evidence |
+| Inventory/environment | Embedded read-only collector plus development binary | Full source/platform parity and signed lifecycle |
+| Updater | Evidence/findings/plans plus narrow core coordinator | Production isolation, rollback/recovery, managers, runtime matrix |
+| Uninstall | Shared synthetic/live findings and dry-run manager plans | Every execution/elevation/quarantine/rollback path |
+| Leftovers | Synthetic exact-runtime-owned classifier | Live ownership discovery and quarantine |
+| Cache | Synthetic ownership-aware classifier | Live bounded adapters, budgets, quarantine/restore |
+| Security/integrity | Synthetic digest classifier | Trusted baselines, live reads, incident review |
+| Report/export | Strict module binary plus integrated foundation report | Signed lifecycle and final-artifact platform proof |
 
-The core can validate manifests and package hashes and can plan installation.
-It cannot install, activate, invoke, repair, migrate, upgrade, deactivate, or
-uninstall a module. Detached signatures use public test keys only. Production
-keys, provenance, revocation, capability enforcement, and third-party trust do
-not exist.
+The core can validate manifests/hashes and plan installation. It cannot install,
+activate, invoke, repair, migrate, upgrade, deactivate, or uninstall modules.
+Test-key signatures, schemas, fixtures, process tests, and lifecycle plans do not
+provide production trust or authority.
 
 ## Foundation ownership map
 
 | Package | Implemented responsibility | Important open boundary |
 | --- | --- | --- |
-| `validation-contract` | Canonical lexical grammar | Lexical validity never grants authority |
-| `resource-contract` | Shared ceilings | Target-specific measurement and enforcement remain |
-| `capability-contract` | Vocabulary and exact schema subsets | No OS capability broker |
-| `error-contract` | Stable codes and privacy/retry classification | Broad adapter integration and localization remain |
-| `configuration-contract` | Immutable default-deny schema 1 | No reviewed user configuration/migration model |
-| `privacy-contract` | Report-local redaction | Not anonymization; broader adapters need classification |
-| `diagnostics-contract` | Private config-bound doctor report | Support/repair workflows remain |
-| `inventory-contract` | Strict bounded evidence | Coverage and runtime parity remain |
-| `finding-contract` | Shared path-free classification | Live output exists for updater only; other domains remain synthetic/review-only |
-| `action-plan` | Finding-bound dry-run plans | General production execution authority remains separate |
-| `confirmation-contract` | Exact short-lived single-use confirmation | Not authority by itself |
-| `cancellation-contract` | First-writer-wins cancellation/deadline | Remaining process/write integration |
-| `process-host` | Bounded direct Unix transport and test containment | Identity binding, sandboxing, Windows production host |
-| `secure-fs` | Opened-directory state I/O | Windows ACL creation/runtime proof and broad filesystem matrix |
-| `artifact-identity` | Same-open-handle digest/identity and partial spawn leases | Core updater/module host integration; exact macOS primitive |
-| `module-trust` | Public-test-key signature and staging contracts | Production trust root, signer, provenance, revocation |
-| `module-protocol` | Unauthorized preview and guarded test helper | Production module host and capability broker |
-| `module-lifecycle` | Eight digest-bound planning transitions | No lifecycle execution |
-| `registry-contract` | Canonical installed state | No module install publication path |
-| `transaction-contract` | Hash chain, durable evidence, registry-last coordinator | Domain execution/rollback and platform power-loss proof |
-| `performance-contract` | Six command budgets | Current catalog/TUI/update operations and all targets |
-| `release-contract` | Bounded target × module × stage ledger | RC target freeze and real evidence population |
+| `validation-contract` | Canonical lexical grammar | Validity never grants authority |
+| `resource-contract` | Shared ceilings | Target-specific measurement/enforcement |
+| `capability-contract` | Vocabulary/schema partitions | No OS capability broker |
+| `error-contract` | Stable privacy/retry codes | Broad adapter/localization integration |
+| `configuration-contract` | Immutable default-deny schema 1 | No user config/migration model |
+| `privacy-contract` | Report-local redaction | Not anonymization |
+| `diagnostics-contract` | Private config-bound doctor | Production repair/support flow |
+| `inventory-contract` | Strict evidence, identifiers, services | Source/runtime parity |
+| `support-contract` | Privacy-reviewed summary | External sharing stays human-controlled |
+| `finding-contract` | Path-free classification | Findings cannot authorize |
+| `action-plan` | Finding-bound dry-run plans | Domain executors remain separate |
+| `confirmation-contract` | Exact short-lived single-use confirmation | Not authority alone |
+| `cancellation-contract` | First-reason cancellation/deadline | Remaining boundary integration |
+| `process-host` | Bounded direct transport and Unix groups | OS sandbox/Windows production host |
+| `secure-fs` | Opened-directory state I/O | Windows ACL creation/runtime and FS matrix |
+| `artifact-identity` | Same-handle identity plus bound spawn lease | Exact macOS and Windows production binding |
+| `module-trust` | Test-key signature/staging contracts | Production roots/provenance/revocation |
+| `module-protocol` | Unauthorized preview/test child | Production module host |
+| `module-lifecycle` | Eight planning transitions | No lifecycle execution |
+| `registry-contract` | Canonical installed state | No module install publication |
+| `transaction-contract` | Journal, external receipts, coordinator, recovery | Exact domain rollback/platform proof |
+| `performance-contract` | Nine read-only command budgets | TUI timing and target-native evidence |
+| `release-contract` | Target × module × stage ledger | RC freeze/evidence population |
 
 ## Validation baseline
 
-The 2026-08-09 documentation review reproduced the current default toolchain
-baseline with Rust/Cargo 1.96.0:
+Final validation for
+`c2a15c646e9a255f4ac8a6bac48445c015beec30` used Rust 1.96.0
+(`rustc ac68faa20`, `cargo 30a34c682`) on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
-- `cargo test --workspace --locked` passed **332** tests across 96 test/doc-test
-  suites;
-- `cargo test --workspace --locked --all-features` passed **343** tests across
-  96 suites;
-- strict native Clippy passed over all workspace targets/features with warnings
-  denied;
-- live `doctor`, redacted `scan`, path-free `apps`, and native `monitor` JSON
-  contracts parsed and retained `read_only: true` / `writes_attempted: false`;
-- 31 local workspace packages and 119 external packages resolved from 150 lock
-  entries;
-- all repository-relative Markdown links resolved.
+- default workspace tests passed: 359 tests across 97 test/doc-test suites;
+- all-feature workspace tests passed: 370 tests across 97 suites;
+- strict locked all-target/all-feature Clippy passed with `-D warnings`;
+- locked all-target/all-feature compile checks passed for
+  `x86_64-unknown-linux-gnu` and `x86_64-pc-windows-msvc`; these are compile
+  evidence, not target-native runtime proof;
+- an exact-commit release binary passed native doctor, scan, apps, monitor,
+  report, dashboard, fixture update queue, and update/recovery-help smokes;
+  live redacted inventory observed 273 software and 898 service/persistence
+  records on this host;
+- the same binary passed all four bounded PTY cases and schema-2 performance
+  evidence for all nine operations; both records remained non-authorizing;
+- local unsigned portable packaging, artifact-manifest digest verification,
+  target-filtered SPDX generation, and third-party notices passed. The temporary
+  ZIP SHA-256 was
+  `93b7ca37b828b67bb4a88174af069a6f812c3f7ac9ef4be621ce6cc6b7fbaaec`;
+- four Python script tests and Python syntax checks passed;
+- completion source matched CLI output; Bash and Zsh syntax, PowerShell parsing,
+  `mandoc`, relative links across 70 Markdown files, seven module manifests,
+  unsafe-DOM patterns, secret/private-path patterns, and diff hygiene passed. Fish and ShellCheck
+  were unavailable, so Fish has static coverage rather than a native parser run.
 
-`cargo-deny` and `cargo-audit` were not installed on the review host, so the
-2026-07-29 advisory/license evidence was not refreshed. That older audit remains
-valid only for its named lockfile/source snapshot. Cross-target compilation,
-final-artifact packaging, PTY, performance, DMG, Windows/Linux runtime, and
-real update execution were not rerun as part of the documentation-only review.
+`cargo-audit` and `cargo-deny` were unavailable and were not auto-installed.
+Locked metadata still resolved 150 packages (31 workspace and 119 external), and
+native target-filtered release metadata covered 119 reachable packages (96
+external). No real update/uninstall, Cloudflare/site mutation, release
+publication, or production action was run.
 
-## Known product limitations and design debts
+## Known limitations
 
 ### Product and UX
 
-- No stable 1.0 UX or compatibility guarantee exists.
-- The dashboard uses one cached inventory snapshot until `r`; update checks have
-  their own explicit refresh.
-- Software identity grouping can create heuristic/name-normalized relationships;
-  it preserves disagreement but is not a canonical package identity service.
-- TUI update writes are CLI handoffs rather than in-dashboard confirmation.
-- Uninstall, cleanup, integrity remediation, report export, and module lifecycle
-  are not end-to-end product flows.
-- Help, manual pages, shell completions, localization policy, recovery UX, and
-  screen-reader evidence are incomplete.
-- The public website mock predates the real six-section TUI and needs a
-  separately approved parity/deployment pass.
+- No stable 1.0 CLI/JSON/API compatibility guarantee exists.
+- TUI update/uninstall actions are CLI handoffs, not direct confirmation flows.
+- No uninstall, cleanup, restore, integrity remediation, or module lifecycle
+  execution exists.
+- Interactive TUI first-frame/refresh timing, localization policy, migration/
+  repair guides, and human screen-reader review remain incomplete.
+- The public website mock predates the real six-section product; source/deploy
+  changes require separate approval.
 
-### Platform behavior
+### Platforms
 
-- Windows inventory/monitor/process/filesystem behavior lacks full real-runtime
-  evidence across the declared client/server matrix.
-- Linux app/monitor behavior lacks the distro, manager, terminal, sandbox, and
-  packaging matrix.
-- macOS evidence is concentrated on a current Apple Silicon host; Intel hardware
-  and older macOS remain unproven.
-- Monitor depth differs: first-sample CPU can be unavailable; macOS process CPU
-  rows are not currently sampled; Windows interface byte counters and running
-  process counts are deferred; restricted containers can hide host metrics.
-- No platform has complete power-loss, locked-file, low-space, cross-filesystem,
-  ACL/ownership, privilege, and recovery evidence.
+- Windows read paths compile but lack the declared real client/server runtime
+  matrix; updater/store mutation remains blocked.
+- Linux needs native distro/manager/systemd/sandbox/filesystem/package proof.
+- macOS evidence remains concentrated on a current Apple Silicon host; exact
+  manager spawn, Intel hardware, and older releases are unproven.
+- Service records do not yet assert authoritative loaded/running state.
+- No platform has complete power-loss, locked-file, low-space, ACL/ownership,
+  cross-filesystem, privilege, rollback, and recovery proof.
 
 ### Release and operations
 
-- No production release, installer, package-channel, support promise, or
-  security-supported version exists.
-- No production signing key or key-compromise/revocation workflow exists.
-- Existing local ZIP/DMG evidence is unpublished, unsigned, and tied to earlier
-  commits; it must be rebuilt for an RC.
-- No approved CI/release workflow, beta/RC operation, incident runbook, support
-  process, or compatibility lab is complete.
+- No production release, installer/package channel, supported version, or
+  support promise exists.
+- No production key, compromise/revocation workflow, approved release pipeline,
+  compatibility lab, beta/RC process, incident runbook, or independent security
+  review is complete.
+- Local ZIP/DMG evidence is unpublished and must be rebuilt from an exact RC.
 
-## Dependency-ordered continuation plan
+## Dependency-ordered continuation
 
-1. **Keep documentation and contracts aligned.** Start from this guide,
-   `roadmap.md`, and `production-readiness.md`; do not resume from the old pause
-   checklist.
-2. **Harden the updater exception before expanding writes.** Bind opened
-   executable identity to spawn, unify updater durable publication with the
-   canonical transaction/receipt model, propagate cancellation, add recovery,
-   and prove real disposable-host failure/rollback behavior.
-3. **Complete software identity and inventory parity.** Replace heuristic-only
-   joins with source-specific durable provenance where available and implement
-   missing package/service/persistence sources across all three platform
-   families.
-4. **Complete process/filesystem/capability foundations.** Resolve macOS exact
-   spawn, Windows inherited handles and suspended Job assignment, Linux/macOS
-   sandbox policy, network/elevation enforcement, Windows ACL creation, and
-   platform filesystem matrices.
-5. **Bind uninstall reviews to the shared action pipeline.** Keep manager-native
-   and quarantine-first methods, with protected/unknown data blocked.
-6. **Advance every module family equally.** Add synthetic/adversarial fixtures,
-   live adapters, CLI/JSON/TUI, lifecycle integration, and platform runtime
-   evidence without duplicating foundation policy.
-7. **Populate the frozen acceptance ledger.** Freeze exact RC targets/managers/
-   channels and fill every target × seven-module × 12-stage cell with reviewed
-   evidence or evidence-backed not-applicable status.
-8. **Finish UX, packaging, security, and operations.** Accessibility, terminals,
-   installers/packages, reproducibility, legal review, vulnerability response,
-   support, beta/RC, website parity, and honest release instructions are all
-   release-blocking.
-9. **Review external actions separately.** Publication, package submission,
-   website deployment, signing credentials, workflows, recurring automation,
-   paid services, third-party execution, and non-disposable-host mutation remain
-   explicit approval events.
+1. Freeze 1.0 journeys, targets, managers, schemas, budgets, and acceptance IDs.
+2. Finish updater exception hardening: macOS/Windows spawn binding, OS
+   capabilities/network/elevation, full cancellation, exact recovery completion,
+   manager rollback/manual recovery, and disposable-host fault proof.
+3. Complete process/filesystem foundations and target-native containment/ACL/
+   mount/filesystem matrices.
+4. Finish in-scope package/service/persistence sources and adversarial identity
+   reconciliation/runtime privacy tests.
+5. Build uninstall execution through manager-native or quarantine-first exact
+   plans, with dependency review, confirmation, durable receipts, rollback, and
+   recovery.
+6. Advance all module families through trust, signed immutable lifecycle,
+   least-privilege process hosting, CLI/JSON/TUI, and equal-platform proof.
+7. Populate every frozen release-ledger cell with final-artifact evidence or a
+   reviewed evidence-backed not-applicable result.
+8. Complete accessibility, performance, packaging/install/update/uninstall,
+   legal/security/privacy, vulnerability/support/incident, beta/RC, and release
+   governance work.
+9. Request separate approval before website/deployment, workflows, package
+   publication, signing credentials, paid/quota services, or production writes.
 
-## First-session command checklist
+## First-session checklist
 
 ```bash
 git status --short --branch
@@ -446,30 +399,27 @@ cargo fmt --all -- --check
 cargo test --workspace --locked
 cargo test --workspace --locked --all-features
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo run --locked -- doctor --format json
 cargo run --locked -- apps --format json
 cargo run --locked -- scan --dry-run --format json
 cargo run --locked -- monitor --format json
-cargo run --locked -- doctor --format json
+cargo run --locked -- report --format json
 git diff --check
 ```
 
-Run dependency, cross-target, packaging, final-artifact, PTY, performance,
-accessibility, and disposable-host lanes when relevant. A release claim requires
-the complete frozen matrix, not only this smoke list.
-
-## Invariants to preserve
+## Invariants
 
 - Report first, dry-run first, quarantine first, exact confirmation first.
-- One canonical software list with per-object options.
+- One canonical software list with source evidence and per-object options.
 - No credentials, sessions, private keys, host identity, or private paths in
   public evidence.
 - No direct recursive deletion of applications or unknown data.
-- Manager-native actions before direct filesystem cleanup.
-- No module execution until trust, identity, capability, isolation, lifecycle,
+- Manager-native action before direct filesystem cleanup.
+- No module execution before trust, identity, capability, isolation, lifecycle,
   transaction, and runtime gates pass.
-- No weaker path-based Windows mutation fallback.
+- No weaker pathname/Windows mutation fallback.
 - No automatic retry in schema 1.
-- Evidence, plans, signatures, leases, confirmations, receipts, diagnostics,
-  and ledgers never authorize broader mutation or release by themselves.
-- Windows, macOS, Linux, and all seven frozen module families remain equal
-  release requirements unless the 1.0 scope is explicitly changed before RC.
+- Evidence, plans, signatures, leases, confirmations, receipts, reports, and
+  ledgers never authorize broader mutation or release by themselves.
+- Windows, macOS, Linux, and all seven frozen module families remain equal 1.0
+  requirements unless the scope is explicitly changed before RC.
