@@ -1,9 +1,10 @@
 # Terminal UI Foundation
 
-> The current paused UX intentionally uses one canonical installed-software list
-> with per-item options. Do not recreate a separate uninstall navigation list.
-> See [`project-status-and-resumption.md`](project-status-and-resumption.md) for
-> the complete handoff.
+> The current UX intentionally uses one canonical installed-software list with
+> per-item options. Do not recreate separate updater, uninstall, or cleanup lists
+> for the same software objects. See
+> [`project-status-and-resumption.md`](project-status-and-resumption.md) for the
+> current implementation and hardening boundary.
 
 Bare `rz0` opens the terminal UI when both stdin and stdout are interactive and
 automation is not detected. `rz0 --tui` explicitly requests that same
@@ -94,6 +95,8 @@ The dashboard must not claim planned modules are installed or active. Enter
 shows the selected item's details and exact available command. Protected system
 software is blocked. Update writes use the explicit, confirmation-bound
 `rz0 updates --apply` CLI lane; the dashboard does not silently execute them.
+`u` is an explicit availability query and may read manager network metadata, but
+it never applies an update.
 
 
 ## Current shell layout
@@ -153,13 +156,29 @@ Required top-level fields:
 JSON output must never include ANSI escape sequences and must not depend on
 terminal dimensions, color mode, raw mode, or Ratatui rendering state.
 
+## Known TUI limitations
+
+- Update confirmation/execution remains a CLI handoff rather than an in-TUI
+  write flow.
+- Uninstall, cleanup, integrity remediation, report export, and module lifecycle
+  are reviews or unavailable, not interactive actions.
+- Search/filter/sort operate on the cached inventory until `r` refreshes it.
+- The monitor's metric depth varies by platform and first-sample CPU values may
+  show `sampling`.
+- Automated buffer/PTY tests do not replace real terminal, keyboard, mouse,
+  screen-reader, SSH, tmux/screen, Windows Console/Terminal, and human review.
+- Recovery, rollback, long-running progress, cancellation, help/man pages,
+  completions, and localization UX remain incomplete.
+
 ## Website parity backlog
 
 The terminal TUI is now the source of truth for labels, state hierarchy,
-responsive layout vocabulary, and interactive action entry points. Website
-mockups should be updated only in a separate website lane after Travis approves
-the visual direction. See [`website-tui-parity-backlog.md`](website-tui-parity-backlog.md)
-for the exact backlog and checks.
+responsive layout vocabulary, and interactive action entry points. The current
+public-site mock predates the six-section TUI, update review, and native monitor.
+Website source should be updated only in a separate approved deployment lane.
+See [`website-tui-parity-backlog.md`](website-tui-parity-backlog.md) for the exact
+backlog and checks.
+
 ## Final-artifact PTY smoke
 
 `scripts/smoke_terminal_artifact.py` exercises an already built single-link

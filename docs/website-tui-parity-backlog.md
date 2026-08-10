@@ -2,7 +2,11 @@
 
 The real terminal TUI is the source of truth for runtime.zero's interactive foundation experience. The website mock should follow the terminal TUI after the terminal direction stabilizes, not the other way around.
 
-This backlog intentionally does not edit `site/`. Website work remains a separate lane because matching the real TUI well requires visual review, viewport checks, copy review, and possibly design decisions beyond the foundation code lane.
+This backlog intentionally does not edit deployed page source. Website work
+remains a separate lane because matching the real TUI requires visual review,
+viewport/accessibility checks, copy review, deployment awareness, and design
+decisions beyond a documentation audit. The current site terminal still calls
+itself a future TUI reference and is known to be stale.
 
 ## Current terminal TUI structure to mirror later
 
@@ -22,9 +26,12 @@ This backlog intentionally does not edit `site/`. Website work remains a separat
 
 - [ ] Update the website TUI mock/screens so labels, panel titles, and safety posture match the real terminal TUI.
 - [ ] Represent compact/standard/wide behavior without implying unsupported website interactivity.
-- [ ] Keep copy honest: inventory reads/details are read-only, while explicit
-  updater writes remain in the confirmation-bound CLI lane; do not imply module
-  activation or uninstall execution.
+- [ ] Replace stale “future TUI” copy with an honest description of the real
+  pre-alpha TUI without implying production maturity.
+- [ ] Keep copy honest: inventory reads/details and monitor snapshots are read-
+  only; `u` may read network metadata; explicit updater writes remain in the
+  confirmation-bound CLI lane; do not imply module activation or uninstall/
+  cleanup execution.
 - [ ] Show synthetic installed-software rows without machine paths or implying that uninstall reviews execute from the public mockup.
 - [ ] Preserve `BRAND.md` color semantics: Dossier Navy / Burnished Brass, red only for danger/error/destructive states.
 - [ ] Run static-site safety checks for `innerHTML`, `document.write`, `eval(`, `new Function`, rejected red/rust/copper accents, footer/link integrity, and viewport rendering.
@@ -32,4 +39,8 @@ This backlog intentionally does not edit `site/`. Website work remains a separat
 
 ## Why this is backlog-only now
 
-Slices 3 and 5 stabilize the terminal TUI's layout vocabulary and module handoff boundary, but Travis has not approved a website visual pass in this lane. The safest outcome is a precise parity backlog that prevents drift without broad `site/` edits.
+The terminal TUI is stable enough to be the design/content source of truth, but
+page-source edits may trigger the connected Cloudflare deployment. This
+documentation review did not include a website visual/deployment approval. The
+safe outcome is to record exact drift and validation work here while leaving the
+public source pass for an explicit lane.

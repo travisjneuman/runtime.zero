@@ -83,7 +83,8 @@ module execution, or permanent deletion path.
 A fixture-only invocation/not-executed response protocol now defines exact
 receipt binding, least-privilege read grants, and host/child I/O ceilings. An
 explicit-feature lane exercises only a Cargo-built test helper. Before any
-developer-only installed artifact trial, runtime.zero still needs executable-
-handle pinning, process-tree/handle control, capability enforcement, real
-platform isolation proof, production receipt/journal design, and explicit
-review of any non-temporary filesystem mutation.
+developer-only installed artifact trial, runtime.zero still needs production
+integration of opened executable identity, process-tree/handle control,
+capability enforcement, real platform isolation proof, domain execution through
+the existing durable journal/commit-receipt contracts, rollback/recovery
+execution, and explicit review of any non-temporary filesystem mutation.

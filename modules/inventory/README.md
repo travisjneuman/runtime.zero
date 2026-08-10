@@ -5,7 +5,10 @@ This workspace package is the first read-only feature module for
 it is not a published or installed lifecycle package. The `rz0` core embeds its
 library as the built-in read-only collector but does not execute its development
 binary. A small `rz0-inventory-contract` workspace crate shares the
-JSON model without making this package depend on the core TUI/CLI stack.
+JSON model without making this package depend on the core TUI/CLI stack. Core
+maps application records into the path-free `rz0 apps` catalog and deterministic
+software identity groups; those groups preserve source/version disagreement but
+can be heuristic and do not authorize actions.
 
 ## Development commands
 
@@ -69,5 +72,11 @@ The module does not:
 - create services, tasks, persistence, or account actions;
 - publish or install itself.
 
-See [`../../docs/inventory-schema.md`](../../docs/inventory-schema.md) for the
-shared output contract.
+Remaining work includes full Windows/Linux runtime proof, broader package/
+service/persistence sources on every platform, stronger product identity and
+publisher evidence, final-artifact performance/privacy/accessibility coverage,
+and signed lifecycle integration. See
+[`../../docs/inventory-schema.md`](../../docs/inventory-schema.md) for the shared
+output contract and
+[`../../docs/project-status-and-resumption.md`](../../docs/project-status-and-resumption.md)
+for the current maturity boundary.

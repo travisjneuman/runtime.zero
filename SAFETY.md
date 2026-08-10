@@ -42,8 +42,11 @@ Every module manifest must declare:
 - whether it mutates the system;
 - whether dry-run is required;
 - whether explicit confirmation is required;
-- whether quarantine/rollback is supported;
+- whether quarantine is supported;
 - whether remote execution is allowed.
+
+Rollback posture is bound later by lifecycle/action plans and confirmation; it
+is not a schema-1 manifest safety field.
 
 Current core metadata sets remote execution to `false`. Optional modules are not bundled, installed, or executed by default. Exact confirmation is foundation-owned: schema 1 requires a completed no-write dry run, plan/write-set/state digests, a five-minute interactive phrase, rollback/quarantine posture, and durable single-use consumption. Confirmation alone never authorizes execution.
 
@@ -167,21 +170,24 @@ an installer setting and must not affect module install behavior. Missing roots
 are reported as absent and wrong filesystem types are reported as invalid; the
 command still must not create, repair, migrate, delete, or write anything.
 
-`rz0 store init --dry-run` is planning only. `rz0 store init --yes` is the only
-write-capable foundation command: it may create the runtime.zero user-local
-store roots, `state/transactions`, `state/receipts`, an empty schema-1
-`installed-modules.json`, and `state/store-init.json`. It must be idempotent,
-must refuse to repair or overwrite invalid existing state, and must not install
-modules, copy packages, execute code, fetch remote content, edit PATH, create
-services/tasks/persistence, or touch credentials, browser profiles, OAuth
-sessions, backups, project workspaces, or unknown user data.
+`rz0 store init --dry-run` is planning only. `rz0 store init --yes` is one of
+two current write-capable product lanes: it may create only the runtime.zero
+user-local store roots, `state/transactions`, `state/receipts`, an empty
+schema-1 `installed-modules.json`, and `state/store-init.json`. It must be
+idempotent, must refuse to repair or overwrite invalid existing state, and must
+not install modules, copy packages, execute code, fetch remote content, edit
+PATH, create services/tasks/persistence, or touch credentials, browser profiles,
+OAuth sessions, backups, project workspaces, or unknown user data. Windows
+initialization remains blocked until private ACL creation and runtime proof are
+complete.
 
 Bare `rz0` may open the local software TUI in an interactive terminal. That
 dashboard performs bounded read-only inventory and may display application and
 package names, versions, ownership-specific uninstall reviews, foundation
-state, store status, module posture, and safety boundaries, but it must not install, update,
-uninstall, repair, execute module code, create store state, or mutate the
-system. `rz0 <subcommand>`, JSON output, redirected/piped output,
+state, store status, module posture, and safety boundaries. Pressing `u` is an
+explicit manager availability query and may read network metadata, but it must
+not apply an update. The TUI must not install, update, uninstall, repair,
+execute module code, create store state, or otherwise mutate the system. `rz0 <subcommand>`, JSON output, redirected/piped output,
 non-interactive contexts, and `rz0 --no-tui` must stay scriptable and must not
 launch the full-screen dashboard.
 
@@ -230,6 +236,37 @@ list/update/install/uninstall commands,
 network access, credentials/sessions/browser profiles/workspaces/backups/unknown
 data, and all writes remain outside the module.
 
+## Explicit manager-update boundary
+
+`rz0 updates --apply` is the second current write-capable lane. It is owned by
+the core rather than by executable module code. It must require fresh live
+evidence, one exact planned action (or one-at-a-time interactive serial review),
+an allowlisted absolute manager path, explicit network-read/network-write
+acknowledgement, an initialized private state root, a five-minute exact phrase,
+durable single-use consumption, bounded direct process execution, a journal,
+a receipt, and fresh post-action discovery.
+
+This lane has strict pre-alpha limits:
+
+- no shell, PATH lookup, `sudo`, or interactive privilege helper;
+- no arbitrary executable path or caller-invented manager operation;
+- no automatic retry or parallel update queue;
+- no claim that network flags technically sandbox the process;
+- no claim that an allowlisted path closes executable replacement races;
+- no native rollback; missing rollback requires explicit manual-recovery
+  acknowledgement;
+- process failure, timeout, or verification mismatch requires recovery review;
+- Windows execution fails closed while inherited-handle and race-free process
+  containment remain incomplete;
+- the updater-specific journal/receipt path still requires integration with the
+  complete canonical commit/recovery flow and real interruption proof;
+- a locally confirmed manager invocation is not production or release
+  authorization.
+
+No other domain may copy this lane or reinterpret it as module execution
+authority. Uninstall, cleanup, quarantine, restore, module lifecycle, and
+third-party execution retain their separate gates.
+
 ## Local development install boundary
 
 The repository may provide local-only scripts under `scripts/` so Travis can
@@ -268,11 +305,17 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 
 ## Current status
 
-The current CLI/TUI includes live installed-software inventory and read-only
-ownership-specific uninstall reviews, but not uninstall execution, update,
-cleanup, install execution, malware removal, persistence, or remote module
-execution. The foundation is limited to read-only diagnostics, a live read-only
-TUI/catalog/scan, dry-run placeholders, explicit user-local store initialization, dry-run module
-install planning, module registry contracts, test-only OS-temp transaction
-simulations, an invocation protocol that authorizes no module, and an
-explicit-feature Cargo test-helper transport with no core integration.
+The current CLI/TUI includes live installed-software inventory, native system
+monitoring, explicit manager availability checks, and read-only ownership-
+specific uninstall reviews. The CLI also contains the separately confirmed
+manager-update lane defined above. It does **not** provide uninstall execution,
+cleanup, module install/activation, quarantine/restore, malware removal,
+persistence, account actions, or remote/third-party module execution.
+
+The remaining foundation surfaces are read-only diagnostics/catalog/scan,
+dry-run planning, explicit user-local store initialization, module registry and
+receipt validation, test-only OS-temp transaction simulations, a module protocol
+that authorizes no module, and an explicit-feature Cargo test-helper transport
+with no core module integration. See
+[`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md)
+for current implementation debts and validation evidence.

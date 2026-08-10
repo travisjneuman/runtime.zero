@@ -84,10 +84,11 @@ workflow, or third-party trust decision.
 
 A versioned first-party invocation/not-executed response protocol is
 fixture-validated, and an explicit-feature lane executes only a Cargo-built test
-helper to exercise bounded transport failures. The next bounded trust stage is
-executable-handle pinning, process-tree/handle control, and real platform
-capability-isolation proof. Before any developer artifact trial, the core also
-needs production-grade package-file/signature routing, receipt binding,
-platform isolation, and a dedicated review of
-production key/revocation policy. Release/distribution work remains a
+helper to exercise bounded transport failures. Same-open-handle artifact
+identity and non-authorizing Linux/Windows spawn leases now exist, while macOS
+fails closed. The next bounded trust stage is to integrate exact identity with a
+production contained host, close descriptor/handle races, and prove real
+platform capability isolation. Before any developer artifact trial, the core
+also needs production-grade package-file/signature routing, receipt binding,
+platform isolation, and a dedicated review of production key/revocation policy. Release/distribution work remains a
 separate explicit approval.

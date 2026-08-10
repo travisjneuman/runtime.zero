@@ -9,11 +9,13 @@ Windows, macOS, and Linux are equal release-blocking platforms. Every named 1.0
 module is equally required. Compile-only evidence, fixtures, a successful run on
 another platform, or a planned manifest cannot satisfy a platform runtime cell.
 
-The owner paused work on 2026-07-30. The exact current product behavior,
-validation snapshot, unresolved prerequisites, and dependency-ordered restart
-plan are recorded in
-[`project-status-and-resumption.md`](project-status-and-resumption.md). This
-matrix remains the authority for eventual completion and is still blocked.
+The 2026-07-30 pause was superseded by the 2026-08-01 TUI, updater, and native-
+monitor continuation. The exact current product behavior, validation snapshot,
+updater hardening gaps, and dependency-ordered restart plan are recorded in
+[`project-status-and-resumption.md`](project-status-and-resumption.md). The
+consolidated remaining-work inventory is
+[`completion-checklist.md`](completion-checklist.md). This matrix remains the
+authority for eventual completion and is still blocked.
 
 ## Foundation ownership
 
@@ -104,7 +106,7 @@ Every module must reach the same lifecycle bar on every supported platform:
 | Module | Windows | macOS | Linux | Current maturity |
 | --- | --- | --- | --- | --- |
 | Inventory/environment | Required | Required | Required | Built-in read-only catalog/scan; macOS apps + Homebrew live, broader package/service/persistence and runtime parity incomplete |
-| Updater | Required | Required | Required | Live bounded probes and explicit Unix manager apply lane with journal/receipt/verification; native rollback, Windows containment, and full runtime matrix incomplete |
+| Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, and explicit Unix manager apply lane with confirmation/journal/receipt/verification; opened-identity spawn binding, canonical receipt reconciliation, OS capability/network enforcement, native rollback/recovery, Windows containment, manager proof, and full runtime matrix incomplete |
 | Uninstall | Required | Required | Required | Live path-free macOS ownership reviews + synthetic classifier/transaction fixtures; no execution |
 | Leftovers | Required | Required | Required | Synthetic protected-data/exact-runtime classifier + quarantine fixtures only |
 | Cache management | Required | Required | Required | Synthetic ownership/exact-evidence classifier only |
@@ -205,7 +207,8 @@ parallel once its shared foundation dependency is stable.
    report/export modules against foundation APIs, maintaining platform parity.
 9. Complete CLI/JSON/TUI action review, including direct TUI update handoff,
    accessibility, terminal compatibility, help, manual pages, completions,
-   recovery UX, and support diagnostics.
+   recovery UX, and support diagnostics. The current TUI only displays the
+   exact CLI update entry point; it does not provide a second execution path.
 10. Complete dependency/supply-chain review, unsafe-code review, fuzzing,
     performance/soak/fault testing, external security review, and release audit.
 11. Produce reproducible artifacts, checksums, SBOMs/notices, installers,
@@ -216,6 +219,16 @@ parallel once its shared foundation dependency is stable.
     [`free-release-distribution.md`](free-release-distribution.md).
 12. Complete beta/RC runtime matrices, documentation/site/brand parity,
     vulnerability response, support runbooks, go-live criteria, and rollback.
+
+## Operational remaining-work ledger
+
+[`completion-checklist.md`](completion-checklist.md) expands these workstreams
+into a single checkbox inventory covering scope freeze, current write-path
+hardening, process/capability/filesystem foundations, all seven modules, every
+platform matrix, UX/accessibility/docs, quality/security, packaging,
+distribution, support, operations, and final go/no-go. It does not replace the
+release ledger: exact completion is still determined by every frozen acceptance
+ID, not by a subjective percentage or source-code volume.
 
 ## Production execution gate
 

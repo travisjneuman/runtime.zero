@@ -26,3 +26,10 @@ domain-separated input digests. `local_export_ready: true` means bytes are safe
 to emit locally; `external_sharing_authorized`, `product_execution_authorized`,
 and `release_authorized` remain false. No output is transmitted or written to a
 file by the module.
+
+The package remains incomplete for 1.0: it needs an approved lifecycle/core
+integration choice, signed artifacts, final-artifact runtime and accessibility
+proof on every platform, support-bundle/attachment policy if added, and all
+release-ledger cells. See
+[`../../docs/support-report-contract.md`](../../docs/support-report-contract.md)
+and [`../../docs/completion-checklist.md`](../../docs/completion-checklist.md).

@@ -69,9 +69,13 @@ rz0 --json
 rz0 doctor
 ```
 
-Bare `rz0` opens the live read-only local-software TUI in an interactive terminal.
+Bare `rz0` opens the local-software TUI in an interactive terminal. Inventory,
+details, and monitoring are read-only; pressing `u` explicitly queries manager
+availability and may read network metadata but never applies an update.
 Subcommands, JSON output, pipes, redirection, and automation contexts remain on
-the scriptable CLI path.
+the scriptable CLI path. The separately confirmed `updates --apply` command can
+mutate manager-owned software and should not be treated as part of this local
+installer.
 
 ## Uninstall or roll back
 
@@ -102,6 +106,8 @@ to apply.
 
 The local install scripts do not:
 
+- provide a macOS/Linux developer installer; those environments currently use
+  Cargo-built/local artifacts or future release packaging;
 - fetch or download remote content;
 - create a public direct-run/bootstrap path;
 - publish a release or package;

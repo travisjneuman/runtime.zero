@@ -157,3 +157,12 @@ This does not authorize arbitrary module execution, third-party packages,
 uninstall, cleanup, or filesystem mutation. Windows process containment and
 manager-specific runtime proof remain fail-closed, and production use still
 requires the platform/disposable-host evidence applicable to the target.
+
+The updater execution bridge is not the final generic action executor. Its
+allowlisted manager path is not yet bound through the opened-artifact lease into
+spawn; network/capability flags are policy acknowledgements rather than an OS
+sandbox; cancellation and rollback are incomplete; and its updater-specific
+receipt publication does not yet use the complete canonical commit-receipt/
+registry-last reconciliation path. A successful locally confirmed update report
+therefore records one lane invocation, not platform, module, or release
+readiness. These gaps must be closed before another domain copies the bridge.

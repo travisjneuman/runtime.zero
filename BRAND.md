@@ -214,7 +214,7 @@ Rules:
 - Support or plan for `--color=auto`, `--color=always`, `--color=never`.
 - Respect `NO_COLOR` where practical.
 - Do not use emoji in default CLI/TUI output unless explicitly approved.
-- Bare `rz0` should eventually open the TUI on interactive systems; `rz0 <subcommand>` remains the scriptable path.
+- Bare `rz0` opens the TUI on interactive systems; `rz0 <subcommand>`, JSON, pipes, redirects, and `--no-tui` remain scriptable paths.
 
 ---
 

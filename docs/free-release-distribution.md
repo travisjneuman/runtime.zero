@@ -66,12 +66,14 @@ Initial no-cost artifacts should be:
 
 - Windows: portable `rz0.exe` ZIP first; an unsigned installer only after its
   install/uninstall/rollback behavior is fully exercised and warnings documented.
-- macOS: architecture-specific tar archives and a universal archive when
-  reproducibly available; the local unsigned DMG builder consumes the canonical
-  ZIP and binds deterministic content, but release use still requires clean-host
-  tests and must disclose `hdiutil` container variance.
-- Linux: architecture-specific tar archives, then DEB and RPM packages; Arch
-  `PKGBUILD`/package artifacts after pacman lifecycle tests.
+- macOS: the current local contract is an architecture-specific or universal2
+  portable ZIP; the unsigned DMG builder consumes that canonical ZIP and binds
+  deterministic content. Release use still requires clean-host tests and must
+  disclose `hdiutil` container variance. A future tar format must consume the
+  same manifest rather than becoming an independent trust path.
+- Linux: the current local packager emits a portable ZIP; a future conventional
+  tar archive, then DEB/RPM and Arch package artifacts, must reuse the same
+  binary/manifest/SBOM/notices evidence and pass native lifecycle tests.
 
 Compatibility hosts install or unpack only these final artifacts. Build runners,
 not user/test machines, carry compilers and packaging toolchains.

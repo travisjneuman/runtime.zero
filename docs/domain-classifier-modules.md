@@ -1,41 +1,79 @@
 # Domain Finding Classifier Modules
 
-The five source packages below contain only family-specific classification over
-caller-supplied synthetic evidence:
+Five first-party packages consume the shared
+`crates/finding-contract/`, but their maturity is no longer identical.
 
-- `modules/updater/` — installed plus manager-owned update candidates;
-- `modules/uninstall/` — installed manager-record uninstall candidates;
-- `modules/leftovers/` — exact runtime-owned orphan/executable quarantine
-  candidates with protected/user/system/unknown evidence blocked;
-- `modules/cache/` — exact runtime-owned cache quarantine candidates while
-  manager/system/user evidence stays report-only and unknown ownership blocks;
-- `modules/security-integrity/` — exact digest match/mismatch observations that
-  remain report-only; unknown ownership blocks.
+## Current package boundaries
 
-Each package maps its strict typed input into `crates/finding-contract/`. The
-foundation owns producer/category binding, privacy, protected-data policy,
+| Package | Current source behavior | Live/core status |
+| --- | --- | --- |
+| `modules/updater/` | Classifies installed/manager-owned update evidence, parses selected manager output, builds finding-bound action plans and serial queues | Fixture, captured-output, and explicit live-probe paths exist; core owns the separate explicit apply lane |
+| `modules/uninstall/` | Classifies installed manager-record evidence | Synthetic input only; core has a separate non-executing Mac review UX |
+| `modules/leftovers/` | Classifies exact runtime-owned orphan/executable evidence for possible quarantine | Synthetic input only |
+| `modules/cache/` | Classifies exact runtime-owned cache evidence while preserving conservative ownership policy | Synthetic input only |
+| `modules/security-integrity/` | Classifies exact digest match/mismatch observations | Synthetic input only and report-only |
+
+The foundation owns producer/category binding, privacy, protected-data policy,
 resource ceilings, evidence identity, sorting, summary counts, and authority
-refusal. Modules do not duplicate those controls.
+refusal. Modules must not duplicate or loosen those controls.
 
-These are source-level classifiers, not complete modules. They have no live
-Windows/macOS/Linux discovery adapter, binary/process protocol, package-manager
-or filesystem access, network access, action-plan generation, TUI flow, signed
-artifact, installation/activation path, transaction execution, rollback, or
-production package. Their manifests remain `planned` with no host permission.
-Core does not install or execute them.
+## Updater exception
 
-The current tests establish only deterministic synthetic classification:
+The updater package now contains more than a synthetic classifier:
 
-- missing installed/manager ownership cannot become updater/uninstall action
-  candidates;
+- strict finding input and deterministic finding reports;
+- exact-input-bound action plans and serial queue review;
+- Homebrew JSON plus APT, DNF, Pacman, and MacPorts parser slices;
+- probe specifications for Homebrew, MacPorts, Winget, APT, DNF, Pacman,
+  Zypper, Snap, and Flatpak;
+- a separate stdin/stdout development binary;
+- core integration for fixture, captured-output, and explicit live probes.
+
+Winget, Zypper, Snap, and Flatpak parsers currently fail closed as not yet
+locale-safe. Manager probes and action plans do not independently authorize a
+write. The core's explicitly confirmed manager-update lane remains a narrow
+pre-alpha exception with open executable-identity, isolation, cancellation,
+rollback/recovery, and platform-proof gates. See
+[`action-planning.md`](action-planning.md) and
+[`project-status-and-resumption.md`](project-status-and-resumption.md).
+
+## Other classifier limits
+
+Uninstall, leftovers, cache, and security/integrity have:
+
+- no live Windows/macOS/Linux discovery adapter;
+- no binary/process protocol or host permission;
+- no package-manager, filesystem, network, or platform API access;
+- no action-plan generation or execution;
+- no signed lifecycle artifact or installation/activation path;
+- no TUI/core integration.
+
+Their manifests remain `planned`. Core does not install or execute them.
+
+Current synthetic tests establish only that:
+
+- installed and manager-owned evidence is required for uninstall candidates;
 - only exact runtime-owned leftover/cache evidence can become a quarantine
   candidate;
 - protected and unknown evidence stays blocked;
-- integrity mismatch is high-risk report evidence, never remediation authority.
+- an integrity mismatch is high-risk report evidence, never remediation
+  authority.
 
-Before any family advances, add bounded adversarial fixture sets, exact input
-provenance, live platform adapters behind explicit read capabilities, finding-
-bound dry-run plans where applicable, final-artifact protocol/lifecycle proof,
-and every Windows/macOS/Linux release-ledger cell. Mutating behavior still
-requires confirmation, transaction, rollback, cancellation, isolation, and
-runtime evidence from the shared foundation.
+## Completion gate
+
+Before any remaining family advances, add:
+
+1. complete requirements, non-goals, privacy classes, roots/managers, and
+   supported-platform tables;
+2. bounded valid/missing/duplicate/malformed/oversized/locale/permission/
+   symlink/reparse/partial-failure fixtures;
+3. exact input provenance and explicit read capabilities;
+4. live adapters that preserve useful unavailable/partial states;
+5. shared finding-bound dry-run plans where mutation applies;
+6. exact confirmation, transaction, rollback/quarantine, cancellation,
+   isolation, and post-action verification through foundation APIs;
+7. CLI/JSON/TUI, accessibility, performance, privacy, security, support, and
+   final-artifact proof;
+8. every required Windows/macOS/Linux release-ledger cell.
+
+See [`completion-checklist.md`](completion-checklist.md) for the full 1.0 list.

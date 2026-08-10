@@ -46,7 +46,29 @@ foundation targets the repository's Windows 7/Server 2008 R2-and-newer matrix;
 Windows editions below that baseline cannot be claimed without a separate Rust
 runtime and API validation pass. The collector deliberately uses older Win32
 entry points where possible so Windows 7, 8/8.1, 10, 11, and corresponding
-Server editions share one path.
+Server editions share one path, but current Windows evidence is compile-only.
+
+## Metric semantics and limitations
+
+- CPU usage is delta-based and can be `null`/`sampling` on the first snapshot.
+- macOS top-process rows are currently ordered by resident memory and do not
+  expose sampled per-process CPU percentages.
+- Linux process CPU requires a prior snapshot; inaccessible `/proc/<pid>` records
+  are skipped and the bounded sample ceiling can produce a partial view.
+- Windows process CPU/running-state and interface byte counters are currently
+  unavailable; interface count and working-set data are best-effort.
+- Disk collection is intentionally narrow rather than a recursive mount scan.
+- Counters can include loopback, virtual, container, or aggregate interfaces and
+  are observations, not billing or forensic evidence.
+- Process names, PIDs, mount names, and local resource totals can be sensitive.
+  Review monitor output before sharing even though it omits command lines,
+  usernames, and paths by design.
+- A warning or unavailable field is preferable to a guessed zero.
+
+The 2026-08-09 native review parsed text/JSON monitor output on macOS and kept
+`read_only: true` and `writes_attempted: false`. Linux and Windows target checks
+exist from prior work, but complete final-artifact runtime, container,
+permission, long-uptime/counter-wrap, performance, and terminal evidence remains.
 
 ## Product boundary
 

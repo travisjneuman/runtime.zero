@@ -46,8 +46,14 @@ confirmation/transaction/runtime gates.
 
 ## Remaining work
 
-The contract is implemented and fixture-tested, but no live updater, uninstall,
-leftovers, cache, or integrity collector emits it yet. Domain adapters need
-synthetic/adversarial fixtures first, then artifact-only Windows/macOS/Linux
-runtime proof. Modules may narrow categories and limits but cannot loosen this
-foundation policy.
+The contract is implemented and fixture-tested. The updater now emits it from
+strict fixture, captured-manager, and explicit live-probe evidence before
+building action plans. Core uninstall reviews still do **not** emit shared
+findings, and leftovers, cache, and integrity remain synthetic classifiers only.
+
+Every remaining domain needs comprehensive adversarial fixtures, bounded live
+adapters, exact source provenance, CLI/JSON/TUI integration, and artifact-only
+Windows/macOS/Linux runtime proof. The updater also needs production process,
+transaction, rollback, cancellation, and platform hardening; producing a valid
+finding does not satisfy those later gates. Modules may narrow categories and
+limits but cannot loosen foundation policy.

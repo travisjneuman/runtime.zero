@@ -1,19 +1,21 @@
 # runtime.zero Architecture
 
-> Current paused implementation state and the restart sequence are captured in
+> Current implementation state, validation evidence, updater caveats, and the
+> dependency-ordered restart sequence are captured in
 > [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
 `runtime.zero` is a modular system-management runtime, not a monolithic cleaner script. The core is the smallest durable foundation that can describe, validate, list, and eventually run explicitly installed modules under safety policy.
 
 ## Layers
 
-1. **CLI core** — argument parsing, brand metadata, output, exit codes, and future interactive flows.
-2. **Module registry** — manifest model, local manifest validation, installed-module listing, and core-vs-module reporting.
-3. **Policy engine** — safety posture, deny rules, confirmation requirements, and mutation gates.
-4. **Action planner** — future conversion of discoveries into update, uninstall, scan, quarantine, or restore plans.
-5. **Platform adapters** — Windows, macOS, and Linux-specific discovery and execution primitives.
-6. **Modules** — separately distributed capabilities that run on top of the foundation only after explicit installation/use.
-7. **Quarantine/restore** — future timestamped local quarantine with manifests instead of hard delete by default.
+1. **CLI core** — argument parsing, launch routing, stable text/JSON output, exit codes, built-in inventory/monitor surfaces, and the explicit updater coordinator.
+2. **Interactive TUI** — Ratatui widgets over Crossterm terminal lifecycle, one canonical software list, cached review controls, and CLI action handoffs.
+3. **Module registry** — manifest model, local manifest validation, installed-module listing, and core-vs-module reporting.
+4. **Policy and contracts** — safety posture, validation, resources, privacy, capabilities, errors, confirmation, cancellation, transactions, and release evidence.
+5. **Action pipeline** — evidence, findings, dry-run plans, exact approval, transaction, and post-action verification. The updater consumes the first bounded core execution lane; other domains remain blocked.
+6. **Platform adapters** — Windows, macOS, and Linux-specific discovery, monitoring, filesystem, process, manager, and future mutation primitives.
+7. **Modules** — separately built domain packages that require explicit lifecycle/trust before core execution. The inventory library is embedded only as a bounded read adapter.
+8. **Quarantine/restore** — test-proven semantics for future timestamped local quarantine instead of hard delete; no product mover exists yet.
 
 ## Foundation boundary
 
@@ -121,14 +123,61 @@ security, transaction, observability, and efficiency behavior belongs in the
 foundation are defined by
 [`production-readiness.md`](production-readiness.md).
 
-## Non-goals for Phase 1
+## Current authority and non-goals
 
-- no update execution;
-- no uninstall execution;
-- no file cleanup;
-- no malware claims;
-- no Cloudflare deployment automation;
-- no GitHub Actions;
-- no package publishing.
-- no remote module execution;
-- no public direct-run bootstrap command until checksum/signing/release safety is designed.
+Implemented read paths do not grant write authority. Manifest validation,
+package hashes, signatures, findings, dry-run plans, confirmations, receipts,
+execution assessments, and release ledgers remain evidence with only the narrow
+authority explicitly assigned by their caller.
+
+The current exceptions and blocks are:
+
+- `store init --yes` may create only validated runtime.zero-owned user-local
+  scaffolding on supported Unix paths;
+- `updates --apply` may invoke one freshly planned allowlisted manager action
+  after exact confirmation and local transaction evidence, but remains pre-alpha
+  pending identity-to-spawn, isolation, rollback/recovery, cancellation, and
+  platform proof;
+- no uninstall, cleanup, permanent deletion, module install/activation, repair,
+  quarantine/restore, or arbitrary module execution;
+- no malware-removal or unsupported security assurance claims;
+- no remote module execution or third-party trust;
+- no public direct-run bootstrap command before release verification is complete;
+- no package publication, release workflow, recurring automation, or deployment
+  mutation without separate approval.
+
+## Current execution flows
+
+### Read flow
+
+```text
+platform source -> bounded adapter -> strict inventory/monitor contract
+                -> path-free/private view -> CLI JSON/text or TUI
+```
+
+Each source reports partial/unavailable state independently. Evidence does not
+become an action merely because it appears in the catalog.
+
+### Updater flow
+
+```text
+fresh manager probe -> updater finding report -> dry-run action plan
+-> one selected action -> exact five-minute confirmation
+-> durable consumption + journal -> bounded direct manager process
+-> fresh availability verification -> updater receipt
+```
+
+This is the only current system-manager write flow. It does not yet use the
+opened executable lease or complete canonical commit-receipt coordinator, and it
+has no native rollback executor. Those are production blockers, not optional
+polish.
+
+### Future module flow
+
+```text
+verified immutable package -> production trust/provenance
+-> explicit lifecycle install/activate -> capability-brokered isolated process
+-> domain finding/plan -> confirmation/transaction/rollback -> verification
+```
+
+Schema 1 deliberately cannot authorize that flow.

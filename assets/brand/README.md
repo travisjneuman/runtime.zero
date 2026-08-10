@@ -17,7 +17,7 @@ The original working assets remain outside the repository and must not be edited
 |---|---|---|
 | Clean wordmark/banner | `source/2026-06-22/runtime-zero-banner-02.png` | Minimal, readable, strongest default banner candidate. |
 | README/social hero | `source/2026-06-22/runtime-zero-hero-02.png` | Matches safe system-management foundation copy with restrained brass. |
-| CLI/TUI splash direction | `source/2026-06-22/runtime-zero-hero-03.png` | Shows report/dry-run/quarantine grammar and can guide the future TUI. |
+| CLI/TUI splash direction | `source/2026-06-22/runtime-zero-hero-03.png` | Shows report/dry-run/quarantine grammar; any derivative must be reconciled with the current real TUI. |
 | Favicon/app-icon exploration | `source/2026-06-22/rz0-icon-02.png` | Simplest mark; likely best starting point for small sizes. |
 
 ## Rules

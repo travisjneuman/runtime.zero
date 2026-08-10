@@ -1,85 +1,139 @@
 # Foundation Readiness Gate
 
-This document defines the foundation handoff gate for starting the first first-party module without reopening settled core decisions.
+This document records what feature work may rely on in the current foundation
+and what still blocks production module or mutation work. It is a maturity gate,
+not a production-ready claim.
 
-The foundation is ready for first-module planning when the first module stays inside the boundaries below. This is not a public production-ready claim and does not approve module mutation, installation, execution, remote distribution, third-party trust, production signing, release automation, or bootstrap/direct-run behavior.
+For the current source baseline and validation totals, see
+[`project-status-and-resumption.md`](project-status-and-resumption.md). For all
+remaining 1.0 work, see [`completion-checklist.md`](completion-checklist.md).
 
-## Complete foundation surfaces
+## Stable-enough implemented surfaces
 
-The current foundation provides these module-facing contracts:
+Current feature work may reuse:
 
-- scriptable CLI routing where `rz0 <subcommand>`, JSON, pipes, redirects, and automation contexts never open the full-screen TUI;
-- interactive bare-`rz0` TUI routing for safe local review when stdin/stdout are interactive;
-- stable foundation dashboard JSON with `schema_version: 1`, `contract: "foundation_dashboard"`, `read_only: true`, and `writes_attempted: false`;
-- read-only module manifest validation with capability, risk, lifecycle, dry-run, mutation, rollback, quarantine, and remote-execution fields;
-- local SHA-256 package integrity validation for explicitly listed manifest files;
-- read-only module permission declarations and a separate detached Ed25519
-  verifier constrained to public test keys;
-- dry-run-only module install planning that reports proposed state without writing, fetching, trusting, or executing;
-- local store contract, `store plan`, `store status`, fixture `--store-root` inspection, installed registry parsing, and receipt validation;
-- explicit `store init --dry-run` and `store init --yes` scaffolding limited to runtime.zero-owned user-local store paths;
-- interactive Ratatui TUI dashboard with visible selection/details, mouse-wheel
-  scrolling, status panels, compact/standard/wide layout tiers, and exact CLI
-  action entries; it does not silently execute manager or destructive commands;
+- deterministic launch routing: interactive bare `rz0`, explicit `--tui`, and
+  scriptable subcommands/JSON/pipes/redirects/`--no-tui`;
+- versioned foundation dashboard, diagnostics, inventory, catalog, monitor,
+  findings, plans, registry, receipt, transaction, and support-report schemas;
+- one canonical installed-software TUI list with search, filter, sort, refresh,
+  details, mouse navigation, update availability, and a native monitor;
+- strict local manifest and package-integrity validation;
+- dry-run module-install planning and canonical lifecycle transition plans;
+- user-local store plan/status, registry/receipt inspection, and explicit Unix
+  store scaffolding;
+- shared validation, resource, privacy, error, configuration, capability,
+  confirmation, cancellation, process, secure-filesystem, artifact-identity,
+  registry, transaction, performance, and release-ledger libraries;
+- public-test-key signature verification and guarded immutable staging,
+  quarantine, restore, and module-transport tests;
+- built-in bounded inventory reads plus separate first-party module source
+  packages;
+- live/captured updater evidence, finding-bound plans, serial queue review, and
+  the explicitly confirmed core manager-update lane.
 
-The core now emits live path-redacted `inventory_report` evidence through
-`rz0 scan --dry-run --format json` and a path-free installed-software catalog
-through `rz0 apps`. The first-party `modules/inventory/` library supplies the
-bounded read-only collector as a built-in dependency. TUI content lists local
-software, opens visible details, and shows exact uninstall/update CLI commands.
-The separately gated updater lane performs confirmed manager writes.
+These interfaces may still change before 1.0. “Stable enough” means new work
+should consume rather than duplicate them; it does not promise semantic-version
+compatibility or production support.
 
-## First-module starting boundary
+## Foundation ownership rule
 
-The first first-party module began as the separate read-only `modules/inventory/` source package. Its library is now embedded for local discovery and reporting while its development binary and lifecycle package stay separate; this adds no module execution or mutation.
+Cross-module safety and consistency remain foundation-owned:
 
-The first module must not:
+- schemas, validation, compatibility, migration, and errors;
+- trust, signatures, provenance, revocation, package identity, and installed
+  state;
+- capability, process, filesystem, network, elevation, isolation, cancellation,
+  and resource policy;
+- findings, action plans, confirmation, transactions, receipts, quarantine,
+  rollback, recovery, and post-action verification;
+- privacy, configuration, diagnostics, support evidence, performance, and
+  release acceptance;
+- CLI/JSON/TUI routing and shared platform abstractions.
 
-- install, update, uninstall, repair, clean, or delete anything;
-- execute module code, scripts, hooks, WASM, dynamic libraries, package-manager actions, or shell commands beyond already-approved foundation validation commands;
-- fetch remote packages or metadata;
-- trust third-party authors or package sources;
-- mutate PATH, registry, services, tasks, shell profiles, browser profiles, credentials, sessions, backups, unknown user data, or project workspaces;
-- publish a release, bootstrap path, direct-run command, production signing
-  path, package feed, or automation.
+A module may narrow these contracts. It must not implement a private trust root,
+process host, confirmation flow, transaction format, registry, cancellation
+engine, or rollback system.
 
-## Module-facing invariants
+## Safe feature-development boundary
 
-A first-party module can rely on these invariants:
+Read-only and synthetic module work may continue when it:
 
-- core output stays text-first, label-first, and color-optional;
-- JSON contracts are additive and versioned;
-- TUI content mirrors existing dashboard/module/store state; its inventory and
-  details reads are read-only, while explicit update writes remain in the
-  confirmation-bound CLI lane;
-- dry-run reports must disclose proposed writes with `would_write: false` until a separate approval enables writes;
-- local file paths must remain under declared module/store roots and must reject traversal, absolute package paths, URL-like paths, symlinks, reparse points, unsafe receipts, and unsupported integrity algorithms;
-- installed-module registry and receipts are evidence surfaces, not trust or activation decisions;
-- third-party trust remains blocked.
+- starts with strict caller-supplied or bounded live evidence;
+- declares exact capabilities and preserves default-deny behavior;
+- remains useful when a platform source is unavailable;
+- produces shared finding/action/support contracts instead of private schemas;
+- includes valid, missing, malformed, duplicate, oversized, adversarial,
+  permission, timeout, locale, and partial-failure fixtures;
+- distinguishes source implementation, compile evidence, runtime evidence, and
+  release support;
+- keeps protected and unknown data blocked;
+- updates CLI/JSON/TUI/docs without implying installation or execution.
 
-## Acceptance checklist before module implementation starts
+## Current write-path exception
 
-- [x] Module scope is read-only and first-party.
-- [x] CLI output and JSON output are specified before implementation.
-- [x] TUI presentation exposes real details/action entry points and does not
-  imply activation of an uninstalled module.
-- [x] Test fixtures cover valid, duplicate, missing, malformed, invalid-entry,
-  and unsupported-platform paths.
-- [x] Safety docs name every blocked mutation/trust boundary.
-- [x] No website, release, bootstrap, package publishing, production signing,
-  Cloudflare, GitHub Actions, or external automation change is required.
+The core updater is the only domain write exception. It performs a fresh live
+probe, selects one finding-bound plan action, obtains exact short-lived
+confirmation, publishes local durable evidence, invokes one allowlisted manager
+path through the bounded process host, and verifies fresh availability.
+
+Do not copy or broaden this lane. Before it is production-ready it still needs:
+
+- opened executable identity bound to the actual spawn;
+- platform capability, network, privilege, and process isolation enforcement;
+- complete canonical receipt/commit/recovery integration;
+- cancellation at every boundary;
+- native rollback and tested manual recovery;
+- real manager/platform failure, interruption, and power-loss evidence;
+- complete Windows production containment.
+
+The other current write surface, `store init --yes`, is limited to validated
+runtime.zero-owned user-local scaffolding and remains blocked on Windows.
+
+## Still-blocked product work
+
+The current foundation does not authorize:
+
+- module installation, activation, invocation, repair, migration, upgrade,
+  deactivation, or uninstall;
+- arbitrary first- or third-party process execution;
+- uninstall, leftover, cache, quarantine/restore, permanent-delete, or integrity
+  remediation writes;
+- credential/session/browser-profile/project/backup/unknown-data actions;
+- hidden shell/PATH execution, automatic retry, background service, persistence,
+  telemetry, or automatic update;
+- production keys, package feeds, bootstrap commands, release publication,
+  deployment, package submission, or recurring automation.
+
+## Acceptance before a module gains live reads
+
+- [ ] Requirements, privacy classes, sources/roots/managers, and non-goals are
+  explicit for every platform.
+- [ ] The shared capability vocabulary can express the read without accidental
+  mutation/network/elevation authority.
+- [ ] Inputs and outputs are strict, versioned, bounded, and privacy-reviewed.
+- [ ] Synthetic/adversarial fixtures pass before host access is added.
+- [ ] Unsupported/unavailable state remains useful and honest.
+- [ ] Final-artifact runtime evidence is planned separately from cross-builds.
+
+## Acceptance before any new mutation lane
+
+- [ ] Exact finding and sealed evidence bind the action.
+- [ ] Exact executable/file identity is held through use.
+- [ ] Capability, network, privilege, and process containment are enforced.
+- [ ] Dry run, write set, state, expiry, and confirmation are exact.
+- [ ] Journal, receipt, rollback/quarantine, cancellation, recovery, and fresh
+  verification are complete.
+- [ ] Every partial/fault/power-loss outcome has disposable-host evidence.
+- [ ] CLI/JSON/TUI, accessibility, privacy, performance, support, and platform
+  acceptance cells pass.
+- [ ] The requested mutation and any external action have current approval.
 
 ## Current handoff outcome
 
-The inventory source package satisfies this handoff gate. It remains planned and
-uninstalled, and real Windows runtime proof is still required. Read-only
-permission validation, test-key-only detached signature verification, and
-OS-temp-root staging/quarantine/restore simulations are now implemented. The
-fixture-only invocation protocol is also implemented without module execution.
-An explicit-feature Cargo test-helper lane now proves bounded framing,
-environment/cwd setup, concurrent drains, Unix inheritable-descriptor refusal,
-and Unix process-group timeout teardown of a sleeping descendant on the native
-development host. The next trust lane is executable-handle pinning, descriptor-
-audit race closure, Windows handle/job control, and real platform capability-
-isolation proof; production mutation, installation, signing, release, and core
-module execution remain separate approval gates.
+The foundation is ready for continued bounded read-only/synthetic domain work
+and for hardening the existing updater exception. It is **not** ready for broad
+module execution or another write domain. The next highest-value dependency is
+to close updater/process/filesystem/transaction production gaps, then bind
+uninstall reviews into the same shared pipeline without adding a parallel
+security model.

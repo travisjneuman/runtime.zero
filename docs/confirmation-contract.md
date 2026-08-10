@@ -1,8 +1,8 @@
 # Exact Plan Confirmation Contract
 
-`crates/confirmation-contract/` owns interactive confirmation semantics for all
-future mutating modules. A module cannot invent a weaker `yes/no` prompt or
-interpret confirmation as execution authority.
+`crates/confirmation-contract/` owns interactive confirmation semantics for the
+current core updater and all future mutating modules. A module cannot invent a
+weaker `yes/no` prompt or interpret confirmation as execution authority.
 
 ## Challenge binding
 

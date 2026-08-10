@@ -44,6 +44,27 @@ verification; no sudo/helper or arbitrary shell path is used.
 
 The module includes bounded, locale-reviewed parser slices for Homebrew JSON,
 APT, DNF, Pacman, and MacPorts fixture output, plus explicit probe
-specifications for Windows Winget and the major Linux/macOS managers.
-Locale-unsafe sources fail closed. Third-party module execution and non-update
-filesystem mutation remain separate foundation gates.
+specifications for Windows Winget and major Linux/macOS managers. Winget,
+Zypper, Snap, and Flatpak parsing currently fails closed as not yet locale-safe.
+A probe specification is not production runtime evidence.
+
+## Apply-lane limitations
+
+The core apply lane is pre-alpha rather than a supported module lifecycle:
+
+- it allowlists an absolute manager path but does not yet bind the
+  opened-artifact lease through the actual spawn;
+- network read/write flags record explicit intent but do not create an OS
+  network sandbox;
+- Unix process groups and bounded output are not a capability sandbox;
+- Windows production execution fails closed;
+- native rollback, complete cancellation, and platform power-loss recovery are
+  missing;
+- updater-specific receipt publication still needs integration with the full
+  canonical commit/recovery coordinator;
+- no real update on a normal host is release evidence.
+
+Third-party module execution, uninstall/cleanup mutation, module lifecycle, and
+release support remain separate foundation gates. See
+[`../../docs/project-status-and-resumption.md`](../../docs/project-status-and-resumption.md)
+and [`../../docs/completion-checklist.md`](../../docs/completion-checklist.md).

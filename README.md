@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot:** the installed Mac surface provides a live bounded software catalog, Homebrew update discovery, visible TUI selection/details, mouse-wheel navigation, and an explicit CLI update execution lane with exact confirmation, journal, receipt, and fresh verification. TUI update writes are not wired yet; uninstall, cleanup, module installation/activation, and third-party execution remain separately gated. Start future work with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md).
+> **Current pre-alpha snapshot (reviewed 2026-08-09):** the installed Mac surface provides a live bounded software catalog, Homebrew update discovery, visible TUI selection/details, mouse-wheel navigation, a native system monitor, and an explicit CLI manager-update lane with exact confirmation, local journal/receipt evidence, and fresh verification. That write lane is not a supported production release: executable identity-to-spawn, sandbox/network enforcement, canonical receipt reconciliation, rollback, cancellation coverage, and disposable-host platform proof remain incomplete. TUI update writes are not wired; uninstall, cleanup, module installation/activation, and third-party execution remain gated. Start with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md) and the [`documentation guide`](docs/documentation-index.md).
 
 ## The promise
 
@@ -117,11 +117,14 @@ First-party feature modules are planned as separate install/use choices. A full 
 The foundation can validate local module manifests without executing module
 code. The fixture/captured-output `rz0 updates --dry-run` surface can classify
 updater evidence and emit a serial review queue. The explicit `--probe` path
-runs one bounded, cleared-environment manager query after requiring an exact
-executable path and `--allow-network-read`; `--apply` is the separate write
-lane and additionally requires `--allow-network-write`, exact confirmation,
-an initialized private store, journal/receipt publication, and fresh
-verification. Installed manifests must also pass local SHA-256 integrity checks
+runs one bounded, cleared-environment manager query after requiring an
+allowlisted absolute executable path and `--allow-network-read`; `--apply` is
+the separate write lane and additionally requires `--allow-network-write`,
+exact confirmation, an initialized private store, journal/receipt publication,
+and fresh verification. The allowlisted path is not yet pinned through the
+opened-artifact identity lease into the core spawn, and the network flags are
+explicit intent rather than an OS network sandbox. See the current-status guide
+before evaluating this lane. Installed manifests must also pass local SHA-256 integrity checks
 for explicitly listed package files:
 
 ```bash
@@ -308,8 +311,11 @@ No platform cell becomes supported without final-artifact runtime evidence. See
 ## Development
 
 ```bash
-cargo test --workspace
-cargo run --
+cargo fmt --all -- --check
+cargo test --workspace --locked
+cargo test --workspace --locked --all-features
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo run --locked --
 cargo run -- --no-tui
 cargo run -- --json
 cargo run -- --version
@@ -375,9 +381,9 @@ install-from-internet flow.
 
 The project is intentionally modular:
 
-- Rust CLI core for command parsing, built-in bounded inventory, policy, contracts, JSON output, and non-authorizing action/recovery planning.
+- Rust CLI core for command parsing, built-in bounded inventory/monitoring, policy, contracts, JSON output, non-authorizing planning/recovery contracts, and the narrow explicit manager-update coordinator.
 - Platform adapters for Windows, macOS, and Linux.
-- Optional modules for update, uninstall, leftover scan, cleaner, security/integrity checks, and future ideas.
+- Separately built first-party module families for inventory, updater domain logic, uninstall, leftovers, cache, security/integrity, and report/export; their lifecycle manifests remain planned.
 - Interactive local-software TUI using crossterm for raw/mouse terminal
   lifecycle and Ratatui for the widget dashboard, with componentized panels,
   visible selected rows, section navigation, details, mouse-wheel scrolling,
@@ -386,8 +392,10 @@ The project is intentionally modular:
   subcommands remain the stable automation/script surface.
 
 Start with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md)
-for the paused source snapshot, current behavior, known limitations, evidence,
-and dependency-ordered restart checklist. Then see
+for the current reviewed source snapshot, behavior, known limitations, evidence,
+and dependency-ordered restart checklist. Use
+[`docs/documentation-index.md`](docs/documentation-index.md) for document
+precedence and the complete topic map. Then see
 [`docs/architecture.md`](docs/architecture.md),
 [`docs/module-system.md`](docs/module-system.md),
 [`docs/manifest-validation.md`](docs/manifest-validation.md), and
@@ -396,7 +404,7 @@ and dependency-ordered restart checklist. Then see
 the local module store, store initialization, and CLI/TUI launch-routing
 contract.
 
-[`docs/tui.md`](docs/tui.md) for the terminal UI foundation, keyboard/mouse
+See [`docs/tui.md`](docs/tui.md) for the terminal UI foundation, keyboard/mouse
 behavior, rendering boundaries, and brand/theme structure. See
 [`docs/inventory-schema.md`](docs/inventory-schema.md) for the inventory report
 and collector contract. Module execution/trust prerequisites are in
@@ -406,14 +414,15 @@ the bounded test-key contract in
 staging/quarantine/restore behavior is documented in
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md), and the
 no-execution module contract and explicit-feature test-helper transport in
-[`docs/module-process-protocol.md`](docs/module-process-protocol.md). Future
-update/uninstall/quarantine boundaries are in
+[`docs/module-process-protocol.md`](docs/module-process-protocol.md). Update/uninstall/quarantine boundaries are in
 [`docs/action-planning.md`](docs/action-planning.md). The current manual
 dependency/license/validation snapshot is in
 [`docs/dependency-and-validation-audit.md`](docs/dependency-and-validation-audit.md).
 The finite production definition, foundation/module ownership boundary, and
 Windows/macOS/Linux module acceptance matrix are in
-[`docs/production-readiness.md`](docs/production-readiness.md).
+[`docs/production-readiness.md`](docs/production-readiness.md). The consolidated
+bullet-level remaining-work inventory is
+[`docs/completion-checklist.md`](docs/completion-checklist.md).
 Website TUI
 parity is tracked in [`docs/website-tui-parity-backlog.md`](docs/website-tui-parity-backlog.md)
 so the static site can later follow the real terminal TUI without drifting.
@@ -442,7 +451,7 @@ in `_meta.notes`, not as loose root files.
 
 The first static landing page is live at [`https://rz0.neuman.dev`](https://rz0.neuman.dev) and its source lives in [`site/`](site/). It is deployed through the connected Cloudflare Worker project `runtime-zero` using `site/` as the static output directory.
 
-This first version is dependency-free and public-safe, but the visual direction is still provisional. Website visual editing is currently paused until stronger reference examples are reviewed. Future site work should align to [`BRAND.md`](BRAND.md), avoid red as a brand accent, keep claims honest, avoid unsafe direct-run commands, and preserve the static deployment unless a framework migration is separately approved.
+This first version is dependency-free and public-safe, but its terminal mock predates the real six-section TUI and current updater/monitor surfaces. Website visual or copy changes can deploy through the connected project and therefore remain a separate reviewed lane. Future site work should align to [`BRAND.md`](BRAND.md), mirror current product truth, avoid red as a brand accent, avoid unsafe direct-run commands, and preserve the static deployment unless a framework migration is separately approved.
 
 ## License
 

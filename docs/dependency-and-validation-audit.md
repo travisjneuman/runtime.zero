@@ -1,9 +1,18 @@
 # Dependency and Validation Audit — 2026-07-29
 
-This snapshot records the manual foundation/inventory audit through paused
-product implementation commit `53d1e3d`. Later documentation-only handoff
-commits do not change the tested binary. It is evidence, not a promise of future security support
-or a substitute for release-time review.
+This historical snapshot records the manual foundation/inventory audit through
+product implementation commit `53d1e3d`. It is evidence for that source and
+lockfile, not a promise of future security support or a substitute for release-
+time review.
+
+> **Current-review note (2026-08-09):** the repository has since added TUI
+> controls, updater discovery/planning/execution, and a native system monitor.
+> The current documentation review passed 332 default and 343 all-feature tests
+> plus strict native Clippy, but `cargo-audit`, `cargo-deny`, cross-target,
+> packaging, PTY, and final-artifact performance lanes were not rerun. Use
+> [`project-status-and-resumption.md`](project-status-and-resumption.md) for the
+> current baseline; keep the dependency/advisory/license numbers below tied to
+> 2026-07-29.
 
 ## Toolchain and checks
 

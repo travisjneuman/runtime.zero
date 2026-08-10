@@ -1,7 +1,7 @@
 # Inventory Report Contract
 
-> The built-in collector's paused implementation, known coverage gaps,
-> Homebrew/app identity debts, and restart sequence are summarized in
+> The built-in collector's current implementation, software-identity limits,
+> coverage gaps, validation evidence, and restart sequence are summarized in
 > [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
 `runtime.zero` uses a versioned inventory contract so platform evidence remains
@@ -77,8 +77,11 @@ small allowlist of names directly under PATH entries; it does not recursively
 walk drives.
 
 Application records contain normalized name, optional version/publisher/install
-location, and a non-secret deterministic ID. Raw uninstall-registry key names
-are never emitted.
+location, and a non-secret deterministic evidence ID. Raw uninstall-registry key
+names are never emitted. The path-free catalog additionally assigns deterministic
+identity groups while preserving every source record and version disagreement;
+name-normalized groups can be heuristic and are not permanent product IDs or
+action authority.
 
 ## Shared validation
 

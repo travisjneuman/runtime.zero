@@ -6,8 +6,10 @@ claim.
 
 Today the core validates local JSON manifests, hashes explicitly listed local
 files, plans installation without writes, and inspects registry/receipt shapes.
-The first-party inventory module is a separate workspace package that developers
-can build directly; the core does not install, activate, load, or execute it.
+The first-party inventory package is separately buildable; the core embeds its
+library only as a bounded read adapter and does not install, activate, or execute
+its lifecycle package/development binary. The core-owned manager updater is a
+separate narrow execution lane and does not authorize module execution.
 
 ## Threat model
 
@@ -194,12 +196,12 @@ Implementation may proceed only in bounded stages:
    environment names, an explicit working directory, concurrent output drains,
    fail-closed output ceilings, Unix inheritable-descriptor refusal, and Unix
    process-group timeout teardown including a sleeping descendant. It does not
-   execute a module or provide a core API. Executable-handle pinning, descriptor-
-   audit races, Windows handle/job control, and platform sandbox/capability
-   isolation remain open. A separate schema-1 production assessment now records
-   the complete gate set but cannot authorize execution. The opened-artifact
-   identity primitive is implemented, but no platform host executes from that
-   verified identity yet.
+   execute a module or provide a core API. Same-open-handle identity and
+   non-authorizing Linux/Windows spawn leases are implemented for guarded test
+   builds; macOS binding, descriptor/handle-audit races, Windows production Job
+   control, core module-host integration, and platform sandbox/capability
+   isolation remain open. A separate schema-1 production assessment records the
+   complete gate set but cannot authorize execution.
 6. Local developer-only signed artifact trial.
 7. Separately approved release/distribution work.
 8. Third-party threat model and governance last.

@@ -11,4 +11,4 @@ Current standing direction:
 - Red is danger/error/destructive-only, never a default brand accent.
 - Owner-provided candidate assets live under [`../../assets/brand/`](../../assets/brand/).
 
-The website is intentionally paused for further visual editing until reference examples are reviewed. Future website work should use `BRAND.md` and the candidate assets as source material, but should not mutate Cloudflare settings, add dependencies, or change release/bootstrap behavior without explicit approval.
+The website visual direction remains a separate approved lane. Its terminal mock now lags the real six-section TUI, so future website work should use `BRAND.md`, the current TUI documentation, and candidate assets as source material. It must not mutate Cloudflare settings, add dependencies, or change release/bootstrap behavior without explicit approval.

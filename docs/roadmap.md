@@ -6,13 +6,14 @@ path, production support, or permission to cross a later gate. Windows, macOS,
 Linux, and every frozen 1.0 module family are equal release requirements; see
 [`production-readiness.md`](production-readiness.md).
 
-> Work was paused by the owner on 2026-07-30 after the live Mac catalog and
-> unified per-software option UX landed. Resume with
+> **Reviewed 2026-08-09.** The 2026-07-30 pause was superseded by the
+> 2026-08-01 TUI, updater, and native-monitor continuation. Resume with
 > [`project-status-and-resumption.md`](project-status-and-resumption.md), which
-> records the exact implementation boundary, known debts, evidence, and restart
-> sequence.
+> records the current implementation boundary, validation totals, known debts,
+> and restart sequence. Use [`documentation-index.md`](documentation-index.md)
+> for document precedence.
 
-## Phase 1 — foundation baseline (complete)
+## Phase 1 — foundation baseline (implemented; not a production gate)
 
 - [x] Public Rust CLI, safety/security/contribution docs, brand, and static site.
 - [x] Interactive Ratatui/Crossterm dashboard with text/JSON fallbacks, visible
@@ -21,6 +22,9 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 - [x] Dry-run install planning and user-local store/registry/receipt contracts.
 - [x] Explicit store scaffolding and confirmation-bound updater manager
   execution as foundation write surfaces.
+- [ ] Promote both write surfaces to complete platform runtime evidence; updater
+  still needs opened-identity spawn binding, canonical receipt reconciliation,
+  cancellation, rollback/recovery, and disposable-host proof.
 
 ## Phase 2 — inventory contracts and primitives (implemented; runtime proof remains)
 
@@ -70,7 +74,15 @@ See [`inventory-schema.md`](inventory-schema.md).
   bounded live Homebrew formula/cask probes are integrated into the TUI and CLI.
 - [x] Explicit one-item and interactive serial manager execution with exact
   confirmation, transaction journal, receipt, and post-action verification.
-- [ ] Native rollback, Windows containment, manager-specific runtime proof, and
+- [x] Homebrew JSON and bounded APT/DNF/Pacman/MacPorts captured-output parsers;
+  Winget/Zypper/Snap/Flatpak specifications currently fail closed at parsing.
+- [ ] Bind the core manager process to the opened executable identity lease and
+  enforce platform capability/network/elevation policy.
+- [ ] Reconcile updater journal/receipt publication through the complete
+  canonical transaction/recovery model and propagate cancellation through every
+  process/write boundary.
+- [ ] Native rollback, Windows production containment, manager-specific locale/
+  source-agreement/offline/runtime proof, real failure/recovery evidence, and
   equal-platform production acceptance remain.
 
 ## Phase 5 — uninstall, leftovers, quarantine, and restore
@@ -99,7 +111,12 @@ See [`action-planning.md`](action-planning.md).
 - [x] One live installed-software section with per-item details/uninstall posture,
   bottom-safe row selection, mouse-wheel scrolling, and exact CLI action entries.
 - [ ] Manual Windows Terminal/PowerShell TUI smoke and installed-binary refresh.
-- [ ] Linux/macOS terminal-emulator accessibility/restore smoke.
+- [ ] Linux/macOS terminal-emulator, SSH/tmux/screen, Unicode, no-color,
+  accessibility, and restoration smoke on final artifacts.
+- [ ] Direct TUI confirmation/recovery flows for actions that become production-
+  supported; current update rows hand off to CLI.
+- [ ] Help/man pages, shell completions, localization decision, recovery UX, and
+  screen-reader/human review.
 - [ ] Website parity and final brand-asset pass after explicit production/site
   approval; source edits may trigger the connected deployment.
 
@@ -239,10 +256,30 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
   exact entries/checksum/content/SBOM/notices, binds honest variable-container
   metadata, and has adversarial preparation tests. Both universal slices execute
   natively/Rosetta on the current Mac.
-- [ ] Produce release-reviewed signed/notarized artifacts, SBOM/notices,
-  installers, package channels, offline/update/rollback paths, support/incident runbooks,
+- [ ] Produce release-reviewed checksummed/provenance-bound artifacts and honest
+  unsigned-platform warnings (plus signed/notarized artifacts only if the
+  separately approved key/account path exists), SBOM/notices, installers,
+  package channels, offline/update/rollback paths, support/incident runbooks,
   and final release evidence.
 - [ ] Declare production readiness only after every required acceptance matrix
   cell passes or has an approved tested not-applicable outcome.
 
 See [`production-readiness.md`](production-readiness.md).
+
+## Phase 9 — documentation, operations, and public release closure
+
+- [x] Add a documentation precedence/index map and reconcile the post-pause
+  product status, command surface, write boundaries, and validation totals.
+- [ ] Keep every command/help/TUI/module/site claim synchronized as behavior
+  changes; add automated documentation/schema drift checks only after workflow
+  approval.
+- [ ] Finalize user guide, administrator/platform notes, troubleshooting,
+  recovery, privacy/sharing, migration, uninstall, and support documentation.
+- [ ] Complete vulnerability intake, supported-version policy, incident and
+  compromised-release response, key custody/revocation, and release rollback.
+- [ ] Complete beta and release-candidate plans, telemetry/crash-reporting
+  decision, support ownership, compatibility-lab evidence retention, and
+  go-live/rollback criteria.
+- [ ] Review and explicitly approve any GitHub workflow, public release, package
+  submission, website deployment, production credential, paid service, or
+  recurring/quota-consuming automation before performing it.

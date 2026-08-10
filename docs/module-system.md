@@ -1,8 +1,8 @@
 # Module System
 
-> For the paused 2026-07-30 source boundary, built-in inventory exception,
-> per-family maturity, and continuation order, begin with
-> [`project-status-and-resumption.md`](project-status-and-resumption.md).
+> For the current source boundary, built-in inventory exception, core-owned
+> updater execution lane, per-family maturity, and continuation order, begin
+> with [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
 Modules are the unit of growth for `runtime.zero`. The foundation should remain useful with zero optional modules installed.
 
@@ -57,6 +57,7 @@ rz0 store status
 rz0 store status --format json
 rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
 rz0 store init --dry-run
+rz0 store init --yes
 ```
 
 Bare `rz0` opens a live read-only installed-software TUI in interactive
@@ -133,7 +134,7 @@ store and CLI/TUI routing contract, including `rz0 store plan` and
 `rz0 store status` for read-only inspection without module install planning,
 plus the explicit `rz0 store init --dry-run` / `--yes` scaffold gate.
 
-## First first-party module boundary
+## First-party module boundary
 
 The foundation is ready for first-module planning only inside a read-only,
 first-party boundary. The first module may rely on manifest validation,
@@ -179,7 +180,9 @@ action execution; their manifests remain planned. See
 
 ## Trust model
 
-The initial implementation does not execute optional modules. First-party
+The current implementation does not execute optional modules. The core embeds
+only the inventory package's library as a bounded read adapter and owns a narrow
+manager-update executor; neither is module lifecycle execution. First-party
 modules should later be signed and explicitly installed or enabled. The
 foundation verifies local SHA-256 checksums, and a separate workspace contract
 can verify detached Ed25519 signatures against caller-selected public test keys.
@@ -188,8 +191,10 @@ production or network trust decision. A separate fixture-only process protocol
 requires exact receipt metadata, least-privilege read grants, a cleared bounded
 environment allowlist, and a `not_executed` module response. An explicit Cargo
 feature launches only a Cargo-built test helper under guarded OS-temp roots to
-exercise transport failure behavior; no inventory module or core execution path
-is implemented. Third-party modules are expected eventually, but only
+exercise transport failure behavior; no inventory/report/domain module
+execution path is implemented. Opened-artifact spawn leases now exist for Linux
+and Windows test-host builds, but exact core integration, macOS binding,
+capability isolation, and platform runtime proof remain blocked. Third-party modules are expected eventually, but only
 after a hardened trust model covering signing, provenance, sandboxing,
 permissions, revocation, and abuse cases. The required staged gate is documented
 in [`module-trust-and-execution.md`](module-trust-and-execution.md); current
