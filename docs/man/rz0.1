@@ -1,0 +1,128 @@
+.TH RZ0 1 "2026-08-10" "runtime.zero 0.1.0" "User Commands"
+.SH NAME
+rz0 \- safety-led terminal-native system inventory and management foundation
+.SH SYNOPSIS
+.B rz0
+.RI [ global-options ]
+.br
+.B rz0
+.I command
+.RI [ options ]
+.SH DESCRIPTION
+.B rz0
+is the pre-alpha runtime.zero command-line and terminal interface. It is
+report-first, dry-run-first, quarantine-first, and exact-confirmation-first.
+Most product surfaces are read-only. There is no supported production release.
+.PP
+Bare invocation opens the interactive TUI only when standard input and output
+are terminals and automation is not detected. Pipes, redirects, explicit
+subcommands, and
+.B --no-tui
+remain scriptable.
+.SH GLOBAL OPTIONS
+.TP
+.B --tui
+Require the interactive TUI; fail rather than silently falling back.
+.TP
+.B --no-tui
+Use the scriptable text dashboard.
+.TP
+.B --json
+Use scriptable dashboard JSON where applicable.
+.TP
+.BI --color " auto|always|never"
+Select scriptable color policy. JSON never contains ANSI escapes.
+.TP
+.BR --version , " -V"
+Print version information.
+.TP
+.BR --help , " -h"
+Print command help.
+.SH COMMANDS
+.TP
+.B doctor [--format json]
+Print privacy-safe configuration-bound diagnostics.
+.TP
+.B apps [--format text|json]
+List bounded path-free installed-software evidence and source identifiers.
+.TP
+.B uninstall plan ID [--executable PATH] [--format text|json]
+Build a live shared finding report and non-authorizing uninstall action plan.
+An exact manager executable can make a manager action representable; no
+uninstall executes.
+.TP
+.B scan --dry-run [--include-raw-paths] [--format text|json]
+Collect bounded inventory. Raw paths are local-private and unsuitable for
+support export.
+.TP
+.B monitor [--format text|json]
+Print one native read-only resource snapshot.
+.TP
+.B report [--format text|json]
+Build a deterministic summary that omits raw paths, host/user identity,
+application/service names, credentials, process output, and free-form warnings.
+External sharing remains unauthorized pending review.
+.TP
+.B modules
+List built-in core surfaces and explicitly installed module manifests.
+.TP
+.B modules validate MANIFEST [--format text|json]
+Validate one local manifest without loading or executing code.
+.TP
+.B modules install --dry-run PACKAGE [--format text|json]
+Build a non-authorizing module lifecycle installation plan.
+.TP
+.B store plan|status|init
+Inspect the local store or explicitly create only runtime.zero-owned user-local
+scaffolding. Use
+.B store init --yes
+for the write path; unsupported platforms fail closed.
+.TP
+.B updates --dry-run ...
+Review fixture, captured, or explicitly probed manager availability; optionally
+build a finding-bound plan or serial queue.
+.TP
+.B updates --apply ...
+Pre-alpha manager execution lane. It requires a fresh probe, network intent,
+one exact action, a plan-sealed executable identity, a reviewed platform
+identity-to-spawn binding, a short-lived exact confirmation, durable
+journal/effect receipt, and fresh verification. It never invokes sudo or an
+interactive helper. Unsupported identity/containment platforms fail before
+spawn.
+.TP
+.B updates --recovery-status --transaction ID [--format text|json]
+Read and classify exact durable manager-effect evidence. It never retries,
+completes, rolls back, edits, or removes state.
+.TP
+.B completions SHELL
+Print static completion source for bash, zsh, fish, or PowerShell. No shell
+files are modified.
+.SH EXIT STATUS
+.TP
+.B 0
+Successful command or a read-only challenge/status result.
+.TP
+.B 2
+Usage error, invalid evidence, unsupported safety gate, or fail-closed
+operation.
+.PP
+A normal broken output pipe exits successfully.
+.SH SAFETY
+Do not treat a plan, signature, executable lease, confirmation, receipt,
+finding, diagnostic, or release ledger as broader authority. Do not share raw
+inventory without review. Never edit the runtime.zero state store manually to
+bypass a recovery decision. Uninstall, cleanup, quarantine/restore, module
+lifecycle execution, third-party execution, and permanent deletion are not
+implemented product actions.
+.SH FILES
+Runtime paths are platform-specific user-local paths shown by
+.B rz0 store plan .
+The state root contains the installed registry, immutable transaction heads,
+confirmation consumption, and receipts. Treat it as private local evidence.
+.SH SEE ALSO
+README.md, SAFETY.md, SECURITY.md, docs/documentation-index.md,
+docs/project-status-and-resumption.md, docs/recovery-guide.md
+.SH BUGS
+Report security concerns privately as described in SECURITY.md. Do not include
+credentials, private paths, customer data, or unreviewed inventory in a public
+issue.

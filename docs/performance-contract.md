@@ -3,7 +3,7 @@
 `crates/performance-contract/` owns bounded, machine-validatable command
 performance evidence. Measurements never authorize release.
 
-Schema 1 requires 10–100 successful samples for exactly six ordered final-
+Schema 2 requires 10–100 successful samples for exactly nine ordered final-
 artifact operations:
 
 1. version;
@@ -11,7 +11,10 @@ artifact operations:
 3. JSON diagnostics;
 4. text core dry-run scan;
 5. JSON core dry-run scan;
-6. JSON dashboard.
+6. JSON installed-software catalog;
+7. JSON one-shot monitor;
+8. JSON privacy-reviewed report;
+9. JSON dashboard.
 
 The initial cross-target baseline requires p95 wall time at or below one second,
 maximum wall time at or below two seconds, maximum resident memory at or below
@@ -25,23 +28,33 @@ be ordered, every operation must have the exact successful sample count, unknown
 fields fail, and `release_authorized` must be false.
 
 `scripts/benchmark_final_artifact.py` measures an already built single-link
-binary on POSIX hosts with a minimal deterministic environment. It can select an
+binary on POSIX hosts with a minimal deterministic locale/terminal environment,
+a fixed standard PATH, and the bounded absolute HOME needed to exercise user
+inventory roots. It can select an
 ARM64 or x86-64 slice of a macOS universal binary. It performs only read-only
 commands, writes one create-new evidence document, and returns nonzero when a
 budget is exceeded. Host/OS/runtime context still belongs in the private release
 ledger; one fast machine cannot prove another target.
 
-Historical evidence: the macOS universal artifact from product commit
-`53d1e3d` passed 25-sample ARM64 and Rosetta x86-64 runs for all six operations. Worst ARM64 p95
-was 19.286 ms, maximum was 20.269 ms, and peak observed RSS was 5,062,656
-bytes. Worst Rosetta p95 was 35.238 ms, maximum was 36.070 ms, and peak observed
-RSS was 6,344,704 bytes. These are local process-launch measurements, not older
-macOS, Intel hardware, terminal, sustained-load, or cross-platform proof.
+## Historical schema-1 evidence
 
-Schema 1 does not directly time `rz0 apps`, `rz0 monitor`, update discovery/
-planning, or interactive TUI startup/refresh. Core scan uses the same live
-collector and final-artifact PTY smoke exercises TUI startup, but a future
-contract revision should add explicit current-product operations rather than
-silently changing schema 1's exact six-operation set. The historical
-`53d1e3d` measurements predate the current updater/monitor continuation and must
-not be presented as performance evidence for the current source or an RC.
+Schema 1 measured six operations (version, doctor text/JSON, scan text/JSON, and
+dashboard JSON). The macOS universal artifact from product commit `53d1e3d`
+passed 25-sample ARM64 and Rosetta x86-64 runs under that historical contract.
+Worst ARM64 p95 was 19.286 ms, maximum was 20.269 ms, and peak observed RSS was
+5,062,656 bytes. Worst Rosetta p95 was 35.238 ms, maximum was 36.070 ms, and peak
+observed RSS was 6,344,704 bytes.
+
+That evidence remains valid only for its named artifact and historical schema.
+It predates the current inventory/updater/monitor/report continuation and is not
+current RC evidence. The schema was bumped rather than silently changing the
+exact schema-1 operation set.
+
+## Remaining performance evidence
+
+Schema 2 adds explicit `apps`, `monitor`, and `report` timing. Interactive TUI
+first-frame and explicit inventory-refresh timing still require a versioned PTY
+measurement extension; ordinary dashboard JSON and terminal smoke do not prove
+those timings. Update discovery/planning, sustained refresh, large-inventory,
+resource-pressure, and write/recovery paths also need separate budgets and
+final-artifact target-native evidence before 1.0.

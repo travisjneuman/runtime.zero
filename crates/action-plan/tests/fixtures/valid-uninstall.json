@@ -19,6 +19,10 @@
       "source": null,
       "manager": "example-manager",
       "executable": "C:\\Tools\\example-manager.exe",
+      "executable_identity": {
+        "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "size_bytes": 4096
+      },
       "arguments": ["uninstall", "--id", "Example.Tool"],
       "would_write": false,
       "requires_confirmation": true,

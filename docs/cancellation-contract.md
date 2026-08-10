@@ -18,8 +18,14 @@ time. Polling an elapsed deadline atomically records the deadline reason unless
 an earlier cancellation already won. Reasons map to the shared `cancelled` or
 `timed_out` machine errors.
 
-The explicit-feature module transport consumes this primitive for timeout
-polling while preserving whole-process-tree teardown. The durable commit
+The shared process host consumes caller cancellation and deadline tokens during
+polling while preserving bounded process-group/tree teardown. The confirmed Unix
+updater lane temporarily bridges the first SIGINT into `user_requested`, passes
+that token through manager spawn/poll/teardown, and restores the prior handler
+after the lane. Cancellation never reverses an external effect; the updater
+records recovery-required evidence where publication remains possible.
+
+The explicit-feature module transport also consumes this primitive. The durable commit
 coordinator also has a cancellable entry point and observes the token only at
 synchronized transaction boundaries:
 
@@ -32,6 +38,7 @@ synchronized transaction boundaries:
 
 All eight coordinator boundaries have deterministic all-feature cancellation
 classification tests. A token is a signal, not permission to spawn, kill,
-mutate, retry, rollback, or recover. Production process hosts must still pair it
-with platform tree containment and deterministic reap evidence, and other write
-paths need the same boundary-specific integration.
+mutate, retry, rollback, or recover. Production process hosts must still pair it with platform tree containment and
+deterministic reap evidence. Discovery, post-process verification, receipt
+publication, Windows execution, and other write paths still need complete
+boundary-specific signal integration and abrupt-power-loss proof.

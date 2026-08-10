@@ -54,8 +54,8 @@ Please report issues involving:
 - escaping process-tree/resource/network/capability boundaries;
 - terminal escape/control-sequence injection or failed terminal restoration;
 - unbounded input, output, recursion, concurrency, retention, or resource use;
-- secrets, identities, raw paths, process output, application inventory, or
-  environment values appearing in public/share-oriented output;
+- secrets, identities, raw paths, process output, software/service inventory,
+  or environment values appearing in public/share-oriented output;
 - signature, digest, provenance, revocation, package identity, or trust bypass;
 - protected credentials/sessions/workspaces/backups/unknown data becoming an
   actionable finding;
@@ -79,13 +79,17 @@ The project intentionally separates evidence from authority:
 - `store init --yes` writes only runtime.zero-owned user-local scaffolding on
   platforms whose filesystem policy is enabled;
 - `updates --apply` is a narrow pre-alpha core exception with fresh discovery,
-  explicit network intent, exact confirmation, local journal/receipt evidence,
-  bounded direct manager execution, and fresh verification.
+  explicit network intent, plan-sealed executable identity, exact confirmation,
+  exact journal events, canonical external-effect receipt evidence, bounded
+  cancellable manager execution, fresh verification, and read-only recovery
+  status.
 
-The updater exception is not yet production-hardened. It lacks complete opened-
-artifact identity-to-spawn integration, OS-enforced network/capability
-isolation, native rollback, complete cancellation/recovery integration, and the
-required disposable-host platform matrix. See
+The updater exception is not production-hardened. Linux direct native ELF
+managers now use and revalidate a held-descriptor spawn binding. macOS exact
+spawn and Windows race-free process-tree containment remain blocked. OS-enforced
+network/capability isolation, full boundary cancellation, native rollback,
+exact approved recovery completion, and the disposable-host fault/power-loss
+matrix are still absent. See
 [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md)
 and [`SAFETY.md`](SAFETY.md) before evaluating it.
 

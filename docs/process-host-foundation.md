@@ -13,22 +13,30 @@ The default library provides:
   descriptor without `FD_CLOEXEC`;
 - explicit failure on Windows because a complete inherited-handle audit is not
   yet implemented;
-- Unix pre-exec dedicated process-group setup and whole-group `SIGKILL` teardown.
+- Unix pre-exec dedicated process-group setup and whole-group termination/reap.
   This contains ordinary descendants but is not a sandbox and cannot prevent a
   hostile child from creating a new session;
+- caller-supplied first-reason cancellation plus an atomic monotonic deadline,
+  with typed cancellation/timeout distinction and no retry;
+- a process-wide serialized inheritable-descriptor audit/spawn boundary for
+  mutating Unix launches;
 - an explicit process transport with absolute direct-executable and
   working-directory checks, an explicit bounded environment allowlist, null
   stdin, bounded concurrent stdout/stderr drains, and a monotonic timeout. The
   same primitive serves probes and manager apply actions; callers still need
   exact plan, capability, confirmation, transaction, and platform gates.
 
-The opt-in inventory version-probe adapter and updater manager apply lane now
-consume the shared drain, descriptor audit, Unix group teardown, process
-ceilings, and atomic deadline signal. It clears the environment, uses `/` as working directory, rejects
-truncated streams, and reaps on timeout. Windows probes fail closed at handle/
-containment policy rather than using the post-spawn test Job assignment. Exact
-executable trust/identity-to-spawn and hostile session-escape remain production
-gates, so this adapter does not authorize general module execution.
+The opt-in inventory version-probe adapter and updater manager apply lane consume
+the shared drain, descriptor audit, Unix group teardown, process ceilings, and
+atomic deadline/cancellation signal. The mutating lane accepts a borrow-scoped
+`BoundExecutable`: Linux native-ELF manager execution substitutes the held `/proc/self/fd`
+identity, keeps the
+lease through spawn, and revalidates after child creation. It clears the
+environment, uses `/` as working directory, rejects truncated streams, and reaps
+on timeout or cancellation. Windows probes/apply fail closed at production
+handle/containment policy rather than using the post-spawn test Job assignment.
+Hostile session escape and OS capability isolation remain production gates, so
+this adapter does not authorize general module execution.
 
 The `test-support` feature contains guarded helper-only process groups and Job
 Objects. Unix helpers enter a fresh process group and timeout teardown signals

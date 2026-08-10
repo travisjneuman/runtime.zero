@@ -38,6 +38,7 @@ pub struct TuiDashboard {
     pub installed_module_count: usize,
     pub planned_module_family_count: usize,
     pub installed_software_count: usize,
+    pub service_and_persistence_count: usize,
     pub inventory_status: String,
     pub update_check_status: String,
     pub update_source_count: usize,
@@ -136,6 +137,7 @@ fn build_dashboard(
         installed_module_count: store.registry.installed_module_count,
         planned_module_family_count: modules.summary.planned_family_count,
         installed_software_count: catalog.as_ref().map_or(0, |catalog| catalog.app_count),
+        service_and_persistence_count: catalog.as_ref().map_or(0, |catalog| catalog.service_count),
         inventory_status,
         update_check_status: "not checked".to_string(),
         update_source_count: 0,
@@ -411,6 +413,12 @@ fn overview_section(
                 "identity groups",
                 "info",
             ));
+            rows.push(row_count(
+                tui_theme::LABEL_INFO,
+                catalog.service_count,
+                "service/persistence records",
+                "info",
+            ));
             match updates {
                 Some(updates) => {
                     rows.push(row_count(
@@ -511,8 +519,10 @@ fn installed_software_section(
             }
             for app in visible {
                 let label = match app.kind {
-                    SoftwareKind::HomebrewFormula | SoftwareKind::HomebrewCask => "[PKG]",
-                    SoftwareKind::ApplicationBundle | SoftwareKind::PlatformPackage => "[APP]",
+                    SoftwareKind::HomebrewFormula
+                    | SoftwareKind::HomebrewCask
+                    | SoftwareKind::PlatformPackage => "[PKG]",
+                    SoftwareKind::ApplicationBundle => "[APP]",
                 };
                 let (uninstall_options, tone, mut preview) = match app.uninstall_option {
                     UninstallOption::Protected => (

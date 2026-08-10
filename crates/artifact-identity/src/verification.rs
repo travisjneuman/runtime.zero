@@ -7,8 +7,8 @@ use std::{
 use sha2::{Digest, Sha256};
 
 use crate::{
-    ArtifactExpectation, ArtifactIdentityError, ArtifactIdentityErrorCode, MAX_ARTIFACT_BYTES,
-    VerifiedArtifact,
+    ArtifactExpectation, ArtifactIdentityError, ArtifactIdentityErrorCode, ArtifactObservation,
+    MAX_ARTIFACT_BYTES, VerifiedArtifact,
     identity::{has_single_link, identity_from_file},
     path_policy::checked_artifact_path,
     platform_open::open_artifact,
@@ -98,6 +98,45 @@ pub fn open_verified_artifact(
     expectation: &ArtifactExpectation,
 ) -> Result<VerifiedArtifact, ArtifactIdentityError> {
     validate_expectation(expectation)?;
+    let artifact = open_artifact_evidence(root, relative_path)?;
+    if artifact.size_bytes != expectation.size_bytes {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::SizeMismatch,
+            "artifact size does not match the sealed expectation",
+        ));
+    }
+    if artifact.sha256 != expectation.sha256 {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::DigestMismatch,
+            "artifact digest does not match the sealed expectation",
+        ));
+    }
+    Ok(artifact)
+}
+
+/// Opens one direct artifact relative to a held root and records its observed
+/// identity, size, and digest without treating those observations as trust.
+///
+/// Callers may use this only to create evidence that is subsequently sealed by
+/// a plan or receipt. Execution must reopen the artifact against that sealed
+/// expectation and retain a platform binding through spawn.
+pub fn open_observed_artifact(
+    root: &Path,
+    relative_path: &str,
+) -> Result<ArtifactObservation, ArtifactIdentityError> {
+    let artifact = open_artifact_evidence(root, relative_path)?;
+    Ok(ArtifactObservation {
+        relative_path: artifact.relative_path,
+        canonical_path: artifact.canonical_path,
+        sha256: artifact.sha256,
+        size_bytes: artifact.size_bytes,
+    })
+}
+
+fn open_artifact_evidence(
+    root: &Path,
+    relative_path: &str,
+) -> Result<VerifiedArtifact, ArtifactIdentityError> {
     let checked = checked_artifact_path(root, relative_path)?;
     let mut file = open_artifact(root, relative_path)?;
     let opened_metadata = file
@@ -134,24 +173,18 @@ pub fn open_verified_artifact(
             "artifact content exceeds the size ceiling",
         ));
     }
-    if opened_metadata.len() != bytes.len() as u64 || expectation.size_bytes != bytes.len() as u64 {
+    if opened_metadata.len() != bytes.len() as u64 {
         return Err(ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::SizeMismatch,
-            "artifact size does not match opened bytes and expectation",
+            "artifact size changed while reading the opened bytes",
         ));
     }
     let observed_sha256 = format!("{:x}", Sha256::digest(&bytes));
-    if observed_sha256 != expectation.sha256 {
-        return Err(ArtifactIdentityError::new(
-            ArtifactIdentityErrorCode::DigestMismatch,
-            "artifact digest does not match expectation",
-        ));
-    }
 
     let canonical_path = fs::canonicalize(&checked.artifact_path).map_err(|_| {
         ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::IdentityChanged,
-            "artifact path disappeared after verification",
+            "artifact path disappeared after observation",
         )
     })?;
     if !canonical_path.starts_with(&checked.canonical_root) {
@@ -163,13 +196,13 @@ pub fn open_verified_artifact(
     let current_file = fs::File::open(&canonical_path).map_err(|_| {
         ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::IdentityChanged,
-            "artifact path could not be reopened after verification",
+            "artifact path could not be reopened after observation",
         )
     })?;
     let current_metadata = current_file.metadata().map_err(|_| {
         ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::IdentityChanged,
-            "artifact path metadata changed after verification",
+            "artifact path metadata changed after observation",
         )
     })?;
     if identity_from_file(&current_file, &current_metadata)? != identity {
@@ -179,7 +212,7 @@ pub fn open_verified_artifact(
         ));
     }
     file.seek(SeekFrom::Start(0))
-        .map_err(|error| io_error("rewind verified artifact", error))?;
+        .map_err(|error| io_error("rewind observed artifact", error))?;
 
     Ok(VerifiedArtifact {
         relative_path: relative_path.to_string(),

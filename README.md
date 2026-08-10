@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot (reviewed 2026-08-09):** the installed Mac surface provides a live bounded software catalog, Homebrew update discovery, visible TUI selection/details, mouse-wheel navigation, a native system monitor, and an explicit CLI manager-update lane with exact confirmation, local journal/receipt evidence, and fresh verification. That write lane is not a supported production release: executable identity-to-spawn, sandbox/network enforcement, canonical receipt reconciliation, rollback, cancellation coverage, and disposable-host platform proof remain incomplete. TUI update writes are not wired; uninstall, cleanup, module installation/activation, and third-party execution remain gated. Start with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md) and the [`documentation guide`](docs/documentation-index.md).
+> **Current pre-alpha snapshot (reviewed 2026-08-09):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a six-section TUI, native monitoring, privacy-reviewed local support summaries, dry-run uninstall findings/plans, and a narrow CLI manager-update coordinator. The coordinator now binds executable identity to spawn on Linux, bridges SIGINT into bounded cancellation, publishes canonical external-effect receipts, and exposes read-only recovery assessment. It still is not a supported production write lane: macOS exact spawn identity, Windows containment, OS sandbox/network enforcement, exact recovery completion, rollback, elevation, and disposable-host proof remain incomplete. Uninstall execution, cleanup/quarantine, module lifecycle execution, signing/distribution, and release evidence remain gated. Start with the [`user guide`](docs/user-guide.md), [`current status`](docs/project-status-and-resumption.md), and [`documentation guide`](docs/documentation-index.md).
 
 ## The promise
 
@@ -42,7 +42,11 @@ rz0 store init --dry-run
 rz0 store init --yes
 rz0 apps
 rz0 apps --format json
+rz0 report
+rz0 report --format json
 rz0 uninstall plan <installed-software-id>
+rz0 uninstall plan <installed-software-id> --executable /opt/homebrew/bin/brew --format json
+rz0 completions bash|zsh|fish|powershell
 rz0 scan --dry-run
 rz0 scan --dry-run --format json
 rz0 monitor --format text
@@ -50,6 +54,7 @@ rz0 monitor --format json
 rz0 updates --dry-run --fixture tests/fixtures/updater/evidence.json --plan --queue --format json
 rz0 updates --dry-run --manager homebrew-formula --manager-output /tmp/out.json --executable /opt/homebrew/bin/brew --plan --queue --format json
 rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --plan --queue --format json
+rz0 updates --recovery-status --transaction <exact-transaction-id>
 rz0 updates --apply --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
 ```
 
@@ -88,8 +93,9 @@ Inventory, diagnostics, and evidence collection remain read-only by design;
 that is different from the platform being unable to act. The installed core
 embeds the bounded first-party inventory adapter: `rz0 apps` lists path-free
 local software, `rz0 scan --dry-run` collects live redacted evidence, and the
-TUI shows installed applications, Homebrew formulae/casks, versions when
-available, and ownership-specific uninstall commands. Explicit Homebrew/manager
+TUI shows installed applications/packages, source identifiers, service and
+persistence counts, versions when available, and ownership-specific uninstall
+review commands. Explicit Homebrew/manager
 updates use `rz0 updates --apply`; protected system applications and uninstall
 reviews remain blocked from execution until their own transaction lanes are
 complete.
@@ -121,9 +127,11 @@ runs one bounded, cleared-environment manager query after requiring an
 allowlisted absolute executable path and `--allow-network-read`; `--apply` is
 the separate write lane and additionally requires `--allow-network-write`,
 exact confirmation, an initialized private store, journal/receipt publication,
-and fresh verification. The allowlisted path is not yet pinned through the
-opened-artifact identity lease into the core spawn, and the network flags are
-explicit intent rather than an OS network sandbox. See the current-status guide
+and fresh verification. Linux binds a direct native ELF manager's retained opened
+identity to `/proc/self/fd` spawn and revalidates it after process start; macOS
+and Windows fail closed because their exact production spawn/containment bindings remain
+incomplete. The network flags are explicit intent rather than an OS network
+sandbox. See the current-status guide
 before evaluating this lane. Installed manifests must also pass local SHA-256 integrity checks
 for explicitly listed package files:
 
@@ -150,9 +158,10 @@ of known executables, supports opt-in Unix version probes with cleared
 environment, shared bounded drains/deadlines/process-group teardown, and can read
 normalized platform application evidence when explicitly requested. Windows
 version probes fail closed pending race-free production containment.
-Windows uses read-only uninstall registry views, macOS enumerates direct
-`.app` bundles under known roots plus bounded Homebrew Cellar/Caskroom metadata,
-and Linux parses bounded XDG desktop entries.
+Windows uses read-only uninstall/service registry views; macOS enumerates direct
+`.app` bundles, bounded Homebrew Cellar/Caskroom and MacPorts metadata, installer
+receipts, and launchd labels; Linux parses bounded XDG desktop entries, direct
+dpkg/pacman metadata, and systemd unit labels.
 Paths are redacted by default; raw local values require the explicit
 `--include-raw-paths` flag. It does not run package
 managers or modify the system. Its separate development binary remains
@@ -164,14 +173,18 @@ accepts a bounded strict inventory/diagnostics envelope on standard input and
 emits only a deterministic summary to standard output. The shared
 `crates/support-contract/` owns input validation, domain-separated digests,
 privacy omissions, bounds, and non-authority fields. Raw reports, paths,
-identities, application names, process output, and free-form warnings are not
-embedded. The module has no path/network options and is not executed by core.
+host/user identities, application/service names, credentials, process output,
+and free-form warnings are not embedded. The module has no path/network options
+and is not executed by core; `rz0 report` calls the same shared builder directly
+over redacted live evidence.
 
-Updater, uninstall, leftovers, cache, and security/integrity now have separate
-source-level domain classifier packages under `modules/`. They consume only
-caller-supplied synthetic evidence and the shared finding contract. They have no
-live adapters, host permissions, process protocol, signed lifecycle, action
-execution, or production support. See
+Updater, uninstall, leftovers, cache, and security/integrity have separate
+source-level domain packages under `modules/`. Updater consumes captured or
+explicit live manager evidence. Uninstall accepts selected live installed-
+software evidence to produce a non-authorizing finding and optional sealed dry-
+run manager action plan. Leftovers, cache, and integrity remain synthetic. They
+do not provide uninstall/cleanup execution, elevation, signed lifecycle
+activation, or production support. See
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).
 
 A separate `crates/module-trust/` contract now verifies local detached Ed25519
@@ -334,6 +347,8 @@ cargo run -- store init --dry-run
 cargo run -- store init --dry-run --format json
 cargo run -- scan --dry-run
 cargo run -- scan --dry-run --format json
+cargo run -- report --format json
+cargo run -- completions bash
 cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
 cargo run -p rz0-module-inventory -- --format json
 cargo run -p rz0-module-inventory -- --include-apps --format json

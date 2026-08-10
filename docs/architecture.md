@@ -44,12 +44,14 @@ separate private-for-export gate so the feature package does not depend on the
 CLI/TUI core or pull its terminal stack into the module binary. The module uses deterministic fixtures, bounded
 process-PATH collection on
 Windows/macOS/Linux, read-only persisted PATH and optional app registry reads on
-Windows, bounded `.app`/Homebrew/XDG desktop-entry evidence on macOS/Linux,
+Windows, bounded `.app`/Homebrew/MacPorts/Apple-receipt and XDG/dpkg/pacman
+evidence on macOS/Linux, metadata-only launchd/systemd/Windows service records,
 allowlisted direct executable discovery, opt-in Unix probes using shared
 cleared-environment drains/deadlines/process groups (Windows fails closed),
 report-local path redaction, and structured source events. It does not invoke
-package managers, execute desktop entries, or recursively scan drives. macOS
-reads only bounded direct `Info.plist` files for display versions. See
+package managers/service controllers, execute desktop entries, or recursively
+scan drives. Bundle versions come only from bounded direct `Info.plist` reads;
+receipt and launchd metadata use separately bounded plist reads. See
 [`inventory-schema.md`](inventory-schema.md).
 
 `crates/capability-contract/` owns the shared read/action capability vocabulary
@@ -63,17 +65,17 @@ report-local redaction without retaining raw sensitive strings.
 `crates/diagnostics-contract/` binds their digest into the strict privacy-safe
 `rz0 doctor` report. `crates/support-contract/` validates private inventory and
 diagnostics inputs and emits only deterministic summary counts/statuses and
-domain-separated digests; the separate report/export module owns only input
-selection and output format. `crates/performance-contract/` owns bounded final-artifact
-command budgets and non-authorizing measurements. `crates/process-host/` owns
-bounded pipe draining and platform handle/descriptor
-and test-containment primitives while exposing no production runner.
+domain-separated digests; both `rz0 report` and the separate report/export
+module call it without sharing authority. `crates/performance-contract/` owns
+bounded final-artifact command budgets and non-authorizing measurements.
+`crates/process-host/` owns bounded cancellable pipe transport, a serialized Unix
+descriptor-audit/spawn boundary, process-group teardown, and test containment;
+the updater consumes its bound mutating transport, but it is not an OS sandbox.
 `crates/finding-contract/` owns path-free typed ownership/data-class/confidence/
 risk/disposition evidence and conservative protected-data policy for five module
-families; it cannot authorize an action. Separate updater/uninstall/leftovers/
-cache/security-integrity source packages currently contain only synthetic domain
-classification into this contract—no shared policy, live adapter, process host,
-or action execution. `crates/confirmation-contract/` owns
+families; it cannot authorize an action. Updater and uninstall now turn selected
+live evidence into shared findings/plans, while leftovers/cache/integrity remain
+synthetic and no non-updater execution exists. `crates/confirmation-contract/` owns
 exact short-lived interactive plan binding,
 response digests, and single-use consumption evidence without execution
 authority. `crates/error-contract/` owns stable machine codes and conservative privacy/retry
@@ -91,8 +93,9 @@ paths, serialization, and digests. `crates/release-contract/` owns the bounded
 canonical target × module × lifecycle evidence-ledger shape and cannot authorize
 release.
 `crates/artifact-identity/` opens, bounds, hashes, identifies, revalidates, and
-returns the same receipt-relative file handle without execution; platform
-execution binding remains a later gate. `crates/module-trust/` supplies a
+returns the same file handle without execution. Linux can expose the held
+`/proc/self/fd` spawn identity and the core updater consumes it for direct native
+ELF managers; exact macOS and production Windows binding remain later gates. `crates/module-trust/` supplies a
 test-key-only detached Ed25519 verification contract without adding a signer,
 key store, installer, execution path, or production trust root. Schema-1
 staging plans and OS-temp integration tests also exercise immutable publication
@@ -100,8 +103,9 @@ and quarantine/restore failure semantics without a production mover.
 `crates/transaction-contract/` owns the bounded hash-chained transaction state
 machine, exclusive immutable snapshot publication/recovery, exact confirmation-
 aware commit-receipt binding, single-use consumption publication, atomic registry-
-last coordination, boundary-aware cancellation classification, and non-
-authorizing commit recovery assessment. Production execution and recovery
+last coordination, canonical external-manager effect receipts, boundary-aware
+cancellation classification, and non-authorizing commit/recovery assessment.
+Production rollback and recovery
 mutation remain gated.
 `crates/module-protocol/` validates a read-only/offline
 invocation preview and not-executed response with exact-path/digest metadata,
@@ -135,9 +139,10 @@ The current exceptions and blocks are:
 - `store init --yes` may create only validated runtime.zero-owned user-local
   scaffolding on supported Unix paths;
 - `updates --apply` may invoke one freshly planned allowlisted manager action
-  after exact confirmation and local transaction evidence, but remains pre-alpha
-  pending identity-to-spawn, isolation, rollback/recovery, cancellation, and
-  platform proof;
+  after exact confirmation and local transaction evidence, but remains pre-alpha;
+  Linux native-ELF identity binding, SIGINT cancellation, external-effect
+  receipts, and recovery status exist, while macOS/Windows binding, OS isolation,
+  full cancellation, rollback/recovery completion, and platform proof remain;
 - no uninstall, cleanup, permanent deletion, module install/activation, repair,
   quarantine/restore, or arbitrary module execution;
 - no malware-removal or unsupported security assurance claims;
@@ -163,14 +168,18 @@ become an action merely because it appears in the catalog.
 ```text
 fresh manager probe -> updater finding report -> dry-run action plan
 -> one selected action -> exact five-minute confirmation
--> durable consumption + journal -> bounded direct manager process
--> fresh availability verification -> updater receipt
+-> executable binding before confirmation consumption
+-> durable consumption + exact write-intent journal
+-> bounded cancellable identity-bound manager process
+-> fresh availability verification -> canonical external-effect receipt
+-> final committed journal
 ```
 
-This is the only current system-manager write flow. It does not yet use the
-opened executable lease or complete canonical commit-receipt coordinator, and it
-has no native rollback executor. Those are production blockers, not optional
-polish.
+This is the only current system-manager write flow. Linux direct native ELF
+execution consumes the opened lease; macOS/Windows fail closed. Read-only
+recovery status reconciles receipt/journal state, but exact recovery completion,
+native rollback, OS capability isolation, and disposable-host proof remain
+production blockers.
 
 ### Future module flow
 

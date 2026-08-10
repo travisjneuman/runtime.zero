@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::UpdateRecord;
 
 const MAX_MANAGER_OUTPUT_BYTES: u64 = rz0_resource_contract::MAX_FINDING_REPORT_BYTES;
+const MAX_UPDATE_RECORDS: usize = rz0_resource_contract::MAX_FINDINGS;
+const MAX_PACKAGE_NAME_BYTES: usize = 240;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -128,7 +130,7 @@ pub fn manager_probe_specs() -> Vec<ManagerProbeSpec> {
             false,
         ),
         spec(ManagerKind::HomebrewCask, HOMEBREW_EXECUTABLES, true, false),
-        spec(ManagerKind::MacPorts, MACPORTS_EXECUTABLES, true, false),
+        spec(ManagerKind::MacPorts, MACPORTS_EXECUTABLES, true, true),
         spec(ManagerKind::Winget, WINGET_EXECUTABLES, true, false),
         spec(ManagerKind::Apt, APT_EXECUTABLES, true, true),
         spec(ManagerKind::Dnf, DNF_EXECUTABLES, true, true),
@@ -175,6 +177,8 @@ fn spec(
 pub struct ManagerParseContext {
     pub manager: ManagerKind,
     pub executable: Option<String>,
+    pub executable_sha256: Option<String>,
+    pub executable_size_bytes: Option<u64>,
     pub network_required: bool,
     pub requires_elevation: bool,
     pub rollback_supported: bool,
@@ -216,6 +220,12 @@ fn parse_homebrew(context: &ManagerParseContext, text: &str) -> Result<Vec<Updat
     let Some(records) = value.get(key).and_then(serde_json::Value::as_array) else {
         return Err(format!("Homebrew output does not contain '{key}' records"));
     };
+    if records.len() > MAX_UPDATE_RECORDS {
+        return Err(format!(
+            "{} output exceeds the update-record ceiling",
+            context.manager.id()
+        ));
+    }
     records
         .iter()
         .map(|record| {
@@ -237,14 +247,14 @@ fn parse_apt(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateReco
         if line.is_empty() || line.starts_with("Listing") {
             continue;
         }
-        let fields = line.split_whitespace().collect::<Vec<_>>();
-        let Some(first) = fields.first().copied() else {
+        let mut fields = line.split_whitespace();
+        let Some(first) = fields.next() else {
             continue;
         };
         let Some((name, _channel)) = first.split_once('/') else {
             continue;
         };
-        let Some(available) = fields.get(1).copied() else {
+        let Some(available) = fields.next() else {
             continue;
         };
         let installed = line
@@ -253,12 +263,11 @@ fn parse_apt(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateReco
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_string);
-        records.push(make_record(
-            context,
-            name,
-            installed,
-            available.to_string(),
-        )?);
+        push_record(
+            &mut records,
+            make_record(context, name, installed, available.to_string())?,
+            context.manager,
+        )?;
     }
     Ok(records)
 }
@@ -266,20 +275,27 @@ fn parse_apt(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateReco
 fn parse_dnf(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
     let mut records = Vec::new();
     for line in text.lines() {
-        let fields = line.split_whitespace().collect::<Vec<_>>();
-        if fields.len() < 3
-            || fields[0].eq_ignore_ascii_case("package")
-            || fields[0].starts_with("Last")
-            || fields[0].starts_with("Obsoleting")
+        let mut fields = line.split_whitespace();
+        let Some(name) = fields.next() else {
+            continue;
+        };
+        let Some(version) = fields.next() else {
+            continue;
+        };
+        let Some(_repository) = fields.next() else {
+            continue;
+        };
+        if name.eq_ignore_ascii_case("package")
+            || name.starts_with("Last")
+            || name.starts_with("Obsoleting")
         {
             continue;
         }
-        records.push(make_record(
-            context,
-            fields[0],
-            None,
-            fields[2].to_string(),
-        )?);
+        push_record(
+            &mut records,
+            make_record(context, name, None, version.to_string())?,
+            context.manager,
+        )?;
     }
     Ok(records)
 }
@@ -295,12 +311,11 @@ fn parse_pacman(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateR
             continue;
         };
         let installed = fields.next().map(str::to_string);
-        records.push(make_record(
-            context,
-            name,
-            installed,
-            available.trim().to_string(),
-        )?);
+        push_record(
+            &mut records,
+            make_record(context, name, installed, available.trim().to_string())?,
+            context.manager,
+        )?;
     }
     Ok(records)
 }
@@ -308,25 +323,41 @@ fn parse_pacman(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateR
 fn parse_macports(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
     let mut records = Vec::new();
     for line in text.lines() {
-        let fields = line.split_whitespace().collect::<Vec<_>>();
-        let Some(name) = fields.first().copied() else {
+        let mut fields = line.split_whitespace();
+        let Some(name) = fields.next() else {
             continue;
         };
-        let versions = fields
-            .iter()
-            .filter_map(|field| field.strip_prefix('@'))
-            .collect::<Vec<_>>();
-        if versions.len() < 2 {
+        let mut versions = fields.filter_map(|field| field.strip_prefix('@'));
+        let (Some(installed), Some(available)) = (versions.next(), versions.next()) else {
             continue;
-        }
-        records.push(make_record(
-            context,
-            name,
-            Some(versions[0].to_string()),
-            versions[1].to_string(),
-        )?);
+        };
+        push_record(
+            &mut records,
+            make_record(
+                context,
+                name,
+                Some(installed.to_string()),
+                available.to_string(),
+            )?,
+            context.manager,
+        )?;
     }
     Ok(records)
+}
+
+fn push_record(
+    records: &mut Vec<UpdateRecord>,
+    record: UpdateRecord,
+    manager: ManagerKind,
+) -> Result<(), String> {
+    if records.len() == MAX_UPDATE_RECORDS {
+        return Err(format!(
+            "{} output exceeds the update-record ceiling",
+            manager.id()
+        ));
+    }
+    records.push(record);
+    Ok(())
 }
 
 fn make_record(
@@ -335,6 +366,10 @@ fn make_record(
     installed_version: Option<String>,
     available_version: String,
 ) -> Result<UpdateRecord, String> {
+    if name.is_empty() || name.len() > MAX_PACKAGE_NAME_BYTES || name.chars().any(char::is_control)
+    {
+        return Err("manager package name is empty, oversized, or unsafe".to_string());
+    }
     let slug = slug(name)?;
     for version in installed_version
         .iter()
@@ -361,6 +396,8 @@ fn make_record(
         available_version: Some(available_version),
         manager: Some(context.manager.manager_name().to_string()),
         executable: context.executable.clone(),
+        executable_sha256: context.executable_sha256.clone(),
+        executable_size_bytes: context.executable_size_bytes,
         arguments,
         network_required: context.network_required,
         requires_elevation: context.requires_elevation,
@@ -416,6 +453,10 @@ mod tests {
         ManagerParseContext {
             manager,
             executable: Some("/usr/bin/manager".to_string()),
+            executable_sha256: Some(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+            ),
+            executable_size_bytes: Some(4096),
             network_required: true,
             requires_elevation: false,
             rollback_supported: true,
@@ -469,6 +510,62 @@ mod tests {
         let pacman = parse_manager_output(&context(ManagerKind::Pacman), b"alpha 1.0 -> 2.0\n")
             .expect("pacman records");
         assert_eq!(pacman[0].finding_id, "update.pacman.alpha");
+    }
+
+    #[test]
+    fn dnf_parser_uses_the_version_field_not_the_repository_field() {
+        let records =
+            parse_manager_output(&context(ManagerKind::Dnf), b"alpha.x86_64 2.0-1 updates\n")
+                .expect("dnf records");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].available_version.as_deref(), Some("2.0-1"));
+    }
+
+    #[test]
+    fn deterministic_untrusted_byte_corpus_never_panics_or_exceeds_bounds() {
+        let managers = [
+            ManagerKind::HomebrewFormula,
+            ManagerKind::HomebrewCask,
+            ManagerKind::MacPorts,
+            ManagerKind::Winget,
+            ManagerKind::Apt,
+            ManagerKind::Dnf,
+            ManagerKind::Pacman,
+            ManagerKind::Zypper,
+            ManagerKind::Snap,
+            ManagerKind::Flatpak,
+        ];
+        let mut state = 0x5eed_cafe_d00d_beefu64;
+        for manager in managers {
+            for length in 0..256usize {
+                let mut bytes = Vec::with_capacity(length);
+                for _ in 0..length {
+                    state = state
+                        .wrapping_mul(6_364_136_223_846_793_005)
+                        .wrapping_add(1);
+                    bytes.push((state >> 32) as u8);
+                }
+                if let Ok(records) = parse_manager_output(&context(manager), &bytes) {
+                    assert!(records.len() <= rz0_resource_contract::MAX_FINDINGS);
+                    assert!(records.iter().all(|record| {
+                        !record.finding_id.chars().any(char::is_control)
+                            && !record.subject_reference.chars().any(char::is_control)
+                            && record.arguments.len() <= 3
+                    }));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn record_and_package_identity_ceilings_fail_closed() {
+        let mut output = String::new();
+        for index in 0..=MAX_UPDATE_RECORDS {
+            output.push_str(&format!("package-{index} 1.0 -> 2.0\n"));
+        }
+        assert!(parse_manager_output(&context(ManagerKind::Pacman), output.as_bytes()).is_err());
+        let oversized = format!("{} 1.0 -> 2.0\n", "x".repeat(MAX_PACKAGE_NAME_BYTES + 1));
+        assert!(parse_manager_output(&context(ManagerKind::Pacman), oversized.as_bytes()).is_err());
     }
 
     #[test]

@@ -1,0 +1,46 @@
+#compdef rz0
+
+_rz0() {
+  local -a commands global_options managers
+  commands=(
+    'doctor:show privacy-safe diagnostics'
+    'apps:list path-free installed software'
+    'uninstall:build a read-only finding-bound uninstall plan'
+    'modules:list, validate, or plan module installation'
+    'store:inspect or explicitly initialize the local store'
+    'scan:collect bounded dry-run inventory'
+    'monitor:show a one-shot native system snapshot'
+    'report:build a privacy-reviewed local summary'
+    'updates:review, apply, or assess recovery for manager updates'
+    'completions:print a shell completion script'
+    'help:show help'
+    'version:show version'
+  )
+  global_options=(
+    '--tui:require the interactive TUI'
+    '--no-tui:use the scriptable text dashboard'
+    '--json:emit dashboard JSON'
+    '--color:select color policy'
+    '--version:show version'
+    '--help:show help'
+  )
+  managers=(homebrew-formula homebrew-cask macports winget apt dnf pacman zypper snap flatpak)
+
+  if (( CURRENT == 2 )); then
+    _describe 'command' commands
+    _describe 'global option' global_options
+    return
+  fi
+  case $words[2] in
+    completions) _values 'shell' bash zsh fish powershell ;;
+    doctor|apps|monitor|report) _arguments '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
+    scan) _arguments '--dry-run[required report-only mode]' '--include-raw-paths[local private paths]' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
+    uninstall) _arguments '1:operation:(plan)' '2:installed software id:' '--executable[exact manager path]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
+    modules) _arguments '1:operation:(validate install)' '*:manifest or package:_files' '--from[module directory]:directory:_files -/' '--dry-run[required install planning mode]' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
+    store) _arguments '1:operation:(plan status init)' '--store-root[read-only store override]:directory:_files -/' '--dry-run[preview initialization]' '--yes[explicitly create scaffold]' '--format[output format]:format:(json)' '--json[JSON output]' ;;
+    updates) _arguments '*--manager[manager ID]:manager:($managers)' '*--executable[exact manager path]:path:_files' '*--fixture[local evidence JSON]:path:_files' '*--manager-output[captured output]:path:_files' '--dry-run[review only]' '--probe[live availability probe]' '--allow-network-read[acknowledge metadata reads]' '--plan[build action plan]' '--queue[build serial queue]' '--apply[explicit apply lane]' '--action[exact action ID]:action:' '--all[interactive serial apply]' '--allow-network-write[acknowledge manager network writes]' '--accept-no-rollback[acknowledge manual recovery]' '--confirm[exact challenge phrase]:phrase:' '--challenge-issued-unix-seconds[challenge timestamp]:timestamp:' '--recovery-status[read-only recovery assessment]' '--transaction[exact transaction ID]:transaction:' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
+    *) _arguments '--help[help]' '--version[version]' '--color[color policy]:mode:(auto always never)' ;;
+  esac
+}
+
+_rz0 "$@"

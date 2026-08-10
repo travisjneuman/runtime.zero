@@ -23,8 +23,10 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 - [x] Explicit store scaffolding and confirmation-bound updater manager
   execution as foundation write surfaces.
 - [ ] Promote both write surfaces to complete platform runtime evidence; updater
-  still needs opened-identity spawn binding, canonical receipt reconciliation,
-  cancellation, rollback/recovery, and disposable-host proof.
+  now has Linux identity-bound spawn, cancellation-aware execution, canonical
+  external-effect receipts, and read-only recovery assessment, but still needs
+  exact macOS/Windows binding, OS containment, recovery completion, rollback,
+  and disposable-host proof.
 
 ## Phase 2 — inventory contracts and primitives (implemented; runtime proof remains)
 
@@ -46,6 +48,9 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 - [x] Built-in path-free software catalog and live redacted core scan.
 - [x] Bounded macOS `Info.plist` versions and Homebrew Cellar/Caskroom metadata
   without manager execution or network access.
+- [x] Direct bounded MacPorts/Apple receipt and Linux dpkg/pacman metadata reads,
+  source-specific software identifiers, and launchd/systemd/Windows service
+  metadata without manager/service-controller execution.
 - [ ] Real Windows runtime smoke for persisted PATH, registry views, apps,
   version-probe timeout, and redaction.
 - [ ] Additional package-manager listing adapters; intentionally deferred until
@@ -76,11 +81,15 @@ See [`inventory-schema.md`](inventory-schema.md).
   confirmation, transaction journal, receipt, and post-action verification.
 - [x] Homebrew JSON and bounded APT/DNF/Pacman/MacPorts captured-output parsers;
   Winget/Zypper/Snap/Flatpak specifications currently fail closed at parsing.
-- [ ] Bind the core manager process to the opened executable identity lease and
-  enforce platform capability/network/elevation policy.
-- [ ] Reconcile updater journal/receipt publication through the complete
-  canonical transaction/recovery model and propagate cancellation through every
-  process/write boundary.
+- [ ] Complete opened-executable identity-to-spawn binding on macOS/Windows and
+  enforce platform capability/network/elevation policy; Linux direct execution
+  now uses and revalidates its held `/proc/self/fd` binding.
+- [x] Reconcile updater journal/receipt publication through the canonical
+  external-effect transaction/recovery model with write-intent/outcome evidence
+  and deterministic read-only recovery assessment.
+- [ ] Propagate caller cancellation through remaining discovery, verification,
+  receipt, and write boundaries; confirmed Unix execution now bridges SIGINT
+  through bounded process-group teardown.
 - [ ] Native rollback, Windows production containment, manager-specific locale/
   source-agreement/offline/runtime proof, real failure/recovery evidence, and
   equal-platform production acceptance remain.
@@ -95,8 +104,9 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [x] Separate synthetic uninstall, leftovers, and cache classifiers requiring
   manager ownership or exact runtime-owned evidence and preserving protected/
   unknown blocking; live mutation adapters remain gated.
-- [x] Live path-free ownership-specific uninstall reviews for protected macOS
-  apps, local/user bundles, and Homebrew records.
+- [x] Live path-free installed-software evidence is converted into the shared
+  uninstall finding contract; manager-owned records can produce exact sealed
+  dry-run action plans while protected/unknown/local bundles remain blocked.
 - [ ] Platform-specific manager, ownership, ACL, reparse/symlink, locked-file,
   cross-filesystem, and partial-failure proof.
 - [ ] Mutation remains blocked pending exact macOS manager-spawn/bundle-move
@@ -115,8 +125,10 @@ See [`action-planning.md`](action-planning.md).
   accessibility, and restoration smoke on final artifacts.
 - [ ] Direct TUI confirmation/recovery flows for actions that become production-
   supported; current update rows hand off to CLI.
-- [ ] Help/man pages, shell completions, localization decision, recovery UX, and
-  screen-reader/human review.
+- [x] Add parser-covered Bash/Zsh/Fish/PowerShell completion output and a
+  committed `rz0(1)` manual page.
+- [ ] Complete localization policy, direct TUI recovery UX, migration/repair
+  guidance, and screen-reader/human review.
 - [ ] Website parity and final brand-asset pass after explicit production/site
   approval; source edits may trigger the connected deployment.
 
@@ -128,7 +140,10 @@ See [`action-planning.md`](action-planning.md).
 - [x] Bounded macOS application-bundle and Linux desktop-entry adapters.
 - [x] Separate synthetic security/integrity digest classifier with report-only
   mismatch posture and no remediation claim.
-- [ ] macOS/Linux package-manager, service, and persistence inventory adapters.
+- [x] Add bounded metadata-only MacPorts/Apple receipt/dpkg/pacman and
+  launchd/systemd service/persistence adapters with explicit source status.
+- [ ] Complete remaining in-scope RPM/DNF/Snap/Flatpak/AppImage and richer
+  service/persistence/driver/package sources after scope freeze.
 - [ ] Real Linux application runtime and Windows/full cross-platform compatibility matrix.
 - [x] Deterministic target-filtered SPDX 2.3 and deduplicated package license/
   notice evidence generation bound to the exact final binary and artifact
@@ -154,9 +169,10 @@ See [`action-planning.md`](action-planning.md).
   canonical configuration digest.
 - [x] Strict privacy-safe text/JSON foundation diagnostics with exact typed checks
   and no host, user, current-directory, environment-value, or raw-path output.
-- [x] Add a deterministic foundation support-report contract and separate
-  stdin/stdout report/export source module that omit raw inputs and authority;
-  signed lifecycle/core integration/final-artifact platform proof remain open.
+- [x] Add a deterministic foundation support-report contract, a separate
+  stdin/stdout report/export source module, and an integrated privacy-reviewed
+  `rz0 report` foundation surface that omit raw inputs and authority; signed
+  lifecycle and final-artifact platform proof remain open.
 - [x] Allocation-free validation contract for canonical IDs, versions, lowercase
   hashes, evidence references, and platform-neutral relative paths.
 - [x] Require every action plan to bind the finding contract, sealed report ID,
@@ -232,7 +248,8 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
 - [x] Add a bounded canonical target × seven-module × 12-stage acceptance-ledger
   contract with deterministic IDs and blocked-only schema-1 release posture.
 - [x] Freeze initial final-artifact command ceilings and a strict bounded
-  performance evidence schema for version/doctor/scan/dashboard text/JSON paths.
+  performance evidence schema for version/doctor/scan/apps/monitor/report/
+  dashboard paths; interactive TUI first-frame/refresh timing remains open.
 - [ ] Freeze the exact RC target snapshot and target-specific measured/narrower
   budgets, then populate every acceptance ID with reviewed evidence or evidence-
   backed not-applicable.
@@ -273,8 +290,10 @@ See [`production-readiness.md`](production-readiness.md).
 - [ ] Keep every command/help/TUI/module/site claim synchronized as behavior
   changes; add automated documentation/schema drift checks only after workflow
   approval.
-- [ ] Finalize user guide, administrator/platform notes, troubleshooting,
-  recovery, privacy/sharing, migration, uninstall, and support documentation.
+- [x] Add current user, platform, troubleshooting, recovery, and privacy/sharing
+  guides covering the implemented CLI/TUI and fail-closed boundaries.
+- [ ] Complete migration, repair, production uninstall, administrator, and
+  support-runbook documentation after those workflows and ownership are frozen.
 - [ ] Complete vulnerability intake, supported-version policy, incident and
   compromised-release response, key custody/revocation, and release rollback.
 - [ ] Complete beta and release-candidate plans, telemetry/crash-reporting

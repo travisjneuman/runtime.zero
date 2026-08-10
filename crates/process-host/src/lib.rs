@@ -1,19 +1,31 @@
 use std::{
     fmt,
     io::Read,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Child, Command, ExitStatus, Stdio},
+    sync::Mutex,
     thread,
     time::{Duration, Instant},
 };
 
+use rz0_artifact_identity::BoundExecutable;
+use rz0_cancellation_contract::{
+    CancellationReason, CancellationToken, ProcessDeadline, cancellation_pair,
+};
 use rz0_error_contract::FoundationErrorCode;
+
+/// Serializes every production-host audit/spawn boundary in this process so a
+/// second process-host caller cannot introduce an inheritable descriptor
+/// between the audit and child creation. This does not make foreign FFI or raw
+/// `Command` call sites safe; production code must use this host exclusively.
+static PROCESS_SPAWN_LOCK: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessHostErrorCode {
     UnsupportedHandleAudit,
     UnsupportedContainment,
     InheritableHandle,
+    Cancelled,
     LimitExceeded,
     PlatformIo,
 }
@@ -39,6 +51,7 @@ impl ProcessHostError {
                 FoundationErrorCode::UnsupportedOperation
             }
             ProcessHostErrorCode::InheritableHandle => FoundationErrorCode::PermissionDenied,
+            ProcessHostErrorCode::Cancelled => FoundationErrorCode::Cancelled,
             ProcessHostErrorCode::LimitExceeded => FoundationErrorCode::OutputLimitExceeded,
             ProcessHostErrorCode::PlatformIo => FoundationErrorCode::IoUnavailable,
         }
@@ -78,6 +91,7 @@ pub struct ProcessOutput {
     pub stdout: BoundedCapture,
     pub stderr: BoundedCapture,
     pub timed_out: bool,
+    pub cancellation_reason: Option<CancellationReason>,
 }
 
 pub type ReadOnlyProcessOutput = ProcessOutput;
@@ -87,10 +101,84 @@ pub type ReadOnlyProcessOutput = ProcessOutput;
 /// manager authority: callers still need artifact identity, trust, capability,
 /// confirmation, and transaction gates before using a result for mutation.
 pub fn run_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHostError> {
+    let (_, cancellation) = cancellation_pair();
+    run_process_inner(request, ExecutableSelection::Direct, &cancellation)
+}
+
+/// Runs the same bounded transport while honoring a caller-owned first-writer-
+/// wins cancellation token. A cancellation observed before spawn refuses to
+/// create a child. A cancellation observed after spawn terminates and reaps the
+/// dedicated process group and is returned in the process evidence.
+pub fn run_process_cancellable(
+    request: &ProcessRequest,
+    cancellation: &CancellationToken,
+) -> Result<ProcessOutput, ProcessHostError> {
+    run_process_inner(request, ExecutableSelection::Direct, cancellation)
+}
+
+/// Runs an explicitly approved mutating manager command through the same
+/// bounded transport as discovery. Authority remains with the caller's exact
+/// plan, confirmation, transaction, and post-action verification gates.
+pub fn run_mutating_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHostError> {
+    run_process(request)
+}
+
+pub fn run_mutating_process_cancellable(
+    request: &ProcessRequest,
+    cancellation: &CancellationToken,
+) -> Result<ProcessOutput, ProcessHostError> {
+    run_process_cancellable(request, cancellation)
+}
+
+/// Runs a mutating process from a lease that binds the verified opened artifact
+/// to the platform launch primitive. The lease is borrowed for the complete
+/// spawn/wait operation and still grants no execution authority by itself.
+pub fn run_bound_mutating_process(
+    request: &ProcessRequest,
+    executable: &BoundExecutable<'_>,
+    cancellation: &CancellationToken,
+) -> Result<ProcessOutput, ProcessHostError> {
+    run_process_inner(
+        request,
+        ExecutableSelection::Bound(executable),
+        cancellation,
+    )
+}
+
+pub fn run_read_only_process(
+    request: &ReadOnlyProcessRequest,
+) -> Result<ReadOnlyProcessOutput, ProcessHostError> {
+    run_process(request)
+}
+
+pub fn run_read_only_process_cancellable(
+    request: &ReadOnlyProcessRequest,
+    cancellation: &CancellationToken,
+) -> Result<ReadOnlyProcessOutput, ProcessHostError> {
+    run_process_cancellable(request, cancellation)
+}
+
+enum ExecutableSelection<'a> {
+    Direct,
+    Bound(&'a BoundExecutable<'a>),
+}
+
+fn run_process_inner(
+    request: &ProcessRequest,
+    executable: ExecutableSelection<'_>,
+    cancellation: &CancellationToken,
+) -> Result<ProcessOutput, ProcessHostError> {
+    let timeout_ms = bounded_duration_millis(request.timeout)?;
     if !request.executable.is_absolute()
         || request.executable.as_os_str().is_empty()
-        || request.timeout.is_zero()
+        || timeout_ms > rz0_resource_contract::MAX_MANAGER_PROCESS_TIMEOUT_MS
         || request.output_limit == 0
+        || request.output_limit > rz0_resource_contract::MAX_PROCESS_CAPTURE_BYTES
+        || request.arguments.len() > rz0_resource_contract::MAX_PROCESS_ARGUMENTS
+        || request.arguments.iter().any(|argument| {
+            argument.len() > rz0_resource_contract::MAX_PROCESS_ARGUMENT_BYTES
+                || argument.chars().any(char::is_control)
+        })
         || request.environment.len() > 32
         || request.environment.iter().any(|(key, value)| {
             key.is_empty()
@@ -105,33 +193,47 @@ pub fn run_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHos
             "process request has invalid path, environment, timeout, or output limit",
         ));
     }
-    let executable_metadata = std::fs::symlink_metadata(&request.executable).map_err(|error| {
-        ProcessHostError::new(
-            ProcessHostErrorCode::PlatformIo,
-            format!("inspect exact process executable: {error}"),
-        )
-    })?;
-    if executable_metadata.file_type().is_symlink() || !executable_metadata.is_file() {
+    if let Some(reason) = cancellation.reason() {
         return Err(ProcessHostError::new(
-            ProcessHostErrorCode::UnsupportedContainment,
-            "process executable must be a direct regular file, not a symlink",
+            ProcessHostErrorCode::Cancelled,
+            format!("process was cancelled before spawn: {reason:?}"),
         ));
     }
-    let working_directory_metadata = std::fs::symlink_metadata(&request.working_directory)
-        .map_err(|error| {
-            ProcessHostError::new(
-                ProcessHostErrorCode::PlatformIo,
-                format!("inspect process working directory: {error}"),
-            )
-        })?;
-    if working_directory_metadata.file_type().is_symlink() || !working_directory_metadata.is_dir() {
-        return Err(ProcessHostError::new(
-            ProcessHostErrorCode::UnsupportedContainment,
-            "process working directory must be a direct directory, not a symlink",
-        ));
-    }
+
+    let launch_path = match executable {
+        ExecutableSelection::Direct => {
+            validate_direct_executable(&request.executable)?;
+            request.executable.as_path()
+        }
+        ExecutableSelection::Bound(binding) => {
+            let requested = std::fs::canonicalize(&request.executable).map_err(|error| {
+                ProcessHostError::new(
+                    ProcessHostErrorCode::PlatformIo,
+                    format!("canonicalize requested bound executable: {error}"),
+                )
+            })?;
+            if requested != binding.verified_path() || !binding.launch_path().is_absolute() {
+                return Err(ProcessHostError::new(
+                    ProcessHostErrorCode::UnsupportedContainment,
+                    "bound executable does not match the exact requested executable identity",
+                ));
+            }
+            binding.launch_path()
+        }
+    };
+    validate_working_directory(&request.working_directory)?;
+    let spawn_guard = PROCESS_SPAWN_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     audit_inheritable_process_handles()?;
-    let mut command = Command::new(&request.executable);
+    if let Some(reason) = cancellation.reason() {
+        return Err(ProcessHostError::new(
+            ProcessHostErrorCode::Cancelled,
+            format!("process was cancelled at the serialized spawn boundary: {reason:?}"),
+        ));
+    }
+
+    let mut command = Command::new(launch_path);
     command
         .args(&request.arguments)
         .current_dir(&request.working_directory)
@@ -147,6 +249,7 @@ pub fn run_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHos
             format!("spawn bounded process: {error}"),
         )
     })?;
+    drop(spawn_guard);
     let stdout = child.stdout.take().ok_or_else(|| {
         ProcessHostError::new(
             ProcessHostErrorCode::PlatformIo,
@@ -162,8 +265,14 @@ pub fn run_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHos
     let output_limit = request.output_limit;
     let stdout_thread = thread::spawn(move || drain_bounded(stdout, output_limit));
     let stderr_thread = thread::spawn(move || drain_bounded(stderr, output_limit));
-    let deadline = Instant::now() + request.timeout;
-    let mut timed_out = false;
+    let started = Instant::now();
+    let deadline = ProcessDeadline::new(0, timeout_ms, timeout_ms).map_err(|error| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::LimitExceeded,
+            format!("process deadline is invalid: {error:?}"),
+        )
+    })?;
+    let mut cancellation_reason = None;
     let status = loop {
         if let Some(status) = child.try_wait().map_err(|error| {
             ProcessHostError::new(
@@ -173,13 +282,14 @@ pub fn run_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHos
         })? {
             break status;
         }
-        if Instant::now() >= deadline {
-            timed_out = true;
+        let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        if let Some(reason) = cancellation.poll(elapsed_ms, deadline) {
+            cancellation_reason = Some(reason);
             terminate_child_process_group(&mut child)?;
             break child.wait().map_err(|error| {
                 ProcessHostError::new(
                     ProcessHostErrorCode::PlatformIo,
-                    format!("reap timed-out process: {error}"),
+                    format!("reap cancelled process: {error}"),
                 )
             })?;
         }
@@ -207,21 +317,59 @@ pub fn run_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHos
         status,
         stdout,
         stderr,
-        timed_out,
+        timed_out: cancellation_reason == Some(CancellationReason::DeadlineExceeded),
+        cancellation_reason,
     })
 }
 
-/// Runs an explicitly approved mutating manager command through the same
-/// bounded transport as discovery. Authority remains with the caller's exact
-/// plan, confirmation, transaction, and post-action verification gates.
-pub fn run_mutating_process(request: &ProcessRequest) -> Result<ProcessOutput, ProcessHostError> {
-    run_process(request)
+fn bounded_duration_millis(duration: Duration) -> Result<u64, ProcessHostError> {
+    if duration.is_zero() {
+        return Err(ProcessHostError::new(
+            ProcessHostErrorCode::LimitExceeded,
+            "process timeout must be positive",
+        ));
+    }
+    let millis = u64::try_from(duration.as_millis()).map_err(|_| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::LimitExceeded,
+            "process timeout exceeds the monotonic deadline range",
+        )
+    })?;
+    Ok(millis.max(1))
 }
 
-pub fn run_read_only_process(
-    request: &ReadOnlyProcessRequest,
-) -> Result<ReadOnlyProcessOutput, ProcessHostError> {
-    run_process(request)
+fn validate_direct_executable(path: &Path) -> Result<(), ProcessHostError> {
+    let metadata = std::fs::symlink_metadata(path).map_err(|error| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::PlatformIo,
+            format!("inspect exact process executable: {error}"),
+        )
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        Err(ProcessHostError::new(
+            ProcessHostErrorCode::UnsupportedContainment,
+            "process executable must be a direct regular file, not a symlink",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_working_directory(path: &Path) -> Result<(), ProcessHostError> {
+    let metadata = std::fs::symlink_metadata(path).map_err(|error| {
+        ProcessHostError::new(
+            ProcessHostErrorCode::PlatformIo,
+            format!("inspect process working directory: {error}"),
+        )
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        Err(ProcessHostError::new(
+            ProcessHostErrorCode::UnsupportedContainment,
+            "process working directory must be a direct directory, not a symlink",
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 /// Drains to EOF while retaining at most `limit` bytes.
@@ -342,10 +490,14 @@ pub fn terminate_child_process_group(child: &mut Child) -> Result<(), ProcessHos
     let process_group = -(child.id() as i32);
     // SAFETY: configure_child_process_group assigned the child to its own group.
     if unsafe { libc::kill(process_group, libc::SIGKILL) } == -1 {
+        let group_error = std::io::Error::last_os_error();
+        if group_error.raw_os_error() == Some(libc::ESRCH) {
+            return Ok(());
+        }
         child.kill().map_err(|error| {
             ProcessHostError::new(
                 ProcessHostErrorCode::PlatformIo,
-                format!("terminate child process: {error}"),
+                format!("terminate child process after group error {group_error}: {error}"),
             )
         })?;
     }
@@ -567,6 +719,7 @@ mod tests {
         assert!(output.status.success());
         assert!(output.stdout.bytes.is_empty());
         assert!(!output.timed_out);
+        assert_eq!(output.cancellation_reason, None);
     }
 
     #[cfg(unix)]
@@ -587,6 +740,68 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn process_request_resource_expansion_fails_before_spawn() {
+        let request = ReadOnlyProcessRequest {
+            executable: PathBuf::from("/usr/bin/printf"),
+            arguments: vec!["x".repeat(rz0_resource_contract::MAX_PROCESS_ARGUMENT_BYTES + 1)],
+            working_directory: PathBuf::from("/"),
+            environment: Vec::new(),
+            timeout: Duration::from_secs(2),
+            output_limit: 1_024,
+        };
+        let error = run_read_only_process(&request).expect_err("oversized argument");
+        assert_eq!(error.code, ProcessHostErrorCode::LimitExceeded);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cancellation_before_spawn_refuses_to_create_a_process() {
+        let (controller, token) = cancellation_pair();
+        controller.cancel(CancellationReason::UserRequested);
+        let request = ReadOnlyProcessRequest {
+            executable: PathBuf::from("/usr/bin/printf"),
+            arguments: vec!["must-not-run".to_string()],
+            working_directory: PathBuf::from("/"),
+            environment: Vec::new(),
+            timeout: Duration::from_secs(2),
+            output_limit: 1_024,
+        };
+        let error = run_read_only_process_cancellable(&request, &token)
+            .expect_err("pre-cancelled process must fail closed");
+        assert_eq!(error.code, ProcessHostErrorCode::Cancelled);
+        assert_eq!(error.foundation_code(), FoundationErrorCode::Cancelled);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn caller_cancellation_terminates_and_reaps_the_process_group() {
+        let (controller, token) = cancellation_pair();
+        let request = ReadOnlyProcessRequest {
+            executable: PathBuf::from("/bin/sh"),
+            arguments: vec!["-c".to_string(), "sleep 30".to_string()],
+            working_directory: PathBuf::from("/"),
+            environment: Vec::new(),
+            timeout: Duration::from_secs(5),
+            output_limit: 1_024,
+        };
+        let cancellation = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+            controller.cancel(CancellationReason::UserRequested)
+        });
+        let started = Instant::now();
+        let output = run_read_only_process_cancellable(&request, &token)
+            .expect("cancelled process evidence");
+        cancellation.join().expect("cancellation thread");
+        assert_eq!(
+            output.cancellation_reason,
+            Some(CancellationReason::UserRequested)
+        );
+        assert!(!output.timed_out);
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn bounded_read_only_process_terminates_after_deadline() {
         let request = ReadOnlyProcessRequest {
             executable: PathBuf::from("/bin/sh"),
@@ -599,6 +814,10 @@ mod tests {
         let started = Instant::now();
         let output = run_read_only_process(&request).expect("timed-out process");
         assert!(output.timed_out);
+        assert_eq!(
+            output.cancellation_reason,
+            Some(CancellationReason::DeadlineExceeded)
+        );
         assert!(started.elapsed() < Duration::from_secs(5));
     }
 }

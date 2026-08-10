@@ -35,12 +35,12 @@ full platform/lifecycle acceptance cells.
   equally reviewed platform identity primitive through the actual spawn.
 - [ ] Replace path allowlisting alone with adversarially proven replacement-race
   closure on Linux and Windows and a reviewed exact macOS mechanism.
-- [ ] Integrate updater confirmation, journal, receipt, and final state through
+- [x] Integrate updater confirmation, journal, receipt, and final state through
   the canonical transaction/commit-receipt/recovery model rather than a
   parallel partial flow.
-- [ ] Record exact manager write intent and verified outcome in the durable
+- [x] Record exact manager write intent and verified outcome in the durable
   transaction chain.
-- [ ] Make updater receipt publication interruption-safe after a successful
+- [x] Make updater receipt publication interruption-safe after a successful
   manager command and provide deterministic reconciliation for missing,
   duplicate, partial, or conflicting evidence.
 - [ ] Propagate cancellation through live discovery, process polling/teardown,
@@ -134,7 +134,7 @@ full platform/lifecycle acceptance cells.
 
 ## 6. Complete inventory and software identity
 
-- [ ] Define durable multi-source software identity/provenance beyond normalized
+- [x] Define durable multi-source software identity/provenance beyond normalized
   display-name heuristics while preserving every source and disagreement.
 - [ ] Add adversarial reconciliation fixtures for app/cask duplicates, aliases,
   renamed/moved apps, multiple versions, conflicting managers, missing metadata,
@@ -150,7 +150,7 @@ full platform/lifecycle acceptance cells.
   extensions, and other discovered sources as in-scope or explicit exclusions.
 - [ ] Establish trusted publisher/product IDs and active-version/linkage evidence
   where each platform exposes it.
-- [ ] Preserve useful partial source results, deterministic ordering, redaction,
+- [x] Preserve useful partial source results, deterministic ordering, redaction,
   bounded scans, and explicit unsupported/unavailable states.
 - [ ] Add real runtime privacy/redaction/source-agreement tests on every target.
 - [ ] Add explicit `apps` and interactive TUI startup/refresh operations to a
@@ -185,7 +185,7 @@ full platform/lifecycle acceptance cells.
 
 ### Uninstall
 
-- [ ] Convert live catalog evidence into shared uninstall findings and exact
+- [x] Convert live catalog evidence into shared uninstall findings and exact
   action plans rather than extending the temporary `uninstall_review` model.
 - [ ] Implement manager-native uninstall adapters, dependent/shared-component
   review, elevation, restart/reboot, verification, rollback, and recovery for
@@ -226,11 +226,11 @@ full platform/lifecycle acceptance cells.
 
 ### Report and export
 
-- [ ] Integrate the strict summary exporter through signed module lifecycle or
+- [x] Integrate the strict summary exporter through signed module lifecycle or
   an explicitly chosen foundation surface.
 - [ ] Define optional support-bundle attachments, user review, local output,
   encryption, retention, size, and external-sharing workflow.
-- [ ] Preserve omission of raw paths, identities, app names, process output,
+- [x] Preserve omission of raw paths, identities, app names, process output,
   credentials, and free-form sensitive warnings by default.
 - [ ] Prove deterministic text/JSON, accessibility, platform parity, support
   usability, and final-artifact behavior.

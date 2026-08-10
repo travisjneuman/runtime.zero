@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-pub const PERFORMANCE_SCHEMA_VERSION: u16 = 1;
+pub const PERFORMANCE_SCHEMA_VERSION: u16 = 2;
 pub const PERFORMANCE_CONTRACT: &str = "final_artifact_performance";
 pub const MIN_PERFORMANCE_SAMPLES: u32 = 10;
 pub const MAX_PERFORMANCE_SAMPLES: u32 = rz0_resource_contract::MAX_PERFORMANCE_SAMPLES;
@@ -70,15 +70,21 @@ pub enum PerformanceOperation {
     DoctorJson,
     CoreScanText,
     CoreScanJson,
+    AppsJson,
+    MonitorJson,
+    ReportJson,
     DashboardJson,
 }
 
-pub const CANONICAL_PERFORMANCE_OPERATIONS: [PerformanceOperation; 6] = [
+pub const CANONICAL_PERFORMANCE_OPERATIONS: [PerformanceOperation; 9] = [
     PerformanceOperation::Version,
     PerformanceOperation::DoctorText,
     PerformanceOperation::DoctorJson,
     PerformanceOperation::CoreScanText,
     PerformanceOperation::CoreScanJson,
+    PerformanceOperation::AppsJson,
+    PerformanceOperation::MonitorJson,
+    PerformanceOperation::ReportJson,
     PerformanceOperation::DashboardJson,
 ];
 
@@ -119,7 +125,7 @@ pub fn validate_performance_evidence(evidence: &PerformanceEvidence) -> Performa
         errors.push("performance evidence cannot authorize release".to_string());
     }
     if evidence.budget != PerformanceBudget::FINAL_ARTIFACT_BASELINE {
-        errors.push("schema-1 performance evidence must use the canonical budget".to_string());
+        errors.push("schema-2 performance evidence must use the canonical budget".to_string());
     }
     if evidence.operations.len() > MAX_PERFORMANCE_OPERATIONS {
         errors.push("performance evidence exceeds the operation ceiling".to_string());
@@ -249,8 +255,8 @@ mod tests {
     fn unknown_fields_and_oversized_documents_fail_closed() {
         let json = serde_json::to_string(&evidence()).unwrap();
         let drifted = json.replacen(
-            "\"schema_version\":1",
-            "\"schema_version\":1,\"future\":true",
+            "\"schema_version\":2",
+            "\"schema_version\":2,\"future\":true",
             1,
         );
         assert!(decode_performance_evidence(drifted.as_bytes()).is_err());

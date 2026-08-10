@@ -3,7 +3,15 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use rz0_action_plan::{ActionDisposition, ActionKind, ActionPlan, PlanAction, action_plan_digests};
+use rz0_action_plan::{
+    ActionDisposition, ActionExecutableIdentity, ActionKind, ActionPlan, PlanAction,
+    action_plan_digests,
+};
+use rz0_artifact_identity::{
+    ArtifactExpectation, VerifiedArtifact, bind_verified_executable, open_observed_artifact,
+    open_verified_artifact, revalidate_verified_artifact,
+};
+use rz0_cancellation_contract::CancellationToken;
 use rz0_confirmation_contract::{
     CONFIRMATION_CHALLENGE_CONTRACT, CONFIRMATION_CONSUMPTION_CONTRACT,
     CONFIRMATION_RESPONSE_CONTRACT, ConfirmationChallenge, ConfirmationConsumption,
@@ -13,18 +21,17 @@ use rz0_confirmation_contract::{
 use rz0_module_updater::manager_executable_allowed;
 use rz0_secure_fs::SecureDirectory;
 use rz0_transaction_contract::{
-    DurabilityRequirements, TransactionEvent, TransactionEventKind, TransactionJournal,
-    TransactionOperation, TransactionState, publish_confirmation_consumption,
-    publish_journal_snapshot, seal_transaction_journal,
+    DurabilityRequirements, EXTERNAL_EFFECT_RECEIPT_CONTRACT,
+    EXTERNAL_EFFECT_RECEIPT_SCHEMA_VERSION, ExternalEffectPublicationInput, ExternalEffectReceipt,
+    ExternalEffectStatus, TransactionEvent, TransactionEventKind, TransactionJournal,
+    TransactionOperation, TransactionState, arguments_sha256, publish_confirmation_consumption,
+    publish_external_effect_receipt_cancellable, publish_journal_snapshot,
+    seal_external_effect_receipt, seal_transaction_journal,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-const UPDATES_DIRECTORY: &str = "updates";
-const UPDATE_RECEIPT_SCHEMA_VERSION: u16 = 1;
-const UPDATE_RECEIPT_CONTRACT: &str = "manager_update_receipt";
 const MAX_EXECUTION_SECONDS: u64 = 30 * 60;
-const MAX_RECEIPT_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct UpdateChallengeView {
@@ -44,6 +51,9 @@ pub struct UpdateExecutionReport {
     pub action_id: String,
     pub manager: String,
     pub target: String,
+    pub executable_sha256: String,
+    pub executable_size_bytes: u64,
+    pub executable_binding: String,
     pub status: UpdateExecutionStatus,
     pub exit_code: Option<i32>,
     pub stdout_bytes: u64,
@@ -51,7 +61,7 @@ pub struct UpdateExecutionReport {
     pub stdout_sha256: String,
     pub stderr_sha256: String,
     pub verification: String,
-    pub receipt_path: String,
+    pub receipt_reference: String,
     pub writes_attempted: bool,
     pub product_execution_authorized: bool,
 }
@@ -61,33 +71,6 @@ pub struct UpdateExecutionReport {
 pub enum UpdateExecutionStatus {
     Committed,
     RecoveryRequired,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct UpdateExecutionReceipt {
-    schema_version: u16,
-    contract: String,
-    transaction_id: String,
-    plan_id: String,
-    action_id: String,
-    manager: String,
-    executable: String,
-    arguments: Vec<String>,
-    target: String,
-    available_version: Option<String>,
-    started_unix_seconds: u64,
-    completed_unix_seconds: u64,
-    exit_code: Option<i32>,
-    stdout_bytes: u64,
-    stderr_bytes: u64,
-    stdout_sha256: String,
-    stderr_sha256: String,
-    verification: String,
-    rollback_supported: bool,
-    manual_recovery_acknowledged: bool,
-    writes_attempted: bool,
-    product_execution_authorized: bool,
 }
 
 pub fn make_single_action_plan(
@@ -198,6 +181,7 @@ where
     pub response: &'a ConfirmationResponse,
     pub now_unix_seconds: u64,
     pub environment: Vec<(String, String)>,
+    pub cancellation: &'a CancellationToken,
     pub verify_after: F,
 }
 
@@ -215,6 +199,7 @@ where
         response,
         now_unix_seconds,
         environment,
+        cancellation,
         verify_after,
     } = request;
     validate_execution_inputs(plan, action, challenge, response, now_unix_seconds)?;
@@ -248,6 +233,18 @@ where
                 .to_string(),
         );
     }
+    refuse_if_cancelled(cancellation, "before executable identity binding")?;
+    let executable_identity = action
+        .executable_identity
+        .as_ref()
+        .ok_or_else(|| "update action has no sealed executable identity".to_string())?;
+    let mut verified_executable =
+        open_manager_executable(Path::new(executable), executable_identity)?;
+    validate_platform_manager_execution(&verified_executable)?;
+    let executable_binding = bind_verified_executable(&verified_executable)
+        .map_err(|error| format!("bind verified manager executable through spawn: {error}"))?;
+    let executable_binding_name = executable_binding.mechanism().as_str().to_string();
+    refuse_if_cancelled(cancellation, "before transaction preparation")?;
 
     let transaction_id = format!(
         "tx.update.{}.{}",
@@ -291,117 +288,194 @@ where
     let applying = append(&prepared, event(TransactionEventKind::ApplyStarted));
     publish_journal_snapshot(&transactions_root, &applying)
         .map_err(|error| format!("publish update apply journal: {error}"))?;
+    let write_path = format!("manager/{manager}/{}", action.finding_id);
+    let intent = append(
+        &applying,
+        manager_write_event(
+            TransactionEventKind::WriteIntent,
+            action,
+            challenge,
+            &write_path,
+        ),
+    );
+    publish_journal_snapshot(&transactions_root, &intent)
+        .map_err(|error| format!("publish exact manager write intent: {error}"))?;
 
-    let process = rz0_process_host::run_mutating_process(&rz0_process_host::ProcessRequest {
-        executable: PathBuf::from(executable),
-        arguments: action.arguments.clone(),
-        working_directory: PathBuf::from("/"),
-        environment,
-        timeout: Duration::from_secs(MAX_EXECUTION_SECONDS),
-        output_limit: rz0_resource_contract::MAX_FINDING_REPORT_BYTES,
-    })
+    let process = rz0_process_host::run_bound_mutating_process(
+        &rz0_process_host::ProcessRequest {
+            executable: PathBuf::from(executable),
+            arguments: action.arguments.clone(),
+            working_directory: PathBuf::from("/"),
+            environment,
+            timeout: Duration::from_secs(MAX_EXECUTION_SECONDS),
+            output_limit: rz0_resource_contract::MAX_FINDING_REPORT_BYTES,
+        },
+        &executable_binding,
+        cancellation,
+    )
     .map_err(|error| {
-        let recovery = append(&applying, event(TransactionEventKind::RecoveryRequired));
+        let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
         let _ = publish_journal_snapshot(&transactions_root, &recovery);
         format!("manager update process failed; recovery is required: {error}")
     })?;
+    drop(executable_binding);
+    if let Err(error) = revalidate_verified_artifact(&mut verified_executable) {
+        let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
+        let _ = publish_journal_snapshot(&transactions_root, &recovery);
+        return Err(format!(
+            "manager executable identity changed across spawn; recovery is required: {error}"
+        ));
+    }
     let stdout_sha256 = sha256(&process.stdout.bytes);
     let stderr_sha256 = sha256(&process.stderr.bytes);
     let exit_code = process.status.code();
-    if !process.status.success() || process.timed_out {
-        let recovery = append(&applying, event(TransactionEventKind::RecoveryRequired));
+    if !process.status.success() || process.cancellation_reason.is_some() {
+        let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
         let _ = publish_journal_snapshot(&transactions_root, &recovery);
         return Err(format!(
-            "manager update did not complete successfully (exit={exit_code:?}, timed_out={}); recovery is required",
-            process.timed_out
+            "manager update did not complete successfully (exit={exit_code:?}, cancellation={:?}); recovery is required",
+            process.cancellation_reason
         ));
     }
 
+    refuse_if_cancelled(cancellation, "before post-update verification").map_err(|error| {
+        let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
+        let _ = publish_journal_snapshot(&transactions_root, &recovery);
+        format!("{error}; recovery is required")
+    })?;
     let verification = match verify_after() {
         Ok(verification) => verification,
         Err(error) => {
-            let recovery = append(&applying, event(TransactionEventKind::RecoveryRequired));
+            let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
             let _ = publish_journal_snapshot(&transactions_root, &recovery);
             return Err(format!(
                 "post-update verification failed; recovery is required: {error}"
             ));
         }
     };
+    refuse_if_cancelled(cancellation, "during post-update verification").map_err(|error| {
+        let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
+        let _ = publish_journal_snapshot(&transactions_root, &recovery);
+        format!("{error}; recovery is required")
+    })?;
 
-    let committing = append(&applying, event(TransactionEventKind::CommitStarted));
-    publish_journal_snapshot(&transactions_root, &committing)
-        .map_err(|error| format!("publish update commit journal: {error}"))?;
-    let committed = append(&committing, event(TransactionEventKind::Committed));
-    publish_journal_snapshot(&transactions_root, &committed)
-        .map_err(|error| format!("publish committed update journal: {error}"))?;
+    let verified = append(
+        &intent,
+        manager_write_event(
+            TransactionEventKind::WriteVerified,
+            action,
+            challenge,
+            &write_path,
+        ),
+    );
+    if let Err(error) = publish_journal_snapshot(&transactions_root, &verified) {
+        let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
+        let _ = publish_journal_snapshot(&transactions_root, &recovery);
+        return Err(format!(
+            "publish verified manager outcome journal failed; recovery is required: {error}"
+        ));
+    }
+    let committing = append(&verified, event(TransactionEventKind::CommitStarted));
+    if let Err(error) = publish_journal_snapshot(&transactions_root, &committing) {
+        let recovery = append(&verified, event(TransactionEventKind::RecoveryRequired));
+        let _ = publish_journal_snapshot(&transactions_root, &recovery);
+        return Err(format!(
+            "publish update commit-pending journal failed; recovery is required: {error}"
+        ));
+    }
 
-    let receipt = UpdateExecutionReceipt {
-        schema_version: UPDATE_RECEIPT_SCHEMA_VERSION,
-        contract: UPDATE_RECEIPT_CONTRACT.to_string(),
+    let committed_exit_code = exit_code.ok_or_else(|| {
+        let recovery = append(&committing, event(TransactionEventKind::RecoveryRequired));
+        let _ = publish_journal_snapshot(&transactions_root, &recovery);
+        "successful manager process had no portable exit code; recovery is required".to_string()
+    })?;
+    let head = committing
+        .events
+        .last()
+        .ok_or_else(|| "commit-pending update journal has no head".to_string())?;
+    let digests = action_plan_digests(plan).map_err(|errors| errors.join("; "))?;
+    let mut receipt = ExternalEffectReceipt {
+        schema_version: EXTERNAL_EFFECT_RECEIPT_SCHEMA_VERSION,
+        contract: EXTERNAL_EFFECT_RECEIPT_CONTRACT.to_string(),
         transaction_id: transaction_id.clone(),
         plan_id: plan.plan_id.clone(),
         action_id: action.action_id.clone(),
+        operation: TransactionOperation::Update,
         manager: manager.to_string(),
-        executable: executable.to_string(),
-        arguments: action.arguments.clone(),
         target: action.target.clone(),
-        available_version: action
-            .target
-            .rsplit_once('@')
-            .map(|(_, version)| version.to_string()),
+        executable_sha256: executable_identity.sha256.clone(),
+        executable_size_bytes: executable_identity.size_bytes,
+        executable_binding: executable_binding_name.clone(),
+        arguments_sha256: arguments_sha256(&action.arguments),
         started_unix_seconds: now_unix_seconds,
         completed_unix_seconds: unix_seconds(),
-        exit_code,
+        exit_code: committed_exit_code,
         stdout_bytes: process.stdout.total_bytes,
         stderr_bytes: process.stderr.total_bytes,
-        stdout_sha256,
-        stderr_sha256,
-        verification: verification.clone(),
+        stdout_sha256: stdout_sha256.clone(),
+        stderr_sha256: stderr_sha256.clone(),
+        verification_sha256: sha256(verification.as_bytes()),
+        commit_pending_sequence: head.sequence,
+        commit_pending_event_sha256: head.event_sha256.clone(),
+        commit_pending_snapshot_name: format!("{:04}-{}.json", head.sequence, head.event_sha256),
+        action_plan_sha256: digests.plan_sha256,
+        write_set_sha256: digests.write_set_sha256,
+        confirmation_challenge_sha256: challenge.challenge_sha256.clone(),
+        confirmation_response_sha256: rz0_confirmation_contract::confirmation_response_sha256(
+            response,
+        ),
+        confirmation_consumption_sha256: consumption.binding_sha256.clone(),
         rollback_supported: action.rollback.supported,
-        manual_recovery_acknowledged: challenge.manual_recovery_acknowledged,
+        status: ExternalEffectStatus::Verified,
         writes_attempted: true,
-        product_execution_authorized: true,
+        automatic_mutation_authorized: false,
+        binding_sha256: String::new(),
     };
-    let receipt_bytes = serde_json::to_vec(&receipt)
-        .map_err(|error| format!("serialize update receipt: {error}"))?;
-    if receipt_bytes.len() as u64 > MAX_RECEIPT_BYTES {
-        return Err("update receipt exceeds the foundation ceiling after commit".to_string());
-    }
-    let state = SecureDirectory::open(state_root)
-        .map_err(|error| format!("open update state root: {error}"))?;
-    state
-        .verify_private()
-        .map_err(|error| format!("verify update state root: {error}"))?;
-    state
-        .open_child_directory(OsStr::new("receipts"))
-        .map_err(|error| format!("open update receipts: {error}"))?;
-    let updates = match state.open_child_directory(OsStr::new(UPDATES_DIRECTORY)) {
-        Ok(directory) => directory,
-        Err(_) => state
-            .create_child_directory(OsStr::new(UPDATES_DIRECTORY))
-            .map_err(|error| format!("create update receipt directory: {error}"))?,
+    seal_external_effect_receipt(&mut receipt);
+    let publication = match publish_external_effect_receipt_cancellable(
+        state_root,
+        ExternalEffectPublicationInput {
+            commit_pending_journal: &committing,
+            action_plan: plan,
+            challenge,
+            response,
+            consumption: &consumption,
+            receipt: &receipt,
+        },
+        cancellation,
+    ) {
+        Ok(publication) => publication,
+        Err(error) => {
+            let recovery = append(&committing, event(TransactionEventKind::RecoveryRequired));
+            let _ = publish_journal_snapshot(&transactions_root, &recovery);
+            return Err(format!(
+                "publish canonical external-effect receipt failed; recovery is required: {error}"
+            ));
+        }
     };
-    let receipt_name = format!("{transaction_id}.json");
-    updates
-        .write_new_child(OsStr::new(&receipt_name), &receipt_bytes, MAX_RECEIPT_BYTES)
-        .map_err(|error| format!("publish update receipt: {error}"))?;
+    let committed = append(&committing, event(TransactionEventKind::Committed));
+    publish_journal_snapshot(&transactions_root, &committed).map_err(|error| {
+        format!(
+            "external-effect receipt is durable but final committed journal publication failed; recovery is required: {error}"
+        )
+    })?;
+
     Ok(UpdateExecutionReport {
         transaction_id,
         action_id: action.action_id.clone(),
         manager: manager.to_string(),
         target: action.target.clone(),
+        executable_sha256: executable_identity.sha256.clone(),
+        executable_size_bytes: executable_identity.size_bytes,
+        executable_binding: executable_binding_name,
         status: UpdateExecutionStatus::Committed,
         exit_code,
         stdout_bytes: process.stdout.total_bytes,
         stderr_bytes: process.stderr.total_bytes,
-        stdout_sha256: receipt.stdout_sha256.clone(),
-        stderr_sha256: receipt.stderr_sha256.clone(),
+        stdout_sha256,
+        stderr_sha256,
         verification,
-        receipt_path: state_root
-            .join(UPDATES_DIRECTORY)
-            .join(receipt_name)
-            .display()
-            .to_string(),
+        receipt_reference: format!("receipts/{}", publication.receipt_name),
         writes_attempted: true,
         product_execution_authorized: true,
     })
@@ -517,6 +591,123 @@ fn event(kind: TransactionEventKind) -> TransactionEvent {
     }
 }
 
+fn manager_write_event(
+    kind: TransactionEventKind,
+    action: &PlanAction,
+    challenge: &ConfirmationChallenge,
+    path: &str,
+) -> TransactionEvent {
+    debug_assert!(matches!(
+        kind,
+        TransactionEventKind::WriteIntent | TransactionEventKind::WriteVerified
+    ));
+    TransactionEvent {
+        sequence: 0,
+        kind,
+        action_id: Some(action.action_id.clone()),
+        path: Some(path.to_string()),
+        before_sha256: challenge.before_state_sha256.clone(),
+        after_sha256: Some(challenge.expected_after_state_sha256.clone()),
+        previous_event_sha256: String::new(),
+        event_sha256: String::new(),
+    }
+}
+
+pub(crate) fn observe_manager_executable(
+    executable: &Path,
+) -> Result<ActionExecutableIdentity, String> {
+    let (root, relative) = executable_root_and_name(executable)?;
+    let observed = open_observed_artifact(root, relative)
+        .map_err(|error| format!("observe manager executable identity: {error}"))?;
+    if observed.canonical_path != executable {
+        return Err("manager executable path must already be canonical and direct".to_string());
+    }
+    Ok(ActionExecutableIdentity {
+        sha256: observed.sha256,
+        size_bytes: observed.size_bytes,
+    })
+}
+
+fn open_manager_executable(
+    executable: &Path,
+    identity: &ActionExecutableIdentity,
+) -> Result<VerifiedArtifact, String> {
+    let (root, relative) = executable_root_and_name(executable)?;
+    let verified = open_verified_artifact(
+        root,
+        relative,
+        &ArtifactExpectation {
+            sha256: identity.sha256.clone(),
+            size_bytes: identity.size_bytes,
+        },
+    )
+    .map_err(|error| format!("verify sealed manager executable identity: {error}"))?;
+    if verified.canonical_path != executable {
+        return Err("sealed manager executable path is not canonical and direct".to_string());
+    }
+    Ok(verified)
+}
+
+fn executable_root_and_name(executable: &Path) -> Result<(&Path, &str), String> {
+    if !executable.is_absolute() {
+        return Err("manager executable path must be absolute".to_string());
+    }
+    let root = executable
+        .parent()
+        .ok_or_else(|| "manager executable has no parent directory".to_string())?;
+    let relative = executable
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "manager executable name must be portable UTF-8".to_string())?;
+    if relative.is_empty() {
+        return Err("manager executable name is empty".to_string());
+    }
+    Ok((root, relative))
+}
+
+#[cfg(target_os = "linux")]
+fn validate_platform_manager_execution(artifact: &VerifiedArtifact) -> Result<(), String> {
+    use std::os::unix::fs::FileExt as _;
+
+    let mut magic = [0u8; 4];
+    let count = artifact
+        .file()
+        .read_at(&mut magic, 0)
+        .map_err(|error| format!("read manager executable format: {error}"))?;
+    if count != magic.len() || !is_native_elf_magic(&magic) {
+        return Err(
+            "Linux identity-bound manager execution currently supports direct native ELF executables only; scripts and interpreter chains remain blocked"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
+#[cfg(any(target_os = "linux", all(test, target_os = "macos")))]
+fn is_native_elf_magic(bytes: &[u8]) -> bool {
+    bytes.starts_with(&[0x7f, b'E', b'L', b'F'])
+}
+
+#[cfg(windows)]
+fn validate_platform_manager_execution(_artifact: &VerifiedArtifact) -> Result<(), String> {
+    Err(
+        "Windows manager execution is blocked before transaction preparation until exact process-image binding and race-free Job Object containment are implemented"
+            .to_string(),
+    )
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
+fn validate_platform_manager_execution(_artifact: &VerifiedArtifact) -> Result<(), String> {
+    Ok(())
+}
+
+fn refuse_if_cancelled(cancellation: &CancellationToken, boundary: &str) -> Result<(), String> {
+    match cancellation.reason() {
+        Some(reason) => Err(format!("update cancelled {boundary}: {reason:?}")),
+        None => Ok(()),
+    }
+}
+
 fn digest_text(value: &str) -> String {
     sha256(value.as_bytes())
 }
@@ -554,7 +745,14 @@ mod tests {
     };
 
     #[test]
-    fn explicit_manager_execution_commits_a_verified_receipt_in_a_private_test_store() {
+    fn native_elf_detection_rejects_script_interpreter_chains() {
+        assert!(is_native_elf_magic(b"\x7fELFrest"));
+        assert!(!is_native_elf_magic(b"#!/bin/sh"));
+        assert!(!is_native_elf_magic(b"MZ"));
+    }
+
+    #[test]
+    fn macos_refuses_update_execution_before_consuming_confirmation_without_exact_spawn_binding() {
         let executable = Path::new("/opt/homebrew/bin/brew");
         if !executable.is_file() {
             return;
@@ -569,6 +767,9 @@ mod tests {
             source: None,
             manager: Some("homebrew".to_string()),
             executable: Some(executable.display().to_string()),
+            executable_identity: Some(
+                observe_manager_executable(executable).expect("manager identity"),
+            ),
             arguments: vec!["--version".to_string()],
             would_write: false,
             requires_confirmation: true,
@@ -608,47 +809,13 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("transactions")).expect("transactions");
         std::fs::create_dir_all(root.join("receipts")).expect("receipts");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-                .expect("root private");
-            std::fs::set_permissions(
-                root.join("transactions"),
-                std::fs::Permissions::from_mode(0o700),
-            )
-            .expect("transactions private");
-            std::fs::set_permissions(
-                root.join("receipts"),
-                std::fs::Permissions::from_mode(0o700),
-            )
-            .expect("receipts private");
+        use std::os::unix::fs::PermissionsExt;
+        for directory in [&root, &root.join("transactions"), &root.join("receipts")] {
+            std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
+                .expect("private test directory");
         }
-        let result = execute_update_action(UpdateExecutionRequest {
-            state_root: &root,
-            plan: &plan,
-            action: &action,
-            challenge: &challenge,
-            response: &response,
-            now_unix_seconds: now,
-            environment: vec![
-                (
-                    "HOME".to_string(),
-                    std::env::var("HOME").expect("test HOME"),
-                ),
-                (
-                    "PATH".to_string(),
-                    "/usr/bin:/bin:/opt/homebrew/bin".to_string(),
-                ),
-            ],
-            verify_after: || Ok("test post-action verification".to_string()),
-        })
-        .expect("explicit manager execution");
-        assert_eq!(result.status, UpdateExecutionStatus::Committed);
-        assert!(result.writes_attempted);
-        assert!(result.product_execution_authorized);
-        assert!(Path::new(&result.receipt_path).is_file());
-        let replay = execute_update_action(UpdateExecutionRequest {
+        let (_, cancellation) = rz0_cancellation_contract::cancellation_pair();
+        let error = execute_update_action(UpdateExecutionRequest {
             state_root: &root,
             plan: &plan,
             action: &action,
@@ -656,12 +823,22 @@ mod tests {
             response: &response,
             now_unix_seconds: now,
             environment: Vec::new(),
-            verify_after: || Ok("replay must not verify".to_string()),
-        });
+            cancellation: &cancellation,
+            verify_after: || Ok("must not verify".to_string()),
+        })
+        .expect_err("macOS exact identity-to-spawn remains blocked");
+        assert!(error.contains("bind verified manager executable"));
         assert!(
-            replay
-                .expect_err("single-use update confirmation")
-                .contains("already been consumed")
+            std::fs::read_dir(root.join("transactions"))
+                .expect("transactions")
+                .next()
+                .is_none()
+        );
+        assert!(
+            std::fs::read_dir(root.join("receipts"))
+                .expect("receipts")
+                .next()
+                .is_none()
         );
         let _ = std::fs::remove_dir_all(root);
     }

@@ -62,6 +62,14 @@ fn doctor_json_is_versioned_and_private_by_default() {
     assert_eq!(value["privacy"]["hostname_included"], false);
     assert_eq!(value["privacy"]["current_directory_included"], false);
     assert!(!out.contains("/Users/"));
+
+    let (code, alias, err) = run(["doctor", "--json"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&alias).unwrap()["contract"],
+        "foundation_diagnostics"
+    );
 }
 
 #[test]
@@ -77,6 +85,16 @@ fn subcommand_help_is_scriptable_and_successful() {
     assert!(err.is_empty());
     assert!(out.contains("rz0 store status [--store-root <path>]"));
     assert!(out.contains("store status and plan are read-only"));
+
+    let (code, out, err) = run(["completions", "--help"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("bash|zsh|fish|powershell"));
+
+    let (code, out, err) = run(["updates", "--help"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("--recovery-status --transaction"));
 }
 
 #[test]
@@ -89,7 +107,10 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("rz0 --tui"));
     assert!(out.contains("rz0 apps [--format text|json]"));
     assert!(out.contains("rz0 uninstall plan <installed-software-id>"));
+    assert!(out.contains("rz0 report [--format text|json]"));
+    assert!(out.contains("rz0 completions <bash|zsh|fish|powershell>"));
     assert!(out.contains("rz0 updates --dry-run --fixture"));
+    assert!(out.contains("rz0 updates --recovery-status --transaction"));
 }
 
 #[test]
@@ -420,6 +441,8 @@ fn scan_json_exposes_live_private_read_only_inventory_contract() {
             .is_some_and(|sources| !sources.is_empty())
     );
     assert_eq!(value["path_values_redacted"], true);
+    assert!(value["services"].is_array());
+    assert!(value["summary"]["service_count"].is_number());
     assert!(value["summary"]["source_count"].as_u64().unwrap_or(0) > 0);
     assert!(!out.contains("\u{1b}["));
 }
@@ -461,6 +484,22 @@ fn updater_requires_explicit_dry_run_and_fixture() {
 }
 
 #[test]
+fn privacy_reviewed_report_is_summary_only_and_never_authorizes_sharing() {
+    let (code, out, err) = run(["report", "--format", "json"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("report json");
+    assert_eq!(value["contract"], "privacy_reviewed_support_report");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["external_sharing_authorized"], false);
+    assert_eq!(value["privacy"]["application_names_included"], false);
+    assert_eq!(value["privacy"]["service_names_included"], false);
+    assert!(value.get("apps").is_none());
+    assert!(!out.contains("install_location"));
+}
+
+#[test]
 fn apps_command_exposes_path_free_live_software_catalog() {
     let (code, out, err) = run(["apps", "--format", "json"]);
     assert_eq!(code, ExitCode::Ok);
@@ -470,6 +509,12 @@ fn apps_command_exposes_path_free_live_software_catalog() {
     assert_eq!(value["read_only"], true);
     assert_eq!(value["writes_attempted"], false);
     assert!(value["source_count"].as_u64().unwrap_or(0) > 0);
+    assert!(value["service_count"].is_number());
+    assert!(
+        value["apps"]
+            .as_array()
+            .is_some_and(|apps| { apps.iter().all(|app| app["identifiers"].is_array()) })
+    );
     assert!(!out.contains("install_location"));
     assert!(!out.contains("/Users/"));
 }

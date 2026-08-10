@@ -84,7 +84,8 @@ The dashboard performs bounded local reads at startup and shows:
 - direct macOS application bundles and Homebrew formula/cask records;
 - deterministic identity groups with explicit provenance/confidence and version
   disagreement, while keeping source records separate;
-- versions when bounded bundle or manager-directory metadata provides them;
+- versions when bounded bundle/package metadata provides them, plus separate
+  service/persistence record counts without placing services in the software list;
 - one installed-software list where every row exposes its available details and
   uninstall posture; applicable rows show the exact `rz0 uninstall plan <id>` command;
 - cached search/filter/sort controls that do not re-run inventory until `r` is pressed;
@@ -160,15 +161,16 @@ terminal dimensions, color mode, raw mode, or Ratatui rendering state.
 
 - Update confirmation/execution remains a CLI handoff rather than an in-TUI
   write flow.
-- Uninstall, cleanup, integrity remediation, report export, and module lifecycle
-  are reviews or unavailable, not interactive actions.
+- Uninstall, cleanup, integrity remediation, and module lifecycle are reviews or
+  unavailable, not interactive actions; privacy-reviewed report output is CLI-only.
 - Search/filter/sort operate on the cached inventory until `r` refreshes it.
 - The monitor's metric depth varies by platform and first-sample CPU values may
   show `sampling`.
 - Automated buffer/PTY tests do not replace real terminal, keyboard, mouse,
   screen-reader, SSH, tmux/screen, Windows Console/Terminal, and human review.
-- Recovery, rollback, long-running progress, cancellation, help/man pages,
-  completions, and localization UX remain incomplete.
+- A manual page, shell completions, and operator recovery guide now exist.
+  Direct TUI recovery/rollback/progress/cancellation, localization, and human
+  accessibility review remain incomplete.
 
 ## Website parity backlog
 

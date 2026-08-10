@@ -16,6 +16,8 @@
       "available_version": "1.1",
       "manager": "fixture-manager",
       "executable": "/usr/bin/fixture-manager",
+      "executable_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "executable_size_bytes": 4096,
       "arguments": ["upgrade", "alpha"],
       "network_required": true,
       "requires_elevation": false,

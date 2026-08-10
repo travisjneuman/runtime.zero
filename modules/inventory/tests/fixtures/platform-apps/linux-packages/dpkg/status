@@ -1,0 +1,13 @@
+Package: alpha
+Status: install ok installed
+Version: 1.2.3
+Architecture: amd64
+
+Package: removed
+Status: deinstall ok config-files
+Version: 2.0
+
+Package: beta
+Status: install ok installed
+Version: 4.5-1
+Architecture: all

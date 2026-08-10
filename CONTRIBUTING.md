@@ -82,6 +82,8 @@ cargo run --locked -- doctor --format json
 cargo run --locked -- scan --dry-run --format json
 cargo run --locked -- apps --format json
 cargo run --locked -- monitor --format json
+cargo run --locked -- report --format json
+cargo run --locked -- completions bash
 ```
 
 For dependency or release-candidate changes, also run the committed

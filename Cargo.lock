@@ -730,6 +730,8 @@ dependencies = [
  "libc",
  "ratatui",
  "rz0-action-plan",
+ "rz0-artifact-identity",
+ "rz0-cancellation-contract",
  "rz0-capability-contract",
  "rz0-confirmation-contract",
  "rz0-diagnostics-contract",
@@ -737,16 +739,19 @@ dependencies = [
  "rz0-inventory-contract",
  "rz0-module-inventory",
  "rz0-module-lifecycle",
+ "rz0-module-uninstall",
  "rz0-module-updater",
  "rz0-process-host",
  "rz0-registry-contract",
  "rz0-resource-contract",
  "rz0-secure-fs",
+ "rz0-support-contract",
  "rz0-transaction-contract",
  "rz0-validation-contract",
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "signal-hook",
 ]
 
 [[package]]
@@ -896,6 +901,7 @@ dependencies = [
 name = "rz0-module-inventory"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "plist",
  "rz0-cancellation-contract",
  "rz0-inventory-contract",
@@ -904,6 +910,7 @@ dependencies = [
  "rz0-resource-contract",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "time",
  "winreg",
 ]
@@ -978,8 +985,11 @@ dependencies = [
 name = "rz0-module-uninstall"
 version = "0.1.0"
 dependencies = [
+ "rz0-action-plan",
+ "rz0-capability-contract",
  "rz0-finding-contract",
  "rz0-resource-contract",
+ "rz0-validation-contract",
  "serde",
 ]
 
@@ -1021,7 +1031,10 @@ name = "rz0-process-host"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "rz0-artifact-identity",
+ "rz0-cancellation-contract",
  "rz0-error-contract",
+ "rz0-resource-contract",
  "windows-sys",
 ]
 

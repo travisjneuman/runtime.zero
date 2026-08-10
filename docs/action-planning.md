@@ -135,34 +135,40 @@ isolated root.
 response, and single-use consumption evidence while remaining structurally
 unable to authorize execution.
 
-The product-level `rz0 uninstall plan <installed-software-id>` command currently
-emits a path-free `uninstall_review`. It is a UX bridge from live catalog
-records, not a `crates/action-plan` value: it has no write set, cannot be
-confirmed into execution, and always sets `product_execution_authorized: false`.
-Before mutation, a review must be replaced or bound by exact finding-report and
-shared action-plan evidence rather than becoming a second action system.
+The product-level `rz0 uninstall plan <installed-software-id>` command converts
+the selected live catalog record into a shared `classified_finding_report`.
+Manager-owned records can additionally produce a finding-bound
+`crates/action-plan` value when an exact allowlisted manager executable is
+observed and sealed. Without that identity the action remains blocked; protected,
+unknown, receipt-only, and local-bundle records stay blocked/report-only. Every
+result remains dry-run, has no execution authority, and cannot be confirmed into
+execution because no uninstall executor exists.
 
 The updater now has a bounded, explicit manager-execution lane for live
 platform probes: `rz0 updates --apply` requires an exact action ID (or the
 interactive serial `--all` queue), explicit network-write approval, an
 initialized private store, an exact short-lived challenge, and a manual-recovery
-acknowledgement when manager rollback is not proven. It publishes a hash-chained
-transaction journal and single-use confirmation before invoking the direct
-allowlisted manager path, captures bounded output, verifies fresh manager
-availability evidence, and writes a redacted receipt. It never invokes `sudo`
-or an interactive privilege helper; elevated managers require an already-root
-process. A failed command or verification leaves `recovery_required` evidence.
+acknowledgement when manager rollback is not proven. Before confirmation is
+consumed it obtains a platform executable binding. Linux invokes a direct native
+ELF manager through the held `/proc/self/fd` identity; unsupported macOS/Windows bindings fail before
+transaction preparation. The lane publishes single-use confirmation and exact
+write-intent/outcome journal events, captures bounded cancellable process-group
+output, revalidates executable identity, verifies fresh manager evidence, and
+synchronizes a canonical external-effect receipt before final commit. It never
+invokes `sudo` or an interactive privilege helper; elevated managers require an
+already-root process. Failure/cancellation/verification mismatch leaves
+`recovery_required` evidence where publication remains possible.
 
 This does not authorize arbitrary module execution, third-party packages,
 uninstall, cleanup, or filesystem mutation. Windows process containment and
 manager-specific runtime proof remain fail-closed, and production use still
 requires the platform/disposable-host evidence applicable to the target.
 
-The updater execution bridge is not the final generic action executor. Its
-allowlisted manager path is not yet bound through the opened-artifact lease into
-spawn; network/capability flags are policy acknowledgements rather than an OS
-sandbox; cancellation and rollback are incomplete; and its updater-specific
-receipt publication does not yet use the complete canonical commit-receipt/
-registry-last reconciliation path. A successful locally confirmed update report
-therefore records one lane invocation, not platform, module, or release
-readiness. These gaps must be closed before another domain copies the bridge.
+The updater execution bridge is not the final generic action executor. Linux
+identity-to-spawn binding and canonical external-effect receipt reconciliation
+now exist, but exact macOS/Windows binding, OS network/capability enforcement,
+full boundary-by-boundary cancellation, exact recovery completion, and rollback
+remain incomplete. `updates --recovery-status` assesses receipt/journal evidence
+without mutating it. A successful locally confirmed update report records one
+lane invocation, not platform, module, or release readiness. These remaining
+gaps must close before another domain copies the bridge.

@@ -35,6 +35,8 @@ pub struct PlanAction {
     pub source: Option<ActionSource>,
     pub manager: Option<String>,
     pub executable: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executable_identity: Option<ActionExecutableIdentity>,
     pub arguments: Vec<String>,
     pub would_write: bool,
     pub requires_confirmation: bool,
@@ -88,6 +90,13 @@ pub enum ForbiddenPathClass {
 #[serde(deny_unknown_fields)]
 pub struct ActionSource {
     pub path: String,
+    pub sha256: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActionExecutableIdentity {
     pub sha256: String,
     pub size_bytes: u64,
 }

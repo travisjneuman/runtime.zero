@@ -1,7 +1,6 @@
-use std::fs;
 use std::path::Path;
 
-use super::sanitize_text;
+use super::{read_direct_bounded_file, sanitize_text};
 
 const MAX_DESKTOP_ENTRY_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
 
@@ -14,24 +13,15 @@ pub(super) enum DesktopEntry {
 }
 
 pub(super) fn read_desktop_entry(path: &Path) -> DesktopEntry {
-    let metadata = match fs::symlink_metadata(path) {
-        Ok(metadata)
-            if metadata.is_file()
-                && !metadata.file_type().is_symlink()
-                && metadata.len() <= MAX_DESKTOP_ENTRY_BYTES =>
-        {
-            metadata
-        }
+    let bytes = match read_direct_bounded_file(path, MAX_DESKTOP_ENTRY_BYTES) {
+        Ok(Some(bytes)) => bytes,
         _ => return DesktopEntry::Invalid,
     };
-    if metadata.len() == 0 {
-        return DesktopEntry::Invalid;
-    }
-    let source = match fs::read_to_string(path) {
+    let source = match std::str::from_utf8(&bytes) {
         Ok(source) => source,
         Err(_) => return DesktopEntry::Invalid,
     };
-    parse_desktop_entry(&source)
+    parse_desktop_entry(source)
 }
 
 fn parse_desktop_entry(source: &str) -> DesktopEntry {

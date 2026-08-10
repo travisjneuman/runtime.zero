@@ -162,6 +162,12 @@ fn validate_source(action: &PlanAction, validation: &mut ActionPlanValidation) {
 }
 
 fn validate_command(action: &PlanAction, validation: &mut ActionPlanValidation) {
+    if let Some(manager) = action.manager.as_deref() {
+        validate_text(manager, "manager", 80, validation);
+    }
+    if let Some(executable) = action.executable.as_deref() {
+        validate_text(executable, "executable", 1_024, validation);
+    }
     if action.arguments.len() > MAX_ARGUMENTS {
         validation.fail(format!(
             "action '{}' exceeds {MAX_ARGUMENTS} arguments",
@@ -174,8 +180,14 @@ fn validate_command(action: &PlanAction, validation: &mut ActionPlanValidation) 
     if matches!(action.kind, ActionKind::Update | ActionKind::Uninstall)
         && action.disposition == ActionDisposition::Planned
     {
-        if action.manager.as_deref().is_none_or(str::is_empty) {
+        if action.manager.is_none() {
             validation.fail(format!("action '{}' requires a manager", action.action_id));
+        }
+        if action.arguments.is_empty() {
+            validation.fail(format!(
+                "action '{}' requires exact manager arguments",
+                action.action_id
+            ));
         }
         match action.executable.as_deref() {
             Some(path) if is_absolute_local_path(path) => {}
@@ -184,6 +196,21 @@ fn validate_command(action: &PlanAction, validation: &mut ActionPlanValidation) 
                 action.action_id
             )),
         }
+        match action.executable_identity.as_ref() {
+            Some(identity)
+                if valid_sha256(&identity.sha256)
+                    && identity.size_bytes > 0
+                    && identity.size_bytes <= MAX_ACTION_SOURCE_BYTES => {}
+            _ => validation.fail(format!(
+                "action '{}' requires a bounded sealed executable identity",
+                action.action_id
+            )),
+        }
+    } else if action.executable_identity.is_some() {
+        validation.fail(format!(
+            "action '{}' must not attach executable identity outside a planned manager action",
+            action.action_id
+        ));
     }
 }
 

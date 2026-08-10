@@ -6,9 +6,10 @@ it is not a published or installed lifecycle package. The `rz0` core embeds its
 library as the built-in read-only collector but does not execute its development
 binary. A small `rz0-inventory-contract` workspace crate shares the
 JSON model without making this package depend on the core TUI/CLI stack. Core
-maps application records into the path-free `rz0 apps` catalog and deterministic
-software identity groups; those groups preserve source/version disagreement but
-can be heuristic and do not authorize actions.
+maps software records into the path-free `rz0 apps` catalog and deterministic
+identity groups. Source-native bundle/package/desktop/receipt/product identifiers
+take precedence over name heuristics while preserving source/version
+disagreement; neither form authorizes an action.
 
 ## Development commands
 
@@ -38,16 +39,19 @@ two-second timeout, bounded output, and no shell. Script-based probes remain
 disabled. `--include-apps` is available on supported platforms and remains
 explicit:
 
-- Windows reads standard uninstall registry views and omits raw key names;
-- macOS enumerates direct `.app` directories under known system/user roots,
-  reads bounded direct `Info.plist` version metadata, and reads Homebrew
-  Cellar/Caskroom directory metadata without running Homebrew;
-- Linux parses only regular XDG `.desktop` files up to 64 KiB, honors user-root
-  and `Hidden=true` precedence, emits only `Type=Application` names/paths, and
-  never emits or executes `Exec` values.
+- Windows reads standard uninstall registry views plus service/driver registry
+  metadata and omits raw path-like key fields;
+- macOS enumerates direct `.app` directories, bounded `Info.plist` metadata,
+  Homebrew Cellar/Caskroom and MacPorts roots, Apple Installer receipt plists,
+  and launchd plist labels without invoking a manager or `launchctl`;
+- Linux parses bounded regular XDG desktop entries, direct dpkg status and pacman
+  local metadata, and systemd unit-file labels without emitting/executing
+  desktop `Exec` values or invoking a manager/service controller.
 
-The collectors reject symlinked roots/records, cap entry inspection and output at 4,096 applications,
-and do not invoke package managers, applications, scripts, or uninstallers.
+The collectors reject symlinked roots/records, cap output at 4,096 software plus
+4,096 service records, and do not invoke package managers, applications,
+scripts, service controllers, or uninstallers. Service records describe metadata
+presence/configuration, not authoritative running state.
 
 ## Privacy
 
@@ -55,8 +59,8 @@ Local paths can contain usernames or private directory names. Paths are redacted
 by default with stable report-local placeholders from the shared privacy
 foundation. Raw local paths require the explicit `--include-raw-paths` flag and
 must be reviewed before sharing.
-It does not redact application names, versions, or publishers from opt-in app
-inventory; review those fields separately before sharing. Hostname and
+It does not redact software names, versions, publishers, source identifiers, or
+service labels; review those fields separately before sharing. Hostname and
 current-user identity remain omitted. Raw registry keys,
 credentials, sessions, browser profiles, projects, backups, and unknown user
 data are outside this module's contract.
@@ -72,8 +76,9 @@ The module does not:
 - create services, tasks, persistence, or account actions;
 - publish or install itself.
 
-Remaining work includes full Windows/Linux runtime proof, broader package/
-service/persistence sources on every platform, stronger product identity and
+Remaining work includes full Windows/Linux runtime proof, broader in-scope
+package/service/persistence sources and live status on every platform, trusted
+publisher/linkage evidence, stronger product identity and
 publisher evidence, final-artifact performance/privacy/accessibility coverage,
 and signed lifecycle integration. See
 [`../../docs/inventory-schema.md`](../../docs/inventory-schema.md) for the shared

@@ -8,7 +8,7 @@ use std::{
 #[cfg(unix)]
 use rz0_artifact_identity::revalidate_verified_artifact;
 use rz0_artifact_identity::{
-    ArtifactExpectation, ArtifactIdentityErrorCode, open_verified_artifact,
+    ArtifactExpectation, ArtifactIdentityErrorCode, open_observed_artifact, open_verified_artifact,
 };
 use sha2::{Digest, Sha256};
 #[cfg(unix)]
@@ -39,6 +39,16 @@ fn opens_hashes_revalidates_and_rewinds_the_same_artifact_handle() {
     let mut bytes = Vec::new();
     held.read_to_end(&mut bytes).expect("read held artifact");
     assert_eq!(bytes, PAYLOAD);
+}
+
+#[test]
+fn observed_identity_becomes_evidence_but_not_execution_authority() {
+    let root = TestRoot::new();
+    let observed =
+        open_observed_artifact(root.path(), "bin/module.bin").expect("observed artifact");
+    assert_eq!(observed.sha256, expectation(PAYLOAD).sha256);
+    assert_eq!(observed.size_bytes, PAYLOAD.len() as u64);
+    assert_eq!(observed.relative_path, "bin/module.bin");
 }
 
 #[test]

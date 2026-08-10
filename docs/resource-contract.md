@@ -15,15 +15,19 @@ Schema-1 shared ceilings currently include:
   source references per finding;
 - 16 MiB per complete inventory report;
 - 1,024 installed-module records;
-- 64 inventory sources, 512 PATH entries, 1,024 tool records, 4,096 application
-  records, and 8,192 inventory events/warnings;
-- 8,192 unique report-local redaction tokens;
+- 64 inventory sources, 512 PATH entries, 1,024 tool records, 4,096 software
+  records, 4,096 service records, and 8,192 inventory events/warnings;
+- 9,999 unique report-local redaction tokens, enough for the combined maximum
+  PATH/tool/software/service path-bearing record set while preserving the
+  fixed-width four-digit token grammar;
 - 128 canonical diagnostic checks;
 - 16 performance operations and 100 samples per operation;
 - 64 KiB retained version-probe output;
 - a 2-second version-probe timeout and 250-ms reader-close grace;
 - module process limits of 10 seconds, 64 KiB stdin, 1 MiB stdout, and 64 KiB
-  stderr.
+  stderr;
+- shared direct-process ceilings of 64 arguments × 512 bytes, 4 MiB retained per
+  output stream, and 30 minutes maximum manager wall time.
 
 `ProcessLimits` preserves the module protocol's schema-1 JSON shape while the
 shared validator returns typed field violations. The protocol maps those to its

@@ -65,6 +65,11 @@ pub fn contract_text(report: &InventoryReport) -> String {
     let _ = writeln!(out, "sources_collected: {}", report.summary.source_count);
     let _ = writeln!(out, "known_tools: {}", report.summary.tool_count);
     let _ = writeln!(out, "installed_software: {}", report.summary.app_count);
+    let _ = writeln!(
+        out,
+        "services_and_persistence: {}",
+        report.summary.service_count
+    );
     let _ = writeln!(out, "result: no system changes were attempted");
     for warning in &report.warnings {
         let _ = writeln!(out, "warning: {warning}");

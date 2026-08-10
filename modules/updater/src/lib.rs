@@ -1,6 +1,6 @@
 use rz0_action_plan::{
-    ActionDisposition, ActionKind, ActionPlan, ActionRisk, PlanAction, RollbackPlan,
-    validate_action_plan,
+    ActionDisposition, ActionExecutableIdentity, ActionKind, ActionPlan, ActionRisk, PlanAction,
+    RollbackPlan, validate_action_plan,
 };
 use rz0_capability_contract::Capability;
 mod adapters;
@@ -82,6 +82,10 @@ pub struct UpdateRecord {
     #[serde(default)]
     pub executable: Option<String>,
     #[serde(default)]
+    pub executable_sha256: Option<String>,
+    #[serde(default)]
+    pub executable_size_bytes: Option<u64>,
+    #[serde(default)]
     pub arguments: Vec<String>,
     #[serde(default)]
     pub network_required: bool,
@@ -92,7 +96,7 @@ pub struct UpdateRecord {
 }
 
 pub fn classify_updates(input: &UpdaterFindingInput) -> Result<FindingReport, String> {
-    validate_header(input.schema_version, &input.contract, input.records.len())?;
+    validate_input(input)?;
     let findings = input
         .records
         .iter()
@@ -162,11 +166,7 @@ pub fn build_update_action_plan(
 ) -> Result<ActionPlan, String> {
     let report_validation = rz0_finding_contract::validate_finding_report(report);
     let expected_report = classify_updates(input)?;
-    if !report_validation.valid
-        || report.producer_module_id != MODULE_ID
-        || report.contract != rz0_finding_contract::FINDING_CONTRACT
-        || report.report_id != expected_report.report_id
-    {
+    if !report_validation.valid || report != &expected_report {
         return Err(
             "update action plan requires a valid report sealed from the exact input evidence"
                 .to_string(),
@@ -256,8 +256,24 @@ fn build_update_action(record: &UpdateRecord, platform: &str) -> PlanAction {
     let manager = record.manager.as_deref();
     let executable = record.executable.as_deref();
     let known_platform = matches!(platform, "windows" | "macos" | "linux");
+    let exact_identity = record
+        .executable_sha256
+        .as_deref()
+        .zip(record.executable_size_bytes)
+        .is_some_and(|(sha256, size)| {
+            rz0_validation_contract::valid_sha256(sha256)
+                && size > 0
+                && size <= rz0_resource_contract::MAX_ARTIFACT_BYTES
+        });
     let exact_command = manager.filter(|value| !value.is_empty()).is_some()
         && executable.is_some_and(rz0_validation_contract::is_absolute_local_path)
+        && exact_identity
+        && !record.arguments.is_empty()
+        && record.arguments.len() <= rz0_action_plan::MAX_ARGUMENTS
+        && record
+            .arguments
+            .iter()
+            .all(|argument| !unsafe_text(argument, 512))
         && (!known_platform
             || manager_executable_allowed(
                 manager.unwrap_or_default(),
@@ -300,6 +316,10 @@ fn build_update_action(record: &UpdateRecord, platform: &str) -> PlanAction {
         source: None,
         manager: record.manager.clone(),
         executable: record.executable.clone(),
+        executable_identity: planned.then(|| ActionExecutableIdentity {
+            sha256: record.executable_sha256.clone().unwrap_or_default(),
+            size_bytes: record.executable_size_bytes.unwrap_or_default(),
+        }),
         arguments: record.arguments.clone(),
         would_write: false,
         requires_confirmation: planned,
@@ -321,14 +341,70 @@ fn build_update_action(record: &UpdateRecord, platform: &str) -> PlanAction {
     }
 }
 
-fn validate_header(schema_version: u16, contract: &str, records: usize) -> Result<(), String> {
-    if schema_version != 1 || contract != INPUT_CONTRACT {
+fn validate_input(input: &UpdaterFindingInput) -> Result<(), String> {
+    if input.schema_version != 1 || input.contract != INPUT_CONTRACT {
         return Err("updater finding input identity is invalid".to_string());
     }
-    if records > rz0_resource_contract::MAX_FINDINGS {
-        return Err("updater finding input exceeds the foundation ceiling".to_string());
+    if input.records.len() > rz0_resource_contract::MAX_FINDINGS {
+        return Err("updater finding input exceeds the foundation record bound".to_string());
+    }
+    if !rz0_validation_contract::valid_dotted_id(&input.platform, 100)
+        || !rz0_validation_contract::valid_ledger_id(&input.source_id, 100)
+        || !rz0_validation_contract::valid_sha256(&input.input_evidence_sha256)
+        || !rz0_validation_contract::valid_sha256(&input.source_evidence_sha256)
+    {
+        return Err("updater finding input provenance is invalid".to_string());
+    }
+    for record in &input.records {
+        if !rz0_validation_contract::valid_ledger_id(&record.finding_id, 120)
+            || !rz0_validation_contract::valid_evidence_reference(&record.subject_reference, 240)
+            || record
+                .installed_version
+                .as_ref()
+                .is_some_and(|value| unsafe_text(value, 120))
+            || record
+                .available_version
+                .as_ref()
+                .is_some_and(|value| unsafe_text(value, 120))
+            || record
+                .manager
+                .as_ref()
+                .is_some_and(|value| unsafe_text(value, 80))
+            || record
+                .executable
+                .as_ref()
+                .is_some_and(|value| unsafe_text(value, 1_024))
+            || record.arguments.len() > rz0_action_plan::MAX_ARGUMENTS
+            || record.arguments.iter().any(|value| unsafe_text(value, 512))
+            || record.executable_sha256.is_some() != record.executable_size_bytes.is_some()
+            || record.executable_sha256.as_ref().is_some_and(|digest| {
+                !rz0_validation_contract::valid_sha256(digest)
+                    || record.executable_size_bytes.is_none_or(|size| {
+                        size == 0 || size > rz0_resource_contract::MAX_ARTIFACT_BYTES
+                    })
+            })
+        {
+            return Err(
+                "updater finding record identity or command evidence is invalid".to_string(),
+            );
+        }
+        if !record.manager_record_present
+            && (record.manager.is_some()
+                || record.executable.is_some()
+                || record.executable_sha256.is_some()
+                || !record.arguments.is_empty())
+        {
+            return Err("unowned update evidence cannot attach manager command fields".to_string());
+        }
+        if record.update_available && record.available_version.is_none() {
+            return Err("available update evidence requires an exact target version".to_string());
+        }
     }
     Ok(())
+}
+
+fn unsafe_text(value: &str, maximum: usize) -> bool {
+    value.trim().is_empty() || value.len() > maximum || value.chars().any(char::is_control)
 }
 
 #[cfg(test)]
@@ -357,6 +433,8 @@ mod tests {
                     available_version: Some("1.1".to_string()),
                     manager: Some("homebrew".to_string()),
                     executable: Some("/opt/homebrew/bin/brew".to_string()),
+                    executable_sha256: Some(A.to_string()),
+                    executable_size_bytes: Some(4096),
                     arguments: vec!["upgrade".to_string(), "alpha".to_string()],
                     network_required: true,
                     requires_elevation: false,
@@ -372,6 +450,8 @@ mod tests {
                     available_version: Some("1.1".to_string()),
                     manager: None,
                     executable: None,
+                    executable_sha256: None,
+                    executable_size_bytes: None,
                     arguments: Vec::new(),
                     network_required: false,
                     requires_elevation: false,
@@ -416,6 +496,8 @@ mod tests {
                 available_version: Some("2.0".to_string()),
                 manager: Some("manager".to_string()),
                 executable: Some("/usr/bin/manager".to_string()),
+                executable_sha256: Some(A.to_string()),
+                executable_size_bytes: Some(4096),
                 arguments: vec!["upgrade".to_string(), "other".to_string()],
                 network_required: false,
                 requires_elevation: false,
@@ -446,6 +528,8 @@ mod tests {
                 available_version: Some("1.1".to_string()),
                 manager: Some("homebrew".to_string()),
                 executable: None,
+                executable_sha256: None,
+                executable_size_bytes: None,
                 arguments: Vec::new(),
                 network_required: true,
                 requires_elevation: false,

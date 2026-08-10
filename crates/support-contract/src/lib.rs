@@ -68,6 +68,7 @@ pub struct SupportPrivacy {
     pub environment_values_included: bool,
     pub process_output_included: bool,
     pub application_names_included: bool,
+    pub service_names_included: bool,
     pub free_form_warnings_included: bool,
 }
 
@@ -83,6 +84,7 @@ impl SupportPrivacy {
             environment_values_included: false,
             process_output_included: false,
             application_names_included: false,
+            service_names_included: false,
             free_form_warnings_included: false,
         }
     }
@@ -267,6 +269,7 @@ pub fn validate_support_report(report: &SupportReport) -> SupportValidation {
         || report.inventory.path_entry_count > rz0_resource_contract::MAX_INVENTORY_PATH_ENTRIES
         || report.inventory.tool_count > rz0_resource_contract::MAX_INVENTORY_TOOL_RECORDS
         || report.inventory.app_count > rz0_resource_contract::MAX_INVENTORY_APP_RECORDS
+        || report.inventory.service_count > rz0_resource_contract::MAX_INVENTORY_SERVICE_RECORDS
         || report.inventory.event_count > rz0_resource_contract::MAX_INVENTORY_EVENTS
         || report.inventory.warning_count > rz0_resource_contract::MAX_INVENTORY_WARNINGS
         || report.inventory.source_ok_count > report.inventory.source_count
@@ -306,7 +309,7 @@ pub fn support_text(report: &SupportReport) -> Result<String, String> {
         return Err(validation.errors.join("; "));
     }
     Ok(format!(
-        "runtime.zero support report\n\ncontract: {}\nschema_version: {}\nreport_id: {}\nos: {}\narch: {}\nread_only: true\nwrites_attempted: false\nlocal_export_ready: true\nexternal_sharing_authorized: false\nproduct_execution_authorized: false\nrelease_authorized: false\ninventory: sources={} paths={} tools={} apps={} events={} warnings={}\ndiagnostics: checks={} pass={} blocked={} unavailable={}\nprivacy: summary-only; raw reports, paths, identities, application names, process output, and free-form warnings omitted\n",
+        "runtime.zero support report\n\ncontract: {}\nschema_version: {}\nreport_id: {}\nos: {}\narch: {}\nread_only: true\nwrites_attempted: false\nlocal_export_ready: true\nexternal_sharing_authorized: false\nproduct_execution_authorized: false\nrelease_authorized: false\ninventory: sources={} paths={} tools={} apps={} services={} events={} warnings={}\ndiagnostics: checks={} pass={} blocked={} unavailable={}\nprivacy: summary-only; raw reports, paths, identities, application/service names, process output, and free-form warnings omitted\n",
         report.contract,
         report.schema_version,
         report.report_id,
@@ -316,6 +319,7 @@ pub fn support_text(report: &SupportReport) -> Result<String, String> {
         report.inventory.path_entry_count,
         report.inventory.tool_count,
         report.inventory.app_count,
+        report.inventory.service_count,
         report.inventory.event_count,
         report.inventory.warning_count,
         report.diagnostics.check_count,
@@ -408,7 +412,30 @@ mod tests {
 
     #[test]
     fn deterministic_summary_omits_raw_inputs_and_authority() {
-        let (inventory, diagnostics) = inputs();
+        let (mut inventory, diagnostics) = inputs();
+        inventory
+            .sources
+            .push(rz0_inventory_contract::InventorySource {
+                id: "service.fixture".to_string(),
+                kind: "filesystem_metadata".to_string(),
+                status: "ok".to_string(),
+                duration_ms: Some(1),
+                read_only: true,
+                warnings: Vec::new(),
+            });
+        inventory
+            .services
+            .push(rz0_inventory_contract::ServiceRecord {
+                id: "service.fixture.sensitive".to_string(),
+                name: "private-customer-agent.service".to_string(),
+                source_id: "service.fixture".to_string(),
+                kind: "service".to_string(),
+                scope: "user".to_string(),
+                enabled: Some(true),
+                location: None,
+                warnings: Vec::new(),
+            });
+        inventory.recalculate_summary();
         let first = build_support_report(&inventory, &diagnostics).unwrap();
         let second = build_support_report(&inventory, &diagnostics).unwrap();
         assert_eq!(first, second);
@@ -418,6 +445,8 @@ mod tests {
         let json = support_json(&first).unwrap();
         assert!(!json.contains("runtime identity available"));
         assert!(!json.contains("path_entries\""));
+        assert!(!json.contains("private-customer-agent"));
+        assert_eq!(first.inventory.service_count, 1);
         assert_eq!(decode_support_report(json.as_bytes()).unwrap(), first);
     }
 

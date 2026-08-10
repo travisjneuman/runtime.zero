@@ -30,6 +30,9 @@ OPERATIONS = (
     ("doctor_json", ["doctor", "--format", "json"]),
     ("core_scan_text", ["scan", "--dry-run"]),
     ("core_scan_json", ["scan", "--dry-run", "--format", "json"]),
+    ("apps_json", ["apps", "--format", "json"]),
+    ("monitor_json", ["monitor", "--format", "json"]),
+    ("report_json", ["report", "--format", "json"]),
     ("dashboard_json", ["--json"]),
 )
 
@@ -68,7 +71,15 @@ def invoke(binary: Path, arguments: list[str], architecture: str | None) -> tupl
         "LC_ALL": "C",
         "NO_COLOR": "1",
         "TERM": "dumb",
+        "PATH": (
+            "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin"
+            if platform.system() == "Darwin"
+            else "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        ),
     }
+    home = os.environ.get("HOME")
+    if home and os.path.isabs(home) and len(os.fsencode(home)) <= 4096:
+        environment["HOME"] = home
     started = time.perf_counter_ns()
     completed = subprocess.run(
         command,
@@ -151,7 +162,7 @@ def main() -> int:
 
     architecture_suffix = f"-{args.arch}" if args.arch else ""
     evidence = {
-        "schema_version": 1,
+        "schema_version": 2,
         "contract": "final_artifact_performance",
         "evidence_id": f"perf:{args.target}{architecture_suffix}-{artifact_sha256[:12]}",
         "target": args.target,

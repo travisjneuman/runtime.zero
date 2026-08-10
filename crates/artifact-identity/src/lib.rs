@@ -7,4 +7,6 @@ mod verification;
 
 pub use executable_binding::*;
 pub use model::*;
-pub use verification::{open_verified_artifact, revalidate_verified_artifact};
+pub use verification::{
+    open_observed_artifact, open_verified_artifact, revalidate_verified_artifact,
+};

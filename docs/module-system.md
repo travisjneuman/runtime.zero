@@ -158,13 +158,16 @@ manifest remain unpublished and uninstalled. See
 accepts a strict bounded report envelope on stdin and delegates privacy,
 validation, digests, bounds, and authority refusal to
 `crates/support-contract/`; it owns only report-selection and text/JSON format
-behavior. It is not installed or executed by core. See
+behavior. It is not installed or executed by core, while the foundation's
+`rz0 report` command calls the same shared builder over redacted live evidence. See
 [`support-report-contract.md`](support-report-contract.md).
 
-The remaining five family directories now contain synthetic source-level domain
-classifiers into `crates/finding-contract/`. They do not contain live adapters,
-host permissions, binaries, signed lifecycle artifacts, core integration, or
-action execution; their manifests remain planned. See
+The remaining five family directories consume `crates/finding-contract/` at
+different maturity levels. Updater owns parser/planning behavior used by the
+core's separate coordinator; uninstall accepts selected live catalog evidence
+and can build a sealed non-authorizing manager plan. Leftovers, cache, and
+security/integrity remain synthetic-only. None is a signed/active lifecycle
+package, and no uninstall/cleanup/integrity execution exists. See
 [`domain-classifier-modules.md`](domain-classifier-modules.md).
 
 ## Planned module families
@@ -192,9 +195,10 @@ requires exact receipt metadata, least-privilege read grants, a cleared bounded
 environment allowlist, and a `not_executed` module response. An explicit Cargo
 feature launches only a Cargo-built test helper under guarded OS-temp roots to
 exercise transport failure behavior; no inventory/report/domain module
-execution path is implemented. Opened-artifact spawn leases now exist for Linux
-and Windows test-host builds, but exact core integration, macOS binding,
-capability isolation, and platform runtime proof remain blocked. Third-party modules are expected eventually, but only
+execution path is implemented. Opened-artifact spawn leases exist for Linux and Windows test-host builds; the
+core updater now consumes the Linux native-ELF lease, while macOS/Windows
+production binding, capability isolation, and platform runtime proof remain
+blocked. Third-party modules are expected eventually, but only
 after a hardened trust model covering signing, provenance, sandboxing,
 permissions, revocation, and abuse cases. The required staged gate is documented
 in [`module-trust-and-execution.md`](module-trust-and-execution.md); current

@@ -3,6 +3,8 @@ mod fixture;
 mod path_inventory;
 #[cfg(any(target_os = "macos", target_os = "linux", test))]
 mod platform_apps;
+#[cfg(any(target_os = "macos", target_os = "linux", test))]
+mod platform_services;
 mod redaction;
 mod render;
 mod tool_specs;
@@ -99,7 +101,45 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
             report.apps.extend(collection.apps);
         }
         report.warnings.push(
-            "installed application names may be sensitive; review them before sharing output"
+            "installed software names, versions, publishers, and identifiers may be sensitive; review them before sharing output"
+                .to_string(),
+        );
+
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        for mut collection in platform_services::collect_services() {
+            let remaining = rz0_inventory_contract::MAX_INVENTORY_SERVICE_RECORDS
+                .saturating_sub(report.services.len());
+            if collection.services.len() > remaining {
+                collection.services.truncate(remaining);
+                collection.source.status = "partial".to_string();
+                collection.source.warnings.push(
+                    "combined service inventory reached the foundation record ceiling".to_string(),
+                );
+            }
+            record_source_event(&mut report, &collection.source);
+            report.sources.push(collection.source);
+            report.services.extend(collection.services);
+        }
+        #[cfg(windows)]
+        {
+            let mut collection = windows_registry::collect_services();
+            if collection.services.len() > rz0_inventory_contract::MAX_INVENTORY_SERVICE_RECORDS {
+                collection
+                    .services
+                    .truncate(rz0_inventory_contract::MAX_INVENTORY_SERVICE_RECORDS);
+                collection.source.status = "partial".to_string();
+                collection
+                    .source
+                    .warnings
+                    .push("Windows service inventory reached the foundation ceiling".to_string());
+            }
+            record_source_event(&mut report, &collection.source);
+            report.sources.push(collection.source);
+            report.services.extend(collection.services);
+        }
+        #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
+        report.warnings.push(
+            "service and persistence labels may be sensitive; review them before sharing output"
                 .to_string(),
         );
     }

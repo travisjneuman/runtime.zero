@@ -1,6 +1,7 @@
 pub mod apps;
 pub mod brand;
 pub mod color_mode;
+pub mod completions;
 pub mod dashboard_cli;
 pub mod install_receipt;
 mod install_receipt_schema;
@@ -16,6 +17,7 @@ pub mod module_store;
 pub mod module_validation;
 pub mod package_integrity;
 mod package_integrity_io;
+pub mod report;
 pub mod store_cli;
 pub mod store_init;
 mod store_init_model;
@@ -72,10 +74,12 @@ where
         Some("doctor") => doctor_command(&args[1..]),
         Some("apps") => apps::apps_command(&args[1..]),
         Some("uninstall") => apps::uninstall_command(&args[1..]),
+        Some("completions") => completions::completions_command(&args[1..]),
         Some("modules") => module_cli::modules_command(&args[1..]),
         Some("store") => store_cli::store_command(&args[1..]),
         Some("scan") => scan_command(&args[1..]),
         Some("monitor") => system_monitor::monitor_command(&args[1..]),
+        Some("report") => report::report_command(&args[1..]),
         Some("updates") => update_cli::updates_command(&args[1..]),
         Some(command) => unknown_command(command),
     }
@@ -93,8 +97,8 @@ pub fn version_text() -> String {
 
 pub fn help_text() -> String {
     format!(
-        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} apps [--format text|json]\n  {cmd} uninstall plan <installed-software-id> [--format text|json]\n  {cmd} modules [--format text|json]\n  {cmd} modules --from <dir> [--format text|json]\n  {cmd} modules validate <manifest.json> [--format text|json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--include-raw-paths] [--format text|json]\n  {cmd} monitor [--format text|json]\n  {cmd} updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n  {cmd} updates --dry-run --manager <id> --manager-output <path> --executable <path> [--plan] [--queue] [--format text|json]\n  {cmd} updates --dry-run --probe --manager <id> --executable <path> --allow-network-read [--plan] [--queue] [--format text|json]
-  {cmd} updates --apply --probe --manager <id> --executable <path> --allow-network-read --allow-network-write (--action <id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <phrase>]\n\nFoundation safety posture:\n  {safety}\n\nThe core includes bounded local inventory, a native system monitor, validates local manifests, and lists installed modules. Mutating updates require explicit apply mode, exact manager identity, network-write approval, a short-lived plan-bound confirmation, durable transaction evidence, and fresh post-action verification. Uninstall and module execution remain separately gated.\n",
+        "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} apps [--format text|json]\n  {cmd} uninstall plan <installed-software-id> [--executable <manager-path>] [--format text|json]\n  {cmd} completions <bash|zsh|fish|powershell>\n  {cmd} modules [--format text|json]\n  {cmd} modules --from <dir> [--format text|json]\n  {cmd} modules validate <manifest.json> [--format text|json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--include-raw-paths] [--format text|json]\n  {cmd} monitor [--format text|json]\n  {cmd} report [--format text|json]\n  {cmd} updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n  {cmd} updates --dry-run --manager <id> --manager-output <path> --executable <path> [--plan] [--queue] [--format text|json]\n  {cmd} updates --dry-run --probe --manager <id> --executable <path> --allow-network-read [--plan] [--queue] [--format text|json]
+  {cmd} updates --apply --probe --manager <id> --executable <path> --allow-network-read --allow-network-write (--action <id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <phrase>]\n  {cmd} updates --recovery-status --transaction <id> [--format text|json]\n\nFoundation safety posture:\n  {safety}\n\nThe core includes bounded local inventory, a native system monitor, a privacy-reviewed summary report, local manifest validation, and installed-module listing. Mutating updates require explicit apply mode, plan-sealed manager identity, a reviewed identity-to-spawn binding, network-write approval, a short-lived plan-bound confirmation, durable external-effect transaction evidence, and fresh post-action verification. Recovery status is read-only. Uninstall and module execution remain separately gated.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
@@ -132,6 +136,14 @@ fn doctor_command(args: &[String]) -> (ExitCode, String, String) {
             rz0_diagnostics_contract::diagnostic_text(&report),
             String::new(),
         ),
+        [json] if json == "--json" => match rz0_diagnostics_contract::diagnostic_json(&report) {
+            Ok(json) => (ExitCode::Ok, json, String::new()),
+            Err(_) => (
+                ExitCode::Usage,
+                String::new(),
+                "failed to serialize foundation diagnostics\n".to_string(),
+            ),
+        },
         [format, value] if format == "--format" && value == "json" => {
             match rz0_diagnostics_contract::diagnostic_json(&report) {
                 Ok(json) => (ExitCode::Ok, json, String::new()),
@@ -146,7 +158,7 @@ fn doctor_command(args: &[String]) -> (ExitCode, String, String) {
             ExitCode::Usage,
             String::new(),
             format!(
-                "unsupported doctor option\n\nUsage: {} doctor [--format json]\n",
+                "unsupported doctor option\n\nUsage: {} doctor [--format json|--json]\n",
                 brand::COMMAND
             ),
         ),

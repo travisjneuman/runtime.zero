@@ -102,6 +102,31 @@ registry state, or ordering claim invalidates the receipt. Schema 1 explicitly s
 `automatic_mutation_authorized: false`; the receipt is evidence and never an
 instruction to finish or repeat a write.
 
+## External manager effect receipt
+
+A manager update is not an atomic runtime.zero-owned file publication, so
+`external_effect_commit_receipt` records the exact verified external outcome
+before final journal completion. It binds the transaction/action/manager/target,
+commit-pending journal head, plan/write-set and confirmation digests, sealed
+executable identity and spawn mechanism, argument-vector digest, bounded process
+exit/output evidence, fresh post-action verification digest, rollback posture,
+and `automatic_mutation_authorized: false`.
+
+`publish_external_effect_receipt_cancellable` synchronizes a create-new receipt
+before the updater appends its final committed journal head. Identical
+republication is idempotent; malformed, duplicate-conflicting, mismatched, or
+out-of-order evidence fails closed. `assess_external_effect_recovery` compares
+immutable journal/receipt state and returns only a non-mutating decision: abort
+without writes, verify an uncertain manager outcome, require future exact
+approval for final journal completion, no action for consistent committed
+state, or refuse inconsistent evidence.
+
+The core exposes this assessment through
+`rz0 updates --recovery-status --transaction <id>`. It does not rerun a manager,
+edit evidence, finish a journal, or roll back. A production final-completion lane
+must issue a fresh receipt-bound phrase and append only the already authorized
+commit event; that lane is not implemented.
+
 ## Commit coordinator
 
 `publish_confirmation_consumption` stores exact single-use evidence only after
@@ -146,9 +171,11 @@ to a production module executor or user command.
 
 ## Remaining production work
 
-The complete store transaction still requires reviewed Windows owner/DACL
-privacy verification and directory-flush evidence, real process/power-loss
-fault execution beyond deterministic local injection, rollback execution,
+The updater consumes the canonical journal, confirmation publication, exact
+write-intent/verification events, and external-effect receipt/recovery model.
+The complete store/module transaction still requires reviewed Windows owner/DACL
+privacy verification and directory-flush evidence, real process/power-loss fault
+execution beyond deterministic local injection, rollback execution,
 cancellation propagation through remaining process/write paths, and recovery
 evidence on Windows, macOS, and Linux. The commit coordinator's eight
 synchronized boundaries are cancellation-aware; this does not prove abrupt

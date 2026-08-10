@@ -40,6 +40,16 @@ cell.
 | [`SECURITY.md`](../SECURITY.md) | Reporters and maintainers | Vulnerability reporting, support posture, and security boundaries |
 | [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Contributors | Contribution scope, validation commands, and review expectations |
 
+## User and operator guides
+
+| Document | Purpose |
+| --- | --- |
+| [`user-guide.md`](user-guide.md) | Current read-only workflows, TUI, update/uninstall review, recovery status, store, modules, and completion usage |
+| [`troubleshooting.md`](troubleshooting.md) | Fail-closed triage for terminals, inventory, reports, updates, store, builds, and safe bug reports |
+| [`recovery-guide.md`](recovery-guide.md) | Transaction/receipt states, cancellation outcomes, evidence preservation, and current recovery limits |
+| [`privacy-and-sharing.md`](privacy-and-sharing.md) | Output sensitivity, redaction limits, network posture, support-export review, and retention caveats |
+| [`platform-notes.md`](platform-notes.md) | macOS/Linux/Windows capability matrix, discovery depth, mutation blocks, and evidence expectations |
+
 ## Product and architecture
 
 | Document | Current role |
@@ -98,7 +108,7 @@ release.
 | --- | --- |
 | [`modules/inventory/README.md`](../modules/inventory/README.md) | Built-in read-only collector library plus separate development binary; lifecycle package remains planned |
 | [`modules/updater/README.md`](../modules/updater/README.md) | Live/captured availability parsing, finding/action-plan/queue logic, and core-owned explicit apply lane |
-| [`modules/uninstall/README.md`](../modules/uninstall/README.md) | Synthetic manager-owned classifier only; core additionally exposes non-executing Mac reviews |
+| [`modules/uninstall/README.md`](../modules/uninstall/README.md) | Shared synthetic/live installed-software finding contract plus non-executing core review/action-plan surface; no uninstall execution |
 | [`modules/leftovers/README.md`](../modules/leftovers/README.md) | Synthetic exact-runtime-owned classifier only |
 | [`modules/cache/README.md`](../modules/cache/README.md) | Synthetic ownership-aware cache classifier only |
 | [`modules/security-integrity/README.md`](../modules/security-integrity/README.md) | Synthetic exact-digest observation classifier only |
@@ -111,6 +121,7 @@ release.
 | --- | --- |
 | [`support-policy.md`](support-policy.md) | Rolling support tiers, target admission, managers, terminals, filesystems, and artifact-only host rule |
 | [`windows-compatibility.md`](windows-compatibility.md) | Explicit Windows client/server/edition/architecture/shell/terminal scope |
+| [`platform-notes.md`](platform-notes.md) | Current cross-platform behavior and mutation limitations |
 | [`release-packaging.md`](release-packaging.md) | Local non-publishing ZIP/DMG and metadata builders |
 | [`free-release-distribution.md`](free-release-distribution.md) | No-paid-signing distribution policy and honest unsigned-artifact posture |
 | [`local-install.md`](local-install.md) | Windows developer-only local install/uninstall scripts |

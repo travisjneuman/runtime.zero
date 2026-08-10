@@ -41,6 +41,17 @@ pub fn collect_live_update_catalog(catalog: &AppCatalog) -> LiveUpdateCatalog {
             ));
             continue;
         };
+        let executable_identity =
+            match crate::update_execution::observe_manager_executable(&executable) {
+                Ok(identity) => identity,
+                Err(error) => {
+                    warnings.push(format!(
+                        "{} executable identity unavailable before probe: {error}",
+                        spec.manager.id()
+                    ));
+                    continue;
+                }
+            };
         let output = match rz0_process_host::run_read_only_process(
             &rz0_process_host::ReadOnlyProcessRequest {
                 executable: executable.clone(),
@@ -64,6 +75,16 @@ pub fn collect_live_update_catalog(catalog: &AppCatalog) -> LiveUpdateCatalog {
                 continue;
             }
         };
+        let accepted_nonzero =
+            spec.manager == ManagerKind::Dnf && output.status.code() == Some(100);
+        if !output.status.success() && !accepted_nonzero {
+            warnings.push(format!(
+                "{} availability probe returned an unaccepted status: {}",
+                spec.manager.id(),
+                output.status
+            ));
+            continue;
+        }
         let bytes = if output.stdout.bytes.is_empty() {
             &output.stderr.bytes
         } else {
@@ -76,9 +97,19 @@ pub fn collect_live_update_catalog(catalog: &AppCatalog) -> LiveUpdateCatalog {
             ));
             continue;
         }
+        let identity_after = crate::update_execution::observe_manager_executable(&executable);
+        if identity_after.as_ref() != Ok(&executable_identity) {
+            warnings.push(format!(
+                "{} executable identity changed during availability probe",
+                spec.manager.id()
+            ));
+            continue;
+        }
         let context = ManagerParseContext {
             manager: spec.manager,
             executable: Some(executable.display().to_string()),
+            executable_sha256: Some(executable_identity.sha256.clone()),
+            executable_size_bytes: Some(executable_identity.size_bytes),
             network_required: spec.network_required,
             requires_elevation: spec.requires_elevation,
             rollback_supported: false,
@@ -157,7 +188,14 @@ fn match_record(
         match manager {
             ManagerKind::HomebrewFormula => app.source_id == "macos.homebrew.formulae",
             ManagerKind::HomebrewCask => app.source_id == "macos.homebrew.casks",
-            _ => true,
+            ManagerKind::MacPorts => app.source_id == "macos.macports.packages",
+            ManagerKind::Apt => app.source_id == "linux.dpkg.packages",
+            ManagerKind::Pacman => app.source_id == "linux.pacman.packages",
+            ManagerKind::Winget
+            | ManagerKind::Dnf
+            | ManagerKind::Zypper
+            | ManagerKind::Snap
+            | ManagerKind::Flatpak => false,
         }
     })?;
     Some(SoftwareUpdate {
@@ -200,7 +238,7 @@ mod tests {
 
     #[test]
     fn unavailable_manager_sources_remain_read_only_and_bounded() {
-        let catalog = AppCatalog {
+        let mut catalog = AppCatalog {
             schema_version: 1,
             contract: crate::apps::APP_CATALOG_CONTRACT,
             read_only: true,
@@ -208,6 +246,7 @@ mod tests {
             platform: "test",
             source_count: 0,
             app_count: 1,
+            service_count: 0,
             identity_group_count: 1,
             identity_groups: Vec::new(),
             apps: vec![crate::apps::InstalledSoftware {
@@ -215,6 +254,7 @@ mod tests {
                 name: "alpha".to_string(),
                 version: Some("1.0".to_string()),
                 source_id: "macos.homebrew.formulae".to_string(),
+                identifiers: Vec::new(),
                 identity_group_id: "software.alpha".to_string(),
                 identity_confidence: crate::apps::IdentityConfidence::ExactEvidence,
                 kind: SoftwareKind::HomebrewFormula,
@@ -239,5 +279,30 @@ mod tests {
         assert!(result.read_only);
         assert!(!result.writes_attempted);
         assert_eq!(catalog.apps[0].scope, InstallScope::Manager);
+
+        let record = UpdateRecord {
+            finding_id: "update.apt.alpha".to_string(),
+            subject_reference: "package:apt:alpha".to_string(),
+            installed: true,
+            manager_record_present: true,
+            update_available: true,
+            installed_version: Some("1.0".to_string()),
+            available_version: Some("2.0".to_string()),
+            manager: Some("apt".to_string()),
+            executable: Some("/usr/bin/apt".to_string()),
+            executable_sha256: Some("a".repeat(64)),
+            executable_size_bytes: Some(4096),
+            arguments: vec![
+                "install".to_string(),
+                "--only-upgrade".to_string(),
+                "alpha".to_string(),
+            ],
+            network_required: true,
+            requires_elevation: true,
+            rollback_supported: false,
+        };
+        assert!(match_record(&catalog, ManagerKind::Apt, &record).is_none());
+        catalog.apps[0].source_id = "linux.dpkg.packages".to_string();
+        assert!(match_record(&catalog, ManagerKind::Apt, &record).is_some());
     }
 }

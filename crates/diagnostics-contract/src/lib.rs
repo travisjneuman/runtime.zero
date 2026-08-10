@@ -71,18 +71,20 @@ pub enum DiagnosticCheckId {
     ConfigurationPolicy,
     SafetyPosture,
     StoreMutationPolicy,
+    UpdaterExecutionPolicy,
     ModuleExecutionPolicy,
     NetworkPolicy,
     ExternalAutomationPolicy,
     PrivacyDefault,
 }
 
-pub const CANONICAL_DIAGNOSTIC_CHECKS: [DiagnosticCheckId; 9] = [
+pub const CANONICAL_DIAGNOSTIC_CHECKS: [DiagnosticCheckId; 10] = [
     DiagnosticCheckId::RuntimeIdentity,
     DiagnosticCheckId::PlatformIdentity,
     DiagnosticCheckId::ConfigurationPolicy,
     DiagnosticCheckId::SafetyPosture,
     DiagnosticCheckId::StoreMutationPolicy,
+    DiagnosticCheckId::UpdaterExecutionPolicy,
     DiagnosticCheckId::ModuleExecutionPolicy,
     DiagnosticCheckId::NetworkPolicy,
     DiagnosticCheckId::ExternalAutomationPolicy,
@@ -143,6 +145,7 @@ pub fn foundation_diagnostics(
             DiagnosticCheckId::StoreMutationPolicy,
             "store initialization requires explicit confirmation",
         ),
+        updater_execution_check(os),
         blocked(
             DiagnosticCheckId::ModuleExecutionPolicy,
             "production module execution is disabled",
@@ -333,6 +336,30 @@ fn pass(id: DiagnosticCheckId, detail: &str) -> DiagnosticCheck {
     }
 }
 
+fn updater_execution_check(os: &str) -> DiagnosticCheck {
+    match os {
+        "macos" => DiagnosticCheck {
+            id: DiagnosticCheckId::UpdaterExecutionPolicy,
+            status: DiagnosticStatus::Unavailable,
+            detail: "manager apply blocked: exact macOS identity-to-spawn binding is unavailable"
+                .to_string(),
+            error_code: Some(FoundationErrorCode::UnsupportedOperation),
+        },
+        "windows" => DiagnosticCheck {
+            id: DiagnosticCheckId::UpdaterExecutionPolicy,
+            status: DiagnosticStatus::Unavailable,
+            detail: "manager apply blocked: race-free Windows process containment is unavailable"
+                .to_string(),
+            error_code: Some(FoundationErrorCode::UnsupportedOperation),
+        },
+        _ => blocked(
+            DiagnosticCheckId::UpdaterExecutionPolicy,
+            "manager apply is pre-alpha and not production-authorized",
+            FoundationErrorCode::ExecutionNotAuthorized,
+        ),
+    }
+}
+
 fn blocked(
     id: DiagnosticCheckId,
     detail: &str,
@@ -371,6 +398,7 @@ const fn check_id_name(id: DiagnosticCheckId) -> &'static str {
         DiagnosticCheckId::ConfigurationPolicy => "configuration_policy",
         DiagnosticCheckId::SafetyPosture => "safety_posture",
         DiagnosticCheckId::StoreMutationPolicy => "store_mutation_policy",
+        DiagnosticCheckId::UpdaterExecutionPolicy => "updater_execution_policy",
         DiagnosticCheckId::ModuleExecutionPolicy => "module_execution_policy",
         DiagnosticCheckId::NetworkPolicy => "network_policy",
         DiagnosticCheckId::ExternalAutomationPolicy => "external_automation_policy",
@@ -399,9 +427,9 @@ mod tests {
         let report = report();
         let validation = validate_diagnostic_report(&report);
         assert!(validation.valid, "{:?}", validation.errors);
-        assert_eq!(report.summary.check_count, 9);
+        assert_eq!(report.summary.check_count, 10);
         assert_eq!(report.summary.pass_count, 6);
-        assert_eq!(report.summary.blocked_count, 3);
+        assert_eq!(report.summary.blocked_count, 4);
         assert!(!report.production_execution_authorized);
     }
 

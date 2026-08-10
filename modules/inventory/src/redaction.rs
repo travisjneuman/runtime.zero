@@ -19,6 +19,11 @@ pub fn redact_path_values(report: &mut InventoryReport) -> Result<(), String> {
             .redact_optional(SensitiveValueClass::LocalPath, &mut app.install_location)
             .map_err(|error| error.to_string())?;
     }
+    for service in &mut report.services {
+        context
+            .redact_optional(SensitiveValueClass::LocalPath, &mut service.location)
+            .map_err(|error| error.to_string())?;
+    }
 
     report.path_values_redacted = true;
     report.events.push(InventoryEvent {

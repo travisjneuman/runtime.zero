@@ -24,6 +24,14 @@ pub enum ArtifactFileIdentity {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArtifactObservation {
+    pub relative_path: String,
+    pub canonical_path: PathBuf,
+    pub sha256: String,
+    pub size_bytes: u64,
+}
+
 #[derive(Debug)]
 pub struct VerifiedArtifact {
     pub relative_path: String,

@@ -8,7 +8,7 @@ Five first-party packages consume the shared
 | Package | Current source behavior | Live/core status |
 | --- | --- | --- |
 | `modules/updater/` | Classifies installed/manager-owned update evidence, parses selected manager output, builds finding-bound action plans and serial queues | Fixture, captured-output, and explicit live-probe paths exist; core owns the separate explicit apply lane |
-| `modules/uninstall/` | Classifies installed manager-record evidence | Synthetic input only; core has a separate non-executing Mac review UX |
+| `modules/uninstall/` | Classifies synthetic or live installed-software evidence and builds optional finding-bound dry-run manager plans | Core `uninstall plan` uses this shared producer; no uninstall execution |
 | `modules/leftovers/` | Classifies exact runtime-owned orphan/executable evidence for possible quarantine | Synthetic input only |
 | `modules/cache/` | Classifies exact runtime-owned cache evidence while preserving conservative ownership policy | Synthetic input only |
 | `modules/security-integrity/` | Classifies exact digest match/mismatch observations | Synthetic input only and report-only |
@@ -32,27 +32,32 @@ The updater package now contains more than a synthetic classifier:
 Winget, Zypper, Snap, and Flatpak parsers currently fail closed as not yet
 locale-safe. Manager probes and action plans do not independently authorize a
 write. The core's explicitly confirmed manager-update lane remains a narrow
-pre-alpha exception with open executable-identity, isolation, cancellation,
-rollback/recovery, and platform-proof gates. See
+pre-alpha exception with Linux native-ELF identity-bound spawn and canonical
+external-effect receipts, but open macOS/Windows identity, OS isolation, full
+cancellation, rollback/recovery completion, and platform-proof gates. See
 [`action-planning.md`](action-planning.md) and
 [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
 ## Other classifier limits
 
-Uninstall, leftovers, cache, and security/integrity have:
+Uninstall now receives one selected live catalog record from core and can build
+a sealed manager action plan, but it still has no process, elevation, dependent-
+package review, quarantine, rollback, or execution lane. Leftovers, cache, and
+security/integrity remain synthetic-only. Across these four families there is:
 
-- no live Windows/macOS/Linux discovery adapter;
-- no binary/process protocol or host permission;
-- no package-manager, filesystem, network, or platform API access;
-- no action-plan generation or execution;
+- no independent complete live Windows/macOS/Linux adapter;
+- no authorized binary/process protocol or host write permission;
+- no package-manager/filesystem mutation or network action;
+- no execution-capable action pipeline;
 - no signed lifecycle artifact or installation/activation path;
-- no TUI/core integration.
+- no direct TUI mutation flow.
 
 Their manifests remain `planned`. Core does not install or execute them.
 
-Current synthetic tests establish only that:
+Current tests establish only that:
 
-- installed and manager-owned evidence is required for uninstall candidates;
+- installed and manager-owned evidence is required for uninstall candidates and
+  exact executable identity is required for a planned manager action;
 - only exact runtime-owned leftover/cache evidence can become a quarantine
   candidate;
 - protected and unknown evidence stays blocked;

@@ -4,7 +4,8 @@ use std::collections::BTreeSet;
 use std::io;
 use std::time::Instant;
 
-use rz0_inventory_contract::{AppRecord, InventorySource};
+use rz0_inventory_contract::{AppRecord, InventorySource, ServiceRecord, SoftwareIdentifier};
+use sha2::{Digest, Sha256};
 use winreg::enums::{
     HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, KEY_WOW64_64KEY,
 };
@@ -18,12 +19,19 @@ const USER_ENVIRONMENT_KEY: &str = "Environment";
 const MACHINE_ENVIRONMENT_KEY: &str =
     r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment";
 const UNINSTALL_KEY: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+const SERVICES_KEY: &str = r"SYSTEM\CurrentControlSet\Services";
 const MAX_APP_RECORDS: usize = rz0_resource_contract::MAX_INVENTORY_APP_RECORDS;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WindowsAppCollection {
     pub source: InventorySource,
     pub apps: Vec<AppRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WindowsServiceCollection {
+    pub source: InventorySource,
+    pub services: Vec<ServiceRecord>,
 }
 
 pub fn collect_persisted_paths() -> Vec<PathCollection> {
@@ -43,6 +51,7 @@ pub fn collect_installed_apps() -> WindowsAppCollection {
     let mut apps = Vec::new();
     let mut warnings = Vec::new();
     let mut opened_roots = 0usize;
+    let mut limit_reached = false;
     let roots = [
         (HKEY_CURRENT_USER, KEY_READ | KEY_WOW64_64KEY, "user64"),
         (HKEY_CURRENT_USER, KEY_READ | KEY_WOW64_32KEY, "user32"),
@@ -54,7 +63,7 @@ pub fn collect_installed_apps() -> WindowsAppCollection {
         match RegKey::predef(hive).open_subkey_with_flags(UNINSTALL_KEY, flags) {
             Ok(root) => {
                 opened_roots += 1;
-                collect_apps_from_root(&root, scope, &mut apps, &mut warnings);
+                limit_reached |= collect_apps_from_root(&root, scope, &mut apps, &mut warnings);
             }
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
             Err(error) => warnings.push(format!(
@@ -70,8 +79,7 @@ pub fn collect_installed_apps() -> WindowsAppCollection {
             .cmp(&right.name.to_ascii_lowercase())
             .then_with(|| left.version.cmp(&right.version))
     });
-    if apps.len() > MAX_APP_RECORDS {
-        apps.truncate(MAX_APP_RECORDS);
+    if limit_reached {
         warnings.push(format!(
             "application record limit of {MAX_APP_RECORDS} reached; remaining records were skipped"
         ));
@@ -93,6 +101,93 @@ pub fn collect_installed_apps() -> WindowsAppCollection {
             warnings,
         },
         apps,
+    }
+}
+
+pub fn collect_services() -> WindowsServiceCollection {
+    let started = Instant::now();
+    let mut warnings = Vec::new();
+    let mut services = Vec::new();
+    let root =
+        match RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey_with_flags(SERVICES_KEY, KEY_READ) {
+            Ok(root) => Some(root),
+            Err(error) => {
+                warnings.push(format!(
+                    "Windows service inventory was unavailable: {error}"
+                ));
+                None
+            }
+        };
+    if let Some(root) = root.as_ref() {
+        let mut skipped = 0usize;
+        for key_result in root.enum_keys() {
+            let Ok(key_name) = key_result else {
+                skipped = skipped.saturating_add(1);
+                continue;
+            };
+            if services.len() == rz0_resource_contract::MAX_INVENTORY_SERVICE_RECORDS {
+                warnings.push(format!(
+                    "service record limit of {} reached; remaining records were skipped",
+                    rz0_resource_contract::MAX_INVENTORY_SERVICE_RECORDS
+                ));
+                break;
+            }
+            let Ok(key) = root.open_subkey_with_flags(&key_name, KEY_READ) else {
+                skipped = skipped.saturating_add(1);
+                continue;
+            };
+            let service_type = key.get_value::<u32, _>("Type").unwrap_or_default();
+            if service_type == 0 {
+                continue;
+            }
+            let name = optional_text(&key, "DisplayName", 240)
+                .or_else(|| sanitize_registry_text(&key_name, 240));
+            let Some(name) = name else {
+                continue;
+            };
+            let start = key.get_value::<u32, _>("Start").ok();
+            let enabled = match start {
+                Some(0..=3) => Some(true),
+                Some(4) => Some(false),
+                _ => None,
+            };
+            let location = optional_text(&key, "ImagePath", 2048);
+            let identity = format!("windows.service|{}", key_name.to_ascii_lowercase());
+            services.push(ServiceRecord {
+                id: format!("windows.service.{:016x}", fnv1a(identity.as_bytes())),
+                name,
+                source_id: "windows.services".to_string(),
+                kind: "service".to_string(),
+                scope: "system".to_string(),
+                enabled,
+                location,
+                warnings: Vec::new(),
+            });
+        }
+        if skipped > 0 {
+            warnings.push(format!(
+                "{skipped} Windows service registry records could not be read"
+            ));
+        }
+    }
+    services.sort_by(|left, right| left.id.cmp(&right.id));
+    let status = if root.is_none() {
+        "unavailable"
+    } else if warnings.is_empty() {
+        "ok"
+    } else {
+        "partial"
+    };
+    WindowsServiceCollection {
+        source: InventorySource {
+            id: "windows.services".to_string(),
+            kind: "registry".to_string(),
+            status: status.to_string(),
+            duration_ms: Some(elapsed_ms(started)),
+            read_only: true,
+            warnings,
+        },
+        services,
     }
 }
 
@@ -177,10 +272,10 @@ fn collect_apps_from_root(
     scope: &str,
     apps: &mut Vec<AppRecord>,
     warnings: &mut Vec<String>,
-) {
+) -> bool {
     for key_name in root.enum_keys().filter_map(Result::ok) {
         if apps.len() >= MAX_APP_RECORDS {
-            return;
+            return true;
         }
         let Ok(key) = root.open_subkey_with_flags(&key_name, KEY_READ) else {
             continue;
@@ -198,22 +293,36 @@ fn collect_apps_from_root(
         let version = optional_text(&key, "DisplayVersion", 120);
         let publisher = optional_text(&key, "Publisher", 160);
         let install_location = optional_text(&key, "InstallLocation", 1024);
-        let identity = format!(
-            "{}|{}|{}",
-            name.to_ascii_lowercase(),
-            version.as_deref().unwrap_or_default(),
-            publisher.as_deref().unwrap_or_default()
-        );
+        let normalized_key = key_name.to_ascii_lowercase();
+        let identity = format!("{scope}|{normalized_key}");
+        let identifiers = sanitize_registry_text(&key_name, 256)
+            .map(|value| {
+                let (kind, value) = if is_product_code(&value) {
+                    ("product_code", value.to_ascii_lowercase())
+                } else {
+                    (
+                        "registry_product_key_digest",
+                        format!("{:x}", Sha256::digest(value.as_bytes())),
+                    )
+                };
+                vec![SoftwareIdentifier {
+                    kind: kind.to_string(),
+                    value,
+                }]
+            })
+            .unwrap_or_default();
         apps.push(AppRecord {
             id: format!("windows.app.{:016x}", fnv1a(identity.as_bytes())),
             name,
             source_id: "windows.installed_apps".to_string(),
             version,
             publisher,
+            identifiers,
             install_location,
             warnings: Vec::new(),
         });
     }
+    false
 }
 
 fn optional_text(key: &RegKey, name: &str, max_len: usize) -> Option<String> {
@@ -227,7 +336,26 @@ fn sanitize_registry_text(value: &str, max_len: usize) -> Option<String> {
     if trimmed.is_empty() || trimmed.chars().any(char::is_control) {
         return None;
     }
-    Some(trimmed.chars().take(max_len).collect())
+    let mut output = String::new();
+    for character in trimmed.chars() {
+        if output.len().saturating_add(character.len_utf8()) > max_len {
+            break;
+        }
+        output.push(character);
+    }
+    (!output.is_empty()).then_some(output)
+}
+
+fn is_product_code(value: &str) -> bool {
+    value.len() == 38
+        && value.starts_with('{')
+        && value.ends_with('}')
+        && value.bytes().enumerate().all(|(index, byte)| match index {
+            0 => byte == b'{',
+            9 | 14 | 19 | 24 => byte == b'-',
+            37 => byte == b'}',
+            _ => byte.is_ascii_hexdigit(),
+        })
 }
 
 fn deduplicate_apps(apps: &mut Vec<AppRecord>) {

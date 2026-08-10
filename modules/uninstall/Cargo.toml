@@ -10,6 +10,9 @@ rust-version = "1.96"
 publish = false
 
 [dependencies]
+rz0-action-plan = { version = "0.1.0", path = "../../crates/action-plan" }
+rz0-capability-contract = { version = "0.1.0", path = "../../crates/capability-contract" }
 rz0-finding-contract = { version = "0.1.0", path = "../../crates/finding-contract" }
 rz0-resource-contract = { version = "0.1.0", path = "../../crates/resource-contract" }
+rz0-validation-contract = { version = "0.1.0", path = "../../crates/validation-contract" }
 serde = { version = "1.0", features = ["derive"] }

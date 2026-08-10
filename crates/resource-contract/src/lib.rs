@@ -14,15 +14,20 @@ pub const MAX_INVENTORY_SOURCES: usize = 64;
 pub const MAX_INVENTORY_PATH_ENTRIES: usize = 512;
 pub const MAX_INVENTORY_TOOL_RECORDS: usize = 1024;
 pub const MAX_INVENTORY_APP_RECORDS: usize = 4096;
+pub const MAX_INVENTORY_SERVICE_RECORDS: usize = 4096;
 pub const MAX_INVENTORY_EVENTS: usize = 8192;
 pub const MAX_INVENTORY_WARNINGS: usize = 8192;
 pub const MAX_VERSION_OUTPUT_BYTES: usize = 64 * 1024;
-pub const MAX_REDACTION_TOKENS: usize = 8 * 1024;
+pub const MAX_REDACTION_TOKENS: usize = 9_999;
 pub const MAX_DIAGNOSTIC_CHECKS: usize = 128;
 pub const MAX_PERFORMANCE_SAMPLES: u32 = 100;
 pub const MAX_PERFORMANCE_OPERATIONS: usize = 16;
 pub const VERSION_PROBE_TIMEOUT_MS: u64 = 2_000;
 pub const VERSION_PROBE_READER_GRACE_MS: u64 = 250;
+pub const MAX_PROCESS_ARGUMENTS: usize = 64;
+pub const MAX_PROCESS_ARGUMENT_BYTES: usize = 512;
+pub const MAX_PROCESS_CAPTURE_BYTES: u64 = MAX_FINDING_REPORT_BYTES;
+pub const MAX_MANAGER_PROCESS_TIMEOUT_MS: u64 = 30 * 60 * 1_000;
 
 const _: () = assert!(MAX_SMALL_DOCUMENT_BYTES < MAX_REGISTRY_DOCUMENT_BYTES);
 const _: () = assert!(MAX_REGISTRY_DOCUMENT_BYTES < MAX_JOURNAL_SNAPSHOT_BYTES);
@@ -35,14 +40,26 @@ const _: () = assert!(MAX_INVENTORY_PATH_ENTRIES < MAX_INVENTORY_TOOL_RECORDS);
 const _: () = assert!(MAX_INSTALLED_MODULE_RECORDS <= MAX_INVENTORY_TOOL_RECORDS);
 const _: () = assert!(MAX_INVENTORY_TOOL_RECORDS < MAX_INVENTORY_APP_RECORDS);
 const _: () = assert!(MAX_FINDINGS <= MAX_INVENTORY_APP_RECORDS);
+const _: () = assert!(MAX_INVENTORY_SERVICE_RECORDS == MAX_INVENTORY_APP_RECORDS);
 const _: () = assert!(MAX_INVENTORY_APP_RECORDS < MAX_INVENTORY_EVENTS);
 const _: () = assert!(MAX_INVENTORY_EVENTS <= MAX_INVENTORY_WARNINGS);
 const _: () = assert!(MAX_PERFORMANCE_OPERATIONS < MAX_DIAGNOSTIC_CHECKS);
 const _: () = assert!(MAX_PERFORMANCE_SAMPLES < MAX_DIAGNOSTIC_CHECKS as u32);
 const _: () = assert!(MAX_DIAGNOSTIC_CHECKS < MAX_INVENTORY_PATH_ENTRIES);
-const _: () = assert!(MAX_INVENTORY_APP_RECORDS < MAX_REDACTION_TOKENS);
+const _: () = assert!(MAX_REDACTION_TOKENS <= 9_999);
+const _: () = assert!(
+    MAX_INVENTORY_PATH_ENTRIES
+        + MAX_INVENTORY_TOOL_RECORDS
+        + MAX_INVENTORY_APP_RECORDS
+        + MAX_INVENTORY_SERVICE_RECORDS
+        < MAX_REDACTION_TOKENS
+);
 const _: () =
     assert!(VERSION_PROBE_TIMEOUT_MS <= ProcessLimitCeilings::MODULE_SCHEMA_ONE.timeout_ms);
+const _: () =
+    assert!(ProcessLimitCeilings::MODULE_SCHEMA_ONE.stdout_bytes <= MAX_PROCESS_CAPTURE_BYTES);
+const _: () =
+    assert!(ProcessLimitCeilings::MODULE_SCHEMA_ONE.timeout_ms <= MAX_MANAGER_PROCESS_TIMEOUT_MS);
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

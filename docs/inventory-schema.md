@@ -47,12 +47,14 @@ Schema version `1` includes:
 - `sources`: independent evidence-source reports;
 - `path_entries`: normalized process/user/machine/fixture PATH evidence;
 - `tools`: normalized known executable evidence;
-- `apps`: normalized opt-in Windows/macOS/Linux application evidence;
+- `apps`: normalized Windows/macOS/Linux software/package evidence with
+  source-specific identifiers;
+- `services`: normalized service/persistence metadata evidence;
 - `events`: generic structured source lifecycle events that do not include raw
   evidence values;
 - `warnings`: top-level warnings;
-- `summary`: deterministic source, PATH, tool, app, event, and total warning
-  counts.
+- `summary`: deterministic source, PATH, tool, app, service, event, and total
+  warning counts.
 
 JSON field order follows the Rust structure for readable fixtures, but consumers
 must use field names rather than object order. Unknown fields fail closed.
@@ -76,12 +78,20 @@ optional version, source IDs, confidence, and warnings. Discovery checks only a
 small allowlist of names directly under PATH entries; it does not recursively
 walk drives.
 
-Application records contain normalized name, optional version/publisher/install
-location, and a non-secret deterministic evidence ID. Raw uninstall-registry key
-names are never emitted. The path-free catalog additionally assigns deterministic
-identity groups while preserving every source record and version disagreement;
-name-normalized groups can be heuristic and are not permanent product IDs or
-action authority.
+Application/package records contain normalized name, optional version/publisher/
+install location, source ID, a deterministic evidence ID, and bounded
+`SoftwareIdentifier { kind, value }` entries such as bundle/package/desktop/
+receipt/product IDs. Windows raw registry subkey names are transformed into
+stable SHA-256 product-key digests rather than copied as path-like fields. The
+path-free catalog groups a shared source identifier before falling back to a
+name-normalized heuristic, while preserving every source and version
+disagreement. Identifiers may be sensitive and are not mutation authority.
+
+Service records contain a stable ID, label/name, source, `service` or
+`persistence` kind, scope, optional enabled/configured status, optional metadata
+location, and warnings. They are metadata evidence only: current collectors do
+not assert authoritative loaded/running state, dependency ownership, or safe
+actionability.
 
 ## Shared validation
 
@@ -89,8 +99,8 @@ The foundation rejects empty or larger-than-16-MiB documents before JSON parsing
 and rejects unknown fields, invalid identity/posture metadata, non-read-only
 sources, duplicate or absent cross-references, malformed path ordering/kinds,
 summary drift, malformed redaction tokens, and collection/warning ceilings.
-Current ceilings are 64 sources, 512 PATH entries, 1,024 tools, 4,096 apps, and
-8,192 events/warnings. Both core and module JSON render paths run the shared
+Current ceilings are 64 sources, 512 PATH entries, 1,024 tools, 4,096 apps,
+4,096 services, and 8,192 events/warnings. Both core and module JSON render paths run the shared
 validator.
 
 `validate_inventory_report` reports base validity separately from
@@ -108,11 +118,15 @@ schema 1 entirely.
 | Windows User/Machine PATH | On for Windows module | `KEY_READ` registry access only |
 | Known executable discovery | On | Exact allowlisted filenames under PATH only |
 | Known executable version probes | Off | Explicit `--probe-versions`; exact path, symlink/reparse-component rejection, static arguments, no shell, cleared environment, `/` working directory, shared descriptor audit/Unix process-group teardown, atomic 2-second deadline, 64 KiB per-stream capture; Windows fails closed pending race-free containment |
-| Windows installed applications | Off | Explicit `--include-apps`; standard uninstall views, read only, 4,096-record cap |
-| macOS application bundles | On in installed core; opt-in in development binary | Direct `.app` directories under five known roots; bounded `Info.plist` reads provide versions |
-| macOS Homebrew metadata | On in installed core; opt-in in development binary | Direct Cellar/Caskroom directories only; no manager process or network access |
-| Linux desktop entries | On in installed core; opt-in in development binary | Regular XDG `.desktop` files up to 64 KiB, user/hidden precedence, no `Exec` output or execution |
-| Other package-manager listings/catalogs | Off | Deferred because behavior can vary by version, locale, source agreements, and network access |
+| Windows installed applications | Off | Explicit `--include-apps`; standard uninstall views, product-code/product-key identity, read only, 4,096-record cap |
+| Windows services/drivers | Off | Explicit `--include-apps`; direct `CurrentControlSet\\Services` metadata, no service-controller invocation |
+| macOS application bundles | On in installed core; opt-in in development binary | Direct `.app` roots; bounded `Info.plist` name/version/bundle-ID reads |
+| macOS Homebrew/MacPorts/receipt metadata | On in installed core; opt-in in development binary | Direct Cellar/Caskroom/MacPorts directories and bounded Apple receipt plists; no manager process/network |
+| macOS launchd metadata | On with apps | Standard plist roots; label/location/configuration evidence only, no `launchctl` |
+| Linux desktop entries | On in installed core; opt-in in development binary | Regular XDG `.desktop` files up to 64 KiB, user/hidden precedence, desktop IDs, no execution |
+| Linux dpkg/pacman metadata | On in installed core; opt-in in development binary | Direct bounded local metadata files/directories; no package-manager process/network |
+| Linux systemd metadata | On with apps | Standard unit-file roots; label/location evidence only, no `systemctl` |
+| Other package-manager catalogs | Off | RPM/DNF, Snap, Flatpak, AppImage, Nix, language/container and other sources await scope plus parser/runtime proof |
 
 Script-based executable probes remain disabled. The module detects package manager executables but does not invoke manager
 list/update/install/uninstall commands. Application collectors reject symlinked
@@ -127,10 +141,10 @@ the same lower-priority desktop ID. The parser does not treat the desktop-spec
 - Raw registry keys are omitted.
 - Local paths can contain usernames or private project names. Use
   `--redact-paths` before sharing output.
-- Redaction replaces PATH entries, executable paths, and app install locations
-  with stable report-local placeholders. It does not redact application names,
-  versions, or publishers; opt-in app reports require separate review before
-  sharing.
+- Redaction replaces PATH entries, executable paths, app/package locations, and
+  service metadata locations with stable report-local placeholders. It does not
+  redact software names, versions, publishers, source identifiers, or service
+  labels; inventory reports require separate review before sharing.
 - Structured events contain source IDs/status only, never raw path/app values.
 - Credentials, OAuth sessions, browser profiles, project contents, backups, and
   unknown user data are outside the inventory contract.
@@ -162,8 +176,8 @@ The code is fixture-tested on macOS and cross-checked for the Windows MSVC
 target. Before claiming Windows support, it still needs race-free handle audit/process
 containment plus a real Windows runtime smoke covering persisted PATH, registry
 views, app normalization, timeout behavior, redaction, and the installed
-terminal experience. The macOS app
-adapter was exercised on the development host and Linux parser behavior is
-fixture-tested plus Linux-target compiled, but a real Linux runtime and broader
-non-Homebrew macOS/Linux package-manager, service, and persistence inventory
-remain later adapter work.
+terminal experience. The macOS app/receipt/MacPorts/launchd adapters were exercised on the development
+host. Linux package/systemd parser behavior is fixture-tested and Linux-target
+compiled, but real Linux runtime proof remains. Windows service and application
+collectors are cross-target compile evidence only. Richer package, service,
+driver, active-status, ownership, and persistence sources remain later work.

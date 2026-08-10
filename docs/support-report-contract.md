@@ -45,9 +45,20 @@ The report does not transmit data, write files, approve disclosure, authorize a
 module, or satisfy release acceptance. Input digests are evidence bindings, not
 signatures or trust roots.
 
-## First-party module
+## Foundation and first-party surfaces
 
-`modules/report-export/` is a separate source package and development binary:
+The installed foundation exposes a local read-only construction path:
+
+```bash
+rz0 report
+rz0 report --format json
+```
+
+It collects redacted live inventory plus private diagnostics in memory, builds
+the same strict summary, and writes only rendered summary bytes to stdout. It
+accepts no network/output path and does not invoke the separate module binary.
+
+`modules/report-export/` remains a separate source package and development binary:
 
 ```bash
 cargo run -p rz0-module-report-export -- --format json < report-export-input.json
@@ -60,7 +71,7 @@ caller-supplied framed data rather than reading host state. The core does not
 install, load, or execute this module.
 
 The module family remains incomplete for 1.0 until signed artifact lifecycle,
-core protocol integration, final-artifact Windows/macOS/Linux runtime evidence,
+final-artifact Windows/macOS/Linux runtime evidence,
 support-bundle attachments where explicitly designed, accessibility, and every
 canonical release cell pass. A source-level read-only exporter is not a release
 claim.

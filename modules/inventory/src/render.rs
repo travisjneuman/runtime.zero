@@ -30,6 +30,7 @@ pub fn render_text(report: &InventoryReport) -> String {
     let _ = writeln!(out, "path_entries: {}", report.summary.path_entry_count);
     let _ = writeln!(out, "tools: {}", report.summary.tool_count);
     let _ = writeln!(out, "apps: {}", report.summary.app_count);
+    let _ = writeln!(out, "services: {}", report.summary.service_count);
     let _ = writeln!(out, "warnings: {}", report.summary.warning_count);
 
     let _ = writeln!(out, "\nevidence sources:");
@@ -93,9 +94,26 @@ pub fn render_text(report: &InventoryReport) -> String {
         );
     }
 
+    let _ = writeln!(out, "\nservices and persistence:");
+    if report.services.is_empty() {
+        let _ = writeln!(out, "  not requested or none reported");
+    }
+    for service in &report.services {
+        let _ = writeln!(
+            out,
+            "  {} kind={} scope={} enabled={}",
+            service.name,
+            service.kind,
+            service.scope,
+            service
+                .enabled
+                .map_or("unknown".to_string(), |value| value.to_string())
+        );
+    }
+
     let _ = writeln!(
         out,
-        "\nsafety: report only; no PATH/registry/package/app state was changed"
+        "\nsafety: report only; no PATH/registry/package/app/service state was changed"
     );
     out
 }

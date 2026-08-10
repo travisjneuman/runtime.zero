@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 
 use rz0_action_plan::{ActionDisposition, ActionPlan};
@@ -15,7 +15,8 @@ use crate::ExitCode;
 use crate::module_store::module_store_plan;
 use crate::update_execution::{
     UpdateChallengeView, UpdateExecutionReport, UpdateExecutionRequest, build_update_challenge,
-    execute_update_action, make_single_action_plan, validate_update_confirmation,
+    execute_update_action, make_single_action_plan, observe_manager_executable,
+    validate_update_confirmation,
 };
 
 const MAX_INPUT_BYTES: u64 = rz0_resource_contract::MAX_FINDING_REPORT_BYTES;
@@ -35,6 +36,9 @@ pub fn updates_command(args: &[String]) -> (ExitCode, String, String) {
             );
         }
     };
+    if command.recovery_status {
+        return recovery_status_command(&command);
+    }
     let input = match build_input(&command) {
         Ok(input) => input,
         Err(error) => return (ExitCode::Usage, String::new(), format!("{error}\n")),
@@ -99,6 +103,8 @@ struct ParsedArgs {
     challenge_issued_unix_seconds: Option<u64>,
     accept_no_rollback: bool,
     allow_network_write: bool,
+    recovery_status: bool,
+    transaction: Option<String>,
     format: OutputFormat,
 }
 
@@ -120,6 +126,8 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         challenge_issued_unix_seconds: None,
         accept_no_rollback: false,
         allow_network_write: false,
+        recovery_status: false,
+        transaction: None,
         format: OutputFormat::Text,
     };
     let mut index = 0usize;
@@ -194,6 +202,23 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             }
             "--accept-no-rollback" => parsed.accept_no_rollback = true,
             "--allow-network-write" => parsed.allow_network_write = true,
+            "--recovery-status" if !parsed.recovery_status => parsed.recovery_status = true,
+            "--recovery-status" => {
+                return Err("updates accepts --recovery-status only once".to_string());
+            }
+            "--transaction" => {
+                index += 1;
+                if parsed.transaction.is_some() {
+                    return Err("updates accepts --transaction only once".to_string());
+                }
+                parsed.transaction = Some(
+                    args.get(index)
+                        .ok_or_else(|| {
+                            "--transaction requires an exact transaction ID".to_string()
+                        })?
+                        .clone(),
+                );
+            }
             "--json" => parsed.format = OutputFormat::Json,
             "--format" => {
                 index += 1;
@@ -216,6 +241,41 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             value => return Err(format!("unsupported updates option '{value}'")),
         }
         index += 1;
+    }
+    if parsed.recovery_status {
+        if parsed
+            .transaction
+            .as_deref()
+            .is_none_or(|transaction| !rz0_validation_contract::valid_ledger_id(transaction, 96))
+        {
+            return Err("--recovery-status requires a valid exact --transaction ID".to_string());
+        }
+        if parsed.dry_run
+            || parsed.apply
+            || parsed.fixture.is_some()
+            || parsed.manager_output.is_some()
+            || parsed.manager.is_some()
+            || parsed.executable.is_some()
+            || parsed.probe
+            || parsed.allow_network_read
+            || parsed.plan
+            || parsed.queue
+            || parsed.action.is_some()
+            || parsed.all
+            || parsed.confirm.is_some()
+            || parsed.challenge_issued_unix_seconds.is_some()
+            || parsed.accept_no_rollback
+            || parsed.allow_network_write
+        {
+            return Err(
+                "--recovery-status can be combined only with --transaction and output format"
+                    .to_string(),
+            );
+        }
+        return Ok(parsed);
+    }
+    if parsed.transaction.is_some() {
+        return Err("--transaction requires --recovery-status".to_string());
     }
     if parsed.apply {
         if parsed.dry_run {
@@ -302,6 +362,73 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
     Ok(parsed)
 }
 
+fn recovery_status_command(command: &ParsedArgs) -> (ExitCode, String, String) {
+    let transaction = command.transaction.as_deref().unwrap_or_default();
+    let state_root = PathBuf::from(module_store_plan(None, None, "update recovery").state_root);
+    if !state_root.is_dir() {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "runtime.zero state store is not initialized; run `rz0 store status` for local details\n"
+                .to_string(),
+        );
+    }
+    let assessment =
+        match rz0_transaction_contract::assess_external_effect_recovery(&state_root, transaction) {
+            Ok(assessment) => assessment,
+            Err(error) => {
+                return (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!("update recovery assessment failed closed: {error}\n"),
+                );
+            }
+        };
+    let output = match command.format {
+        OutputFormat::Json => serde_json::to_string_pretty(&assessment)
+            .map(|json| format!("{json}\n"))
+            .map_err(|error| format!("render update recovery status: {error}")),
+        OutputFormat::Text => Ok(format!(
+            "runtime.zero update recovery status\n\ncontract: {}\nschema_version: {}\nread_only: yes\nwrites_attempted: no\ntransaction_id: {}\njournal_state: {:?}\nreceipt_present: {}\nreceipt_valid: {}\ndecision: {:?}\nautomatic_mutation_authorized: no\n\n{}\n",
+            assessment.contract,
+            assessment.schema_version,
+            assessment.transaction_id,
+            assessment.journal_state,
+            assessment.receipt_present,
+            assessment.receipt_valid,
+            assessment.decision,
+            recovery_guidance(assessment.decision),
+        )),
+    };
+    match output {
+        Ok(output) => (ExitCode::Ok, output, String::new()),
+        Err(error) => (ExitCode::Usage, String::new(), format!("{error}\n")),
+    }
+}
+
+fn recovery_guidance(
+    decision: rz0_transaction_contract::ExternalEffectRecoveryDecision,
+) -> &'static str {
+    use rz0_transaction_contract::ExternalEffectRecoveryDecision as Decision;
+    match decision {
+        Decision::AbortWithoutWrites => {
+            "No manager write started. Preserve the transaction evidence; no automatic cleanup is authorized."
+        }
+        Decision::VerifyExternalEffect => {
+            "The manager outcome is uncertain. Do not rerun it; inspect the manager's installed/available state and preserve all evidence."
+        }
+        Decision::CompleteJournalCommitWithExplicitApproval => {
+            "A verified external-effect receipt exists but final journal state is incomplete. Completion requires a separately implemented exact recovery approval; do not edit state files manually."
+        }
+        Decision::NoAction => {
+            "The verified receipt and committed journal agree. No recovery mutation is indicated."
+        }
+        Decision::RefuseInconsistentEvidence => {
+            "Evidence is missing, malformed, or conflicting. Refuse automatic action and retain the state root for review."
+        }
+    }
+}
+
 fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
     if let Some(path) = command.fixture.as_deref() {
         return read_input(path);
@@ -313,7 +440,7 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
         .into_iter()
         .find(|spec| spec.manager == manager)
         .ok_or_else(|| "manager probe specification is unavailable".to_string())?;
-    let (bytes, executable) = if command.probe {
+    let (bytes, executable, executable_identity) = if command.probe {
         if !command.allow_network_read && spec.network_required {
             return Err(
                 "this manager probe may access network metadata; pass --allow-network-read explicitly"
@@ -342,6 +469,7 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
         ) {
             return Err("--executable is not the allowlisted path for this manager".to_string());
         }
+        let executable_identity = observe_manager_executable(Path::new(&executable))?;
         let output =
             rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
                 executable: PathBuf::from(&executable),
@@ -356,31 +484,46 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
                 output_limit: MAX_INPUT_BYTES,
             })
             .map_err(|error| format!("manager probe failed closed: {error}"))?;
-        if !output.status.success() && output.stdout.bytes.is_empty() {
+        let accepted_nonzero = manager == ManagerKind::Dnf && output.status.code() == Some(100);
+        if !output.status.success() && !accepted_nonzero {
             return Err(format!(
-                "manager probe exited unsuccessfully: {}",
+                "manager probe exited with an unaccepted status: {}",
                 output.status
             ));
+        }
+        let identity_after = observe_manager_executable(Path::new(&executable))?;
+        if identity_after != executable_identity {
+            return Err(
+                "manager executable identity changed during the live availability probe"
+                    .to_string(),
+            );
         }
         let bytes = if output.stdout.bytes.is_empty() {
             output.stderr.bytes
         } else {
             output.stdout.bytes
         };
-        (bytes, executable)
+        (bytes, executable, Some(executable_identity))
     } else {
         let path = command
             .manager_output
             .as_deref()
             .ok_or_else(|| "manager output path is required".to_string())?;
-        (
-            read_bounded_bytes(path)?,
-            command.executable.clone().unwrap_or_default(),
-        )
+        let executable = command.executable.clone().unwrap_or_default();
+        let executable_identity = if executable.is_empty() {
+            None
+        } else {
+            Some(observe_manager_executable(Path::new(&executable))?)
+        };
+        (read_bounded_bytes(path)?, executable, executable_identity)
     };
     let context = ManagerParseContext {
         manager,
         executable: (!executable.is_empty()).then_some(executable),
+        executable_sha256: executable_identity
+            .as_ref()
+            .map(|identity| identity.sha256.clone()),
+        executable_size_bytes: executable_identity.map(|identity| identity.size_bytes),
         network_required: spec.network_required,
         requires_elevation: spec.requires_elevation,
         rollback_supported: false,
@@ -509,13 +652,22 @@ fn apply_one_update_command(
         return (
             ExitCode::Usage,
             String::new(),
-            format!(
-                "runtime.zero state store is not initialized at {}; run `rz0 store init --yes` first\n",
-                state_root.display()
-            ),
+            "runtime.zero state store is not initialized; run `rz0 store init --dry-run` before any explicit initialization\n"
+                .to_string(),
         );
     }
     let finding_id = single_action.finding_id.clone();
+    let (controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+    let _interrupt = match InterruptBridge::install(controller) {
+        Ok(bridge) => bridge,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("install update cancellation bridge: {error}\n"),
+            );
+        }
+    };
     let execution = execute_update_action(UpdateExecutionRequest {
         state_root: &state_root,
         plan: &single_plan,
@@ -524,6 +676,7 @@ fn apply_one_update_command(
         response: &response,
         now_unix_seconds: unix_seconds(),
         environment: probe_environment(),
+        cancellation: &cancellation,
         verify_after: || verify_update_after(command, &finding_id),
     });
     match execution {
@@ -556,10 +709,8 @@ fn apply_all_update_command(
         return (
             ExitCode::Usage,
             String::new(),
-            format!(
-                "runtime.zero state store is not initialized at {}; run `rz0 store init --yes` first\n",
-                state_root.display()
-            ),
+            "runtime.zero state store is not initialized; run `rz0 store init --dry-run` before any explicit initialization\n"
+                .to_string(),
         );
     }
     let plan = match build_update_action_plan(input, report) {
@@ -629,12 +780,21 @@ fn apply_all_update_command(
             Ok(value) => value,
             Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
         };
-        let _ = write!(
+        if write!(
             io::stdout(),
             "{}Type the phrase to continue (or `cancel`): ",
             render_challenge(&view, OutputFormat::Text)
-        );
-        let _ = io::stdout().flush();
+        )
+        .and_then(|()| io::stdout().flush())
+        .is_err()
+        {
+            return (
+                ExitCode::Usage,
+                output,
+                "failed to present the exact update confirmation; no action was started\n"
+                    .to_string(),
+            );
+        }
         let mut phrase = String::new();
         if io::stdin().read_line(&mut phrase).is_err() {
             return (
@@ -678,17 +838,21 @@ fn apply_all_update_command(
 fn verify_update_after(command: &ParsedArgs, finding_id: &str) -> Result<String, String> {
     let fresh_input = build_input(command)?;
     let fresh_report = classify_updates(&fresh_input)?;
-    let fresh_plan = build_update_action_plan(&fresh_input, &fresh_report);
-    if let Ok(plan) = fresh_plan
-        && plan.actions.iter().any(|action| {
-            action.finding_id == finding_id && action.disposition == ActionDisposition::Planned
-        })
+    let fresh_plan = build_update_action_plan(&fresh_input, &fresh_report)
+        .map_err(|error| format!("fresh update verification plan failed closed: {error}"))?;
+    verify_candidate_absent(&fresh_plan, finding_id)
+}
+
+fn verify_candidate_absent(plan: &ActionPlan, finding_id: &str) -> Result<String, String> {
+    if plan
+        .actions
+        .iter()
+        .any(|action| action.finding_id == finding_id)
     {
-        return Err(
-            "fresh availability evidence still reports the exact update candidate".to_string(),
-        );
+        Err("fresh availability evidence still reports the exact update candidate".to_string())
+    } else {
+        Ok("fresh manager availability evidence no longer reports the exact candidate".to_string())
     }
-    Ok("fresh manager availability evidence no longer reports the exact candidate".to_string())
 }
 
 fn render_challenge(view: &UpdateChallengeView, format: OutputFormat) -> String {
@@ -715,22 +879,99 @@ fn render_challenge(view: &UpdateChallengeView, format: OutputFormat) -> String 
 fn render_execution(report: &UpdateExecutionReport, format: OutputFormat) -> String {
     match format {
         OutputFormat::Text => format!(
-            "runtime.zero update execution\n\ntransaction_id: {}\naction_id: {}\nmanager: {}\ntarget: {}\nstatus: {:?}\nexit_code: {:?}\nverification: {}\nstdout_bytes: {}\nstderr_bytes: {}\nreceipt_path: {}\nwrites_attempted: yes\nproduct_execution_authorized: yes\n",
+            "runtime.zero update execution\n\ntransaction_id: {}\naction_id: {}\nmanager: {}\ntarget: {}\nexecutable_sha256: {}\nexecutable_size_bytes: {}\nexecutable_binding: {}\nstatus: {:?}\nexit_code: {:?}\nverification: {}\nstdout_bytes: {}\nstdout_sha256: {}\nstderr_bytes: {}\nstderr_sha256: {}\nreceipt_reference: {}\nwrites_attempted: yes\nproduct_execution_authorized: yes\n",
             report.transaction_id,
             report.action_id,
             report.manager,
             report.target,
+            report.executable_sha256,
+            report.executable_size_bytes,
+            report.executable_binding,
             report.status,
             report.exit_code,
             report.verification,
             report.stdout_bytes,
+            report.stdout_sha256,
             report.stderr_bytes,
-            report.receipt_path,
+            report.stderr_sha256,
+            report.receipt_reference,
         ),
         OutputFormat::Json => serde_json::to_string_pretty(report).map_or_else(
             |error| format!("execution serialization failed: {error}\n"),
             |json| format!("{json}\n"),
         ),
+    }
+}
+
+#[cfg(unix)]
+struct InterruptBridge {
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    signal_id: signal_hook::SigId,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+#[cfg(unix)]
+impl InterruptBridge {
+    fn install(
+        controller: rz0_cancellation_contract::CancellationController,
+    ) -> Result<Self, String> {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let interrupted = Arc::new(AtomicBool::new(false));
+        let signal_id = signal_hook::flag::register(
+            signal_hook::consts::signal::SIGINT,
+            Arc::clone(&interrupted),
+        )
+        .map_err(|error| format!("register SIGINT flag: {error}"))?;
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread_stop = Arc::clone(&stop);
+        let thread = std::thread::Builder::new()
+            .name("rz0-update-cancellation".to_string())
+            .spawn(move || {
+                while !thread_stop.load(Ordering::Acquire) {
+                    if interrupted.load(Ordering::Acquire) {
+                        controller
+                            .cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+            })
+            .map_err(|error| {
+                signal_hook::low_level::unregister(signal_id);
+                format!("spawn SIGINT cancellation bridge: {error}")
+            })?;
+        Ok(Self {
+            stop,
+            signal_id,
+            thread: Some(thread),
+        })
+    }
+}
+
+#[cfg(unix)]
+impl Drop for InterruptBridge {
+    fn drop(&mut self) {
+        use std::sync::atomic::Ordering;
+        self.stop.store(true, Ordering::Release);
+        signal_hook::low_level::unregister(self.signal_id);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+#[cfg(not(unix))]
+struct InterruptBridge;
+
+#[cfg(not(unix))]
+impl InterruptBridge {
+    fn install(
+        _controller: rz0_cancellation_contract::CancellationController,
+    ) -> Result<Self, String> {
+        Err("interactive update cancellation is not implemented on this platform".to_string())
     }
 }
 
@@ -761,35 +1002,68 @@ fn probe_environment() -> Vec<(String, String)> {
 }
 
 fn read_input(path: &Path) -> Result<UpdaterFindingInput, String> {
-    let metadata =
-        fs::symlink_metadata(path).map_err(|error| format!("inspect updater fixture: {error}"))?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err("updater fixture must be a direct regular file".to_string());
-    }
-    if metadata.len() > MAX_INPUT_BYTES {
-        return Err("updater fixture exceeds the foundation byte ceiling".to_string());
-    }
-    let bytes = fs::read(path).map_err(|error| format!("read updater fixture: {error}"))?;
-    if bytes.len() as u64 > MAX_INPUT_BYTES {
-        return Err("updater fixture exceeds the foundation byte ceiling".to_string());
-    }
+    let bytes = read_bounded_direct_file(path, "updater fixture")?;
     serde_json::from_slice(&bytes).map_err(|error| format!("parse updater fixture: {error}"))
 }
 
 fn read_bounded_bytes(path: &Path) -> Result<Vec<u8>, String> {
-    let metadata =
-        fs::symlink_metadata(path).map_err(|error| format!("inspect manager output: {error}"))?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err("manager output must be a direct regular file".to_string());
+    read_bounded_direct_file(path, "manager output")
+}
+
+fn read_bounded_direct_file(path: &Path, label: &str) -> Result<Vec<u8>, String> {
+    let observed =
+        fs::symlink_metadata(path).map_err(|error| format!("inspect {label}: {error}"))?;
+    if observed.file_type().is_symlink() || !observed.is_file() {
+        return Err(format!("{label} must be a direct regular file"));
     }
-    if metadata.len() > MAX_INPUT_BYTES {
-        return Err("manager output exceeds the foundation byte ceiling".to_string());
+    if observed.len() > MAX_INPUT_BYTES {
+        return Err(format!("{label} exceeds the foundation byte ceiling"));
     }
-    let bytes = fs::read(path).map_err(|error| format!("read manager output: {error}"))?;
-    if bytes.len() as u64 > MAX_INPUT_BYTES {
-        return Err("manager output exceeds the foundation byte ceiling".to_string());
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW);
+    }
+    let mut file = options
+        .open(path)
+        .map_err(|error| format!("open direct {label}: {error}"))?;
+    let opened = file
+        .metadata()
+        .map_err(|error| format!("inspect opened {label}: {error}"))?;
+    if !opened.is_file() || opened.len() != observed.len() || !same_file(&observed, &opened) {
+        return Err(format!("{label} identity changed while opening"));
+    }
+    let mut bytes = Vec::with_capacity(usize::try_from(opened.len()).unwrap_or(0));
+    (&mut file)
+        .take(MAX_INPUT_BYTES.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("read direct {label}: {error}"))?;
+    let final_metadata = file
+        .metadata()
+        .map_err(|error| format!("reinspect opened {label}: {error}"))?;
+    if bytes.len() as u64 != opened.len()
+        || bytes.len() as u64 > MAX_INPUT_BYTES
+        || final_metadata.len() != opened.len()
+        || !same_file(&opened, &final_metadata)
+    {
+        return Err(format!(
+            "{label} changed or exceeded its bound while reading"
+        ));
     }
     Ok(bytes)
+}
+
+#[cfg(unix)]
+fn same_file(left: &fs::Metadata, right: &fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt as _;
+    left.dev() == right.dev() && left.ino() == right.ino()
+}
+
+#[cfg(not(unix))]
+fn same_file(left: &fs::Metadata, right: &fs::Metadata) -> bool {
+    left.len() == right.len()
 }
 
 fn sha256(bytes: &[u8]) -> String {
@@ -884,7 +1158,7 @@ fn render_json(value: &impl Serialize) -> Result<String, String> {
 }
 
 fn usage() -> String {
-    "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n\n--apply performs a fresh availability dry-run, requires an exact action ID and explicit network-write approval, then requires a short-lived exact confirmation phrase. Without --confirm it only prints the challenge. The manager command is direct, bounded, serial, and followed by fresh verification; no sudo/helper is invoked.".to_string()
+    "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n\n--apply performs a fresh availability dry-run, requires an exact action ID and explicit network-write approval, then requires a short-lived exact confirmation phrase. Without --confirm it only prints the challenge. Execution requires a plan-sealed executable identity and a reviewed platform binding, is direct/bounded/serial/cancellable, publishes a canonical external-effect receipt before final journal commit, and performs fresh verification; no sudo/helper is invoked. --recovery-status is read-only and never completes or retries an interrupted manager effect.".to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -964,6 +1238,28 @@ mod tests {
         .expect("serial apply args");
         assert!(all.all);
         assert!(all.action.is_none());
+        let recovery = parse_args(&[
+            "--recovery-status".to_string(),
+            "--transaction".to_string(),
+            "tx.update.example.1700000000".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ])
+        .expect("recovery args");
+        assert!(recovery.recovery_status);
+        assert_eq!(
+            recovery.transaction.as_deref(),
+            Some("tx.update.example.1700000000")
+        );
+        assert!(
+            parse_args(&[
+                "--recovery-status".to_string(),
+                "--transaction".to_string(),
+                "tx.update.example.1700000000".to_string(),
+                "--dry-run".to_string(),
+            ])
+            .is_err()
+        );
         assert!(
             parse_args(&[
                 "--apply".to_string(),
@@ -983,10 +1279,40 @@ mod tests {
     }
 
     #[test]
+    fn post_update_verification_requires_a_valid_plan_with_the_candidate_absent() {
+        let input =
+            read_input(Path::new("tests/fixtures/updater/evidence.json")).expect("updater fixture");
+        let report = classify_updates(&input).expect("finding report");
+        let mut plan = build_update_action_plan(&input, &report).expect("action plan");
+        let finding_id = plan.actions[0].finding_id.clone();
+        assert!(verify_candidate_absent(&plan, &finding_id).is_err());
+        plan.actions
+            .retain(|action| action.finding_id != finding_id);
+        assert!(verify_candidate_absent(&plan, &finding_id).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn interrupt_bridge_installs_and_restores_without_cancelling() {
+        let (controller, token) = rz0_cancellation_contract::cancellation_pair();
+        let bridge = InterruptBridge::install(controller).expect("interrupt bridge");
+        assert_eq!(token.reason(), None);
+        drop(bridge);
+        assert_eq!(token.reason(), None);
+    }
+
+    #[test]
     fn rejects_symlinked_or_unbounded_input_without_collecting() {
         assert!(read_input(Path::new("tests/fixtures/does-not-exist.json")).is_err());
         assert!(
             parse_args(&["--dry-run".to_string(), "--allow-network-read".to_string(),]).is_err()
+        );
+        assert!(
+            parse_args(&[
+                "--transaction".to_string(),
+                "tx.update.example.1700000000".to_string(),
+            ])
+            .is_err()
         );
     }
 }

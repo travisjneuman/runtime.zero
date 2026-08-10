@@ -10,6 +10,20 @@ pub enum ExecutableBindingMechanism {
     ProcHeldDescriptorPath,
     #[cfg(windows)]
     DenyWriteDeleteHandle,
+    #[doc(hidden)]
+    UnsupportedPlatformMarker,
+}
+
+impl ExecutableBindingMechanism {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            Self::ProcHeldDescriptorPath => "proc_held_descriptor_path",
+            #[cfg(windows)]
+            Self::DenyWriteDeleteHandle => "deny_write_delete_handle",
+            Self::UnsupportedPlatformMarker => "unsupported_platform_marker",
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -26,6 +40,14 @@ impl BoundExecutable<'_> {
 
     pub const fn mechanism(&self) -> ExecutableBindingMechanism {
         self.mechanism
+    }
+
+    /// Returns the canonical visible path whose identity was verified before
+    /// this binding was created. A bound process host must ensure its requested
+    /// executable matches this path before substituting the platform launch
+    /// primitive.
+    pub fn verified_path(&self) -> &Path {
+        &self._artifact.canonical_path
     }
 
     pub const fn execution_authorized(&self) -> bool {

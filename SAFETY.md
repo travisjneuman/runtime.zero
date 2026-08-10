@@ -94,8 +94,11 @@ receipt contract binds exact plan, write-set, confirmation-consumption, committe
 journal-head, and registry evidence. The foundation commit coordinator verifies
 those exact documents, stores rollback and pending registry evidence, synchronizes
 the create-new receipt, and atomically publishes canonical registry state last.
-It is not wired to production execution. Every recovery assessment, receipt, and
-coordinator result refuses to authorize automatic mutation. Deterministic test
+The module registry-last coordinator is not wired to production module
+execution. The updater does consume the canonical journal, confirmation, and
+external-manager-effect receipt model; its recovery assessment remains read-only
+and cannot finish a journal. Every recovery assessment, receipt, and coordinator
+result refuses to authorize automatic mutation. Deterministic test
 faults cover every commit boundary. Interrupted final registry publication can
 resume only from exact durable evidence after a new five-minute interactive
 recovery challenge; the recovery function cannot execute plan writes or
@@ -127,9 +130,12 @@ The schema-1 production execution assessment records the exact canonical gate
 set for readiness review but has only a `blocked` decision and requires
 `product_execution_authorized: false`. No test, fixture, signature report, or
 fully populated assessment can authorize product execution through schema 1.
-The opened-artifact identity crate may return a verified same-file handle, but
-it contains no spawn function and is not evidence that platform execution is
-bound to that handle.
+The opened-artifact identity crate returns evidence and a non-authorizing
+platform binding. The core updater consumes the Linux held-descriptor binding
+for direct native ELF managers and revalidates after spawn. That closes only the
+selected executable identity interval; it does not grant trust, confirmation,
+capabilities, isolation, rollback, or release authority. macOS and production
+Windows manager execution remain blocked.
 
 For installed manifests, the loader also verifies explicitly listed files under
 the manifest directory with SHA-256. It rejects absolute paths, traversal,
@@ -183,7 +189,8 @@ complete.
 
 Bare `rz0` may open the local software TUI in an interactive terminal. That
 dashboard performs bounded read-only inventory and may display application and
-package names, versions, ownership-specific uninstall reviews, foundation
+package names, versions, source identities, service/persistence counts,
+ownership-specific uninstall reviews, foundation
 state, store status, module posture, and safety boundaries. Pressing `u` is an
 explicit manager availability query and may read network metadata, but it must
 not apply an update. The TUI must not install, update, uninstall, repair,
@@ -226,13 +233,15 @@ the separate development binary still requires `--include-apps`. Version
 probes require explicit `--probe-versions`; they invoke an exact
 discovered path without a shell, use static version-only arguments, cap captured
 output, and kill the child after two seconds. Script-based probes remain
-disabled. Windows reads standard uninstall views only; macOS enumerates direct `.app`
-directories, reads bounded direct `Info.plist` version metadata, and enumerates
-Homebrew Cellar/Caskroom directories without invoking Homebrew; Linux
-reads only bounded XDG desktop-entry files, honors hidden user overrides, and
-never emits command lines. Symlinked roots and application records fail closed.
-`--redact-paths` replaces path values before sharing. Package-manager
-list/update/install/uninstall commands,
+disabled. Windows reads persisted PATH plus standard uninstall/service registry
+metadata; macOS enumerates direct `.app`, Homebrew/MacPorts, Apple receipt, and launchd
+metadata; Linux reads bounded XDG, direct dpkg/pacman, and systemd metadata.
+Package managers, service controllers, desktop commands, and launch tools are
+not invoked for baseline inventory. Direct metadata reads are bounded and final
+symlinks fail closed; service records do not claim authoritative running state.
+`--redact-paths` replaces path values before sharing. `rz0 report` emits only a
+strict local summary and always keeps external sharing unauthorized; users must
+still review it. Package-manager list/update/install/uninstall commands,
 network access, credentials/sessions/browser profiles/workspaces/backups/unknown
 data, and all writes remain outside the module.
 
@@ -241,10 +250,11 @@ data, and all writes remain outside the module.
 `rz0 updates --apply` is the second current write-capable lane. It is owned by
 the core rather than by executable module code. It must require fresh live
 evidence, one exact planned action (or one-at-a-time interactive serial review),
-an allowlisted absolute manager path, explicit network-read/network-write
-acknowledgement, an initialized private state root, a five-minute exact phrase,
-durable single-use consumption, bounded direct process execution, a journal,
-a receipt, and fresh post-action discovery.
+an allowlisted absolute manager path plus sealed executable SHA-256/size,
+explicit network-read/network-write acknowledgement, an initialized private
+state root, a five-minute exact phrase, durable single-use consumption, a
+supported identity-bound process host, exact write-intent/outcome journal events,
+a canonical external-effect receipt, and fresh post-action discovery.
 
 This lane has strict pre-alpha limits:
 
@@ -252,14 +262,17 @@ This lane has strict pre-alpha limits:
 - no arbitrary executable path or caller-invented manager operation;
 - no automatic retry or parallel update queue;
 - no claim that network flags technically sandbox the process;
-- no claim that an allowlisted path closes executable replacement races;
+- Linux direct native ELF managers use a held `/proc/self/fd` identity; scripts,
+  macOS exact spawn, and Windows race-free containment remain blocked;
+- Unix process groups and SIGINT cancellation are not an OS capability/network
+  sandbox and cannot reverse an external effect;
 - no native rollback; missing rollback requires explicit manual-recovery
   acknowledgement;
-- process failure, timeout, or verification mismatch requires recovery review;
-- Windows execution fails closed while inherited-handle and race-free process
-  containment remain incomplete;
-- the updater-specific journal/receipt path still requires integration with the
-  complete canonical commit/recovery flow and real interruption proof;
+- process failure, timeout, cancellation, or verification mismatch requires
+  recovery review;
+- canonical external-effect receipts publish before final journal commit and
+  `updates --recovery-status` reconciles evidence read-only, but exact approved
+  commit completion, rollback, and real interruption/power-loss proof remain;
 - a locally confirmed manager invocation is not production or release
   authorization.
 
@@ -306,9 +319,10 @@ Only low-risk categories may become eligible for guided quarantine. Credentials/
 ## Current status
 
 The current CLI/TUI includes live installed-software inventory, native system
-monitoring, explicit manager availability checks, and read-only ownership-
-specific uninstall reviews. The CLI also contains the separately confirmed
-manager-update lane defined above. It does **not** provide uninstall execution,
+monitoring, explicit manager availability checks, privacy-reviewed summary
+reports, and shared finding-bound non-executing uninstall reviews/plans. The CLI
+also contains shell-completion output and the separately confirmed manager-
+update lane defined above. It does **not** provide uninstall execution,
 cleanup, module install/activation, quarantine/restore, malware removal,
 persistence, account actions, or remote/third-party module execution.
 

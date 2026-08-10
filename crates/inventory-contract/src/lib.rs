@@ -9,8 +9,11 @@ pub const MAX_INVENTORY_SOURCES: usize = rz0_resource_contract::MAX_INVENTORY_SO
 pub const MAX_INVENTORY_PATH_ENTRIES: usize = rz0_resource_contract::MAX_INVENTORY_PATH_ENTRIES;
 pub const MAX_INVENTORY_TOOL_RECORDS: usize = rz0_resource_contract::MAX_INVENTORY_TOOL_RECORDS;
 pub const MAX_INVENTORY_APP_RECORDS: usize = rz0_resource_contract::MAX_INVENTORY_APP_RECORDS;
+pub const MAX_INVENTORY_SERVICE_RECORDS: usize =
+    rz0_resource_contract::MAX_INVENTORY_SERVICE_RECORDS;
 pub const MAX_INVENTORY_EVENTS: usize = rz0_resource_contract::MAX_INVENTORY_EVENTS;
 pub const MAX_INVENTORY_WARNINGS: usize = rz0_resource_contract::MAX_INVENTORY_WARNINGS;
+pub const MAX_SOFTWARE_IDENTIFIERS_PER_APP: usize = 16;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -28,6 +31,8 @@ pub struct InventoryReport {
     pub path_entries: Vec<PathEntry>,
     pub tools: Vec<ToolRecord>,
     pub apps: Vec<AppRecord>,
+    #[serde(default)]
+    pub services: Vec<ServiceRecord>,
     pub events: Vec<InventoryEvent>,
     pub warnings: Vec<String>,
     pub summary: InventorySummary,
@@ -97,7 +102,29 @@ pub struct AppRecord {
     pub source_id: String,
     pub version: Option<String>,
     pub publisher: Option<String>,
+    #[serde(default)]
+    pub identifiers: Vec<SoftwareIdentifier>,
     pub install_location: Option<String>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SoftwareIdentifier {
+    pub kind: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ServiceRecord {
+    pub id: String,
+    pub name: String,
+    pub source_id: String,
+    pub kind: String,
+    pub scope: String,
+    pub enabled: Option<bool>,
+    pub location: Option<String>,
     pub warnings: Vec<String>,
 }
 
@@ -118,6 +145,8 @@ pub struct InventorySummary {
     pub path_entry_count: usize,
     pub tool_count: usize,
     pub app_count: usize,
+    #[serde(default)]
+    pub service_count: usize,
     pub event_count: usize,
     pub warning_count: usize,
 }
@@ -146,6 +175,7 @@ impl InventoryReport {
             path_entries: Vec::new(),
             tools: Vec::new(),
             apps: Vec::new(),
+            services: Vec::new(),
             events: Vec::new(),
             warnings: Vec::new(),
             summary: InventorySummary {
@@ -154,6 +184,7 @@ impl InventoryReport {
                 path_entry_count: 0,
                 tool_count: 0,
                 app_count: 0,
+                service_count: 0,
                 event_count: 0,
                 warning_count: 0,
             },
@@ -246,6 +277,12 @@ pub fn validate_inventory_report(report: &InventoryReport) -> InventoryValidatio
         report.apps.len(),
         MAX_INVENTORY_APP_RECORDS,
         "apps",
+        &mut errors,
+    );
+    validate_count(
+        report.services.len(),
+        MAX_INVENTORY_SERVICE_RECORDS,
+        "services",
         &mut errors,
     );
     validate_count(
@@ -354,6 +391,35 @@ pub fn validate_inventory_report(report: &InventoryReport) -> InventoryValidatio
                 validate_text(value, field, 256, &mut errors);
             }
         }
+        if app.identifiers.len() > MAX_SOFTWARE_IDENTIFIERS_PER_APP {
+            errors.push("application identifiers exceed the per-record ceiling".to_string());
+        }
+        let mut identifiers = BTreeSet::new();
+        for identifier in app
+            .identifiers
+            .iter()
+            .take(MAX_SOFTWARE_IDENTIFIERS_PER_APP)
+        {
+            if !matches!(
+                identifier.kind.as_str(),
+                "bundle_id"
+                    | "desktop_id"
+                    | "manager_package"
+                    | "package_id"
+                    | "product_code"
+                    | "receipt_id"
+                    | "registry_product_key_digest"
+            ) || identifier.value.trim().is_empty()
+                || identifier.value.len() > 256
+                || identifier.value.chars().any(char::is_control)
+                || !identifiers.insert((&identifier.kind, &identifier.value))
+            {
+                errors.push("application identifier is invalid or duplicated".to_string());
+            }
+        }
+        if app.identifiers.windows(2).any(|pair| pair[0] >= pair[1]) {
+            errors.push("application identifiers must be sorted and unique".to_string());
+        }
         if let Some(path) = &app.install_location {
             validate_text(path, "app.install_location", 2048, &mut errors);
             if report.path_values_redacted && !valid_path_redaction(path) {
@@ -361,6 +427,30 @@ pub fn validate_inventory_report(report: &InventoryReport) -> InventoryValidatio
             }
         }
         validate_warnings(&app.warnings, &mut errors);
+    }
+
+    let mut service_ids = BTreeSet::new();
+    for service in report.services.iter().take(MAX_INVENTORY_SERVICE_RECORDS) {
+        if !valid_inventory_id(&service.id, 100) || !service_ids.insert(service.id.as_str()) {
+            errors.push("service IDs must be valid and unique".to_string());
+        }
+        validate_text(&service.name, "service.name", 240, &mut errors);
+        if !source_ids.contains(service.source_id.as_str()) {
+            errors.push("service source ID is absent".to_string());
+        }
+        if !matches!(service.kind.as_str(), "service" | "persistence") {
+            errors.push("service kind is invalid".to_string());
+        }
+        if !matches!(service.scope.as_str(), "system" | "user") {
+            errors.push("service scope is invalid".to_string());
+        }
+        if let Some(path) = &service.location {
+            validate_text(path, "service.location", 2048, &mut errors);
+            if report.path_values_redacted && !valid_path_redaction(path) {
+                errors.push("redacted service path does not use a canonical token".to_string());
+            }
+        }
+        validate_warnings(&service.warnings, &mut errors);
     }
 
     for event in report.events.iter().take(MAX_INVENTORY_EVENTS) {
@@ -396,7 +486,11 @@ pub fn validate_inventory_report(report: &InventoryReport) -> InventoryValidatio
             .tools
             .iter()
             .any(|tool| tool.executable_path.is_some())
-        || report.apps.iter().any(|app| app.install_location.is_some());
+        || report.apps.iter().any(|app| app.install_location.is_some())
+        || report
+            .services
+            .iter()
+            .any(|service| service.location.is_some());
     if has_paths && !report.path_values_redacted {
         privacy_errors.push("inventory contains unredacted path values".to_string());
     }
@@ -424,6 +518,7 @@ fn summarize(report: &InventoryReport) -> InventorySummary {
         path_entry_count: report.path_entries.len(),
         tool_count: report.tools.len(),
         app_count: report.apps.len(),
+        service_count: report.services.len(),
         event_count: report.events.len(),
         warning_count: total_warnings(report),
     }
@@ -450,6 +545,11 @@ fn total_warnings(report: &InventoryReport) -> usize {
             .apps
             .iter()
             .map(|app| app.warnings.len())
+            .sum::<usize>()
+        + report
+            .services
+            .iter()
+            .map(|service| service.warnings.len())
             .sum::<usize>()
 }
 
@@ -567,6 +667,35 @@ mod tests {
         let validation = validate_inventory_report(&report);
         assert!(validation.valid, "{:?}", validation.errors);
         assert!(validation.private_for_export);
+    }
+
+    #[test]
+    fn redacted_service_locations_are_export_private_but_labels_remain_metadata() {
+        let mut report = report();
+        report.path_values_redacted = true;
+        report.sources.push(InventorySource {
+            id: "service.fixture".to_string(),
+            kind: "filesystem_metadata".to_string(),
+            status: "ok".to_string(),
+            duration_ms: Some(1),
+            read_only: true,
+            warnings: Vec::new(),
+        });
+        report.services.push(ServiceRecord {
+            id: "service.fixture.alpha".to_string(),
+            name: "alpha.service".to_string(),
+            source_id: "service.fixture".to_string(),
+            kind: "service".to_string(),
+            scope: "system".to_string(),
+            enabled: None,
+            location: Some("<redacted:path:0001>".to_string()),
+            warnings: Vec::new(),
+        });
+        report.recalculate_summary();
+        let validation = validate_inventory_report(&report);
+        assert!(validation.valid, "{:?}", validation.errors);
+        assert!(validation.private_for_export);
+        assert_eq!(report.summary.service_count, 1);
     }
 
     #[test]

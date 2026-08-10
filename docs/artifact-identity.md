@@ -11,7 +11,11 @@ or system mutation.
 
 ## Contract
 
-`open_verified_artifact(root, relative_path, expectation)` requires:
+`open_verified_artifact(root, relative_path, expectation)` verifies a receipt-
+bound expected identity. `open_observed_artifact(root, relative_path)` performs
+the same bounded same-handle observation without a caller-supplied digest so a
+live manager probe can seal the observed SHA-256/size into a new plan. Both
+require:
 
 - an existing direct non-symlink/non-reparse directory root;
 - a normalized relative path with no absolute, traversal, URL-like, backslash,
@@ -61,15 +65,21 @@ reports `execution_authorized: false`:
 - macOS and other Unix systems fail closed because `/dev/fd` is not a reliable
   executable primitive and no reviewed handle-to-spawn implementation exists.
 
-Linux and Windows still require adversarial runtime tests integrated with the
-actual contained process host. Same-user filesystem authority, descriptor/handle
-inheritance, platform code-signing, and sandbox policy remain relevant.
+The core updater now consumes this binding in its confirmed execution lane.
+Linux passes the `BoundExecutable` to the process host, which substitutes the
+held-descriptor launch path, serializes its descriptor audit/spawn boundary, and
+revalidates the artifact after spawn. Windows still lacks race-free suspended
+creation/Job assignment and real runtime proof, so core production execution
+remains disabled. Same-user filesystem authority, descriptor/handle inheritance,
+platform code-signing, and sandbox policy remain relevant.
 
 Therefore this crate is evidence for the `executable_identity_pinned` and
 `executable_replacement_race_closed` production gates, not proof that those gates
 are complete. No production execution assessment should mark either gate proven
 until the verified handle is bound to the actual platform execution primitive
-and adversarial replacement tests pass.
+and adversarial replacement tests pass. Linux has implementation evidence for
+the binding, but not the complete production isolation/runtime matrix; macOS and
+Windows remain incomplete.
 
 See [`module-process-protocol.md`](module-process-protocol.md),
 [`module-trust-and-execution.md`](module-trust-and-execution.md), and

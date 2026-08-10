@@ -22,6 +22,8 @@ rz0 updates --dry-run --manager homebrew-formula \
   --manager-output /tmp/homebrew-outdated.json \
   --executable /opt/homebrew/bin/brew --plan --queue --format json
 
+rz0 updates --recovery-status --transaction <exact-transaction-id>
+
 # After reviewing the challenge emitted by --apply without --confirm:
 rz0 updates --apply --probe --manager homebrew-formula \
   --executable /opt/homebrew/bin/brew --allow-network-read \
@@ -36,10 +38,13 @@ are ordered, individually identified, and pause on failure, drift, cancellation,
 or recovery requirements. Missing installed/manager evidence or an exact
 absolute manager executable remains blocked. The core additionally exposes
 explicit `rz0 updates --apply` and interactive serial `--all` lanes. They require
-live evidence, an allowlisted manager path, explicit network-write approval,
-an initialized private store, an exact short-lived confirmation, and a manual-
-recovery acknowledgement when rollback is not proven. The direct manager
-process is bounded, journaled, receipt-backed, and followed by fresh evidence
+live evidence, an allowlisted manager artifact whose exact identity is sealed
+into the plan, explicit network-write approval, an initialized private store,
+an exact short-lived confirmation, and a manual-recovery acknowledgement when
+rollback is not proven. Linux launches through the held executable descriptor;
+macOS/Windows fail closed where exact production binding is unavailable. The
+direct process is cancellable, bounded, journaled with exact write intent and
+outcome, backed by a canonical external-effect receipt, and followed by fresh
 verification; no sudo/helper or arbitrary shell path is used.
 
 The module includes bounded, locale-reviewed parser slices for Homebrew JSON,
@@ -52,16 +57,17 @@ A probe specification is not production runtime evidence.
 
 The core apply lane is pre-alpha rather than a supported module lifecycle:
 
-- it allowlists an absolute manager path but does not yet bind the
-  opened-artifact lease through the actual spawn;
+- Linux binds and revalidates a direct native ELF manager through the held
+  `/proc/self/fd`; script/interpreter chains remain blocked; macOS lacks a reviewed exact primitive and Windows lacks
+  complete handle-to-image/Job Object containment;
 - network read/write flags record explicit intent but do not create an OS
   network sandbox;
-- Unix process groups and bounded output are not a capability sandbox;
-- Windows production execution fails closed;
-- native rollback, complete cancellation, and platform power-loss recovery are
-  missing;
-- updater-specific receipt publication still needs integration with the full
-  canonical commit/recovery coordinator;
+- Unix process groups, bounded output, and SIGINT cancellation are not a
+  capability sandbox and do not reverse an external effect;
+- native rollback, full boundary-by-boundary cancellation, exact recovery
+  completion, and platform power-loss proof are missing;
+- read-only recovery status can reconcile journal/receipt evidence but cannot
+  mutate, retry, repair, or finish a commit;
 - no real update on a normal host is release evidence.
 
 Third-party module execution, uninstall/cleanup mutation, module lifecycle, and

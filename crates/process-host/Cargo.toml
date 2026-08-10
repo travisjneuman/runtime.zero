@@ -13,7 +13,10 @@ default = []
 test-support = []
 
 [dependencies]
+rz0-artifact-identity = { version = "0.1.0", path = "../artifact-identity" }
+rz0-cancellation-contract = { version = "0.1.0", path = "../cancellation-contract" }
 rz0-error-contract = { version = "0.1.0", path = "../error-contract" }
+rz0-resource-contract = { version = "0.1.0", path = "../resource-contract" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

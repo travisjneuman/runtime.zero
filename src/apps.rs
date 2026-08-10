@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as FmtWrite;
+use std::path::Path;
 
-use rz0_inventory_contract::AppRecord;
+use rz0_inventory_contract::{AppRecord, SoftwareIdentifier};
 use rz0_module_inventory::{InventoryOptions, collect_inventory};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -20,6 +21,7 @@ pub struct AppCatalog {
     pub platform: &'static str,
     pub source_count: usize,
     pub app_count: usize,
+    pub service_count: usize,
     pub identity_group_count: usize,
     pub identity_groups: Vec<SoftwareIdentityGroup>,
     pub apps: Vec<InstalledSoftware>,
@@ -32,6 +34,7 @@ pub struct InstalledSoftware {
     pub name: String,
     pub version: Option<String>,
     pub source_id: String,
+    pub identifiers: Vec<SoftwareIdentifier>,
     pub identity_group_id: String,
     pub identity_confidence: IdentityConfidence,
     pub kind: SoftwareKind,
@@ -223,20 +226,21 @@ impl SoftwareView {
     }
 
     pub fn matches(&self, app: &InstalledSoftware) -> bool {
-        self.filter.matches(app)
-            && (self.query.is_empty()
-                || app
-                    .name
-                    .to_ascii_lowercase()
-                    .contains(&self.query.to_ascii_lowercase())
-                || app
-                    .id
-                    .to_ascii_lowercase()
-                    .contains(&self.query.to_ascii_lowercase())
-                || app
-                    .source_id
-                    .to_ascii_lowercase()
-                    .contains(&self.query.to_ascii_lowercase()))
+        if !self.filter.matches(app) {
+            return false;
+        }
+        if self.query.is_empty() {
+            return true;
+        }
+
+        let query = self.query.to_ascii_lowercase();
+        app.name.to_ascii_lowercase().contains(&query)
+            || app.id.to_ascii_lowercase().contains(&query)
+            || app.source_id.to_ascii_lowercase().contains(&query)
+            || app.identifiers.iter().any(|identifier| {
+                identifier.kind.to_ascii_lowercase().contains(&query)
+                    || identifier.value.to_ascii_lowercase().contains(&query)
+            })
     }
 
     pub fn compare(
@@ -291,6 +295,8 @@ pub struct UninstallReview {
     pub confirmation_required: bool,
     pub rollback_required: bool,
     pub product_execution_authorized: bool,
+    pub finding_report: rz0_finding_contract::FindingReport,
+    pub action_plan: Option<rz0_action_plan::ActionPlan>,
     pub next_step: String,
 }
 
@@ -313,6 +319,7 @@ pub fn collect_app_catalog() -> Result<AppCatalog, String> {
         .sources
         .iter()
         .flat_map(|source| source.warnings.iter().cloned())
+        .chain(report.warnings.iter().cloned())
         .take(rz0_resource_contract::MAX_INVENTORY_WARNINGS)
         .collect::<Vec<_>>();
     Ok(AppCatalog {
@@ -323,6 +330,7 @@ pub fn collect_app_catalog() -> Result<AppCatalog, String> {
         platform: std::env::consts::OS,
         source_count: report.summary.source_count,
         app_count: apps.len(),
+        service_count: report.summary.service_count,
         identity_group_count: identity_groups.len(),
         identity_groups,
         apps,
@@ -342,13 +350,39 @@ fn classify_app(app: &AppRecord) -> InstalledSoftware {
             InstallScope::Manager,
             UninstallOption::ManagerReview,
         ),
-        _ => classify_bundle(app.install_location.as_deref()),
+        "macos.macports.packages" => (
+            SoftwareKind::PlatformPackage,
+            InstallScope::Manager,
+            UninstallOption::ManagerReview,
+        ),
+        "macos.package_receipts" => (
+            SoftwareKind::PlatformPackage,
+            InstallScope::Unknown,
+            UninstallOption::Unsupported,
+        ),
+        "linux.dpkg.packages" | "linux.pacman.packages" => (
+            SoftwareKind::PlatformPackage,
+            InstallScope::Manager,
+            UninstallOption::ManagerReview,
+        ),
+        "windows.installed_apps" | "linux.desktop_entries" => (
+            SoftwareKind::PlatformPackage,
+            InstallScope::Unknown,
+            UninstallOption::Unsupported,
+        ),
+        "macos.application_bundles" => classify_bundle(app.install_location.as_deref()),
+        _ => (
+            SoftwareKind::PlatformPackage,
+            InstallScope::Unknown,
+            UninstallOption::Unsupported,
+        ),
     };
     InstalledSoftware {
         id: app.id.clone(),
         name: app.name.clone(),
         version: app.version.clone(),
         source_id: app.source_id.clone(),
+        identifiers: app.identifiers.clone(),
         identity_group_id: String::new(),
         identity_confidence: IdentityConfidence::ExactEvidence,
         kind,
@@ -358,12 +392,67 @@ fn classify_app(app: &AppRecord) -> InstalledSoftware {
 }
 
 fn assign_identity_groups(apps: &mut [InstalledSoftware]) -> Vec<SoftwareIdentityGroup> {
-    let mut by_key = BTreeMap::<String, Vec<usize>>::new();
+    let mut parents = (0..apps.len()).collect::<Vec<_>>();
+    let mut identifier_counts = BTreeMap::<String, usize>::new();
+    let mut identifier_owner = BTreeMap::<String, usize>::new();
+    let mut identifier_edges = Vec::new();
     for (index, app) in apps.iter().enumerate() {
-        by_key.entry(identity_key(app)).or_default().push(index);
+        for identifier in &app.identifiers {
+            let key = software_identifier_key(identifier);
+            *identifier_counts.entry(key.clone()).or_default() += 1;
+            if let Some(owner) = identifier_owner.insert(key, index) {
+                union_groups(&mut parents, owner, index);
+                identifier_edges.push((owner, index));
+            }
+        }
     }
-    let mut groups = Vec::with_capacity(by_key.len());
-    for (key, indexes) in by_key {
+
+    // Exact identifiers are reconciled first. Name-only joins are retained as
+    // explicit heuristic evidence only when exact identity did not already
+    // connect the records.
+    let mut name_owner = BTreeMap::<String, usize>::new();
+    let mut heuristic_edges = Vec::new();
+    for (index, app) in apps.iter().enumerate() {
+        let key = normalized_name_key(app);
+        if let Some(owner) = name_owner.insert(key, index)
+            && find_group(&mut parents, owner) != find_group(&mut parents, index)
+        {
+            union_groups(&mut parents, owner, index);
+            heuristic_edges.push((owner, index));
+        }
+    }
+
+    let mut by_root = BTreeMap::<usize, Vec<usize>>::new();
+    for index in 0..apps.len() {
+        let root = find_group(&mut parents, index);
+        by_root.entry(root).or_default().push(index);
+    }
+
+    let mut groups = Vec::with_capacity(by_root.len());
+    for indexes in by_root.into_values() {
+        let index_set = indexes.iter().copied().collect::<BTreeSet<_>>();
+        let shared_identifiers = indexes
+            .iter()
+            .flat_map(|index| apps[*index].identifiers.iter())
+            .map(software_identifier_key)
+            .filter(|key| identifier_counts.get(key).copied().unwrap_or_default() > 1)
+            .collect::<BTreeSet<_>>();
+        let all_identifiers = indexes
+            .iter()
+            .flat_map(|index| apps[*index].identifiers.iter())
+            .map(software_identifier_key)
+            .collect::<BTreeSet<_>>();
+        let key = shared_identifiers
+            .first()
+            .or_else(|| {
+                (indexes.len() == 1)
+                    .then(|| all_identifiers.first())
+                    .flatten()
+            })
+            .map_or_else(
+                || format!("name:{}", normalized_name_key(&apps[indexes[0]])),
+                |identifier| format!("identifier:{identifier}"),
+            );
         let group_id = identity_group_id(&key);
         let evidence_ids = indexes
             .iter()
@@ -384,10 +473,18 @@ fn assign_identity_groups(apps: &mut [InstalledSoftware]) -> Vec<SoftwareIdentit
             .into_iter()
             .collect::<Vec<_>>();
         let version_disagreement = versions.len() > 1;
+        let exact_link = identifier_edges
+            .iter()
+            .any(|(left, right)| index_set.contains(left) && index_set.contains(right));
+        let heuristic_link = heuristic_edges
+            .iter()
+            .any(|(left, right)| index_set.contains(left) && index_set.contains(right));
         let confidence = if version_disagreement {
             IdentityConfidence::Disputed
-        } else if source_ids.len() > 1 {
+        } else if heuristic_link {
             IdentityConfidence::Heuristic
+        } else if exact_link {
+            IdentityConfidence::ExactEvidence
         } else if evidence_ids.len() > 1 {
             IdentityConfidence::Corroborated
         } else {
@@ -411,6 +508,26 @@ fn assign_identity_groups(apps: &mut [InstalledSoftware]) -> Vec<SoftwareIdentit
     groups
 }
 
+fn find_group(parents: &mut [usize], index: usize) -> usize {
+    if parents[index] != index {
+        parents[index] = find_group(parents, parents[index]);
+    }
+    parents[index]
+}
+
+fn union_groups(parents: &mut [usize], left: usize, right: usize) {
+    let left = find_group(parents, left);
+    let right = find_group(parents, right);
+    if left != right {
+        let (first, second) = if left < right {
+            (left, right)
+        } else {
+            (right, left)
+        };
+        parents[second] = first;
+    }
+}
+
 pub fn software_name_key(value: &str) -> String {
     value
         .chars()
@@ -419,12 +536,16 @@ pub fn software_name_key(value: &str) -> String {
         .collect::<String>()
 }
 
-fn identity_key(app: &InstalledSoftware) -> String {
+fn normalized_name_key(app: &InstalledSoftware) -> String {
     let mut normalized = software_name_key(&app.name);
     if normalized.len() < 3 {
         normalized = app.id.clone();
     }
     normalized
+}
+
+fn software_identifier_key(identifier: &SoftwareIdentifier) -> String {
+    format!("{}:{}", identifier.kind, identifier.value.to_lowercase())
 }
 
 fn identity_group_id(key: &str) -> String {
@@ -516,11 +637,35 @@ pub fn uninstall_command(args: &[String]) -> (ExitCode, String, String) {
         );
     }
     let mut app_id = None;
+    let mut executable = None;
     let mut format = AppOutputFormat::Text;
     let mut index = 1usize;
     while index < args.len() {
         match args[index].as_str() {
             "--json" => format = AppOutputFormat::Json,
+            "--executable" => {
+                let Some(value) = args.get(index + 1) else {
+                    return (
+                        ExitCode::Usage,
+                        String::new(),
+                        format!(
+                            "uninstall requires an exact executable path\n\n{}",
+                            uninstall_usage()
+                        ),
+                    );
+                };
+                if executable.replace(value.clone()).is_some() {
+                    return (
+                        ExitCode::Usage,
+                        String::new(),
+                        format!(
+                            "uninstall accepts --executable only once\n\n{}",
+                            uninstall_usage()
+                        ),
+                    );
+                }
+                index += 1;
+            }
             "--format" => {
                 let Some(value) = args.get(index + 1).map(String::as_str) else {
                     return (
@@ -584,7 +729,18 @@ pub fn uninstall_command(args: &[String]) -> (ExitCode, String, String) {
             format!("installed software id '{app_id}' was not found\n"),
         );
     };
-    let review = build_uninstall_review(app);
+    let (finding_report, action_plan) = match shared_uninstall_evidence(app, executable.as_deref())
+    {
+        Ok(evidence) => evidence,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("shared uninstall planning failed closed: {error}\n"),
+            );
+        }
+    };
+    let review = build_uninstall_review(app, finding_report, action_plan);
     match format {
         AppOutputFormat::Text => (ExitCode::Ok, render_uninstall_text(&review), String::new()),
         AppOutputFormat::Json => match serde_json::to_string_pretty(&review) {
@@ -594,7 +750,122 @@ pub fn uninstall_command(args: &[String]) -> (ExitCode, String, String) {
     }
 }
 
-fn build_uninstall_review(app: &InstalledSoftware) -> UninstallReview {
+fn shared_uninstall_evidence(
+    app: &InstalledSoftware,
+    executable: Option<&str>,
+) -> Result<
+    (
+        rz0_finding_contract::FindingReport,
+        Option<rz0_action_plan::ActionPlan>,
+    ),
+    String,
+> {
+    let manager = match app.source_id.as_str() {
+        "macos.macports.packages" => Some((
+            "macports",
+            vec!["uninstall".to_string(), app.name.clone()],
+            true,
+        )),
+        "linux.dpkg.packages" => Some(("apt", vec!["remove".to_string(), app.name.clone()], true)),
+        "linux.pacman.packages" => Some(("pacman", vec!["-R".to_string(), app.name.clone()], true)),
+        _ => match app.kind {
+            SoftwareKind::HomebrewFormula => Some((
+                "homebrew",
+                vec!["uninstall".to_string(), app.name.clone()],
+                false,
+            )),
+            SoftwareKind::HomebrewCask => Some((
+                "homebrew",
+                vec![
+                    "uninstall".to_string(),
+                    "--cask".to_string(),
+                    app.name.clone(),
+                ],
+                false,
+            )),
+            SoftwareKind::ApplicationBundle | SoftwareKind::PlatformPackage => None,
+        },
+    };
+    if executable.is_some() && manager.is_none() {
+        return Err(
+            "--executable is accepted only for an ownership-matched manager uninstall review"
+                .to_string(),
+        );
+    }
+    let executable_identity = match (manager.as_ref(), executable) {
+        (Some((manager, _, _)), Some(executable)) => {
+            if !Path::new(executable).is_absolute()
+                || !rz0_module_uninstall::manager_executable_allowed(
+                    manager,
+                    std::env::consts::OS,
+                    executable,
+                )
+            {
+                return Err(
+                    "uninstall executable is not the exact allowlisted manager path".to_string(),
+                );
+            }
+            Some(crate::update_execution::observe_manager_executable(
+                Path::new(executable),
+            )?)
+        }
+        _ => None,
+    };
+    let manager_record_present = manager.is_some();
+    let requires_elevation = manager
+        .as_ref()
+        .is_some_and(|(_, _, requires_elevation)| *requires_elevation);
+    let record = rz0_module_uninstall::UninstallRecord {
+        finding_id: format!("uninstall.{}", app.id),
+        subject_reference: format!("software:{}", app.id),
+        installed: true,
+        manager_record_present,
+        ownership: match app.uninstall_option {
+            UninstallOption::ManagerReview => rz0_module_uninstall::UninstallOwnership::Manager,
+            UninstallOption::Protected => rz0_module_uninstall::UninstallOwnership::System,
+            UninstallOption::QuarantineReview => rz0_module_uninstall::UninstallOwnership::User,
+            UninstallOption::Unsupported => rz0_module_uninstall::UninstallOwnership::Unknown,
+        },
+        manager: manager
+            .as_ref()
+            .map(|(manager, _, _)| (*manager).to_string()),
+        executable: executable.map(str::to_string),
+        executable_sha256: executable_identity
+            .as_ref()
+            .map(|identity| identity.sha256.clone()),
+        executable_size_bytes: executable_identity.map(|identity| identity.size_bytes),
+        arguments: manager.map_or_else(Vec::new, |(_, arguments, _)| arguments),
+        requires_elevation,
+        rollback_supported: false,
+    };
+    let evidence_bytes = serde_json::to_vec(&record)
+        .map_err(|error| format!("serialize uninstall catalog evidence: {error}"))?;
+    let evidence_sha256 = format!("{:x}", Sha256::digest(&evidence_bytes));
+    let input = rz0_module_uninstall::UninstallFindingInput {
+        schema_version: 1,
+        contract: rz0_module_uninstall::INPUT_CONTRACT.to_string(),
+        platform: std::env::consts::OS.to_string(),
+        input_evidence_sha256: evidence_sha256.clone(),
+        source_id: app.source_id.clone(),
+        source_evidence_sha256: evidence_sha256,
+        records: vec![record],
+    };
+    let report = rz0_module_uninstall::classify_uninstalls(&input)?;
+    let plan = if manager_record_present {
+        Some(rz0_module_uninstall::build_uninstall_action_plan(
+            &input, &report,
+        )?)
+    } else {
+        None
+    };
+    Ok((report, plan))
+}
+
+fn build_uninstall_review(
+    app: &InstalledSoftware,
+    finding_report: rz0_finding_contract::FindingReport,
+    action_plan: Option<rz0_action_plan::ActionPlan>,
+) -> UninstallReview {
     let (status, confirmation_required, rollback_required, next_step) =
         match app.uninstall_option {
             UninstallOption::Protected => (
@@ -635,6 +906,8 @@ fn build_uninstall_review(app: &InstalledSoftware) -> UninstallReview {
         confirmation_required,
         rollback_required,
         product_execution_authorized: false,
+        finding_report,
+        action_plan,
         next_step,
     }
 }
@@ -661,12 +934,26 @@ fn render_catalog_text(catalog: &AppCatalog) -> String {
 }
 
 fn render_uninstall_text(review: &UninstallReview) -> String {
+    let action = review
+        .action_plan
+        .as_ref()
+        .and_then(|plan| plan.actions.first());
     format!(
-        "runtime.zero uninstall review\n\napp: {}\nid: {}\nstatus: {}\noption: {:?}\nconfirmation_required: {}\nrollback_required: {}\nwrites_attempted: no\nexecution_authorized: no\n\n{}\n",
+        "runtime.zero uninstall review\n\napp: {}\nid: {}\nstatus: {}\noption: {:?}\nfinding_report_id: {}\naction_plan_id: {}\naction_disposition: {}\nconfirmation_required: {}\nrollback_required: {}\nwrites_attempted: no\nexecution_authorized: no\n\n{}\n",
         review.app_name,
         review.app_id,
         review.status,
         review.option,
+        review.finding_report.report_id,
+        review
+            .action_plan
+            .as_ref()
+            .map_or("none", |plan| plan.plan_id.as_str()),
+        action.map_or("none", |action| match action.disposition {
+            rz0_action_plan::ActionDisposition::Planned => "planned",
+            rz0_action_plan::ActionDisposition::Blocked => "blocked",
+            rz0_action_plan::ActionDisposition::Unsupported => "unsupported",
+        }),
         review.confirmation_required,
         review.rollback_required,
         review.next_step
@@ -703,7 +990,7 @@ fn apps_usage() -> String {
 }
 
 fn uninstall_usage() -> String {
-    "Usage: rz0 uninstall plan <installed-software-id> [--format text|json]\n\nBuilds a read-only uninstall review. It does not remove software.\n".to_string()
+    "Usage: rz0 uninstall plan <installed-software-id> [--executable <absolute-manager-path>] [--format text|json]\n\nBuilds a live finding-bound, read-only uninstall review. An exact manager executable may make the dry-run manager action representable, but no uninstall or filesystem mutation is authorized.\n".to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -724,6 +1011,7 @@ mod tests {
             source_id: "macos.application_bundles".to_string(),
             version: None,
             publisher: None,
+            identifiers: Vec::new(),
             install_location: Some("/System/Applications/System App.app".to_string()),
             warnings: Vec::new(),
         };
@@ -760,13 +1048,15 @@ mod tests {
             name: "Local App".to_string(),
             version: None,
             source_id: "macos.application_bundles".to_string(),
+            identifiers: Vec::new(),
             identity_group_id: "software.fixture".to_string(),
             identity_confidence: IdentityConfidence::ExactEvidence,
             kind: SoftwareKind::ApplicationBundle,
             scope: InstallScope::Local,
             uninstall_option: UninstallOption::QuarantineReview,
         };
-        let review = build_uninstall_review(&app);
+        let (report, plan) = shared_uninstall_evidence(&app, None).expect("shared evidence");
+        let review = build_uninstall_review(&app, report, plan);
         assert_eq!(review.status, "review_available");
         assert!(!review.product_execution_authorized);
         assert!(!review.writes_attempted);
@@ -781,6 +1071,7 @@ mod tests {
                 source_id: "macos.application_bundles".to_string(),
                 version: Some("1.0".to_string()),
                 publisher: None,
+                identifiers: Vec::new(),
                 install_location: Some("/Applications/Alpha Tool.app".to_string()),
                 warnings: Vec::new(),
             }),
@@ -790,6 +1081,7 @@ mod tests {
                 source_id: "macos.homebrew.casks".to_string(),
                 version: Some("2.0".to_string()),
                 publisher: Some("Homebrew".to_string()),
+                identifiers: Vec::new(),
                 install_location: Some("/opt/homebrew/Caskroom/alpha".to_string()),
                 warnings: Vec::new(),
             }),
@@ -804,6 +1096,105 @@ mod tests {
     }
 
     #[test]
+    fn shared_source_identifier_overrides_display_name_aliases() {
+        let identifier = SoftwareIdentifier {
+            kind: "bundle_id".to_string(),
+            value: "dev.example.alpha".to_string(),
+        };
+        let mut apps = vec![
+            InstalledSoftware {
+                id: "macos.app.alpha".to_string(),
+                name: "Alpha".to_string(),
+                version: Some("1.0".to_string()),
+                source_id: "macos.application_bundles".to_string(),
+                identifiers: vec![identifier.clone()],
+                identity_group_id: String::new(),
+                identity_confidence: IdentityConfidence::Heuristic,
+                kind: SoftwareKind::ApplicationBundle,
+                scope: InstallScope::Local,
+                uninstall_option: UninstallOption::QuarantineReview,
+            },
+            InstalledSoftware {
+                id: "macos.receipt.alpha".to_string(),
+                name: "Vendor Alpha Suite".to_string(),
+                version: Some("1.0".to_string()),
+                source_id: "macos.package_receipts".to_string(),
+                identifiers: vec![identifier],
+                identity_group_id: String::new(),
+                identity_confidence: IdentityConfidence::Heuristic,
+                kind: SoftwareKind::PlatformPackage,
+                scope: InstallScope::Unknown,
+                uninstall_option: UninstallOption::Unsupported,
+            },
+        ];
+        let groups = assign_identity_groups(&mut apps);
+        assert_eq!(groups.len(), 1);
+        assert!(
+            groups[0]
+                .normalized_name
+                .starts_with("identifier:bundle_id:")
+        );
+        assert_eq!(groups[0].confidence, IdentityConfidence::ExactEvidence);
+        assert_eq!(groups[0].source_ids.len(), 2);
+        assert_eq!(apps[0].identity_group_id, apps[1].identity_group_id);
+    }
+
+    #[test]
+    fn identity_reconciliation_is_transitive_and_stabilizes_identified_singletons() {
+        let bundle = SoftwareIdentifier {
+            kind: "bundle_id".to_string(),
+            value: "dev.example.alpha".to_string(),
+        };
+        let package = SoftwareIdentifier {
+            kind: "manager_package".to_string(),
+            value: "homebrew:alpha".to_string(),
+        };
+        let template = InstalledSoftware {
+            id: "macos.app.alpha".to_string(),
+            name: "Alpha".to_string(),
+            version: Some("1.0".to_string()),
+            source_id: "macos.application_bundles".to_string(),
+            identifiers: vec![bundle.clone(), package.clone()],
+            identity_group_id: String::new(),
+            identity_confidence: IdentityConfidence::Heuristic,
+            kind: SoftwareKind::ApplicationBundle,
+            scope: InstallScope::Local,
+            uninstall_option: UninstallOption::QuarantineReview,
+        };
+        let mut apps = vec![
+            template.clone(),
+            InstalledSoftware {
+                id: "macos.package.alpha".to_string(),
+                name: "Renamed Alpha".to_string(),
+                source_id: "macos.homebrew.casks".to_string(),
+                identifiers: vec![package],
+                ..template.clone()
+            },
+            InstalledSoftware {
+                id: "macos.receipt.alpha".to_string(),
+                name: "Vendor Suite".to_string(),
+                source_id: "macos.package_receipts".to_string(),
+                identifiers: vec![bundle],
+                ..template.clone()
+            },
+        ];
+        let groups = assign_identity_groups(&mut apps);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].evidence_ids.len(), 3);
+        assert_eq!(groups[0].confidence, IdentityConfidence::ExactEvidence);
+
+        let mut singleton = vec![InstalledSoftware {
+            id: "macos.app.changed-location".to_string(),
+            ..template
+        }];
+        let first = assign_identity_groups(&mut singleton)[0].group_id.clone();
+        singleton[0].id = "macos.app.other-location".to_string();
+        singleton[0].name = "Alpha Renamed".to_string();
+        let second = assign_identity_groups(&mut singleton)[0].group_id.clone();
+        assert_eq!(first, second);
+    }
+
+    #[test]
     fn software_view_matches_source_and_sorts_deterministically() {
         let mut view = SoftwareView::default();
         view.push_query('b');
@@ -813,6 +1204,10 @@ mod tests {
             name: "Brew Tool".to_string(),
             version: Some("2.0".to_string()),
             source_id: "macos.homebrew.formulae".to_string(),
+            identifiers: vec![SoftwareIdentifier {
+                kind: "homebrew_formula".to_string(),
+                value: "fixture-tool".to_string(),
+            }],
             identity_group_id: "software.brew".to_string(),
             identity_confidence: IdentityConfidence::ExactEvidence,
             kind: SoftwareKind::HomebrewFormula,
@@ -824,12 +1219,19 @@ mod tests {
             name: "Other App".to_string(),
             version: Some("1.0".to_string()),
             source_id: "macos.application_bundles".to_string(),
+            identifiers: Vec::new(),
             identity_group_id: "software.other".to_string(),
             identity_confidence: IdentityConfidence::ExactEvidence,
             kind: SoftwareKind::ApplicationBundle,
             scope: InstallScope::Local,
             uninstall_option: UninstallOption::QuarantineReview,
         };
+        assert!(view.matches(&brew));
+        assert!(!view.matches(&app));
+        view.clear_query();
+        for value in "fixture-tool".chars() {
+            view.push_query(value);
+        }
         assert!(view.matches(&brew));
         assert!(!view.matches(&app));
         assert_eq!(view.compare(&brew, &app), std::cmp::Ordering::Less);

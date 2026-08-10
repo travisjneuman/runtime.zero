@@ -105,13 +105,13 @@ Every module must reach the same lifecycle bar on every supported platform:
 
 | Module | Windows | macOS | Linux | Current maturity |
 | --- | --- | --- | --- | --- |
-| Inventory/environment | Required | Required | Required | Built-in read-only catalog/scan; macOS apps + Homebrew live, broader package/service/persistence and runtime parity incomplete |
-| Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, and explicit Unix manager apply lane with confirmation/journal/receipt/verification; opened-identity spawn binding, canonical receipt reconciliation, OS capability/network enforcement, native rollback/recovery, Windows containment, manager proof, and full runtime matrix incomplete |
-| Uninstall | Required | Required | Required | Live path-free macOS ownership reviews + synthetic classifier/transaction fixtures; no execution |
+| Inventory/environment | Required | Required | Required | Built-in catalog/scan with source IDs plus bounded macOS receipts/MacPorts/launchd, Linux dpkg/pacman/systemd, and Windows registry/service metadata; broader source depth and runtime parity incomplete |
+| Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, Linux native-ELF identity-bound execution, SIGINT cancellation, exact journal evidence, canonical external-effect receipts, and read-only recovery status; macOS/Windows binding, OS capability/network enforcement, rollback/recovery completion, manager proof, and full runtime matrix incomplete |
+| Uninstall | Required | Required | Required | Live catalog records become shared findings and optional sealed dry-run manager plans; no uninstall/elevation/quarantine execution |
 | Leftovers | Required | Required | Required | Synthetic protected-data/exact-runtime classifier + quarantine fixtures only |
 | Cache management | Required | Required | Required | Synthetic ownership/exact-evidence classifier only |
 | Security/integrity | Required | Required | Required | Synthetic exact-digest report-only classifier only |
-| Report/export | Required | Required | Required | Strict summary-only foundation contract and stdin/stdout source module; lifecycle/core/final-artifact runtime proof open |
+| Report/export | Required | Required | Required | Integrated summary-only `rz0 report`, shared strict contract, and stdin/stdout source module; signed lifecycle/final-artifact runtime proof open |
 
 ## Required lifecycle for every module-platform cell
 
@@ -169,34 +169,39 @@ parallel once its shared foundation dependency is stable.
    redaction, immutable offline/default-deny schema-1 configuration, config-
    digest-bound private diagnostics, and short-lived single-use plan-confirmation
    contracts exist. A final-artifact performance schema freezes one-second p95,
-   two-second maximum, 64 MiB RSS, and 2 MiB output ceilings for six foundation
-   commands; future configurable schemas, remaining adapters, target runtime
+   two-second maximum, 64 MiB RSS, and 2 MiB output ceilings for nine foundation
+   operations (version, doctor, scan, apps, monitor, report, and dashboard
+   variants); future configurable schemas, remaining adapters, target runtime
    measurements, and narrower optimization goals must consume shared policies.
 3. Close package and executable identity races; the same-open-handle artifact
    identity primitive, Unix no-follow traversal, and compile-checked Windows NT
    root-relative state operations exist. Borrow-scoped Linux `/proc` and Windows
-   deny-replacement spawn leases also exist, while macOS fails closed. Integration
-   into the contained host, adversarial runtime proof, Windows ACL proof, and an
-   exact macOS spawn primitive remain. Guarded Linux/Windows test-host builds now
-   retain the verified executable lease through spawn, but this is not production
-   runtime proof. Implement production signatures, key policy,
+   deny-replacement spawn leases also exist, while macOS fails closed. The core
+   updater consumes the Linux lease for direct native ELF managers; adversarial
+   runtime/containment proof, Windows binding/ACL proof, script/interpreter
+   identity, and an exact macOS primitive remain. Guarded Windows test-host
+   builds retain their lease through spawn, but this is not production proof. Implement production signatures, key policy,
    provenance, freshness, transparency, and revocation.
 4. Implement platform process/handle/tree containment, capability enforcement,
    sandbox/elevation policy, and network policy. Shared bounded capture and Unix
-   descriptor auditing now live in the process-host foundation; Windows handle
-   audit explicitly fails closed, and Job Object support remains guarded-test
-   compile evidence. A one-atomic cancellation/deadline primitive drives guarded
-   timeout polling; production host propagation and teardown evidence remain.
+   descriptor auditing now live in the process-host foundation; the Unix mutating
+   boundary is serialized and caller cancellation tears down/reaps its process
+   group. Windows handle audit explicitly fails closed, and Job Object support
+   remains guarded-test compile evidence. Hostile session escape, full boundary
+   propagation, OS sandbox/capability/network policy, and target runtime proof
+   remain.
 5. Implement crash-safe staging, journals, receipts, atomic state, quarantine,
    rollback, idempotency, and interrupted recovery. The bounded hash-chained
    state machine now has exclusive immutable snapshot publication/recovery,
    opened-parent operations, a canonical registry contract, durable single-use
    confirmation, exact commit receipts, rollback copies, registry-last atomic
    coordination, idempotent final-state recognition, and non-authorizing commit
-   recovery assessment. Eight-boundary deterministic fault injection and an
-   exact fresh-confirmation path for interrupted final registry publication now
-   exist. Windows owner/DACL and flush proof, rollback execution, cancellation
-   through write boundaries, and platform power-loss evidence remain.
+   recovery assessment. Canonical external-manager effect receipts now publish
+   before final updater commit and support deterministic read-only reconciliation.
+   Eight-boundary deterministic fault injection and an exact fresh-confirmation
+   path for interrupted final registry publication also exist. Updater final-
+   journal completion, Windows owner/DACL and flush proof, rollback execution,
+   complete cancellation, and platform power-loss evidence remain.
 6. Implement foundation-owned module lifecycle execution. Digest-bound dry-run
    transitions and exact gates now cover install, activation, invocation,
    deactivation, repair, migration, upgrade, and uninstall; no operation is yet
