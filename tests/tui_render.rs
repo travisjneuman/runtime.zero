@@ -1,6 +1,7 @@
 use runtime_zero::tui_dashboard;
 use runtime_zero::tui_render::{render_dashboard, render_dashboard_with_state};
 use runtime_zero::tui_state::TuiState;
+use runtime_zero::updates::{LiveUpdateCatalog, UPDATE_CATALOG_CONTRACT};
 
 fn visible_line_width(value: &str) -> usize {
     let mut width = 0;
@@ -82,6 +83,40 @@ fn render_handles_narrow_terminal_and_help() {
     assert!(rendered.contains("Esc back"));
     assert!(rendered.contains("SECTIONS"));
     assert!(!rendered.contains("\x1b["));
+}
+
+#[test]
+fn update_check_status_is_visible_in_compact_interactive_frames() {
+    let mut dashboard = tui_dashboard::dashboard();
+    let state = TuiState::new(dashboard.sections.len());
+
+    assert!(dashboard.start_update_check().is_some());
+    dashboard.apply_software_view(state.software_view());
+    let checking = render_dashboard_with_state(&dashboard, false, 80, 24, &state);
+    assert!(checking.contains("checking provider availability"));
+
+    dashboard.complete_update_check(LiveUpdateCatalog {
+        schema_version: 1,
+        contract: UPDATE_CATALOG_CONTRACT,
+        checked: true,
+        read_only: true,
+        writes_attempted: false,
+        network_read_requested: true,
+        source_count: 5,
+        source_ok_count: 3,
+        candidate_count: 2,
+        candidates: Vec::new(),
+        warnings: Vec::new(),
+    });
+    dashboard.apply_software_view(state.software_view());
+    let checked = render_dashboard_with_state(&dashboard, false, 80, 24, &state);
+    assert!(checked.contains("checked · 2 candidates · 3/5 sources"));
+
+    assert!(dashboard.start_update_check().is_some());
+    dashboard.fail_update_check();
+    dashboard.apply_software_view(state.software_view());
+    let failed = render_dashboard_with_state(&dashboard, false, 80, 24, &state);
+    assert!(failed.contains("update check failed · press u to retry"));
 }
 
 #[test]

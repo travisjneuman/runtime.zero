@@ -478,6 +478,48 @@ struct BuiltInput {
     network_read_requested: bool,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct UniversalProviderScan {
+    pub(crate) source_count: usize,
+    pub(crate) source_ok_count: usize,
+    pub(crate) records: Vec<rz0_module_updater::UpdateRecord>,
+    pub(crate) warnings: Vec<String>,
+}
+
+pub(crate) fn collect_universal_provider_scan(
+    allow_network_read: bool,
+) -> Result<UniversalProviderScan, String> {
+    let command = ParsedArgs {
+        fixture: None,
+        manager_output: None,
+        manager: None,
+        executable: None,
+        probe: false,
+        allow_network_read,
+        dry_run: true,
+        plan: false,
+        queue: false,
+        apply: false,
+        action: None,
+        all: false,
+        all_providers: true,
+        confirm: None,
+        challenge_issued_unix_seconds: None,
+        accept_no_rollback: false,
+        allow_network_write: false,
+        recovery_status: false,
+        transaction: None,
+        format: OutputFormat::Text,
+    };
+    let built = build_all_provider_input(&command)?;
+    Ok(UniversalProviderScan {
+        source_count: built.source_count,
+        source_ok_count: built.source_ok_count,
+        records: built.input.records,
+        warnings: built.warnings,
+    })
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct ProviderSourceStatus {
     provider: String,

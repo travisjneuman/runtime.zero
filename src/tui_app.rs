@@ -1,4 +1,6 @@
 use std::io::{self, Write};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::thread;
 use std::time::Duration;
 
 use crossterm::cursor::{Hide, Show};
@@ -20,6 +22,7 @@ use crate::tui_layout::TuiLayoutTier;
 use crate::tui_ratatui::draw_dashboard;
 use crate::tui_ratatui_support::help_height;
 use crate::tui_state::{TuiAction, TuiInput, TuiMouseTarget, TuiState};
+use crate::updates::LiveUpdateCatalog;
 
 pub fn run_interactive_tui(launch_context: &LaunchRoutingReport, color: bool) -> io::Result<()> {
     let mut stdout = io::stdout();
@@ -36,8 +39,13 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
 ) -> io::Result<()> {
     let mut dashboard = tui_dashboard::dashboard();
     let mut state = TuiState::new(dashboard.sections.len());
+    let mut update_receiver: Option<Receiver<LiveUpdateCatalog>> = None;
     render(terminal, &dashboard, &state, launch_context, color)?;
     loop {
+        if poll_update_result(&mut dashboard, &mut update_receiver) {
+            dashboard.apply_software_view(state.software_view());
+            render(terminal, &dashboard, &state, launch_context, color)?;
+        }
         let input = if event::poll(Duration::from_secs(1))? {
             match event::read()? {
                 Event::Key(key) => input_from_key(key, state.search_active()),
@@ -52,7 +60,16 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
             match state.apply(input) {
                 TuiAction::Quit => break,
                 TuiAction::CheckUpdates => {
-                    dashboard.check_updates();
+                    if update_receiver.is_none() {
+                        if let Some(catalog) = dashboard.start_update_check() {
+                            let (sender, receiver) = mpsc::channel();
+                            thread::spawn(move || {
+                                let updates = crate::updates::collect_live_update_catalog(&catalog);
+                                let _ = sender.send(updates);
+                            });
+                            update_receiver = Some(receiver);
+                        }
+                    }
                 }
                 TuiAction::RefreshMonitor => {
                     dashboard.refresh_monitor();
@@ -73,6 +90,7 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
                 }
                 TuiAction::Continue => {}
             }
+            poll_update_result(&mut dashboard, &mut update_receiver);
             dashboard.apply_software_view(state.software_view());
             let row_count = dashboard
                 .sections
@@ -83,6 +101,26 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
         }
     }
     Ok(())
+}
+
+fn poll_update_result(
+    dashboard: &mut tui_dashboard::TuiDashboard,
+    receiver: &mut Option<Receiver<LiveUpdateCatalog>>,
+) -> bool {
+    let result = receiver.as_ref().map(Receiver::try_recv);
+    match result {
+        Some(Ok(updates)) => {
+            dashboard.complete_update_check(updates);
+            *receiver = None;
+            true
+        }
+        Some(Err(TryRecvError::Disconnected)) => {
+            dashboard.fail_update_check();
+            *receiver = None;
+            true
+        }
+        Some(Err(TryRecvError::Empty)) | None => false,
+    }
 }
 
 fn render<B: Backend<Error = io::Error>>(

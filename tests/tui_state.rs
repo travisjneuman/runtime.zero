@@ -94,6 +94,23 @@ fn tab_cycles_focus_regions_without_mutating_actions() {
 }
 
 #[test]
+fn update_check_key_works_from_every_content_focus_region() {
+    for focus_region in [
+        TuiFocusRegion::LeftNavigation,
+        TuiFocusRegion::DetailsPanel,
+        TuiFocusRegion::CommandRail,
+    ] {
+        let mut state = TuiState::new(4);
+        state.focus_region = focus_region;
+        assert_eq!(
+            state.apply(TuiInput::CheckUpdates),
+            TuiAction::CheckUpdates,
+            "update checks should not depend on focus region: {focus_region:?}"
+        );
+    }
+}
+
+#[test]
 fn shift_tab_cycles_focus_backward() {
     let mut state = TuiState::new(4);
     let _ = state.apply(TuiInput::FocusPrevious);

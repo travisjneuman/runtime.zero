@@ -1,14 +1,6 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
-
-use rz0_module_updater::{
-    ManagerKind, ManagerParseContext, UpdateRecord, manager_probe_specs_for_platform,
-    parse_manager_output,
-};
 use serde::Serialize;
 
-use crate::apps::{AppCatalog, SoftwareUpdate, software_name_key};
+use crate::apps::{AppCatalog, InstalledSoftware, SoftwareUpdate, software_name_key};
 
 pub const UPDATE_CATALOG_CONTRACT: &str = "live_update_catalog";
 const MAX_WARNINGS: usize = rz0_resource_contract::MAX_INVENTORY_WARNINGS;
@@ -29,118 +21,32 @@ pub struct LiveUpdateCatalog {
 }
 
 pub fn collect_live_update_catalog(catalog: &AppCatalog) -> LiveUpdateCatalog {
-    let specs = manager_probe_specs_for_platform(std::env::consts::OS)
-        .into_iter()
-        .filter(|spec| !spec.executable_candidates.is_empty())
-        .collect::<Vec<_>>();
-    let mut warnings = Vec::new();
-    let mut source_ok_count = 0usize;
-    let mut candidates = Vec::new();
-    for spec in &specs {
-        let Some(executable) = resolve_executable(spec.executable_candidates) else {
-            warnings.push(format!(
-                "{} availability source executable was not found",
-                spec.manager.id()
-            ));
-            continue;
-        };
-        let executable_identity =
-            match crate::update_execution::observe_manager_executable(&executable) {
-                Ok(identity) => identity,
-                Err(error) => {
-                    warnings.push(format!(
-                        "{} executable identity unavailable before probe: {error}",
-                        spec.manager.id()
-                    ));
-                    continue;
-                }
+    let scan = match crate::update_cli::collect_universal_provider_scan(true) {
+        Ok(scan) => scan,
+        Err(error) => {
+            return LiveUpdateCatalog {
+                schema_version: 1,
+                contract: UPDATE_CATALOG_CONTRACT,
+                checked: false,
+                read_only: true,
+                writes_attempted: false,
+                network_read_requested: true,
+                source_count: 0,
+                source_ok_count: 0,
+                candidate_count: 0,
+                candidates: Vec::new(),
+                warnings: vec![format!("universal provider scan failed closed: {error}")],
             };
-        let output = match rz0_process_host::run_read_only_process(
-            &rz0_process_host::ReadOnlyProcessRequest {
-                executable: executable.clone(),
-                arguments: spec
-                    .query_arguments
-                    .iter()
-                    .map(|argument| (*argument).to_string())
-                    .collect(),
-                working_directory: PathBuf::from("/"),
-                environment: probe_environment(),
-                timeout: Duration::from_secs(10),
-                output_limit: rz0_resource_contract::MAX_FINDING_REPORT_BYTES,
-            },
-        ) {
-            Ok(output) => output,
-            Err(error) => {
-                warnings.push(format!(
-                    "{} availability probe failed closed: {error}",
-                    spec.manager.id()
-                ));
-                continue;
-            }
-        };
-        let accepted_nonzero =
-            spec.manager == ManagerKind::Dnf && output.status.code() == Some(100);
-        if !output.status.success() && !accepted_nonzero {
-            warnings.push(format!(
-                "{} availability probe returned an unaccepted status: {}",
-                spec.manager.id(),
-                output.status
-            ));
-            continue;
         }
-        let bytes = if output.stdout.bytes.is_empty() {
-            &output.stderr.bytes
-        } else {
-            &output.stdout.bytes
-        };
-        if bytes.is_empty() {
-            warnings.push(format!(
-                "{} availability probe returned no parseable output",
-                spec.manager.id()
-            ));
-            continue;
-        }
-        let identity_after = crate::update_execution::observe_manager_executable(&executable);
-        if identity_after.as_ref() != Ok(&executable_identity) {
-            warnings.push(format!(
-                "{} executable identity changed during availability probe",
-                spec.manager.id()
-            ));
-            continue;
-        }
-        let context = ManagerParseContext {
-            manager: spec.manager,
-            executable: Some(executable.display().to_string()),
-            executable_sha256: Some(executable_identity.sha256.clone()),
-            executable_size_bytes: Some(executable_identity.size_bytes),
-            network_required: spec.network_required,
-            requires_elevation: spec.requires_elevation,
-            rollback_supported: false,
-        };
-        let records = match parse_manager_output(&context, bytes) {
-            Ok(records) => records,
-            Err(error) => {
-                warnings.push(format!(
-                    "{} availability output unavailable: {error}",
-                    spec.manager.id()
-                ));
-                continue;
-            }
-        };
-        source_ok_count = source_ok_count.saturating_add(1);
-        for record in records {
-            if let Some(update) = match_record(catalog, spec.manager, &record) {
-                candidates.push(update);
-            } else {
-                warnings.push(format!(
-                    "{} update candidate '{}' did not match an installed catalog record",
-                    spec.manager.id(),
-                    record.subject_reference
-                ));
-            }
-        }
-    }
-    warnings.truncate(MAX_WARNINGS);
+    };
+    let mut candidates = scan
+        .records
+        .into_iter()
+        .filter(|record| {
+            record.installed && record.manager_record_present && record.update_available
+        })
+        .filter_map(|record| software_update_from_record(catalog, record))
+        .collect::<Vec<_>>();
     candidates.sort_by(|left, right| {
         left.software_id
             .cmp(&right.software_id)
@@ -156,106 +62,87 @@ pub fn collect_live_update_catalog(catalog: &AppCatalog) -> LiveUpdateCatalog {
         read_only: true,
         writes_attempted: false,
         network_read_requested: true,
-        source_count: specs.len(),
-        source_ok_count,
+        source_count: scan.source_count,
+        source_ok_count: scan.source_ok_count,
         candidate_count: candidates.len(),
         candidates,
-        warnings,
+        warnings: scan.warnings.into_iter().take(MAX_WARNINGS).collect(),
     }
 }
 
-fn resolve_executable(candidates: &[&str]) -> Option<PathBuf> {
-    candidates.iter().map(Path::new).find_map(|path| {
-        let metadata = fs::symlink_metadata(path).ok()?;
-        if metadata.file_type().is_symlink() || !metadata.is_file() {
-            return None;
-        }
-        Some(path.to_path_buf())
-    })
-}
-
-fn match_record(
+fn software_update_from_record(
     catalog: &AppCatalog,
-    manager: ManagerKind,
-    record: &UpdateRecord,
+    record: rz0_module_updater::UpdateRecord,
 ) -> Option<SoftwareUpdate> {
-    let package_key = record
-        .subject_reference
-        .rsplit(':')
-        .next()
-        .map(software_name_key)?;
-    let app = catalog.apps.iter().find(|app| {
-        if software_name_key(&app.name) != package_key {
-            return false;
-        }
-        match manager {
-            ManagerKind::HomebrewFormula => app.source_id == "macos.homebrew.formulae",
-            ManagerKind::HomebrewCask => app.source_id == "macos.homebrew.casks",
-            ManagerKind::MacPorts => app.source_id == "macos.macports.packages",
-            ManagerKind::Apt => app.source_id == "linux.dpkg.packages",
-            ManagerKind::Pacman => app.source_id == "linux.pacman.packages",
-            ManagerKind::MacAppStore
-            | ManagerKind::AppleSoftwareUpdate
-            | ManagerKind::Winget
-            | ManagerKind::Dnf
-            | ManagerKind::Zypper
-            | ManagerKind::Snap
-            | ManagerKind::Flatpak
-            | ManagerKind::NpmGlobal
-            | ManagerKind::Pip
-            | ManagerKind::RubyGems
-            | ManagerKind::Grok
-            | ManagerKind::Hermes
-            | ManagerKind::OhMyPi
-            | ManagerKind::Warp
-            | ManagerKind::Rustup
-            | ManagerKind::UvTools
-            | ManagerKind::Deno
-            | ManagerKind::Aiup
-            | ManagerKind::CargoInstall => false,
-        }
-    })?;
+    let available_version = record.available_version.clone()?;
+    let app = match_catalog_app(catalog, &record);
+    let software_id = app
+        .map(|app| app.id.clone())
+        .unwrap_or_else(|| record.subject_reference.clone());
+    let installed_version = record
+        .installed_version
+        .or_else(|| app.and_then(|app| app.version.clone()));
     Some(SoftwareUpdate {
-        software_id: app.id.clone(),
-        manager: record
-            .manager
-            .clone()
-            .unwrap_or_else(|| manager.manager_name().to_string()),
-        installed_version: record
-            .installed_version
-            .clone()
-            .or_else(|| app.version.clone()),
-        available_version: record.available_version.clone()?,
+        software_id,
+        manager: record.manager.unwrap_or_else(|| "unknown".to_string()),
+        installed_version,
+        available_version,
         network_required: record.network_required,
         requires_elevation: record.requires_elevation,
         rollback_supported: record.rollback_supported,
     })
 }
 
-fn probe_environment() -> Vec<(String, String)> {
-    let mut environment = Vec::new();
-    if std::env::consts::OS == "macos" {
-        if let Some(home) = std::env::var_os("HOME").and_then(|value| value.into_string().ok()) {
-            environment.push(("HOME".to_string(), home));
-        }
-        environment.push(("LANG".to_string(), "C".to_string()));
-        environment.push(("LC_ALL".to_string(), "C".to_string()));
-        environment.push(("LC_CTYPE".to_string(), "C".to_string()));
-        environment.push(("LANGUAGE".to_string(), "C".to_string()));
-        environment.push(("HOMEBREW_NO_AUTO_UPDATE".to_string(), "1".to_string()));
-        environment.push(("HOMEBREW_NO_ENV_HINTS".to_string(), "1".to_string()));
-        environment.push((
-            "PATH".to_string(),
-            "/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin".to_string(),
-        ));
+fn match_catalog_app<'a>(
+    catalog: &'a AppCatalog,
+    record: &rz0_module_updater::UpdateRecord,
+) -> Option<&'a InstalledSoftware> {
+    let package_key = record
+        .subject_reference
+        .rsplit(':')
+        .next()
+        .map(software_name_key)?;
+    let provider = record
+        .subject_reference
+        .split(':')
+        .nth(1)
+        .unwrap_or_default();
+    let manager = record.manager.as_deref().unwrap_or_default();
+    catalog.apps.iter().find(|app| {
+        (software_name_key(&app.name) == package_key
+            || app
+                .identifiers
+                .iter()
+                .any(|identifier| software_name_key(&identifier.value) == package_key))
+            && manager_matches_catalog_source(provider, manager, app)
+    })
+}
+
+fn manager_matches_catalog_source(provider: &str, manager: &str, app: &InstalledSoftware) -> bool {
+    match provider {
+        "homebrew-formula" => app.source_id == "macos.homebrew.formulae",
+        "homebrew-cask" => app.source_id == "macos.homebrew.casks",
+        "macports" => app.source_id == "macos.macports.packages",
+        "apt" => app.source_id == "linux.dpkg.packages",
+        "pacman" => app.source_id == "linux.pacman.packages",
+        _ => match manager {
+            "homebrew" => matches!(
+                app.source_id.as_str(),
+                "macos.homebrew.formulae" | "macos.homebrew.casks"
+            ),
+            "macports" => app.source_id == "macos.macports.packages",
+            "apt" => app.source_id == "linux.dpkg.packages",
+            "pacman" => app.source_id == "linux.pacman.packages",
+            _ => true,
+        },
     }
-    environment
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::apps::{InstallScope, SoftwareKind, UninstallOption};
+    use rz0_module_updater::UpdateRecord;
 
     #[test]
     fn unavailable_manager_sources_remain_read_only_and_bounded() {
@@ -322,8 +209,36 @@ mod tests {
             requires_elevation: true,
             rollback_supported: false,
         };
-        assert!(match_record(&catalog, ManagerKind::Apt, &record).is_none());
+        let unmatched = software_update_from_record(&catalog, record.clone())
+            .expect("unmatched universal candidates remain visible");
+        assert_eq!(unmatched.software_id, "package:apt:alpha");
         catalog.apps[0].source_id = "linux.dpkg.packages".to_string();
-        assert!(match_record(&catalog, ManagerKind::Apt, &record).is_some());
+        let matched = software_update_from_record(&catalog, record).expect("catalog match");
+        assert_eq!(matched.software_id, "macos.package.alpha");
+
+        let dynamic = UpdateRecord {
+            finding_id: "update.npm-global.pi".to_string(),
+            subject_reference: "package:npm-global:pi".to_string(),
+            installed: true,
+            manager_record_present: true,
+            update_available: true,
+            installed_version: Some("1.0.0".to_string()),
+            available_version: Some("2.0.0".to_string()),
+            manager: Some("npm".to_string()),
+            executable: Some("/opt/homebrew/bin/npm".to_string()),
+            executable_sha256: Some("b".repeat(64)),
+            executable_size_bytes: Some(4096),
+            arguments: vec![
+                "update".to_string(),
+                "--global".to_string(),
+                "pi".to_string(),
+            ],
+            network_required: true,
+            requires_elevation: false,
+            rollback_supported: false,
+        };
+        let dynamic_update = software_update_from_record(&catalog, dynamic)
+            .expect("dynamic provider candidates remain visible without inventory rows");
+        assert_eq!(dynamic_update.software_id, "package:npm-global:pi");
     }
 }

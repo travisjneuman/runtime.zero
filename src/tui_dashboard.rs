@@ -150,6 +150,7 @@ fn build_dashboard(
             inventory_error: inventory_error.as_deref(),
             view: &default_view,
             updates: None,
+            update_status: "not checked",
             monitor: monitor.as_ref(),
         }),
         palette: palette(),
@@ -168,6 +169,7 @@ struct SectionContext<'a> {
     inventory_error: Option<&'a str>,
     view: &'a SoftwareView,
     updates: Option<&'a LiveUpdateCatalog>,
+    update_status: &'a str,
     monitor: Option<&'a SystemSnapshot>,
 }
 
@@ -180,10 +182,11 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
         inventory_error,
         view,
         updates,
+        update_status,
         monitor,
     } = context;
     let mut sections = vec![
-        overview_section(catalog, inventory_error, view, updates),
+        overview_section(catalog, inventory_error, view, updates, update_status),
         TuiSection {
             code: "02",
             title: "local store",
@@ -374,6 +377,7 @@ fn overview_section(
     inventory_error: Option<&str>,
     view: &SoftwareView,
     updates: Option<&LiveUpdateCatalog>,
+    update_status: &str,
 ) -> TuiSection {
     let mut rows = vec![row(
         tui_theme::LABEL_OK,
@@ -393,6 +397,31 @@ fn overview_section(
                 })
                 .count();
             let visible_count = catalog.apps.iter().filter(|app| view.matches(app)).count();
+            match updates {
+                Some(updates) => rows.push(TuiRow {
+                    label: tui_theme::LABEL_PLAN,
+                    value: update_status.to_string(),
+                    tone: if updates.warnings.is_empty() {
+                        "accent"
+                    } else {
+                        "warn"
+                    },
+                    preview: None,
+                }),
+                None => rows.push(row(
+                    tui_theme::LABEL_PLAN,
+                    if update_status == "not checked" {
+                        "updates not checked · press u to check"
+                    } else {
+                        update_status
+                    },
+                    if update_status == "checking provider availability" {
+                        "accent"
+                    } else {
+                        "info"
+                    },
+                )),
+            }
             rows.push(row_count(
                 tui_theme::LABEL_OK,
                 visible_count,
@@ -419,35 +448,22 @@ fn overview_section(
                 "service/persistence records",
                 "info",
             ));
-            match updates {
-                Some(updates) => {
-                    rows.push(row_count(
-                        tui_theme::LABEL_PLAN,
-                        updates.candidate_count,
-                        "update candidates found",
-                        "accent",
-                    ));
-                    rows.push(TuiRow {
-                        label: tui_theme::LABEL_INFO,
-                        value: format!(
-                            "update sources: {}/{} ready · warnings: {}",
-                            updates.source_ok_count,
-                            updates.source_count,
-                            updates.warnings.len()
-                        ),
-                        tone: if updates.warnings.is_empty() {
-                            "info"
-                        } else {
-                            "warn"
-                        },
-                        preview: None,
-                    });
-                }
-                None => rows.push(row(
-                    tui_theme::LABEL_INFO,
-                    "updates not checked · press u to check",
-                    "info",
-                )),
+            if let Some(updates) = updates {
+                rows.push(TuiRow {
+                    label: tui_theme::LABEL_INFO,
+                    value: format!(
+                        "update sources: {}/{} ready · warnings: {}",
+                        updates.source_ok_count,
+                        updates.source_count,
+                        updates.warnings.len()
+                    ),
+                    tone: if updates.warnings.is_empty() {
+                        "info"
+                    } else {
+                        "warn"
+                    },
+                    preview: None,
+                });
             }
             rows.push(row_count(
                 tui_theme::LABEL_PLAN,
@@ -655,6 +671,7 @@ impl TuiDashboard {
             self.inventory_error.as_deref(),
             view,
             self.update_catalog.as_ref(),
+            &self.update_check_status,
         );
         self.sections[2] = installed_software_section(
             self.software_catalog.as_ref(),
@@ -680,12 +697,23 @@ impl TuiDashboard {
         }
     }
 
-    pub fn check_updates(&mut self) {
+    pub fn start_update_check(&mut self) -> Option<AppCatalog> {
         let Some(catalog) = self.software_catalog.as_ref() else {
             self.update_check_status = "unavailable · private summary".to_string();
-            return;
+            return None;
         };
-        let updates = collect_live_update_catalog(catalog);
+        self.update_catalog = None;
+        self.update_source_count = 0;
+        self.update_candidate_count = 0;
+        self.update_check_status = "checking provider availability".to_string();
+        Some(catalog.clone())
+    }
+
+    pub fn complete_update_check(&mut self, updates: LiveUpdateCatalog) {
+        if !updates.checked {
+            self.fail_update_check();
+            return;
+        }
         self.update_source_count = updates.source_count;
         self.update_candidate_count = updates.candidate_count;
         self.update_check_status = format!(
@@ -693,6 +721,20 @@ impl TuiDashboard {
             updates.candidate_count, updates.source_ok_count, updates.source_count
         );
         self.update_catalog = Some(updates);
+    }
+
+    pub fn fail_update_check(&mut self) {
+        self.update_catalog = None;
+        self.update_source_count = 0;
+        self.update_candidate_count = 0;
+        self.update_check_status = "update check failed · press u to retry".to_string();
+    }
+
+    pub fn check_updates(&mut self) {
+        let Some(catalog) = self.start_update_check() else {
+            return;
+        };
+        self.complete_update_check(collect_live_update_catalog(&catalog));
     }
 }
 
