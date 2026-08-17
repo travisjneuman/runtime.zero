@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 pub const MAX_ARTIFACT_BYTES: u64 = 64 * 1024 * 1024;
+/// Executable identities may be larger than ordinary module/package payloads.
+/// This remains bounded to keep hashing and identity verification finite.
+pub const MAX_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 pub const MAX_SMALL_DOCUMENT_BYTES: u64 = 64 * 1024;
 pub const MAX_REGISTRY_DOCUMENT_BYTES: u64 = 128 * 1024;
 pub const MAX_JOURNAL_SNAPSHOT_BYTES: u64 = 2 * 1024 * 1024;

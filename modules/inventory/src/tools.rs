@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -39,13 +40,43 @@ pub fn discover_known_tools(path_entries: &[PathEntry], probe_versions: bool) ->
         }
     }
 
+    let known_paths = tools
+        .iter()
+        .filter_map(|tool| tool.executable_path.as_deref())
+        .map(str::to_string)
+        .collect::<BTreeSet<_>>();
+    let known_names = tool_specs()
+        .iter()
+        .flat_map(|spec| spec.names.iter().copied())
+        .map(|name| {
+            name.trim_end_matches(".cmd")
+                .trim_end_matches(".exe")
+                .to_string()
+        })
+        .collect::<BTreeSet<_>>();
+    let (mut path_tools, path_truncated) =
+        discover_path_executables(path_entries, &known_paths, &known_names);
+    if !path_tools.is_empty() {
+        source_warnings.push(
+            "unrecognized PATH executables are inventory-only until a provider adapter proves a safe update channel"
+                .to_string(),
+        );
+    }
+    if path_truncated {
+        source_warnings.push(
+            "the bounded PATH executable inventory reached its record ceiling; remaining entries were skipped"
+                .to_string(),
+        );
+    }
+    tools.append(&mut path_tools);
+
     tools.sort_by(|left, right| left.id.cmp(&right.id));
     if probe_versions && tools.is_empty() {
         source_warnings.push("no known executable was available for version probing".to_string());
     }
     let status = if tools.is_empty() {
         "unavailable"
-    } else if tools.iter().any(|tool| !tool.warnings.is_empty()) {
+    } else if !source_warnings.is_empty() || tools.iter().any(|tool| !tool.warnings.is_empty()) {
         "partial"
     } else {
         "ok"
@@ -61,6 +92,99 @@ pub fn discover_known_tools(path_entries: &[PathEntry], probe_versions: bool) ->
         },
         tools,
     }
+}
+
+fn discover_path_executables(
+    path_entries: &[PathEntry],
+    known_paths: &BTreeSet<String>,
+    known_names: &BTreeSet<String>,
+) -> (Vec<ToolRecord>, bool) {
+    let mut tools = Vec::new();
+    let mut seen_paths = known_paths.clone();
+    let mut seen_names = known_names.clone();
+    let mut truncated = false;
+    let remaining_capacity =
+        rz0_resource_contract::MAX_INVENTORY_TOOL_RECORDS.saturating_sub(known_paths.len());
+    for entry in path_entries {
+        if !entry.exists || entry.entry_kind != "directory" {
+            continue;
+        }
+        if is_system_tool_directory(Path::new(&entry.path)) {
+            continue;
+        }
+        let Ok(entries) = fs::read_dir(&entry.path) else {
+            continue;
+        };
+        for directory_entry in entries.flatten() {
+            if tools.len() == remaining_capacity {
+                truncated = true;
+                return (tools, truncated);
+            }
+            let path = directory_entry.path();
+            let display_path = path.display().to_string();
+            if !seen_paths.insert(display_path.clone()) || !is_executable_file(&path) {
+                continue;
+            }
+            let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+                continue;
+            };
+            if name.is_empty() || name.len() > 160 || name.chars().any(char::is_control) {
+                continue;
+            }
+            if !seen_names.insert(name.to_string()) {
+                continue;
+            }
+            tools.push(ToolRecord {
+                id: format!("path.{:016x}", fnv1a(display_path.as_bytes())),
+                display_name: name.to_string(),
+                category: "path_executable".to_string(),
+                executable_path: Some(display_path),
+                version: None,
+                source_ids: vec!["known.executables".to_string()],
+                confidence: "observed_path".to_string(),
+                warnings: Vec::new(),
+            });
+        }
+    }
+    (tools, truncated)
+}
+
+fn is_system_tool_directory(path: &Path) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    matches!(
+        normalized.as_str(),
+        "/bin" | "/sbin" | "/usr/bin" | "/usr/sbin" | "/usr/libexec"
+    ) || normalized.starts_with("/System/")
+        || normalized.starts_with("/Library/Apple/")
+        || normalized.starts_with("C:/Windows/")
+        || normalized.starts_with("C:/Program Files/WindowsApps/")
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(metadata) = fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
+}
+
+fn fnv1a(value: &[u8]) -> u64 {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in value {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
 }
 
 fn probe_version(spec: &ToolSpec, path: &Path, warnings: &mut Vec<String>) -> Option<String> {
@@ -177,5 +301,15 @@ mod tests {
         let collection = discover_known_tools(&[], false);
         assert!(collection.tools.is_empty());
         assert_eq!(collection.source.status, "unavailable");
+    }
+
+    #[test]
+    fn generic_path_inventory_excludes_os_owned_tool_roots() {
+        assert!(is_system_tool_directory(Path::new("/usr/bin")));
+        assert!(is_system_tool_directory(Path::new("/System/Applications")));
+        assert!(!is_system_tool_directory(Path::new("/opt/homebrew/bin")));
+        assert!(!is_system_tool_directory(Path::new(
+            "/Users/test/.local/bin"
+        )));
     }
 }

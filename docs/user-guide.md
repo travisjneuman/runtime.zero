@@ -191,7 +191,7 @@ rz0 updates --dry-run --probe \
   --allow-network-read \
   --plan
 
-# Review all currently supported macOS provider lanes
+# Review all provider lanes discovered on this host
 rz0 updates --dry-run --all-providers \
   --allow-network-read \
   --plan --queue
@@ -201,11 +201,19 @@ The executable is opened directly, bounded, hashed, identified, and sealed into
 the resulting plan. A second invocation must reproduce the same plan identity;
 manager executable replacement invalidates confirmation.
 
-`--all-providers` probes the allowlisted Homebrew formula/cask, MacPorts, Mac
-App Store (`mas`, when installed), and Apple Software Update sources in series.
-It records source success/failure and explicitly reports uncovered categories
-such as vendor self-updaters, direct installers, language-specific environments,
-and unknown providers. This is broad review coverage, not a universal updater.
+`--all-providers` resolves installed provider owners instead of assuming that a
+bundle name identifies its update channel. It probes system managers, global
+language/package environments, and known self-updaters when their exact
+read-only adapter is available. On this Mac that includes Homebrew, Apple
+Software Update, npm global prefixes, pip, RubyGems, Grok, oh-my-pi, `uv`, and
+declared Electron GitHub release metadata; it also reports Hermes, Warp, aiup,
+Cargo-installed binaries, and Sparkle apps when present. This catches npm-owned
+CLIs such as Codex, Pi, GSD, and Kilo when their actual prefix is discovered.
+Every source is reported as successful, missing, unavailable, or observed-only.
+Direct installers, private vendor services, unknown bundles, and UI-only
+channels remain visible gaps until a reviewed owner adapter exists. This is
+provider-driven bounded coverage, not a claim that arbitrary software can be
+updated safely by guessing a command.
 
 ### Apply lane
 

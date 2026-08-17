@@ -29,7 +29,10 @@ pub struct LiveUpdateCatalog {
 }
 
 pub fn collect_live_update_catalog(catalog: &AppCatalog) -> LiveUpdateCatalog {
-    let specs = manager_probe_specs_for_platform(std::env::consts::OS);
+    let specs = manager_probe_specs_for_platform(std::env::consts::OS)
+        .into_iter()
+        .filter(|spec| !spec.executable_candidates.is_empty())
+        .collect::<Vec<_>>();
     let mut warnings = Vec::new();
     let mut source_ok_count = 0usize;
     let mut candidates = Vec::new();
@@ -197,7 +200,19 @@ fn match_record(
             | ManagerKind::Dnf
             | ManagerKind::Zypper
             | ManagerKind::Snap
-            | ManagerKind::Flatpak => false,
+            | ManagerKind::Flatpak
+            | ManagerKind::NpmGlobal
+            | ManagerKind::Pip
+            | ManagerKind::RubyGems
+            | ManagerKind::Grok
+            | ManagerKind::Hermes
+            | ManagerKind::OhMyPi
+            | ManagerKind::Warp
+            | ManagerKind::Rustup
+            | ManagerKind::UvTools
+            | ManagerKind::Deno
+            | ManagerKind::Aiup
+            | ManagerKind::CargoInstall => false,
         }
     })?;
     Some(SoftwareUpdate {

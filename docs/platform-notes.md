@@ -37,12 +37,15 @@ Launchd labels and metadata paths are inventory evidence only; loaded/running
 state is not asserted.
 
 The explicit `rz0 updates --dry-run --all-providers --allow-network-read` lane
-adds bounded live availability probes for Homebrew formulae and casks (greedy
-cask mode), MacPorts, Mac App Store `mas` when installed, and Apple
-`softwareupdate`. A missing provider or parser drift is retained as a warning.
-This does not cover vendor self-updaters, direct installers, language-specific
-package environments, or unknown providers, and therefore does not claim
-universal macOS coverage.
+resolves provider ownership and adds bounded live availability probes for
+Homebrew formulae and casks (greedy cask mode), MacPorts, Mac App Store `mas`
+when installed, Apple `softwareupdate`, npm global prefixes, pip, RubyGems,
+`rustup`, `uv`, Grok, Hermes, and oh-my-pi. It also audits observed-only Warp,
+aiup, and Cargo channels, declared Electron GitHub metadata, and Sparkle app
+bundles. A missing provider, parser drift, UI-only updater, or direct installer
+is retained as an explicit warning. Unknown sources are never upgraded by a
+guessed command, so this is broad provider coverage rather than a mathematical
+claim of universal macOS support.
 
 ### Current mutation blocks
 

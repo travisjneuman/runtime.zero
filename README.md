@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot (reviewed 2026-08-09):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a six-section TUI, native monitoring, privacy-reviewed local support summaries, dry-run uninstall findings/plans, and a narrow CLI manager-update coordinator. The coordinator now binds executable identity to spawn on Linux, bridges SIGINT into bounded cancellation, publishes canonical external-effect receipts, and exposes read-only recovery assessment. It still is not a supported production write lane: macOS exact spawn identity, Windows containment, OS sandbox/network enforcement, exact recovery completion, rollback, elevation, and disposable-host proof remain incomplete. Uninstall execution, cleanup/quarantine, module lifecycle execution, signing/distribution, and release evidence remain gated. Start with the [`user guide`](docs/user-guide.md), [`current status`](docs/project-status-and-resumption.md), and [`documentation guide`](docs/documentation-index.md).
+> **Current pre-alpha snapshot (reviewed 2026-08-16):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a six-section TUI, native monitoring, privacy-reviewed local support summaries, dry-run uninstall findings/plans, and a provider-driven CLI manager-update coordinator. The coordinator now resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; it binds executable identity to spawn on Linux, bridges SIGINT into bounded cancellation, publishes canonical external-effect receipts, and exposes read-only recovery assessment. It still is not a supported production write lane: macOS exact spawn identity, Windows containment, OS sandbox/network enforcement, exact recovery completion, rollback, elevation, and disposable-host proof remain incomplete. Uninstall execution, cleanup/quarantine, module lifecycle execution, signing/distribution, and release evidence remain gated. Start with the [`user guide`](docs/user-guide.md), [`current status`](docs/project-status-and-resumption.md), and [`documentation guide`](docs/documentation-index.md).
 
 ## The promise
 
@@ -126,9 +126,14 @@ code. The fixture/captured-output `rz0 updates --dry-run` surface can classify
 updater evidence and emit a serial review queue. The explicit `--probe` path
 runs one bounded, cleared-environment manager query after requiring an
 allowlisted absolute executable path and `--allow-network-read`; `--all-providers`
-performs a bounded macOS review of Homebrew formulae/casks, MacPorts, Mac App
-Store via `mas` when installed, and Apple Software Update while reporting
-missing or uncovered sources; `--apply` is the separate write lane and
+performs a provider-driven review of installed system managers,
+language/package environments, known self-updaters, and declared application
+update metadata. On macOS this includes Homebrew formulae/casks, MacPorts, Mac
+App Store via `mas` when installed, Apple Software Update, Electron GitHub
+metadata, and observed Sparkle channels; other platforms use the providers
+native to that host. Missing, observed-only, and unsupported sources remain
+explicit rather than being treated as universal coverage. `--apply` is the
+separate write lane and
 additionally requires `--allow-network-write`,
 exact confirmation, an initialized private store, journal/receipt publication,
 and fresh verification. Linux binds a direct native ELF manager's retained opened

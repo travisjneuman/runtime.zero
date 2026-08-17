@@ -8,8 +8,8 @@ use rz0_action_plan::{
     action_plan_digests,
 };
 use rz0_artifact_identity::{
-    ArtifactExpectation, VerifiedArtifact, bind_verified_executable, open_observed_artifact,
-    open_verified_artifact, revalidate_verified_artifact,
+    ArtifactExpectation, VerifiedArtifact, bind_verified_executable, open_observed_executable,
+    open_verified_executable, revalidate_verified_executable,
 };
 use rz0_cancellation_contract::CancellationToken;
 use rz0_confirmation_contract::{
@@ -319,7 +319,7 @@ where
         format!("manager update process failed; recovery is required: {error}")
     })?;
     drop(executable_binding);
-    if let Err(error) = revalidate_verified_artifact(&mut verified_executable) {
+    if let Err(error) = revalidate_verified_executable(&mut verified_executable) {
         let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
         let _ = publish_journal_snapshot(&transactions_root, &recovery);
         return Err(format!(
@@ -617,7 +617,7 @@ pub(crate) fn observe_manager_executable(
     executable: &Path,
 ) -> Result<ActionExecutableIdentity, String> {
     let (root, relative) = executable_root_and_name(executable)?;
-    let observed = open_observed_artifact(root, relative)
+    let observed = open_observed_executable(root, relative)
         .map_err(|error| format!("observe manager executable identity: {error}"))?;
     if observed.canonical_path != executable {
         return Err("manager executable path must already be canonical and direct".to_string());
@@ -633,7 +633,7 @@ fn open_manager_executable(
     identity: &ActionExecutableIdentity,
 ) -> Result<VerifiedArtifact, String> {
     let (root, relative) = executable_root_and_name(executable)?;
-    let verified = open_verified_artifact(
+    let verified = open_verified_executable(
         root,
         relative,
         &ArtifactExpectation {

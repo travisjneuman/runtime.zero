@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     ArtifactExpectation, ArtifactIdentityError, ArtifactIdentityErrorCode, ArtifactObservation,
-    MAX_ARTIFACT_BYTES, VerifiedArtifact,
+    MAX_ARTIFACT_BYTES, MAX_EXECUTABLE_BYTES, VerifiedArtifact,
     identity::{has_single_link, identity_from_file},
     path_policy::checked_artifact_path,
     platform_open::open_artifact,
@@ -16,6 +16,19 @@ use crate::{
 
 pub fn revalidate_verified_artifact(
     artifact: &mut VerifiedArtifact,
+) -> Result<(), ArtifactIdentityError> {
+    revalidate_verified_artifact_with_limit(artifact, MAX_ARTIFACT_BYTES)
+}
+
+pub fn revalidate_verified_executable(
+    artifact: &mut VerifiedArtifact,
+) -> Result<(), ArtifactIdentityError> {
+    revalidate_verified_artifact_with_limit(artifact, MAX_EXECUTABLE_BYTES)
+}
+
+fn revalidate_verified_artifact_with_limit(
+    artifact: &mut VerifiedArtifact,
+    maximum_bytes: u64,
 ) -> Result<(), ArtifactIdentityError> {
     let metadata = artifact
         .file
@@ -28,7 +41,7 @@ pub fn revalidate_verified_artifact(
             "held artifact identity or link count changed",
         ));
     }
-    if metadata.len() != artifact.size_bytes || metadata.len() > MAX_ARTIFACT_BYTES {
+    if metadata.len() != artifact.size_bytes || metadata.len() > maximum_bytes {
         return Err(ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::SizeMismatch,
             "held artifact size changed",
@@ -40,7 +53,7 @@ pub fn revalidate_verified_artifact(
         .map_err(|error| io_error("rewind held artifact", error))?;
     let mut bytes = Vec::with_capacity(metadata.len() as usize);
     (&mut artifact.file)
-        .take(MAX_ARTIFACT_BYTES + 1)
+        .take(maximum_bytes + 1)
         .read_to_end(&mut bytes)
         .map_err(|error| io_error("re-read held artifact", error))?;
     if bytes.len() as u64 != artifact.size_bytes {
@@ -97,8 +110,8 @@ pub fn open_verified_artifact(
     relative_path: &str,
     expectation: &ArtifactExpectation,
 ) -> Result<VerifiedArtifact, ArtifactIdentityError> {
-    validate_expectation(expectation)?;
-    let artifact = open_artifact_evidence(root, relative_path)?;
+    validate_expectation(expectation, MAX_ARTIFACT_BYTES)?;
+    let artifact = open_artifact_evidence(root, relative_path, MAX_ARTIFACT_BYTES)?;
     if artifact.size_bytes != expectation.size_bytes {
         return Err(ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::SizeMismatch,
@@ -114,6 +127,28 @@ pub fn open_verified_artifact(
     Ok(artifact)
 }
 
+pub fn open_verified_executable(
+    root: &Path,
+    relative_path: &str,
+    expectation: &ArtifactExpectation,
+) -> Result<VerifiedArtifact, ArtifactIdentityError> {
+    validate_expectation(expectation, MAX_EXECUTABLE_BYTES)?;
+    let artifact = open_artifact_evidence(root, relative_path, MAX_EXECUTABLE_BYTES)?;
+    if artifact.size_bytes != expectation.size_bytes {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::SizeMismatch,
+            "executable size does not match the sealed expectation",
+        ));
+    }
+    if artifact.sha256 != expectation.sha256 {
+        return Err(ArtifactIdentityError::new(
+            ArtifactIdentityErrorCode::DigestMismatch,
+            "executable digest does not match the sealed expectation",
+        ));
+    }
+    Ok(artifact)
+}
+
 /// Opens one direct artifact relative to a held root and records its observed
 /// identity, size, and digest without treating those observations as trust.
 ///
@@ -124,7 +159,20 @@ pub fn open_observed_artifact(
     root: &Path,
     relative_path: &str,
 ) -> Result<ArtifactObservation, ArtifactIdentityError> {
-    let artifact = open_artifact_evidence(root, relative_path)?;
+    let artifact = open_artifact_evidence(root, relative_path, MAX_ARTIFACT_BYTES)?;
+    Ok(ArtifactObservation {
+        relative_path: artifact.relative_path,
+        canonical_path: artifact.canonical_path,
+        sha256: artifact.sha256,
+        size_bytes: artifact.size_bytes,
+    })
+}
+
+pub fn open_observed_executable(
+    root: &Path,
+    relative_path: &str,
+) -> Result<ArtifactObservation, ArtifactIdentityError> {
+    let artifact = open_artifact_evidence(root, relative_path, MAX_EXECUTABLE_BYTES)?;
     Ok(ArtifactObservation {
         relative_path: artifact.relative_path,
         canonical_path: artifact.canonical_path,
@@ -136,6 +184,7 @@ pub fn open_observed_artifact(
 fn open_artifact_evidence(
     root: &Path,
     relative_path: &str,
+    maximum_bytes: u64,
 ) -> Result<VerifiedArtifact, ArtifactIdentityError> {
     let checked = checked_artifact_path(root, relative_path)?;
     let mut file = open_artifact(root, relative_path)?;
@@ -148,7 +197,7 @@ fn open_artifact_evidence(
             "opened artifact is not a regular file",
         ));
     }
-    if opened_metadata.len() > MAX_ARTIFACT_BYTES {
+    if opened_metadata.len() > maximum_bytes {
         return Err(ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::TooLarge,
             "opened artifact exceeds the size ceiling",
@@ -164,10 +213,10 @@ fn open_artifact_evidence(
 
     let mut bytes = Vec::with_capacity(opened_metadata.len() as usize);
     (&mut file)
-        .take(MAX_ARTIFACT_BYTES + 1)
+        .take(maximum_bytes + 1)
         .read_to_end(&mut bytes)
         .map_err(|error| io_error("read opened artifact", error))?;
-    if bytes.len() as u64 > MAX_ARTIFACT_BYTES {
+    if bytes.len() as u64 > maximum_bytes {
         return Err(ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::TooLarge,
             "artifact content exceeds the size ceiling",
@@ -224,8 +273,11 @@ fn open_artifact_evidence(
     })
 }
 
-fn validate_expectation(expectation: &ArtifactExpectation) -> Result<(), ArtifactIdentityError> {
-    if expectation.size_bytes > MAX_ARTIFACT_BYTES
+fn validate_expectation(
+    expectation: &ArtifactExpectation,
+    maximum_bytes: u64,
+) -> Result<(), ArtifactIdentityError> {
+    if expectation.size_bytes > maximum_bytes
         || !rz0_validation_contract::valid_sha256(&expectation.sha256)
     {
         return Err(ArtifactIdentityError::new(

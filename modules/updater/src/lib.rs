@@ -6,7 +6,8 @@ use rz0_capability_contract::Capability;
 mod adapters;
 
 pub use adapters::{
-    ManagerKind, ManagerParseContext, ManagerProbeSpec, manager_executable_allowed,
+    ManagerKind, ManagerParseContext, ManagerProbeSpec, ProviderProbeSpec,
+    discover_provider_specs_for_platform, dynamic_provider_ids, manager_executable_allowed,
     manager_probe_specs, manager_probe_specs_for_platform, parse_manager_output,
 };
 
@@ -263,7 +264,7 @@ fn build_update_action(record: &UpdateRecord, platform: &str) -> PlanAction {
         .is_some_and(|(sha256, size)| {
             rz0_validation_contract::valid_sha256(sha256)
                 && size > 0
-                && size <= rz0_resource_contract::MAX_ARTIFACT_BYTES
+                && size <= rz0_resource_contract::MAX_EXECUTABLE_BYTES
         });
     let exact_command = manager.filter(|value| !value.is_empty()).is_some()
         && executable.is_some_and(rz0_validation_contract::is_absolute_local_path)
@@ -380,7 +381,7 @@ fn validate_input(input: &UpdaterFindingInput) -> Result<(), String> {
             || record.executable_sha256.as_ref().is_some_and(|digest| {
                 !rz0_validation_contract::valid_sha256(digest)
                     || record.executable_size_bytes.is_none_or(|size| {
-                        size == 0 || size > rz0_resource_contract::MAX_ARTIFACT_BYTES
+                        size == 0 || size > rz0_resource_contract::MAX_EXECUTABLE_BYTES
                     })
             })
         {

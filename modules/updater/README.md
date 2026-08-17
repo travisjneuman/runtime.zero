@@ -22,7 +22,7 @@ rz0 updates --dry-run --manager homebrew-formula \
   --manager-output /tmp/homebrew-outdated.json \
   --executable /opt/homebrew/bin/brew --plan --queue --format json
 
-# Bounded live review of the allowlisted macOS providers
+# Provider-driven live review across the current host
 rz0 updates --dry-run --all-providers --allow-network-read --plan --queue --format json
 
 rz0 updates --recovery-status --transaction <exact-transaction-id>
@@ -51,15 +51,24 @@ outcome, backed by a canonical external-effect receipt, and followed by fresh
 verification; no sudo/helper or arbitrary shell path is used.
 
 The module includes bounded, locale-reviewed parser slices for Homebrew JSON,
-APT, DNF, Pacman, MacPorts, Mac App Store `mas` JSON lines, and Apple
-`softwareupdate --list` output, plus explicit probe specifications for Windows
-Winget and major Linux/macOS managers. Homebrew cask review uses the documented
-greedy mode so latest/auto-updating casks are not silently omitted. Winget,
-Zypper, Snap, and Flatpak parsing currently fails closed as not yet locale-safe.
-A probe specification is not production runtime evidence. `--all-providers`
-is intentionally bounded: vendor self-updaters, direct installers, language
-ecosystems, and unknown providers are reported as uncovered until each receives
-its own reviewed adapter.
+APT, DNF, Pacman, MacPorts, Mac App Store `mas` JSON lines, Apple
+`softwareupdate --list`, global npm prefixes, pip JSON, RubyGems, `rustup`,
+`uv tool`, Grok, Hermes, and oh-my-pi. Homebrew cask review uses documented
+greedy mode so latest/auto-updating casks are not silently omitted. The
+provider resolver also audits observed-only owners such as Warp, aiup, and
+Cargo-installed binaries. On macOS it inspects Electron application release
+metadata when the bundle declares a GitHub provider and identifies Sparkle
+bundles that must remain on their signed in-app channel.
+
+This means a single review can catch tools such as Codex, Pi, GSD, Kilo, and
+other npm-owned CLIs when their actual npm prefix is present; it also checks
+native Grok and OMP channels and reports Hermes when installed. It does not
+invent an update command for a direct installer, a private vendor service, an
+unknown bundle, or an app whose channel is only available inside its UI.
+Winget, Zypper, Snap, and Flatpak parsing currently fails closed as not yet
+locale-safe. A probe specification is not production runtime evidence.
+`--all-providers` is provider-driven and bounded: missing, observed-only, and
+unsupported sources remain explicit in the report.
 
 ## Apply-lane limitations
 

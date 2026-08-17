@@ -83,9 +83,10 @@ Review fixture, captured, or explicitly probed manager availability; optionally
 build a finding-bound plan or serial queue.
 .TP
 .B updates --dry-run --all-providers --allow-network-read ...
-Run the bounded macOS provider review for Homebrew formulae/casks, MacPorts,
-Mac App Store via mas when installed, and Apple Software Update. Missing or
-uncovered sources remain warnings; this is not universal provider coverage.
+Run the provider-driven review for installed managers, language/package
+environments, known self-updaters, and declared application update metadata.
+Missing, observed-only, and unsupported sources remain warnings; this is not a
+claim of universal provider coverage.
 .TP
 .B updates --apply ...
 Pre-alpha manager execution lane. It requires a fresh probe, network intent,

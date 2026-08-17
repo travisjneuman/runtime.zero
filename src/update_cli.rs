@@ -1,12 +1,13 @@
 use std::fs;
-use std::io::{self, IsTerminal, Read, Write};
+use std::io::{self, Cursor, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 
 use rz0_action_plan::{ActionDisposition, ActionPlan};
 use rz0_module_updater::{
-    ManagerKind, ManagerParseContext, SerialUpdateItemStatus, SerialUpdateQueuePlan,
-    UPDATE_QUEUE_CONTRACT, UpdaterFindingInput, build_serial_update_queue,
-    build_update_action_plan, classify_updates, manager_probe_specs, parse_manager_output,
+    ManagerKind, ManagerParseContext, ProviderProbeSpec, SerialUpdateItemStatus,
+    SerialUpdateQueuePlan, UPDATE_QUEUE_CONTRACT, UpdaterFindingInput, build_serial_update_queue,
+    build_update_action_plan, classify_updates, discover_provider_specs_for_platform,
+    dynamic_provider_ids, manager_probe_specs, parse_manager_output,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -514,7 +515,7 @@ fn build_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
         .find(|spec| spec.manager == manager)
         .ok_or_else(|| "manager probe specification is unavailable".to_string())?;
     let (bytes, executable, executable_identity) = if command.probe {
-        if manager.platform() != std::env::consts::OS {
+        if manager.platform() != "any" && manager.platform() != std::env::consts::OS {
             return Err(format!(
                 "manager '{}' is for {} and cannot be probed on {}",
                 manager.id(),
@@ -531,7 +532,11 @@ fn build_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
         }
         if !rz0_module_updater::manager_executable_allowed(
             manager.manager_name(),
-            manager.platform(),
+            if manager.platform() == "any" {
+                std::env::consts::OS
+            } else {
+                manager.platform()
+            },
             &executable,
         ) {
             return Err("--executable is not the allowlisted path for this manager".to_string());
@@ -562,21 +567,23 @@ fn build_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
 }
 
 fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
-    if std::env::consts::OS != "macos" {
-        return Err(format!(
-            "--all-providers currently supports the macOS provider inventory only; this host is {}",
-            std::env::consts::OS
-        ));
-    }
-    let specs = rz0_module_updater::manager_probe_specs_for_platform(std::env::consts::OS);
+    let platform = std::env::consts::OS;
+    let static_specs = rz0_module_updater::manager_probe_specs_for_platform(platform);
+    let providers = discover_provider_specs_for_platform(platform);
     let mut records = Vec::new();
     let mut sources = Vec::new();
     let mut warnings = vec![
-        "coverage is bounded: self-updating vendor apps, direct installers, language-specific environments, and unrecognized providers require separate adapters".to_string(),
+        "coverage is provider-driven: installed managers, language environments, and known self-updaters are inspected when their exact read-only adapter is available; unknown or mutation-only providers remain visible as bounded gaps".to_string(),
     ];
     let mut source_ok_count = 0usize;
-    for spec in &specs {
-        let Some(executable) = resolve_probe_executable(spec.executable_candidates) else {
+    for spec in static_specs
+        .iter()
+        .filter(|spec| !spec.executable_candidates.is_empty())
+    {
+        let Some(provider) = providers
+            .iter()
+            .find(|provider| provider.manager == spec.manager)
+        else {
             sources.push(ProviderSourceStatus {
                 provider: spec.manager.id().to_string(),
                 status: "missing".to_string(),
@@ -588,32 +595,27 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
             ));
             continue;
         };
-        let (bytes, identity) =
-            match probe_manager_output(spec, &executable, command.allow_network_read) {
-                Ok(value) => value,
-                Err(error) => {
-                    sources.push(ProviderSourceStatus {
-                        provider: spec.manager.id().to_string(),
-                        status: "unavailable".to_string(),
-                        candidate_count: 0,
-                    });
-                    warnings.push(format!(
-                        "{} availability source unavailable: {error}",
-                        spec.manager.id()
-                    ));
-                    continue;
-                }
-            };
-        match parse_manager_records(
-            spec,
-            &bytes,
-            executable.display().to_string(),
-            Some(identity),
-        ) {
+        let (bytes, identity) = match probe_provider_output(provider, command.allow_network_read) {
+            Ok(value) => value,
+            Err(error) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider.instance_id.clone(),
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} availability source unavailable: {error}",
+                    provider.instance_id
+                ));
+                continue;
+            }
+        };
+        match parse_provider_records(provider, &bytes, Some(identity)) {
             Ok(mut source_records) => {
+                bind_provider_instance(&mut source_records, provider);
                 source_ok_count = source_ok_count.saturating_add(1);
                 sources.push(ProviderSourceStatus {
-                    provider: spec.manager.id().to_string(),
+                    provider: provider.instance_id.clone(),
                     status: "ok".to_string(),
                     candidate_count: source_records.len(),
                 });
@@ -621,17 +623,104 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
             }
             Err(error) => {
                 sources.push(ProviderSourceStatus {
-                    provider: spec.manager.id().to_string(),
+                    provider: provider.instance_id.clone(),
                     status: "unavailable".to_string(),
                     candidate_count: 0,
                 });
                 warnings.push(format!(
                     "{} availability output unavailable: {error}",
-                    spec.manager.id()
+                    provider.instance_id
                 ));
             }
         }
     }
+
+    for manager_id in dynamic_provider_ids() {
+        if !providers
+            .iter()
+            .any(|provider| provider.manager.id() == *manager_id)
+        {
+            sources.push(ProviderSourceStatus {
+                provider: (*manager_id).to_string(),
+                status: "missing".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "{manager_id} provider executable was not found or has no exact adapter"
+            ));
+        }
+    }
+
+    for provider in providers
+        .iter()
+        .filter(|provider| provider.manager.platform() == "any")
+    {
+        if sources
+            .iter()
+            .any(|source| source.provider == provider.instance_id)
+        {
+            continue;
+        }
+        if matches!(
+            provider.manager,
+            ManagerKind::Warp | ManagerKind::Aiup | ManagerKind::CargoInstall
+        ) {
+            sources.push(ProviderSourceStatus {
+                provider: provider.instance_id.clone(),
+                status: "observed_only".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(observed_only_provider_warning(provider.manager));
+            continue;
+        }
+        let (bytes, identity) = match probe_provider_output(provider, command.allow_network_read) {
+            Ok(value) => value,
+            Err(error) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider.instance_id.clone(),
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} availability source unavailable: {error}",
+                    provider.instance_id
+                ));
+                continue;
+            }
+        };
+        match parse_provider_records(provider, &bytes, Some(identity)) {
+            Ok(mut source_records) => {
+                bind_provider_instance(&mut source_records, provider);
+                source_ok_count = source_ok_count.saturating_add(1);
+                sources.push(ProviderSourceStatus {
+                    provider: provider.instance_id.clone(),
+                    status: "ok".to_string(),
+                    candidate_count: source_records.len(),
+                });
+                records.append(&mut source_records);
+            }
+            Err(error) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider.instance_id.clone(),
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} availability output unavailable: {error}",
+                    provider.instance_id
+                ));
+            }
+        }
+    }
+
+    collect_macos_application_updates(
+        command.allow_network_read,
+        &mut records,
+        &mut sources,
+        &mut warnings,
+        &mut source_ok_count,
+    );
+
     records.sort_by(|left, right| left.finding_id.cmp(&right.finding_id));
     records.dedup_by(|left, right| left.finding_id == right.finding_id);
     warnings.truncate(MAX_PROVIDER_WARNINGS);
@@ -642,13 +731,13 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
         input: UpdaterFindingInput {
             schema_version: 1,
             contract: rz0_module_updater::INPUT_CONTRACT.to_string(),
-            platform: std::env::consts::OS.to_string(),
+            platform: platform.to_string(),
             input_evidence_sha256: evidence_digest.clone(),
-            source_id: format!("system.{}.providers", std::env::consts::OS),
+            source_id: format!("system.{}.providers", platform),
             source_evidence_sha256: evidence_digest,
             records,
         },
-        source_count: specs.len(),
+        source_count: sources.len(),
         source_ok_count,
         sources,
         warnings,
@@ -656,6 +745,448 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
         live_probe: true,
         network_read_requested: command.allow_network_read,
     })
+}
+
+fn observed_only_provider_warning(manager: ManagerKind) -> String {
+    match manager {
+        ManagerKind::Warp => {
+            "warp is installed, but its documented TUI command has no read-only availability adapter; use the signed Warp application/provider channel".to_string()
+        }
+        ManagerKind::Aiup => {
+            "aiup is installed as a high-level tool orchestrator; its managed npm/native channels are probed separately, and its dry-run is not treated as independent availability evidence".to_string()
+        }
+        ManagerKind::CargoInstall => {
+            "cargo is installed, but cargo has no built-in read-only outdated query for cargo-installed binaries; they remain observed-only unless an owner adapter is available".to_string()
+        }
+        _ => format!(
+            "{} is installed but has no reviewed read-only availability adapter",
+            manager.id()
+        ),
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, Clone)]
+struct ElectronAppUpdateSpec {
+    bundle_id: String,
+    name: String,
+    installed_version: String,
+    owner: String,
+    repository: String,
+    prerelease: bool,
+}
+
+#[cfg(target_os = "macos")]
+fn collect_macos_application_updates(
+    allow_network_read: bool,
+    records: &mut Vec<rz0_module_updater::UpdateRecord>,
+    sources: &mut Vec<ProviderSourceStatus>,
+    warnings: &mut Vec<String>,
+    source_ok_count: &mut usize,
+) {
+    let sparkle_apps = discover_sparkle_apps();
+    if !sparkle_apps.is_empty() {
+        sources.push(ProviderSourceStatus {
+            provider: "macos.sparkle.apps".to_string(),
+            status: "observed_only".to_string(),
+            candidate_count: 0,
+        });
+        warnings.push(format!(
+            "{} installed application bundle(s) expose Sparkle updater metadata ({}); no external update command was assumed, so they remain on their signed in-app update channel",
+            sparkle_apps.len(),
+            sparkle_apps.join(", ")
+        ));
+    }
+    let apps = discover_electron_app_specs();
+    if apps.is_empty() {
+        return;
+    }
+    let app_count = apps.len();
+    let curl = resolve_probe_executable(&["/usr/bin/curl", "/opt/homebrew/bin/curl"]);
+    for app in apps.into_iter().take(48) {
+        let provider_id = format!("electron:{}", app.bundle_id);
+        let bundle_path = app.bundle_id.clone();
+        if !allow_network_read {
+            sources.push(ProviderSourceStatus {
+                provider: provider_id,
+                status: "blocked".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "{} application release metadata requires --allow-network-read",
+                bundle_path
+            ));
+            continue;
+        }
+        let Some(curl) = curl.as_deref() else {
+            sources.push(ProviderSourceStatus {
+                provider: provider_id,
+                status: "missing".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "{} application updater metadata was found, but curl is unavailable",
+                bundle_path
+            ));
+            continue;
+        };
+        let identity = match observe_manager_executable(curl) {
+            Ok(identity) => identity,
+            Err(error) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider_id,
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} application release probe executable unavailable: {error}",
+                    bundle_path
+                ));
+                continue;
+            }
+        };
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/releases?per_page=20",
+            app.owner, app.repository
+        );
+        let output =
+            rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+                executable: curl.to_path_buf(),
+                arguments: vec![
+                    "--fail".to_string(),
+                    "--silent".to_string(),
+                    "--show-error".to_string(),
+                    "--max-time".to_string(),
+                    "20".to_string(),
+                    "--header".to_string(),
+                    "Accept: application/vnd.github+json".to_string(),
+                    "--header".to_string(),
+                    "User-Agent: runtime.zero".to_string(),
+                    url,
+                ],
+                working_directory: PathBuf::from("/"),
+                environment: probe_environment(),
+                timeout: std::time::Duration::from_secs(25),
+                output_limit: MAX_INPUT_BYTES,
+            });
+        let _ = observe_manager_executable(curl).map(|after| {
+            if after != identity {
+                warnings.push(format!(
+                    "{} application release probe executable identity changed",
+                    bundle_path
+                ));
+            }
+        });
+        let output = match output {
+            Ok(output) if output.status.success() => output,
+            Ok(output) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider_id,
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} application release metadata probe failed with {}",
+                    bundle_path, output.status
+                ));
+                continue;
+            }
+            Err(error) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider_id,
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} application release metadata probe failed: {error}",
+                    bundle_path
+                ));
+                continue;
+            }
+        };
+        let bytes = if output.stdout.bytes.is_empty() {
+            &output.stderr.bytes
+        } else {
+            &output.stdout.bytes
+        };
+        match parse_electron_release(bytes, &app) {
+            Ok(Some(available_version)) => {
+                let digest = sha256(format!("{}:{available_version}", app.bundle_id).as_bytes());
+                records.push(rz0_module_updater::UpdateRecord {
+                    finding_id: format!("update.electron-app.{}", &digest[..16]),
+                    subject_reference: format!("application:{}", app.bundle_id),
+                    installed: true,
+                    manager_record_present: true,
+                    update_available: true,
+                    installed_version: Some(app.installed_version.clone()),
+                    available_version: Some(available_version),
+                    manager: None,
+                    executable: None,
+                    executable_sha256: None,
+                    executable_size_bytes: None,
+                    arguments: Vec::new(),
+                    network_required: true,
+                    requires_elevation: false,
+                    rollback_supported: false,
+                });
+                sources.push(ProviderSourceStatus {
+                    provider: provider_id,
+                    status: "ok".to_string(),
+                    candidate_count: 1,
+                });
+                *source_ok_count = source_ok_count.saturating_add(1);
+            }
+            Ok(None) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider_id,
+                    status: "ok".to_string(),
+                    candidate_count: 0,
+                });
+                *source_ok_count = source_ok_count.saturating_add(1);
+            }
+            Err(error) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider_id,
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} application release metadata was not parseable: {error}",
+                    bundle_path
+                ));
+            }
+        }
+    }
+    if app_count > 48 {
+        warnings.push(format!(
+            "{} Electron application updater declarations were found; the bounded live review inspected the first 48",
+            app_count
+        ));
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn discover_sparkle_apps() -> Vec<String> {
+    let mut roots = vec![
+        PathBuf::from("/Applications"),
+        PathBuf::from("/Applications/Utilities"),
+        PathBuf::from("/System/Applications"),
+        PathBuf::from("/System/Applications/Utilities"),
+    ];
+    if let Some(home) = std::env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join("Applications"));
+    }
+    let mut apps = Vec::new();
+    for root in roots {
+        let Ok(entries) = fs::read_dir(root) else {
+            continue;
+        };
+        for entry in entries.flatten().take(512) {
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("app")
+                || !path.join("Contents/Frameworks/Sparkle.framework").is_dir()
+            {
+                continue;
+            }
+            if let Some(name) = path.file_stem().and_then(|value| value.to_str()) {
+                if !name.is_empty() && !name.chars().any(char::is_control) {
+                    apps.push(name.to_string());
+                }
+            }
+        }
+    }
+    apps.sort();
+    apps.dedup();
+    apps
+}
+
+#[cfg(not(target_os = "macos"))]
+fn discover_sparkle_apps() -> Vec<String> {
+    Vec::new()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn collect_macos_application_updates(
+    _allow_network_read: bool,
+    _records: &mut Vec<rz0_module_updater::UpdateRecord>,
+    _sources: &mut Vec<ProviderSourceStatus>,
+    _warnings: &mut Vec<String>,
+    _source_ok_count: &mut usize,
+) {
+}
+
+#[cfg(target_os = "macos")]
+fn discover_electron_app_specs() -> Vec<ElectronAppUpdateSpec> {
+    let mut roots = vec![
+        PathBuf::from("/Applications"),
+        PathBuf::from("/Applications/Utilities"),
+        PathBuf::from("/System/Applications"),
+        PathBuf::from("/System/Applications/Utilities"),
+    ];
+    if let Some(home) = std::env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join("Applications"));
+    }
+    let mut specs = Vec::new();
+    for root in roots {
+        let Ok(entries) = fs::read_dir(root) else {
+            continue;
+        };
+        for entry in entries.flatten().take(512) {
+            let path = entry.path();
+            let is_app = path.extension().and_then(|value| value.to_str()) == Some("app");
+            if !is_app || !fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.is_dir()) {
+                continue;
+            }
+            let info_path = path.join("Contents/Info.plist");
+            let Ok(bytes) = read_small_direct_file(&info_path) else {
+                continue;
+            };
+            let Ok(value) = plist::Value::from_reader(Cursor::new(bytes)) else {
+                continue;
+            };
+            let Some(dictionary) = value.as_dictionary() else {
+                continue;
+            };
+            let Some(bundle_id) = dictionary
+                .get("CFBundleIdentifier")
+                .and_then(plist::Value::as_string)
+                .and_then(|value| valid_app_field(value, 240))
+            else {
+                continue;
+            };
+            let name = dictionary
+                .get("CFBundleDisplayName")
+                .or_else(|| dictionary.get("CFBundleName"))
+                .and_then(plist::Value::as_string)
+                .and_then(|value| valid_app_field(value, 160))
+                .or_else(|| {
+                    path.file_stem()
+                        .and_then(|value| value.to_str())
+                        .and_then(|value| valid_app_field(value, 160))
+                })
+                .unwrap_or_else(|| bundle_id.clone());
+            let Some(installed_version) = ["CFBundleShortVersionString", "CFBundleVersion"]
+                .into_iter()
+                .find_map(|key| {
+                    dictionary
+                        .get(key)
+                        .and_then(plist::Value::as_string)
+                        .and_then(|value| valid_app_field(value, 120))
+                })
+            else {
+                continue;
+            };
+            let update_manifest = path.join("Contents/Resources/app-update.yml");
+            if let Ok(manifest) = read_small_direct_file(&update_manifest)
+                && let Ok(manifest) = std::str::from_utf8(&manifest)
+                && let (Some(provider), Some(owner), Some(repository)) = (
+                    yaml_field(manifest, "provider"),
+                    yaml_field(manifest, "owner"),
+                    yaml_field(manifest, "repo"),
+                )
+                && provider == "github"
+            {
+                let prerelease = yaml_field(manifest, "releaseType")
+                    .is_some_and(|value| value == "prerelease")
+                    || yaml_field(manifest, "channel").is_some_and(|value| value == "nightly");
+                specs.push(ElectronAppUpdateSpec {
+                    bundle_id,
+                    name,
+                    installed_version,
+                    owner,
+                    repository,
+                    prerelease,
+                });
+            }
+        }
+    }
+    specs.sort_by(|left, right| left.bundle_id.cmp(&right.bundle_id));
+    specs.dedup_by(|left, right| left.bundle_id == right.bundle_id);
+    specs
+}
+
+#[cfg(target_os = "macos")]
+fn parse_electron_release(
+    bytes: &[u8],
+    app: &ElectronAppUpdateSpec,
+) -> Result<Option<String>, String> {
+    let releases: Vec<serde_json::Value> = serde_json::from_slice(bytes)
+        .map_err(|error| format!("parse GitHub release JSON: {error}"))?;
+    for release in releases {
+        if release
+            .get("draft")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(true)
+        {
+            continue;
+        }
+        let prerelease = release
+            .get("prerelease")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+        if prerelease != app.prerelease {
+            continue;
+        }
+        let Some(version) = release
+            .get("tag_name")
+            .or_else(|| release.get("name"))
+            .and_then(serde_json::Value::as_str)
+            .and_then(|value| valid_app_field(value, 120))
+        else {
+            continue;
+        };
+        if version != app.installed_version {
+            return Ok(Some(version));
+        }
+        return Ok(None);
+    }
+    Err(format!(
+        "no matching {} GitHub release was returned for {}",
+        if app.prerelease {
+            "prerelease"
+        } else {
+            "stable"
+        },
+        app.name
+    ))
+}
+
+#[cfg(target_os = "macos")]
+fn read_small_direct_file(path: &Path) -> Result<Vec<u8>, String> {
+    let metadata = fs::symlink_metadata(path).map_err(|error| format!("inspect file: {error}"))?;
+    if metadata.file_type().is_symlink()
+        || !metadata.is_file()
+        || metadata.len() > rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES
+    {
+        return Err("file is not a bounded direct regular file".to_string());
+    }
+    fs::read(path).map_err(|error| format!("read file: {error}"))
+}
+
+#[cfg(target_os = "macos")]
+fn yaml_field(text: &str, key: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let (candidate, value) = line.split_once(':')?;
+        if candidate.trim() != key {
+            return None;
+        }
+        valid_app_field(value.trim().trim_matches(['\'', '"']), 160)
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn valid_app_field(value: &str, maximum: usize) -> Option<String> {
+    if value.is_empty()
+        || value.len() > maximum
+        || value.chars().any(char::is_control)
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_' | b' '))
+    {
+        None
+    } else {
+        Some(value.to_string())
+    }
 }
 
 fn single_built_input(
@@ -670,7 +1201,11 @@ fn single_built_input(
         input: UpdaterFindingInput {
             schema_version: 1,
             contract: rz0_module_updater::INPUT_CONTRACT.to_string(),
-            platform: manager.platform().to_string(),
+            platform: if manager.platform() == "any" {
+                std::env::consts::OS.to_string()
+            } else {
+                manager.platform().to_string()
+            },
             input_evidence_sha256: evidence_digest.clone(),
             source_id: format!("manager.{}", manager.id()),
             source_evidence_sha256: evidence_digest,
@@ -712,7 +1247,7 @@ fn probe_manager_output(
             output_limit: MAX_INPUT_BYTES,
         })
         .map_err(|error| format!("manager probe failed closed: {error}"))?;
-    let accepted_nonzero = spec.manager == ManagerKind::Dnf && output.status.code() == Some(100);
+    let accepted_nonzero = accepted_probe_status(spec.manager, output.status.code());
     if !output.status.success() && !accepted_nonzero {
         return Err(format!(
             "manager probe exited with an unaccepted status: {}",
@@ -731,6 +1266,76 @@ fn probe_manager_output(
         output.stdout.bytes
     };
     Ok((bytes, executable_identity))
+}
+
+fn probe_provider_output(
+    spec: &ProviderProbeSpec,
+    allow_network_read: bool,
+) -> Result<(Vec<u8>, rz0_action_plan::ActionExecutableIdentity), String> {
+    if !allow_network_read && spec.network_required {
+        return Err(
+            "this provider probe may access network metadata; pass --allow-network-read explicitly"
+                .to_string(),
+        );
+    }
+    let executable_identity = observe_manager_executable(&spec.executable)?;
+    let npm_cache = (spec.manager == ManagerKind::NpmGlobal).then(|| {
+        std::env::temp_dir().join(format!(
+            "runtime-zero-npm-probe-{}-{}",
+            std::process::id(),
+            sha256(spec.instance_id.as_bytes())
+        ))
+    });
+    if let Some(cache) = npm_cache.as_deref() {
+        fs::create_dir_all(cache)
+            .map_err(|error| format!("create isolated npm probe cache: {error}"))?;
+    }
+    let mut environment = probe_environment();
+    if let Some(cache) = npm_cache.as_deref() {
+        environment.push(("NPM_CONFIG_CACHE".to_string(), cache.display().to_string()));
+        environment.push((
+            "NPM_CONFIG_UPDATE_NOTIFIER".to_string(),
+            "false".to_string(),
+        ));
+    }
+    let result =
+        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+            executable: spec.executable.clone(),
+            arguments: spec.query_arguments.clone(),
+            working_directory: PathBuf::from("/"),
+            environment,
+            timeout: std::time::Duration::from_secs(30),
+            output_limit: MAX_INPUT_BYTES,
+        });
+    if let Some(cache) = npm_cache {
+        let _ = fs::remove_dir_all(cache);
+    }
+    let output = result.map_err(|error| format!("provider probe failed closed: {error}"))?;
+    let accepted_nonzero = accepted_probe_status(spec.manager, output.status.code());
+    if !output.status.success() && !accepted_nonzero {
+        return Err(format!(
+            "provider probe exited with an unaccepted status: {}",
+            output.status
+        ));
+    }
+    let identity_after = observe_manager_executable(&spec.executable)?;
+    if identity_after != executable_identity {
+        return Err(
+            "provider executable identity changed during the live availability probe".to_string(),
+        );
+    }
+    let bytes = if output.stdout.bytes.is_empty() {
+        output.stderr.bytes
+    } else {
+        output.stdout.bytes
+    };
+    Ok((bytes, executable_identity))
+}
+
+fn accepted_probe_status(manager: ManagerKind, code: Option<i32>) -> bool {
+    (manager == ManagerKind::Dnf && code == Some(100))
+        || (manager == ManagerKind::NpmGlobal && code == Some(1))
+        || (manager == ManagerKind::Rustup && code == Some(100))
 }
 
 fn parse_manager_records(
@@ -753,6 +1358,48 @@ fn parse_manager_records(
     let mut records = parse_manager_output(&context, bytes)?;
     records.sort_by(|left, right| left.finding_id.cmp(&right.finding_id));
     Ok(records)
+}
+
+fn parse_provider_records(
+    spec: &ProviderProbeSpec,
+    bytes: &[u8],
+    executable_identity: Option<rz0_action_plan::ActionExecutableIdentity>,
+) -> Result<Vec<rz0_module_updater::UpdateRecord>, String> {
+    let context = ManagerParseContext {
+        manager: spec.manager,
+        executable: Some(spec.executable.display().to_string()),
+        executable_sha256: executable_identity
+            .as_ref()
+            .map(|identity| identity.sha256.clone()),
+        executable_size_bytes: executable_identity.map(|identity| identity.size_bytes),
+        network_required: spec.network_required,
+        requires_elevation: spec.requires_elevation,
+        rollback_supported: false,
+    };
+    let mut records = parse_manager_output(&context, bytes)?;
+    records.sort_by(|left, right| left.finding_id.cmp(&right.finding_id));
+    Ok(records)
+}
+
+fn bind_provider_instance(
+    records: &mut [rz0_module_updater::UpdateRecord],
+    provider: &ProviderProbeSpec,
+) {
+    let namespace = sha256(provider.instance_id.as_bytes())[..12].to_string();
+    for record in records {
+        let suffix = record
+            .finding_id
+            .strip_prefix("update.")
+            .unwrap_or(&record.finding_id);
+        record.finding_id = format!("update.{namespace}.{suffix}");
+        if let Some(prefix) = provider.update_prefix.as_ref()
+            && provider.manager == ManagerKind::NpmGlobal
+        {
+            record
+                .arguments
+                .splice(2..2, ["--prefix".to_string(), prefix.display().to_string()]);
+        }
+    }
 }
 
 fn resolve_probe_executable(candidates: &[&str]) -> Option<PathBuf> {
@@ -1311,6 +1958,18 @@ fn parse_manager_kind(value: &str) -> Result<ManagerKind, String> {
         ManagerKind::Zypper,
         ManagerKind::Snap,
         ManagerKind::Flatpak,
+        ManagerKind::NpmGlobal,
+        ManagerKind::Pip,
+        ManagerKind::RubyGems,
+        ManagerKind::Grok,
+        ManagerKind::Hermes,
+        ManagerKind::OhMyPi,
+        ManagerKind::Warp,
+        ManagerKind::Rustup,
+        ManagerKind::UvTools,
+        ManagerKind::Deno,
+        ManagerKind::Aiup,
+        ManagerKind::CargoInstall,
     ]
     .into_iter()
     .find(|manager| manager.id() == value)
@@ -1497,7 +2156,7 @@ fn render_json(value: &impl Serialize) -> Result<String, String> {
 }
 
 fn usage() -> String {
-    "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n       rz0 updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback] [--format text]\n       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n\n--all-providers performs a bounded live review of allowlisted macOS sources: Homebrew formulae/casks, MacPorts, Mac App Store via mas when installed, and Apple Software Update. It reports missing, unsupported, or unrecognized providers instead of claiming universal coverage. --apply performs a fresh availability dry-run, requires explicit network-write approval and exact interactive confirmation. Execution additionally requires a plan-sealed executable identity and a reviewed platform binding; macOS currently fails closed before transaction creation because that binding is not implemented. --recovery-status is read-only and never completes or retries an interrupted manager effect.".to_string()
+    "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n       rz0 updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback] [--format text]\n       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n\n--all-providers performs a provider-driven live review of installed system managers, language/package environments, known self-updaters, and declared application update metadata. On macOS this includes Homebrew, Apple Software Update, npm global prefixes, pip, RubyGems, Grok, oh-my-pi, Electron GitHub metadata, and observed Sparkle channels when present; missing, observed-only, and unsupported providers remain explicit. --apply performs a fresh availability dry-run, requires explicit network-write approval and exact interactive confirmation. Execution additionally requires a plan-sealed executable identity and a reviewed platform binding; macOS currently fails closed before transaction creation because that binding is not implemented. --recovery-status is read-only and never completes or retries an interrupted manager effect.".to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,3 +1,8 @@
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
 use serde::{Deserialize, Serialize};
 
 use crate::UpdateRecord;
@@ -21,6 +26,18 @@ pub enum ManagerKind {
     Zypper,
     Snap,
     Flatpak,
+    NpmGlobal,
+    Pip,
+    RubyGems,
+    Grok,
+    Hermes,
+    OhMyPi,
+    Warp,
+    Rustup,
+    UvTools,
+    Deno,
+    Aiup,
+    CargoInstall,
 }
 
 impl ManagerKind {
@@ -38,6 +55,18 @@ impl ManagerKind {
             Self::Zypper => "zypper",
             Self::Snap => "snap",
             Self::Flatpak => "flatpak",
+            Self::NpmGlobal => "npm-global",
+            Self::Pip => "pip",
+            Self::RubyGems => "ruby-gems",
+            Self::Grok => "grok",
+            Self::Hermes => "hermes",
+            Self::OhMyPi => "oh-my-pi",
+            Self::Warp => "warp",
+            Self::Rustup => "rustup",
+            Self::UvTools => "uv-tools",
+            Self::Deno => "deno",
+            Self::Aiup => "aiup",
+            Self::CargoInstall => "cargo-install",
         }
     }
 
@@ -52,6 +81,14 @@ impl ManagerKind {
             Self::Apt | Self::Dnf | Self::Pacman | Self::Zypper | Self::Snap | Self::Flatpak => {
                 "linux"
             }
+            Self::NpmGlobal
+            | Self::Pip
+            | Self::RubyGems
+            | Self::Grok
+            | Self::Hermes
+            | Self::OhMyPi => "any",
+            Self::Warp => "any",
+            Self::Rustup | Self::UvTools | Self::Deno | Self::Aiup | Self::CargoInstall => "any",
         }
     }
 
@@ -74,6 +111,18 @@ impl ManagerKind {
             Self::Zypper => &["list-updates"],
             Self::Snap => &["refresh", "--list"],
             Self::Flatpak => &["remote-ls", "--updates"],
+            Self::NpmGlobal => &["outdated", "--global", "--json"],
+            Self::Pip => &["-m", "pip", "list", "--outdated", "--format=json"],
+            Self::RubyGems => &["outdated"],
+            Self::Grok => &["update", "--check", "--json"],
+            Self::Hermes => &["update", "--check"],
+            Self::OhMyPi => &["update", "--check"],
+            Self::Warp => &["--version"],
+            Self::Rustup => &["check", "--no-self-update"],
+            Self::UvTools => &["tool", "list", "--outdated"],
+            Self::Deno => &["upgrade", "--dry-run"],
+            Self::Aiup => &["list"],
+            Self::CargoInstall => &["install", "--list"],
         }
     }
 
@@ -104,6 +153,31 @@ impl ManagerKind {
             Self::Zypper => vec!["update".to_string(), package.to_string()],
             Self::Snap => vec!["refresh".to_string(), package.to_string()],
             Self::Flatpak => vec!["update".to_string(), package.to_string()],
+            Self::NpmGlobal => vec![
+                "update".to_string(),
+                "--global".to_string(),
+                package.to_string(),
+            ],
+            Self::Pip => vec![
+                "-m".to_string(),
+                "pip".to_string(),
+                "install".to_string(),
+                "--upgrade".to_string(),
+                package.to_string(),
+            ],
+            Self::RubyGems => vec!["update".to_string(), package.to_string()],
+            Self::Grok => vec!["update".to_string(), "--stable".to_string()],
+            Self::Hermes => vec!["update".to_string()],
+            Self::OhMyPi => vec!["update".to_string()],
+            Self::Warp => Vec::new(),
+            Self::Rustup => vec!["update".to_string(), package.to_string()],
+            Self::UvTools => vec![
+                "tool".to_string(),
+                "upgrade".to_string(),
+                package.to_string(),
+            ],
+            Self::Deno => vec!["upgrade".to_string()],
+            Self::Aiup | Self::CargoInstall => Vec::new(),
         }
     }
 
@@ -120,6 +194,18 @@ impl ManagerKind {
             Self::Zypper => "zypper",
             Self::Snap => "snap",
             Self::Flatpak => "flatpak",
+            Self::NpmGlobal => "npm",
+            Self::Pip => "python",
+            Self::RubyGems => "gem",
+            Self::Grok => "grok",
+            Self::Hermes => "hermes",
+            Self::OhMyPi => "omp",
+            Self::Warp => "warp",
+            Self::Rustup => "rustup",
+            Self::UvTools => "uv",
+            Self::Deno => "deno",
+            Self::Aiup => "aiup",
+            Self::CargoInstall => "cargo",
         }
     }
 }
@@ -133,6 +219,21 @@ pub struct ManagerProbeSpec {
     pub network_required: bool,
     pub requires_elevation: bool,
     pub read_only: bool,
+}
+
+/// A provider specification resolved against the current machine. Static
+/// manager specs are useful for explicit CLI selection; this resolved form is
+/// what aggregate discovery uses for user-prefix and self-updating tools.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ProviderProbeSpec {
+    pub manager: ManagerKind,
+    pub instance_id: String,
+    pub executable: PathBuf,
+    pub query_arguments: Vec<String>,
+    pub network_required: bool,
+    pub requires_elevation: bool,
+    pub read_only: bool,
+    pub update_prefix: Option<PathBuf>,
 }
 
 const HOMEBREW_EXECUTABLES: &[&str] = &["/opt/homebrew/bin/brew", "/usr/local/bin/brew"];
@@ -153,6 +254,7 @@ const PACMAN_EXECUTABLES: &[&str] = &["/usr/bin/pacman"];
 const ZYPPER_EXECUTABLES: &[&str] = &["/usr/bin/zypper"];
 const SNAP_EXECUTABLES: &[&str] = &["/usr/bin/snap"];
 const FLATPAK_EXECUTABLES: &[&str] = &["/usr/bin/flatpak"];
+const NO_STATIC_EXECUTABLES: &[&str] = &[];
 
 pub fn manager_probe_specs() -> Vec<ManagerProbeSpec> {
     vec![
@@ -178,22 +280,358 @@ pub fn manager_probe_specs() -> Vec<ManagerProbeSpec> {
         spec(ManagerKind::Zypper, ZYPPER_EXECUTABLES, true, true),
         spec(ManagerKind::Snap, SNAP_EXECUTABLES, true, false),
         spec(ManagerKind::Flatpak, FLATPAK_EXECUTABLES, true, false),
+        spec(ManagerKind::NpmGlobal, NO_STATIC_EXECUTABLES, true, false),
+        spec(ManagerKind::Pip, NO_STATIC_EXECUTABLES, true, false),
+        spec(ManagerKind::RubyGems, NO_STATIC_EXECUTABLES, true, false),
+        spec(ManagerKind::Grok, NO_STATIC_EXECUTABLES, true, false),
+        spec(ManagerKind::Hermes, NO_STATIC_EXECUTABLES, true, false),
+        spec(ManagerKind::OhMyPi, NO_STATIC_EXECUTABLES, true, false),
+        spec(ManagerKind::Warp, NO_STATIC_EXECUTABLES, false, false),
+        spec(ManagerKind::Rustup, NO_STATIC_EXECUTABLES, true, false),
+        spec(ManagerKind::UvTools, NO_STATIC_EXECUTABLES, true, false),
+        spec(ManagerKind::Deno, NO_STATIC_EXECUTABLES, true, false),
+        spec(ManagerKind::Aiup, NO_STATIC_EXECUTABLES, false, false),
+        spec(
+            ManagerKind::CargoInstall,
+            NO_STATIC_EXECUTABLES,
+            false,
+            false,
+        ),
     ]
 }
 
 pub fn manager_probe_specs_for_platform(platform: &str) -> Vec<ManagerProbeSpec> {
     manager_probe_specs()
         .into_iter()
-        .filter(|spec| spec.platform == platform)
+        .filter(|spec| spec.platform == platform || spec.platform == "any")
         .collect()
 }
 
 pub fn manager_executable_allowed(manager: &str, platform: &str, executable: &str) -> bool {
-    manager_probe_specs().into_iter().any(|spec| {
+    if manager_probe_specs().into_iter().any(|spec| {
         spec.platform == platform
             && spec.manager.manager_name() == manager
             && spec.executable_candidates.contains(&executable)
-    })
+    }) {
+        return true;
+    }
+    custom_executable_allowed(manager, platform, executable)
+}
+
+/// Resolves every built-in provider whose exact executable is present. A
+/// missing provider is intentionally absent here; the CLI reports that state
+/// separately so absence is never mistaken for universal coverage.
+pub fn discover_provider_specs_for_platform(platform: &str) -> Vec<ProviderProbeSpec> {
+    let mut providers = Vec::new();
+    for spec in manager_probe_specs_for_platform(platform) {
+        for candidate in spec.executable_candidates {
+            if let Some(executable) = resolve_direct_executable(Path::new(candidate)) {
+                providers.push(ProviderProbeSpec {
+                    manager: spec.manager,
+                    instance_id: spec.manager.id().to_string(),
+                    executable,
+                    query_arguments: spec
+                        .query_arguments
+                        .iter()
+                        .map(|argument| (*argument).to_string())
+                        .collect(),
+                    network_required: spec.network_required,
+                    requires_elevation: spec.requires_elevation,
+                    read_only: spec.read_only,
+                    update_prefix: None,
+                });
+            }
+        }
+    }
+    if platform == std::env::consts::OS {
+        discover_dynamic_providers(&mut providers);
+    }
+    providers.sort_by(|left, right| {
+        left.manager
+            .id()
+            .cmp(right.manager.id())
+            .then_with(|| left.instance_id.cmp(&right.instance_id))
+            .then_with(|| left.executable.cmp(&right.executable))
+    });
+    providers.dedup_by(|left, right| {
+        left.manager == right.manager
+            && left.instance_id == right.instance_id
+            && left.executable == right.executable
+            && left.query_arguments == right.query_arguments
+    });
+    providers
+}
+
+pub const fn dynamic_provider_ids() -> &'static [&'static str] {
+    &[
+        "npm-global",
+        "pip",
+        "ruby-gems",
+        "grok",
+        "hermes",
+        "oh-my-pi",
+        "warp",
+        "rustup",
+        "uv-tools",
+        "deno",
+        "aiup",
+        "cargo-install",
+    ]
+}
+
+fn discover_dynamic_providers(providers: &mut Vec<ProviderProbeSpec>) {
+    if let Some(npm) = find_command("npm") {
+        let mut prefixes = vec![None];
+        for prefix in npm_prefix_candidates() {
+            if prefix.is_dir() && !prefixes.iter().flatten().any(|known| known == &prefix) {
+                prefixes.push(Some(prefix));
+            }
+        }
+        for prefix in prefixes {
+            let mut query_arguments = ManagerKind::NpmGlobal
+                .query_arguments()
+                .iter()
+                .map(|argument| (*argument).to_string())
+                .collect::<Vec<_>>();
+            let instance_id = match prefix.as_ref() {
+                Some(prefix) => {
+                    query_arguments
+                        .splice(2..2, ["--prefix".to_string(), prefix.display().to_string()]);
+                    format!("npm-global:{}", prefix.display())
+                }
+                None => "npm-global:default".to_string(),
+            };
+            providers.push(ProviderProbeSpec {
+                manager: ManagerKind::NpmGlobal,
+                instance_id,
+                executable: npm.clone(),
+                query_arguments,
+                network_required: true,
+                requires_elevation: false,
+                read_only: true,
+                update_prefix: prefix,
+            });
+        }
+    }
+
+    if let Some(python) = find_command("python3").or_else(|| find_command("python")) {
+        providers.push(ProviderProbeSpec {
+            manager: ManagerKind::Pip,
+            instance_id: "pip:default".to_string(),
+            requires_elevation: python.starts_with("/usr/") || python.starts_with("/Library/"),
+            executable: python,
+            query_arguments: ManagerKind::Pip
+                .query_arguments()
+                .iter()
+                .map(|argument| (*argument).to_string())
+                .collect(),
+            network_required: true,
+            read_only: true,
+            update_prefix: None,
+        });
+    }
+
+    if let Some(gem) = find_command("gem") {
+        providers.push(ProviderProbeSpec {
+            manager: ManagerKind::RubyGems,
+            instance_id: "ruby-gems:default".to_string(),
+            requires_elevation: gem.starts_with("/usr/"),
+            executable: gem,
+            query_arguments: vec!["outdated".to_string()],
+            network_required: true,
+            read_only: true,
+            update_prefix: None,
+        });
+    }
+
+    for (command, manager, instance_id) in [
+        ("grok", ManagerKind::Grok, "grok:stable"),
+        ("hermes", ManagerKind::Hermes, "hermes:default"),
+        ("omp", ManagerKind::OhMyPi, "oh-my-pi:default"),
+        ("warp", ManagerKind::Warp, "warp:observed-only"),
+        ("rustup", ManagerKind::Rustup, "rustup:default"),
+        ("uv", ManagerKind::UvTools, "uv-tools:default"),
+        ("deno", ManagerKind::Deno, "deno:default"),
+        ("aiup", ManagerKind::Aiup, "aiup:observed-only"),
+        (
+            "cargo",
+            ManagerKind::CargoInstall,
+            "cargo-install:observed-only",
+        ),
+    ] {
+        if let Some(executable) = find_command(command) {
+            providers.push(ProviderProbeSpec {
+                manager,
+                instance_id: instance_id.to_string(),
+                executable,
+                query_arguments: manager
+                    .query_arguments()
+                    .iter()
+                    .map(|argument| (*argument).to_string())
+                    .collect(),
+                network_required: manager != ManagerKind::Warp,
+                requires_elevation: false,
+                read_only: true,
+                update_prefix: None,
+            });
+        }
+    }
+}
+
+fn npm_prefix_candidates() -> Vec<PathBuf> {
+    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
+        return Vec::new();
+    };
+    let mut candidates = vec![
+        home.join(".local/share/aiup/npm"),
+        home.join(".npm-global"),
+        home.join(".local/npm"),
+    ];
+    let share = home.join(".local/share");
+    if let Ok(entries) = fs::read_dir(share) {
+        for entry in entries.flatten().take(128) {
+            let path = entry.path().join("npm");
+            if path.join("lib/node_modules").is_dir() {
+                candidates.push(path);
+            }
+        }
+    }
+    for (root, needs_installation_child) in [
+        (home.join(".nvm/versions/node"), false),
+        (home.join(".volta/tools/image/node"), false),
+        (home.join(".asdf/installs/nodejs"), false),
+        (home.join(".local/share/mise/installs/node"), false),
+        (home.join(".local/share/fnm/node-versions"), true),
+    ] {
+        let Ok(entries) = fs::read_dir(root) else {
+            continue;
+        };
+        for entry in entries.flatten().take(128) {
+            let path = if needs_installation_child {
+                entry.path().join("installation")
+            } else {
+                entry.path()
+            };
+            if path.join("lib/node_modules").is_dir() {
+                candidates.push(path);
+            }
+        }
+    }
+    candidates.sort();
+    candidates.dedup();
+    candidates
+}
+
+fn find_command(name: &str) -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    for directory in std::env::split_paths(&path) {
+        let candidate = directory.join(name);
+        if let Some(executable) = resolve_direct_executable(&candidate) {
+            return Some(executable);
+        }
+    }
+    None
+}
+
+fn resolve_direct_executable(path: &Path) -> Option<PathBuf> {
+    let canonical = fs::canonicalize(path).ok()?;
+    let metadata = fs::symlink_metadata(&canonical).ok()?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return None;
+    }
+    Some(canonical)
+}
+
+fn custom_executable_allowed(manager: &str, platform: &str, executable: &str) -> bool {
+    if platform != "any" && platform != std::env::consts::OS {
+        return false;
+    }
+    let path = Path::new(executable);
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return false;
+    }
+    let home = std::env::var_os("HOME")
+        .as_deref()
+        .map(Path::new)
+        .map(Path::to_path_buf);
+    let under_home = |suffix: &str| {
+        home.as_deref()
+            .map(|root| path.starts_with(root.join(suffix)))
+            .unwrap_or(false)
+    };
+    let under_system_prefix = path.starts_with("/opt/homebrew") || path.starts_with("/usr/local");
+    match manager {
+        "npm" => {
+            path.file_name().is_some_and(|name| name == "npm")
+                && (under_home(".local") || under_home(".npm-global") || under_system_prefix)
+        }
+        "python" => {
+            path.file_name().is_some_and(|name| {
+                matches!(name.to_str(), Some("python" | "python3" | "pip" | "pip3"))
+            }) && (under_home(".local")
+                || under_home(".pyenv")
+                || under_system_prefix
+                || path.starts_with("/Library/Frameworks/Python.framework")
+                || path.starts_with("/System/Library/Frameworks/Python.framework")
+                || path.starts_with("/usr"))
+        }
+        "gem" => {
+            path.file_name().is_some_and(|name| name == "gem")
+                && (under_home(".local") || under_system_prefix || path.starts_with("/usr"))
+        }
+        "grok" => {
+            path.file_name().is_some_and(|name| {
+                matches!(name.to_str(), Some("grok"))
+                    || name
+                        .to_str()
+                        .is_some_and(|value| value.starts_with("grok-"))
+            }) && (under_home(".grok") || under_home(".local/bin"))
+        }
+        "hermes" => {
+            path.file_name().is_some_and(|name| {
+                matches!(name.to_str(), Some("hermes"))
+                    || name
+                        .to_str()
+                        .is_some_and(|value| value.starts_with("hermes-"))
+            }) && (under_home(".local") || under_home(".hermes") || under_home(".cache"))
+        }
+        "omp" => {
+            path.file_name().is_some_and(|name| {
+                matches!(name.to_str(), Some("omp"))
+                    || name.to_str().is_some_and(|value| value.starts_with("omp-"))
+            }) && (under_home(".local") || under_home(".omp") || under_system_prefix)
+        }
+        "warp" => {
+            path.file_name().is_some_and(|name| {
+                matches!(name.to_str(), Some("warp"))
+                    || name
+                        .to_str()
+                        .is_some_and(|value| value.starts_with("warp-"))
+            }) && (under_home(".local") || under_home(".warp") || under_system_prefix)
+        }
+        "rustup" => {
+            path.file_name().is_some_and(|name| name == "rustup")
+                && (under_home(".cargo/bin") || under_home(".rustup") || under_system_prefix)
+        }
+        "uv" => {
+            path.file_name().is_some_and(|name| name == "uv")
+                && (under_home(".local") || under_home(".cargo/bin") || under_system_prefix)
+        }
+        "deno" => {
+            path.file_name().is_some_and(|name| name == "deno")
+                && (under_home(".deno") || under_home(".local") || under_system_prefix)
+        }
+        "aiup" => path.file_name().is_some_and(|name| name == "aiup") && under_home(".local"),
+        "cargo" => {
+            path.file_name().is_some_and(|name| name == "cargo")
+                && (under_home(".cargo/bin") || under_system_prefix)
+        }
+        _ => false,
+    }
 }
 
 fn spec(
@@ -228,7 +666,9 @@ pub fn parse_manager_output(
     context: &ManagerParseContext,
     output: &[u8],
 ) -> Result<Vec<UpdateRecord>, String> {
-    if output.is_empty() || output.len() as u64 > MAX_MANAGER_OUTPUT_BYTES {
+    if (output.is_empty() && !empty_manager_output_is_valid(context.manager))
+        || output.len() as u64 > MAX_MANAGER_OUTPUT_BYTES
+    {
         return Err("manager output is empty or exceeds the foundation ceiling".to_string());
     }
     let text = std::str::from_utf8(output).map_err(|_| {
@@ -242,12 +682,258 @@ pub fn parse_manager_output(
         ManagerKind::MacPorts => parse_macports(context, text),
         ManagerKind::MacAppStore => parse_mas(context, text),
         ManagerKind::AppleSoftwareUpdate => parse_softwareupdate(context, text),
+        ManagerKind::NpmGlobal => parse_npm(context, text),
+        ManagerKind::Pip => parse_pip(context, text),
+        ManagerKind::RubyGems => parse_ruby_gems(context, text),
+        ManagerKind::Grok => parse_grok(context, text),
+        ManagerKind::Hermes => parse_hermes(context, text),
+        ManagerKind::OhMyPi => parse_oh_my_pi(context, text),
+        ManagerKind::Warp => Ok(Vec::new()),
+        ManagerKind::Rustup => parse_rustup(context, text),
+        ManagerKind::UvTools => parse_uv_tools(context, text),
+        ManagerKind::Deno => parse_deno(context, text),
+        ManagerKind::Aiup | ManagerKind::CargoInstall => Ok(Vec::new()),
         ManagerKind::Winget | ManagerKind::Zypper | ManagerKind::Snap | ManagerKind::Flatpak => {
             Err(format!(
                 "{} output parser is not yet locale-safe; source remains unavailable",
                 context.manager.id()
             ))
         }
+    }
+}
+
+fn empty_manager_output_is_valid(manager: ManagerKind) -> bool {
+    matches!(
+        manager,
+        ManagerKind::Apt
+            | ManagerKind::Dnf
+            | ManagerKind::Pacman
+            | ManagerKind::MacPorts
+            | ManagerKind::RubyGems
+            | ManagerKind::Rustup
+            | ManagerKind::Deno
+            | ManagerKind::Aiup
+            | ManagerKind::CargoInstall
+    )
+}
+
+fn parse_npm(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    let value: serde_json::Value =
+        serde_json::from_str(text).map_err(|error| format!("parse npm outdated JSON: {error}"))?;
+    let object = value
+        .as_object()
+        .ok_or_else(|| "npm outdated output must be a JSON object".to_string())?;
+    object
+        .iter()
+        .map(|(name, record)| {
+            let installed = required_string(record, "current")?;
+            let available = required_string(record, "latest")?;
+            make_record(context, name, Some(installed), available)
+        })
+        .collect()
+}
+
+fn parse_pip(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    let values: Vec<serde_json::Value> =
+        serde_json::from_str(text).map_err(|error| format!("parse pip outdated JSON: {error}"))?;
+    if values.len() > MAX_UPDATE_RECORDS {
+        return Err("pip output exceeds the update-record ceiling".to_string());
+    }
+    values
+        .iter()
+        .map(|record| {
+            let name = required_string(record, "name")?;
+            let installed = required_string(record, "version")?;
+            let available = required_string(record, "latest_version")?;
+            make_record(context, &name, Some(installed), available)
+        })
+        .collect()
+}
+
+fn parse_ruby_gems(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    let mut records = Vec::new();
+    for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        let Some((name, versions)) = line.split_once(" (") else {
+            continue;
+        };
+        let versions = versions.strip_suffix(')').unwrap_or(versions);
+        let Some((installed, available)) = versions.split_once(" < ") else {
+            continue;
+        };
+        push_record(
+            &mut records,
+            make_record(
+                context,
+                name,
+                Some(installed.to_string()),
+                available.to_string(),
+            )?,
+            context.manager,
+        )?;
+    }
+    Ok(records)
+}
+
+fn parse_grok(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    let value: serde_json::Value =
+        serde_json::from_str(text).map_err(|error| format!("parse grok update JSON: {error}"))?;
+    if value.get("error").is_some_and(|error| !error.is_null()) {
+        return Err("grok update check reported an error".to_string());
+    }
+    if !value
+        .get("updateAvailable")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        return Ok(Vec::new());
+    }
+    let installed = required_string(&value, "currentVersion")?;
+    let available = required_string(&value, "latestVersion")?;
+    Ok(vec![make_record(
+        context,
+        "grok",
+        Some(installed),
+        available,
+    )?])
+}
+
+fn parse_hermes(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    parse_version_pair_text(context, text, "hermes")
+}
+
+fn parse_oh_my_pi(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    parse_version_pair_text(context, text, "omp")
+}
+
+fn parse_rustup(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    let mut records = Vec::new();
+    let mut recognized = false;
+    for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        let Some((toolchain, detail)) = line.split_once(" - Update available : ") else {
+            if line.contains(" - Up to date : ") {
+                recognized = true;
+                continue;
+            }
+            return Err("rustup check output has an unrecognized status line".to_string());
+        };
+        recognized = true;
+        let Some((installed, available)) = detail.split_once(" -> ") else {
+            return Err("rustup check output has an invalid update range".to_string());
+        };
+        push_record(
+            &mut records,
+            make_record(
+                context,
+                toolchain.trim(),
+                Some(installed.trim().to_string()),
+                available.trim().to_string(),
+            )?,
+            context.manager,
+        )?;
+    }
+    if !text.trim().is_empty() && !recognized {
+        return Err("rustup check output contains no recognized toolchain status".to_string());
+    }
+    Ok(records)
+}
+
+fn parse_uv_tools(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    let mut records = Vec::new();
+    let mut recognized = false;
+    for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        if line.eq_ignore_ascii_case("no tools installed") {
+            return Ok(records);
+        }
+        let Some((name, versions)) = line.split_once(" (latest: ") else {
+            return Err("uv tool list output has an unrecognized status line".to_string());
+        };
+        recognized = true;
+        let Some(available) = versions.strip_suffix(')') else {
+            return Err("uv tool list output has an incomplete latest-version field".to_string());
+        };
+        let mut fields = name.split_whitespace();
+        let Some(package) = fields.next() else {
+            continue;
+        };
+        let Some(installed) = fields.next() else {
+            return Err("uv tool list output has no installed version".to_string());
+        };
+        if installed == available {
+            continue;
+        }
+        push_record(
+            &mut records,
+            make_record(
+                context,
+                package,
+                Some(installed.trim_start_matches('v').to_string()),
+                available.trim().trim_start_matches('v').to_string(),
+            )?,
+            context.manager,
+        )?;
+    }
+    if !text.trim().is_empty() && !recognized {
+        return Err("uv tool list output contains no recognized tool status".to_string());
+    }
+    Ok(records)
+}
+
+fn parse_deno(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    if text.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("up to date") || lower.contains("already up to date") {
+        return Ok(Vec::new());
+    }
+    for line in text.lines().map(str::trim) {
+        if let Some((installed, available)) = line.split_once(" -> ") {
+            let installed = installed.trim().trim_start_matches('v');
+            let available = available.trim().trim_start_matches('v');
+            if !installed.is_empty() && !available.is_empty() {
+                return Ok(vec![make_record(
+                    context,
+                    "deno",
+                    Some(installed.to_string()),
+                    available.to_string(),
+                )?]);
+            }
+        }
+    }
+    Err("deno upgrade dry-run output has no recognized version result".to_string())
+}
+
+fn parse_version_pair_text(
+    context: &ManagerParseContext,
+    text: &str,
+    name: &str,
+) -> Result<Vec<UpdateRecord>, String> {
+    let current = text
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("Current version: "))
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let available = text
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("New version available: "))
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    match (current, available) {
+        (Some(current), Some(available)) => Ok(vec![make_record(
+            context,
+            name,
+            Some(current.to_string()),
+            available.to_string(),
+        )?]),
+        _ if text.to_ascii_lowercase().contains("up to date")
+            || text.to_ascii_lowercase().contains("already up to date") =>
+        {
+            Ok(Vec::new())
+        }
+        _ => Err(format!(
+            "{} update check output has no recognized version pair",
+            context.manager.id()
+        )),
     }
 }
 
@@ -498,6 +1184,7 @@ fn make_record(
         return Err("manager package name is empty, oversized, or unsafe".to_string());
     }
     let slug = slug(name)?;
+    let reference = reference_slug(name)?;
     for version in installed_version
         .iter()
         .chain(std::iter::once(&available_version))
@@ -509,7 +1196,7 @@ fn make_record(
     let arguments = context.manager.upgrade_arguments(name);
     Ok(UpdateRecord {
         finding_id: format!("update.{}.{}", context.manager.id(), slug),
-        subject_reference: format!("package:{}:{}", context.manager.id(), slug),
+        subject_reference: format!("package:{}:{}", context.manager.id(), reference),
         installed: true,
         manager_record_present: true,
         update_available: true,
@@ -566,6 +1253,30 @@ fn slug(value: &str) -> Result<String, String> {
     }
 }
 
+fn reference_slug(value: &str) -> Result<String, String> {
+    let mut result = String::new();
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            result.push(character.to_ascii_lowercase());
+        } else if character == '/' {
+            if !result.ends_with(':') {
+                result.push(':');
+            }
+        } else if matches!(character, '-' | '_' | '.' | ':') && !result.ends_with(character) {
+            result.push(character);
+        }
+        if result.len() >= 160 {
+            break;
+        }
+    }
+    let result = result.trim_matches([':', '.', '-', '_']).to_string();
+    if result.is_empty() {
+        Err("manager package name has no safe reference characters".to_string())
+    } else {
+        Ok(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -604,6 +1315,22 @@ mod tests {
             "homebrew",
             "macos",
             "/usr/bin/true"
+        ));
+        #[cfg(unix)]
+        assert!(manager_executable_allowed(
+            "npm",
+            std::env::consts::OS,
+            if cfg!(target_os = "macos") {
+                "/opt/homebrew/opt/node/bin/npm"
+            } else {
+                "/usr/local/bin/npm"
+            }
+        ));
+        #[cfg(target_os = "macos")]
+        assert!(manager_executable_allowed(
+            "python",
+            "macos",
+            "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3"
         ));
     }
 
@@ -686,6 +1413,85 @@ mod tests {
     }
 
     #[test]
+    fn parses_language_and_self_updating_provider_outputs() {
+        let npm = parse_manager_output(
+            &context(ManagerKind::NpmGlobal),
+            br#"{"@openai/codex":{"current":"0.146.0","latest":"0.147.0"}}"#,
+        )
+        .expect("npm records");
+        assert_eq!(npm[0].subject_reference, "package:npm-global:openai:codex");
+        assert_eq!(npm[0].arguments, ["update", "--global", "@openai/codex"]);
+
+        let pip = parse_manager_output(
+            &context(ManagerKind::Pip),
+            br#"[{"name":"ruff","version":"0.8.0","latest_version":"0.9.0"}]"#,
+        )
+        .expect("pip records");
+        assert_eq!(pip[0].subject_reference, "package:pip:ruff");
+
+        let gems = parse_manager_output(
+            &context(ManagerKind::RubyGems),
+            b"bundler (2.5.0 < 2.6.0)\nnokogiri (1.16.0 < 1.17.0)\n",
+        )
+        .expect("gem records");
+        assert_eq!(gems.len(), 2);
+
+        let grok = parse_manager_output(
+            &context(ManagerKind::Grok),
+            br#"{"currentVersion":"1.0.4","latestVersion":"1.0.5","updateAvailable":true}"#,
+        )
+        .expect("grok records");
+        assert_eq!(grok[0].arguments, ["update", "--stable"]);
+
+        let hermes = parse_manager_output(
+            &context(ManagerKind::Hermes),
+            b"Current version: 0.1.0\nNew version available: 0.2.0\n",
+        )
+        .expect("Hermes records");
+        assert_eq!(hermes.len(), 1);
+
+        let omp = parse_manager_output(
+            &context(ManagerKind::OhMyPi),
+            b"Current version: 17.2.15\nNew version available: 17.3.5\n",
+        )
+        .expect("OMP records");
+        assert_eq!(omp[0].arguments, ["update"]);
+
+        let rustup = parse_manager_output(
+            &context(ManagerKind::Rustup),
+            b"stable-aarch64-apple-darwin - Update available : 1.96.0 -> 1.97.0\n",
+        )
+        .expect("rustup records");
+        assert_eq!(
+            rustup[0].arguments,
+            ["update", "stable-aarch64-apple-darwin"]
+        );
+
+        let uv = parse_manager_output(
+            &context(ManagerKind::UvTools),
+            b"ruff v0.8.0 (latest: v0.9.0)\n",
+        )
+        .expect("uv records");
+        assert_eq!(uv[0].arguments, ["tool", "upgrade", "ruff"]);
+
+        let deno = parse_manager_output(&context(ManagerKind::Deno), b"v2.9.3 -> v2.9.4\n")
+            .expect("deno records");
+        assert_eq!(deno[0].arguments, ["upgrade"]);
+
+        assert!(
+            parse_manager_output(&context(ManagerKind::RubyGems), b"")
+                .expect("empty gem output means no outdated gems")
+                .is_empty()
+        );
+
+        assert!(
+            parse_manager_output(&context(ManagerKind::Warp), b"warp-tui 1.0.0\n")
+                .expect("Warp observation")
+                .is_empty()
+        );
+    }
+
+    #[test]
     fn deterministic_untrusted_byte_corpus_never_panics_or_exceeds_bounds() {
         let managers = [
             ManagerKind::HomebrewFormula,
@@ -700,6 +1506,18 @@ mod tests {
             ManagerKind::Zypper,
             ManagerKind::Snap,
             ManagerKind::Flatpak,
+            ManagerKind::NpmGlobal,
+            ManagerKind::Pip,
+            ManagerKind::RubyGems,
+            ManagerKind::Grok,
+            ManagerKind::Hermes,
+            ManagerKind::OhMyPi,
+            ManagerKind::Warp,
+            ManagerKind::Rustup,
+            ManagerKind::UvTools,
+            ManagerKind::Deno,
+            ManagerKind::Aiup,
+            ManagerKind::CargoInstall,
         ];
         let mut state = 0x5eed_cafe_d00d_beefu64;
         for manager in managers {

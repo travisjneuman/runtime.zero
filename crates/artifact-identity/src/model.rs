@@ -1,6 +1,6 @@
 use std::{fmt, fs::File, path::PathBuf};
 
-pub use rz0_resource_contract::MAX_ARTIFACT_BYTES;
+pub use rz0_resource_contract::{MAX_ARTIFACT_BYTES, MAX_EXECUTABLE_BYTES};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtifactExpectation {

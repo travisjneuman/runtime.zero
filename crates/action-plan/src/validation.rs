@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 
 use crate::model::{
     ACTION_PLAN_SCHEMA_VERSION, ActionCapability, ActionDisposition, ActionKind, ActionPlan,
-    ActionPlanValidation, ActionRisk, MAX_ACTION_SOURCE_BYTES, MAX_ACTIONS, MAX_ARGUMENTS,
-    MAX_WRITE_SET, PlanAction, WriteKind,
+    ActionPlanValidation, ActionRisk, MAX_ACTION_EXECUTABLE_BYTES, MAX_ACTION_SOURCE_BYTES,
+    MAX_ACTIONS, MAX_ARGUMENTS, MAX_WRITE_SET, PlanAction, WriteKind,
 };
 use crate::path_policy::{valid_sha256, validate_simulation_relative_path};
 
@@ -200,7 +200,7 @@ fn validate_command(action: &PlanAction, validation: &mut ActionPlanValidation) 
             Some(identity)
                 if valid_sha256(&identity.sha256)
                     && identity.size_bytes > 0
-                    && identity.size_bytes <= MAX_ACTION_SOURCE_BYTES => {}
+                    && identity.size_bytes <= MAX_ACTION_EXECUTABLE_BYTES => {}
             _ => validation.fail(format!(
                 "action '{}' requires a bounded sealed executable identity",
                 action.action_id

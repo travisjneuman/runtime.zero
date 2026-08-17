@@ -6,6 +6,7 @@ pub const MAX_ACTIONS: usize = 128;
 pub const MAX_ARGUMENTS: usize = 64;
 pub const MAX_WRITE_SET: usize = 256;
 pub const MAX_ACTION_SOURCE_BYTES: u64 = rz0_resource_contract::MAX_ARTIFACT_BYTES;
+pub const MAX_ACTION_EXECUTABLE_BYTES: u64 = rz0_resource_contract::MAX_EXECUTABLE_BYTES;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

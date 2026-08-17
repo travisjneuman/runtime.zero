@@ -728,6 +728,7 @@ version = "0.1.0"
 dependencies = [
  "crossterm",
  "libc",
+ "plist",
  "ratatui",
  "rz0-action-plan",
  "rz0-artifact-identity",
