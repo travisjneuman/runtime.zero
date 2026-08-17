@@ -111,6 +111,25 @@ fn update_check_key_works_from_every_content_focus_region() {
 }
 
 #[test]
+fn uppercase_update_enters_exact_confirmation_text_mode() {
+    let mut state = TuiState::new(4);
+    assert_eq!(
+        state.apply(TuiInput::UpdateSelected),
+        TuiAction::UpdateSelected
+    );
+    state.begin_update_confirmation();
+    state.apply(TuiInput::ConfirmCharacter('a'));
+    state.apply(TuiInput::ConfirmCharacter('b'));
+    assert_eq!(state.update_confirmation_phrase(), "ab");
+    assert_eq!(
+        state.apply(TuiInput::SubmitUpdateConfirmation),
+        TuiAction::SubmitUpdateConfirmation
+    );
+    assert_eq!(state.finish_update_confirmation(), "ab");
+    assert!(!state.update_confirmation_active());
+}
+
+#[test]
 fn shift_tab_cycles_focus_backward() {
     let mut state = TuiState::new(4);
     let _ = state.apply(TuiInput::FocusPrevious);
@@ -125,7 +144,7 @@ fn command_rail_cycles_across_all_preview_entries() {
     let _ = state.apply(TuiInput::FocusNext);
     let _ = state.apply(TuiInput::FocusNext);
     assert_eq!(state.focus_region, TuiFocusRegion::CommandRail);
-    for _ in 0..6 {
+    for _ in 0..7 {
         let _ = state.apply(TuiInput::NextItem);
     }
     assert_eq!(state.selected_command, 0);

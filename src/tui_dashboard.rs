@@ -1,10 +1,9 @@
-use std::fs;
-use std::path::Path;
-
+use rz0_action_plan::{ActionDisposition, ActionPlan, PlanAction};
 use serde::Serialize;
 
 use crate::apps::{
-    AppCatalog, InstalledSoftware, SoftwareKind, SoftwareView, UninstallOption, collect_app_catalog,
+    AppCatalog, InstalledSoftware, SoftwareKind, SoftwareUpdate, SoftwareView, UninstallOption,
+    collect_app_catalog,
 };
 use crate::brand;
 use crate::install_receipt::ReceiptInventoryState;
@@ -18,7 +17,9 @@ use crate::tui_dashboard_labels::{
     registry_label, registry_state_label, registry_tone, row, row_count, store_state_label,
 };
 use crate::tui_theme;
-use crate::updates::{LiveUpdateCatalog, collect_live_update_catalog};
+use crate::update_cli::TuiUpdateChallenge;
+use crate::update_execution::UpdateExecutionReport;
+use crate::updates::{LiveUpdateCatalog, LiveUpdateReview, collect_live_update_review};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TuiDashboard {
@@ -41,6 +42,7 @@ pub struct TuiDashboard {
     pub service_and_persistence_count: usize,
     pub inventory_status: String,
     pub update_check_status: String,
+    pub update_action_status: String,
     pub update_source_count: usize,
     pub update_candidate_count: usize,
     pub sections: Vec<TuiSection>,
@@ -51,6 +53,10 @@ pub struct TuiDashboard {
     inventory_error: Option<String>,
     #[serde(skip)]
     update_catalog: Option<LiveUpdateCatalog>,
+    #[serde(skip)]
+    update_plan: Option<ActionPlan>,
+    #[serde(skip)]
+    pending_update: Option<TuiUpdateChallenge>,
     #[serde(skip)]
     monitor_snapshot: Option<SystemSnapshot>,
 }
@@ -140,6 +146,7 @@ fn build_dashboard(
         service_and_persistence_count: catalog.as_ref().map_or(0, |catalog| catalog.service_count),
         inventory_status,
         update_check_status: "not checked".to_string(),
+        update_action_status: "idle · u scans providers · U updates the selected item".to_string(),
         update_source_count: 0,
         update_candidate_count: 0,
         sections: sections(SectionContext {
@@ -150,13 +157,18 @@ fn build_dashboard(
             inventory_error: inventory_error.as_deref(),
             view: &default_view,
             updates: None,
+            update_plan: None,
+            pending_update: None,
             update_status: "not checked",
+            update_action_status: "idle · u scans providers · U updates the selected item",
             monitor: monitor.as_ref(),
         }),
         palette: palette(),
         software_catalog: catalog,
         inventory_error,
         update_catalog: None,
+        update_plan: None,
+        pending_update: None,
         monitor_snapshot: monitor,
     }
 }
@@ -169,7 +181,10 @@ struct SectionContext<'a> {
     inventory_error: Option<&'a str>,
     view: &'a SoftwareView,
     updates: Option<&'a LiveUpdateCatalog>,
+    update_plan: Option<&'a ActionPlan>,
+    pending_update: Option<&'a TuiUpdateChallenge>,
     update_status: &'a str,
+    update_action_status: &'a str,
     monitor: Option<&'a SystemSnapshot>,
 }
 
@@ -182,11 +197,21 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
         inventory_error,
         view,
         updates,
+        update_plan,
+        pending_update,
         update_status,
+        update_action_status,
         monitor,
     } = context;
     let mut sections = vec![
-        overview_section(catalog, inventory_error, view, updates, update_status),
+        overview_section(
+            catalog,
+            inventory_error,
+            view,
+            updates,
+            update_status,
+            update_action_status,
+        ),
         TuiSection {
             code: "02",
             title: "local store",
@@ -214,7 +239,14 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
                 ),
             ],
         },
-        installed_software_section(catalog, inventory_error, view, updates),
+        installed_software_section(
+            catalog,
+            inventory_error,
+            view,
+            updates,
+            update_plan,
+            pending_update,
+        ),
         TuiSection {
             code: "04",
             title: "modules",
@@ -251,7 +283,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
             rows: vec![
                 row(
                     tui_theme::LABEL_OK,
-                    "software list and update checks are available",
+                    "software inventory and selected update execution are available",
                     "safe",
                 ),
                 row(
@@ -266,7 +298,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
                 ),
                 row(
                     tui_theme::LABEL_INFO,
-                    "updates use the selected manager and confirmation",
+                    "u scans every provider; U prepares and executes the selected update",
                     "info",
                 ),
             ],
@@ -378,6 +410,7 @@ fn overview_section(
     view: &SoftwareView,
     updates: Option<&LiveUpdateCatalog>,
     update_status: &str,
+    update_action_status: &str,
 ) -> TuiSection {
     let mut rows = vec![row(
         tui_theme::LABEL_OK,
@@ -400,27 +433,37 @@ fn overview_section(
             match updates {
                 Some(updates) => rows.push(TuiRow {
                     label: tui_theme::LABEL_PLAN,
-                    value: update_status.to_string(),
-                    tone: if updates.warnings.is_empty() {
+                    value: format!("{update_status} · {update_action_status}"),
+                    tone: if update_action_status.contains("failed") || !updates.warnings.is_empty()
+                    {
+                        "warn"
+                    } else if update_action_status.contains("executing")
+                        || update_action_status.contains("confirm")
+                    {
                         "accent"
                     } else {
-                        "warn"
+                        "accent"
                     },
                     preview: None,
                 }),
-                None => rows.push(row(
-                    tui_theme::LABEL_PLAN,
-                    if update_status == "not checked" {
-                        "updates not checked · press u to check"
+                None => rows.push(TuiRow {
+                    label: tui_theme::LABEL_PLAN,
+                    value: if update_status == "not checked" {
+                        format!("updates not checked · {update_action_status}")
                     } else {
-                        update_status
+                        format!("{update_status} · {update_action_status}")
                     },
-                    if update_status == "checking provider availability" {
+                    tone: if update_status == "checking provider availability"
+                        || update_action_status.contains("preparing")
+                        || update_action_status.contains("executing")
+                        || update_action_status.contains("confirm")
+                    {
                         "accent"
                     } else {
                         "info"
                     },
-                )),
+                    preview: None,
+                }),
             }
             rows.push(row_count(
                 tui_theme::LABEL_OK,
@@ -485,13 +528,13 @@ fn overview_section(
     }
     rows.push(row(
         tui_theme::LABEL_INFO,
-        "Tab details · Enter details · m monitor · u checks updates · r refresh",
+        "Tab details · Enter details · u scan providers · U update selected · r refresh",
         "info",
     ));
     TuiSection {
         code: "01",
         title: "overview",
-        summary: "live local inventory and available safe actions",
+        summary: "live local inventory and provider-backed update actions",
         rows,
     }
 }
@@ -501,32 +544,32 @@ fn installed_software_section(
     inventory_error: Option<&str>,
     view: &SoftwareView,
     updates: Option<&LiveUpdateCatalog>,
+    update_plan: Option<&ActionPlan>,
+    pending_update: Option<&TuiUpdateChallenge>,
 ) -> TuiSection {
     let mut rows = Vec::new();
     match catalog {
         Some(catalog) => {
-            let mut visible = catalog
-                .apps
-                .iter()
-                .filter(|app| view.matches(app))
-                .collect::<Vec<&InstalledSoftware>>();
+            let mut visible = visible_apps(catalog, view);
             visible.sort_by(|left, right| view.compare(left, right));
+            let visible_dynamic = visible_dynamic_updates(catalog, updates, view);
+            let visible_count = visible.len() + visible_dynamic.len();
             rows.push(row_count(
                 tui_theme::LABEL_OK,
-                visible.len(),
+                visible_count,
                 "software records shown",
                 "safe",
             ));
             rows.push(TuiRow {
                 label: tui_theme::LABEL_INFO,
                 value: format!(
-                    "{} · select an item and press Enter for details; u checks updates",
+                    "{} · Enter details · U updates the selected item",
                     view_description(view)
                 ),
                 tone: "info",
                 preview: None,
             });
-            if visible.is_empty() {
+            if visible_count == 0 {
                 rows.push(row(
                     tui_theme::LABEL_WARN,
                     "no software records match the current search/filter",
@@ -571,28 +614,40 @@ fn installed_software_section(
                         .iter()
                         .find(|update| update.software_id == app.id)
                 }) {
+                    let action = update_action(update_plan, update);
+                    let (update_label, update_tone) = update_label_and_tone(action);
                     options = format!(
-                        "update available: {} · {}",
-                        update.available_version, options
+                        "{} {} · {}",
+                        update_label, update.available_version, options
                     );
-                    let apply_command = update_apply_command(app.kind);
-                    preview = match apply_command {
-                        Some(command) => format!(
-                            "update: {} {} -> {}; command: {}; {}",
+                    if let Some(action) = action {
+                        preview = format!(
+                            "{}; manager: {} · target: {} · command: {} · {}",
+                            preview,
                             update.manager,
-                            update.installed_version.as_deref().unwrap_or("unknown"),
-                            update.available_version,
-                            command,
-                            preview
-                        ),
-                        None => format!(
-                            "update: {} {} -> {}; use the matching `rz0 updates --apply` command; {}",
-                            update.manager,
-                            update.installed_version.as_deref().unwrap_or("unknown"),
-                            update.available_version,
-                            preview
-                        ),
-                    };
+                            action.target,
+                            display_action_command(action),
+                            display_action_requirements(action)
+                        );
+                        if let Some(pending) = pending_update
+                            .filter(|pending| pending.action.action_id == action.action_id)
+                        {
+                            preview = format!(
+                                "{preview}; confirmation required: type `{}` then Enter · Esc cancels",
+                                pending.view.expected_phrase
+                            );
+                        }
+                    } else {
+                        preview = format!(
+                            "{preview}; manager: {} · target: {}@{} · action plan unavailable",
+                            update.manager, update.software_id, update.available_version
+                        );
+                    }
+                    if update_tone == "warn" {
+                        // Preserve the existing uninstall tone for the row while making a
+                        // blocked update visible in the row text and details.
+                        preview = format!("update action is blocked; {preview}");
+                    }
                 }
                 preview = format!(
                     "{preview}; source: {} · identity: {} ({})",
@@ -607,6 +662,49 @@ fn installed_software_section(
                         app.name,
                         app.version.as_deref().unwrap_or("unknown"),
                         options
+                    ),
+                    tone,
+                    preview: Some(preview),
+                });
+            }
+            for update in visible_dynamic {
+                let action = update_action(update_plan, update);
+                let (update_label, tone) = update_label_and_tone(action);
+                let target_name = update
+                    .software_id
+                    .rsplit(':')
+                    .next()
+                    .unwrap_or(update.software_id.as_str());
+                let mut preview = format!(
+                    "manager: {} · target: {} · command: {} · {}",
+                    update.manager,
+                    action
+                        .map(|action| action.target.as_str())
+                        .unwrap_or(update.software_id.as_str()),
+                    action
+                        .map(display_action_command)
+                        .unwrap_or_else(|| "exact action unavailable".to_string()),
+                    action
+                        .map(display_action_requirements)
+                        .unwrap_or_else(|| "requirements unavailable".to_string())
+                );
+                if let Some(action) = action {
+                    if let Some(pending) = pending_update
+                        .filter(|pending| pending.action.action_id == action.action_id)
+                    {
+                        preview = format!(
+                            "{preview}; confirmation required: type `{}` then Enter · Esc cancels",
+                            pending.view.expected_phrase
+                        );
+                    }
+                }
+                rows.push(TuiRow {
+                    label: "[TOOL]",
+                    value: format!(
+                        "{target_name} · version {} -> {} · {}",
+                        update.installed_version.as_deref().unwrap_or("unknown"),
+                        update.available_version,
+                        update_label
                     ),
                     tone,
                     preview: Some(preview),
@@ -627,28 +725,122 @@ fn installed_software_section(
     TuiSection {
         code: "03",
         title: "installed software",
-        summary: "live bounded applications and package-manager records",
+        summary: "live software records plus universal provider update candidates",
         rows,
     }
 }
 
-fn update_apply_command(kind: SoftwareKind) -> Option<String> {
-    let manager_id = match kind {
-        SoftwareKind::HomebrewFormula => "homebrew-formula",
-        SoftwareKind::HomebrewCask => "homebrew-cask",
-        SoftwareKind::ApplicationBundle | SoftwareKind::PlatformPackage => return None,
-    };
-    let executable = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+fn visible_apps<'a>(catalog: &'a AppCatalog, view: &SoftwareView) -> Vec<&'a InstalledSoftware> {
+    let mut apps = catalog
+        .apps
         .iter()
-        .map(Path::new)
-        .find(|path| {
-            fs::symlink_metadata(path)
-                .is_ok_and(|metadata| metadata.is_file() && !metadata.file_type().is_symlink())
-        })?;
-    Some(format!(
-        "rz0 updates --apply --probe --manager {manager_id} --executable {} --allow-network-read --allow-network-write --all --accept-no-rollback",
-        executable.display()
-    ))
+        .filter(|app| view.matches(app))
+        .collect::<Vec<_>>();
+    apps.sort_by(|left, right| view.compare(left, right));
+    apps
+}
+
+fn visible_dynamic_updates<'a>(
+    catalog: &'a AppCatalog,
+    updates: Option<&'a LiveUpdateCatalog>,
+    view: &SoftwareView,
+) -> Vec<&'a SoftwareUpdate> {
+    let Some(updates) = updates else {
+        return Vec::new();
+    };
+    let mut candidates = updates
+        .candidates
+        .iter()
+        .filter(|update| !catalog.apps.iter().any(|app| app.id == update.software_id))
+        .filter(|update| update_matches_view(update, view))
+        .collect::<Vec<_>>();
+    candidates.sort_by(|left, right| {
+        left.software_id
+            .to_ascii_lowercase()
+            .cmp(&right.software_id.to_ascii_lowercase())
+            .then_with(|| left.available_version.cmp(&right.available_version))
+            .then_with(|| left.finding_id.cmp(&right.finding_id))
+    });
+    candidates
+}
+
+fn update_matches_view(update: &SoftwareUpdate, view: &SoftwareView) -> bool {
+    if matches!(view.filter, crate::apps::SoftwareFilter::Applications) {
+        return false;
+    }
+    if matches!(view.filter, crate::apps::SoftwareFilter::Reviewable) && update.manager.is_empty() {
+        return false;
+    }
+    let query = view.query().to_ascii_lowercase();
+    query.is_empty()
+        || update.software_id.to_ascii_lowercase().contains(&query)
+        || update.manager.to_ascii_lowercase().contains(&query)
+        || update
+            .available_version
+            .to_ascii_lowercase()
+            .contains(&query)
+}
+
+fn update_action<'a>(
+    update_plan: Option<&'a ActionPlan>,
+    update: &SoftwareUpdate,
+) -> Option<&'a PlanAction> {
+    update_plan?.actions.iter().find(|action| {
+        action.finding_id == update.finding_id && action.kind == rz0_action_plan::ActionKind::Update
+    })
+}
+
+fn update_label_and_tone(action: Option<&PlanAction>) -> (&'static str, &'static str) {
+    match action.map(|action| action.disposition) {
+        Some(ActionDisposition::Planned) => ("update available · U to update", "accent"),
+        Some(ActionDisposition::Blocked) => ("update blocked", "warn"),
+        Some(ActionDisposition::Unsupported) | None => ("update action unavailable", "warn"),
+    }
+}
+
+fn display_action_command(action: &PlanAction) -> String {
+    let executable = action
+        .executable
+        .as_deref()
+        .unwrap_or("<unresolved-executable>");
+    let arguments = action
+        .arguments
+        .iter()
+        .map(|argument| {
+            if argument
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"-_/.:=@%+".contains(&byte))
+            {
+                argument.clone()
+            } else {
+                format!("'{}'", argument.replace('\'', "'\\''"))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    if arguments.is_empty() {
+        executable.to_string()
+    } else {
+        format!("{executable} {arguments}")
+    }
+}
+
+fn display_action_requirements(action: &PlanAction) -> String {
+    format!(
+        "risk {:?} · network {} · elevation {} · rollback {}",
+        action.risk,
+        if action.network_required { "yes" } else { "no" },
+        if action.requires_elevation {
+            "yes"
+        } else {
+            "no"
+        },
+        if action.rollback.supported {
+            "proven"
+        } else {
+            "manual recovery"
+        }
+    )
 }
 
 fn view_description(view: &SoftwareView) -> String {
@@ -672,12 +864,15 @@ impl TuiDashboard {
             view,
             self.update_catalog.as_ref(),
             &self.update_check_status,
+            &self.update_action_status,
         );
         self.sections[2] = installed_software_section(
             self.software_catalog.as_ref(),
             self.inventory_error.as_deref(),
             view,
             self.update_catalog.as_ref(),
+            self.update_plan.as_ref(),
+            self.pending_update.as_ref(),
         );
     }
 
@@ -703,9 +898,13 @@ impl TuiDashboard {
             return None;
         };
         self.update_catalog = None;
+        self.update_plan = None;
+        self.pending_update = None;
         self.update_source_count = 0;
         self.update_candidate_count = 0;
         self.update_check_status = "checking provider availability".to_string();
+        self.update_action_status =
+            "checking provider availability · waiting for results".to_string();
         Some(catalog.clone())
     }
 
@@ -714,6 +913,8 @@ impl TuiDashboard {
             self.fail_update_check();
             return;
         }
+        self.update_plan = None;
+        self.pending_update = None;
         self.update_source_count = updates.source_count;
         self.update_candidate_count = updates.candidate_count;
         self.update_check_status = format!(
@@ -721,20 +922,167 @@ impl TuiDashboard {
             updates.candidate_count, updates.source_ok_count, updates.source_count
         );
         self.update_catalog = Some(updates);
+        self.update_action_status = "review ready · U updates the selected item".to_string();
+    }
+
+    pub(crate) fn complete_update_review(&mut self, review: LiveUpdateReview) {
+        self.complete_update_check(review.catalog);
+        self.update_plan = review.plan;
     }
 
     pub fn fail_update_check(&mut self) {
         self.update_catalog = None;
+        self.update_plan = None;
+        self.pending_update = None;
         self.update_source_count = 0;
         self.update_candidate_count = 0;
         self.update_check_status = "update check failed · press u to retry".to_string();
+        self.update_action_status = "update check failed · press u to retry".to_string();
+    }
+
+    pub(crate) fn fail_update_check_with_error(&mut self, error: &str) {
+        self.update_catalog = None;
+        self.update_plan = None;
+        self.pending_update = None;
+        self.update_source_count = 0;
+        self.update_candidate_count = 0;
+        let detail = error.lines().next().unwrap_or("provider scan failed");
+        self.update_check_status = format!("update check failed · {detail}");
+        self.update_action_status = format!("update check failed · {detail}");
+    }
+
+    pub(crate) fn selected_software_id(
+        &self,
+        section_index: usize,
+        row_index: usize,
+        view: &SoftwareView,
+    ) -> Option<String> {
+        self.selected_update_candidate(section_index, row_index, view)
+            .map(|candidate| candidate.software_id.clone())
+            .or_else(|| {
+                let catalog = self.software_catalog.as_ref()?;
+                let apps = visible_apps(catalog, view);
+                let row = row_index.checked_sub(2)?;
+                apps.get(row).map(|app| app.id.clone())
+            })
+    }
+
+    pub(crate) fn selected_update_action(
+        &self,
+        section_index: usize,
+        row_index: usize,
+        view: &SoftwareView,
+    ) -> Option<PlanAction> {
+        let candidate = self.selected_update_candidate(section_index, row_index, view)?;
+        update_action(self.update_plan.as_ref(), candidate).cloned()
+    }
+
+    pub(crate) fn has_update_review(&self) -> bool {
+        self.update_catalog.is_some()
+    }
+
+    pub(crate) fn update_action_for_software_id(&self, software_id: &str) -> Option<PlanAction> {
+        let candidate = self
+            .update_catalog
+            .as_ref()?
+            .candidates
+            .iter()
+            .find(|candidate| candidate.software_id == software_id)?;
+        update_action(self.update_plan.as_ref(), candidate).cloned()
+    }
+
+    fn selected_update_candidate<'a>(
+        &'a self,
+        section_index: usize,
+        row_index: usize,
+        view: &SoftwareView,
+    ) -> Option<&'a SoftwareUpdate> {
+        if self.sections.get(section_index)?.code != "03" {
+            return None;
+        }
+        let catalog = self.software_catalog.as_ref()?;
+        let apps = visible_apps(catalog, view);
+        let dynamic = visible_dynamic_updates(catalog, self.update_catalog.as_ref(), view);
+        let row = row_index.checked_sub(2)?;
+        if row < apps.len() {
+            let app = apps[row];
+            return self
+                .update_catalog
+                .as_ref()?
+                .candidates
+                .iter()
+                .find(|candidate| candidate.software_id == app.id);
+        }
+        dynamic.get(row.saturating_sub(apps.len())).copied()
+    }
+
+    pub(crate) fn start_update_prepare(&mut self, action: &PlanAction) {
+        self.pending_update = None;
+        self.update_action_status = format!(
+            "preparing selected update · {} · {}",
+            action.manager.as_deref().unwrap_or("unknown manager"),
+            action.target
+        );
+    }
+
+    pub(crate) fn update_action_unavailable(&mut self, detail: &str) {
+        self.pending_update = None;
+        self.update_action_status = format!("update unavailable · {detail}");
+    }
+
+    pub(crate) fn complete_update_challenge(&mut self, challenge: TuiUpdateChallenge) {
+        self.update_action_status = format!(
+            "confirm selected update · type the exact phrase and press Enter · Esc cancels · {}",
+            challenge.action.target
+        );
+        self.pending_update = Some(challenge);
+    }
+
+    pub(crate) fn pending_update_challenge(&self) -> Option<&TuiUpdateChallenge> {
+        self.pending_update.as_ref()
+    }
+
+    pub(crate) fn begin_update_execution(&mut self) {
+        let target = self
+            .pending_update
+            .as_ref()
+            .map(|pending| pending.action.target.clone())
+            .unwrap_or_else(|| "selected item".to_string());
+        self.update_action_status = format!("executing update · {target}");
+    }
+
+    pub(crate) fn complete_update_execution(&mut self, report: &UpdateExecutionReport) {
+        self.read_only = false;
+        self.writes_attempted |= report.writes_attempted;
+        self.pending_update = None;
+        self.update_plan = None;
+        self.update_catalog = None;
+        self.update_candidate_count = 0;
+        self.update_check_status = "stale · press u to rescan providers".to_string();
+        self.update_action_status = format!(
+            "updated · {} · receipt {}",
+            report.target, report.receipt_reference
+        );
+    }
+
+    pub(crate) fn fail_update_action(&mut self, error: &str) {
+        let detail = error.lines().next().unwrap_or("update execution failed");
+        self.pending_update = None;
+        self.update_action_status = format!("update failed · {detail}");
+    }
+
+    pub(crate) fn cancel_update_action(&mut self) {
+        self.update_action_status = "cancelling update · waiting for manager boundary".to_string();
     }
 
     pub fn check_updates(&mut self) {
         let Some(catalog) = self.start_update_check() else {
             return;
         };
-        self.complete_update_check(collect_live_update_catalog(&catalog));
+        match collect_live_update_review(&catalog) {
+            Ok(review) => self.complete_update_review(review),
+            Err(error) => self.fail_update_check_with_error(&error),
+        }
     }
 }
 

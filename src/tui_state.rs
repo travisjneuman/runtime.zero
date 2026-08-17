@@ -10,6 +10,8 @@ pub struct TuiState {
     pub preview_open: bool,
     software_view: SoftwareView,
     search_active: bool,
+    update_confirmation_active: bool,
+    update_confirmation_phrase: String,
     section_count: usize,
     command_count: usize,
     previous_focus_region: TuiFocusRegion,
@@ -46,6 +48,8 @@ pub enum TuiAction {
     Refresh,
     RefreshMonitor,
     CheckUpdates,
+    UpdateSelected,
+    SubmitUpdateConfirmation,
     Continue,
 }
 
@@ -64,6 +68,10 @@ pub enum TuiInput {
     Refresh,
     RefreshMonitor,
     CheckUpdates,
+    UpdateSelected,
+    ConfirmCharacter(char),
+    ConfirmBackspace,
+    SubmitUpdateConfirmation,
     OpenMonitor,
     BeginSearch,
     EndSearch,
@@ -90,6 +98,8 @@ impl TuiState {
             command_count: crate::tui_command_rail::COMMANDS.len(),
             software_view: SoftwareView::default(),
             search_active: false,
+            update_confirmation_active: false,
+            update_confirmation_phrase: String::new(),
             previous_focus_region: TuiFocusRegion::LeftNavigation,
         }
     }
@@ -110,6 +120,30 @@ impl TuiState {
         self.software_view.query()
     }
 
+    pub fn update_confirmation_active(&self) -> bool {
+        self.update_confirmation_active
+    }
+
+    pub fn update_confirmation_phrase(&self) -> &str {
+        &self.update_confirmation_phrase
+    }
+
+    pub fn begin_update_confirmation(&mut self) {
+        self.update_confirmation_active = true;
+        self.update_confirmation_phrase.clear();
+        self.preview_open = true;
+    }
+
+    pub fn finish_update_confirmation(&mut self) -> String {
+        self.update_confirmation_active = false;
+        std::mem::take(&mut self.update_confirmation_phrase)
+    }
+
+    pub fn cancel_update_confirmation(&mut self) {
+        self.update_confirmation_active = false;
+        self.update_confirmation_phrase.clear();
+    }
+
     pub fn clamp_detail_row(&mut self, row_count: usize) {
         self.selected_detail_row = if row_count == 0 {
             0
@@ -119,6 +153,9 @@ impl TuiState {
     }
 
     pub fn apply(&mut self, input: TuiInput) -> TuiAction {
+        if self.update_confirmation_active {
+            return self.apply_update_confirmation_input(input);
+        }
         if self.search_active {
             return self.apply_search_input(input);
         }
@@ -201,7 +238,12 @@ impl TuiState {
             TuiInput::Refresh => TuiAction::Continue,
             TuiInput::RefreshMonitor => TuiAction::RefreshMonitor,
             TuiInput::CheckUpdates if !self.show_help => TuiAction::CheckUpdates,
+            TuiInput::UpdateSelected if !self.show_help => TuiAction::UpdateSelected,
+            TuiInput::SubmitUpdateConfirmation
+            | TuiInput::ConfirmCharacter(_)
+            | TuiInput::ConfirmBackspace => TuiAction::Continue,
             TuiInput::CheckUpdates => TuiAction::Continue,
+            TuiInput::UpdateSelected => TuiAction::Continue,
             TuiInput::OpenMonitor if !self.show_help => {
                 if self.section_count > 0 {
                     self.selected_section = self.section_count - 1;
@@ -239,6 +281,28 @@ impl TuiState {
         }
     }
 
+    fn apply_update_confirmation_input(&mut self, input: TuiInput) -> TuiAction {
+        match input {
+            TuiInput::Back => {
+                self.cancel_update_confirmation();
+                TuiAction::Continue
+            }
+            TuiInput::ConfirmCharacter(value) => {
+                if !value.is_control() && self.update_confirmation_phrase.len() < 256 {
+                    self.update_confirmation_phrase.push(value);
+                }
+                TuiAction::Continue
+            }
+            TuiInput::ConfirmBackspace => {
+                self.update_confirmation_phrase.pop();
+                TuiAction::Continue
+            }
+            TuiInput::SubmitUpdateConfirmation => TuiAction::SubmitUpdateConfirmation,
+            TuiInput::Quit => TuiAction::Quit,
+            _ => TuiAction::Continue,
+        }
+    }
+
     fn apply_search_input(&mut self, input: TuiInput) -> TuiAction {
         match input {
             TuiInput::EndSearch | TuiInput::Back => {
@@ -256,9 +320,13 @@ impl TuiState {
                 TuiAction::Continue
             }
             TuiInput::Quit => TuiAction::Quit,
-            TuiInput::Refresh | TuiInput::RefreshMonitor | TuiInput::CheckUpdates => {
-                TuiAction::Continue
-            }
+            TuiInput::Refresh
+            | TuiInput::RefreshMonitor
+            | TuiInput::CheckUpdates
+            | TuiInput::UpdateSelected
+            | TuiInput::ConfirmCharacter(_)
+            | TuiInput::ConfirmBackspace
+            | TuiInput::SubmitUpdateConfirmation => TuiAction::Continue,
             TuiInput::OpenMonitor => TuiAction::Continue,
             TuiInput::ScrollUp(_) | TuiInput::ScrollDown(_) => TuiAction::Continue,
             TuiInput::Resize | TuiInput::Other => TuiAction::Continue,

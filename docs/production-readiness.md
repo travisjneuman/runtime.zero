@@ -133,7 +133,7 @@ and runtime evidence:
    state.
 5. Text, JSON, and TUI surfaces that distinguish evidence, details, and
    executable action entry points without claiming unavailable support. The
-   updater TUI entry currently hands off to the explicit CLI apply lane.
+   updater TUI entry now enters the shared confirmation-bound apply lane.
 6. Exact foundation-enforced capability grant and platform isolation.
 7. Explicit confirmation for the exact action, target, manager, network,
    privilege, and write set.
@@ -211,10 +211,10 @@ parallel once its shared foundation dependency is stable.
    evidence as the prerequisite for mutating modules.
 8. Implement updater, uninstall, leftovers, cache, security/integrity, and
    report/export modules against foundation APIs, maintaining platform parity.
-9. Complete CLI/JSON/TUI action review, including direct TUI update handoff,
+9. Complete CLI/JSON/TUI action review, including direct TUI update execution,
    accessibility, terminal compatibility, help, manual pages, completions,
-   recovery UX, and support diagnostics. The current TUI only displays the
-   exact CLI update entry point; it does not provide a second execution path.
+   recovery UX, and support diagnostics. The TUI and CLI now share one updater
+   execution path; the remaining proof work is coverage and release readiness.
 10. Complete dependency/supply-chain review, unsafe-code review, fuzzing,
     performance/soak/fault testing, external security review, and release audit.
 11. Produce reproducible artifacts, checksums, SBOMs/notices, installers,

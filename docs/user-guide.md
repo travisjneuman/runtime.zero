@@ -132,17 +132,23 @@ The six sections are overview, local store, installed software, modules,
 actions, and system monitor. Important controls:
 
 - `r`: refresh local inventory;
-- `u`: explicitly query manager availability and potentially read network
-  metadata; it never applies an update;
+- `u`: scan every discovered provider for availability and potentially read
+  network metadata; it never applies an update;
+- `U`: update the highlighted installed-software or provider row. The TUI
+  refreshes exact evidence, shows the manager/target/command and challenge
+  phrase, then executes after the phrase is entered and accepted;
 - `m`: jump to the one-second monitor view;
 - `/`: search; `f`: filter; `s`: sort;
 - arrows or `j`/`k`: move; Home/End: boundaries;
 - Tab/Shift+Tab: change focus; Enter/Space: details;
 - `h`/`?`: help; Esc: back; `q`: quit.
 
-The TUI has no independent mutation authority. Action rows hand off to exact CLI
-commands so confirmation, transaction, and recovery policy is not duplicated.
-See [`tui.md`](tui.md).
+The TUI and CLI share the same exact action plan, confirmation, transaction,
+identity binding, receipt, and post-update verification path. The TUI is the
+primary interactive workflow; the CLI remains the scriptable equivalent and is
+the recovery-status escape hatch. On a first TUI update, runtime.zero creates
+only its own user-local state scaffold if needed; no manager write starts before
+the exact challenge is accepted. See [`tui.md`](tui.md).
 
 ## Uninstall review
 

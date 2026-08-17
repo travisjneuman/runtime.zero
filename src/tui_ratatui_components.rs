@@ -65,6 +65,12 @@ pub(crate) fn render_compact_dashboard(
             dashboard.store_init_status, dashboard.registry_state, dashboard.installed_module_count
         )),
     ];
+    if state.update_confirmation_active() {
+        lines.push(Line::raw(format!(
+            "confirm update: {}",
+            state.update_confirmation_phrase()
+        )));
+    }
     if let Some(row) = section.rows.get(selected_row) {
         lines.push(Line::raw(format!(
             "item {}/{}: {} {}",
@@ -88,7 +94,7 @@ pub(crate) fn render_compact_dashboard(
         lines.push(details_line(color));
     }
     lines.push(Line::raw(
-        "q exits · m monitor · u updates · / search · f filter · s sort · r refresh",
+        "q exits · m monitor · u scan · U update selected · / search · f filter · s sort · r refresh",
     ));
     frame.render_widget(
         Paragraph::new(lines).block(block("COMPACT // DASHBOARD", "info", color)),
@@ -158,12 +164,31 @@ pub(crate) fn render_state_cards(
     );
 }
 
-pub(crate) fn render_footer(frame: &mut Frame<'_>, area: Rect, color: bool) {
+pub(crate) fn render_footer(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    dashboard: &TuiDashboard,
+    state: &TuiState,
+    color: bool,
+) {
+    let operation = if state.update_confirmation_active() {
+        let expected = dashboard
+            .pending_update_challenge()
+            .map(|challenge| challenge.view.expected_phrase.as_str())
+            .unwrap_or("challenge unavailable");
+        format!(
+            "type `{expected}` · entered `{}` · Enter apply · Esc cancel",
+            state.update_confirmation_phrase(),
+        )
+    } else {
+        dashboard.update_action_status.clone()
+    };
     let line = Line::from(vec![
         Span::styled(tui_theme::LABEL_OK, tone_style("safe", color)),
         Span::raw(" "),
         Span::styled("installed software", tone_style("accent", color)),
-        Span::raw(" · Enter details · m monitor · u checks updates"),
+        Span::raw(" · Enter details · u scan · U update selected · "),
+        Span::raw(operation),
     ]);
     frame.render_widget(
         Paragraph::new(vec![line]).block(block("ACTIONS", "info", color)),

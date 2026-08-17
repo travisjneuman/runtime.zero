@@ -175,8 +175,8 @@ full platform/lifecycle acceptance cells.
   installed or remote evidence drift.
 - [ ] Implement serial one-item execution, pause/resume, cancellation, rollback,
   verification, and recovery for every supported manager.
-- [ ] Add direct TUI review/confirmation only after the same CLI safety gates are
-  reusable; do not create a second authority path.
+- [x] Add direct TUI review/confirmation through the same CLI safety gates; do
+  not create a second authority path.
 - [ ] Prove real updates only on disposable hosts with synthetic/noncritical
   packages before any support claim.
 - [ ] Complete updater CLI/JSON/TUI, docs, accessibility, performance, security,

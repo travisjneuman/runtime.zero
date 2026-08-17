@@ -67,10 +67,11 @@ counters, a separate details panel, and direct action entry points. Enter opens
 selected-item details; the mouse wheel advances the list three rows at a time;
 `m` opens the built-in system monitor; it uses native macOS/Linux/Windows
 collectors and does not require a separate btop/top/task-manager install.
-`u` checks manager availability; and `r` refreshes the local snapshot. Explicit
-manager update writes use the confirmation-bound `rz0 updates --apply` lane.
-The dashboard does not silently execute destructive actions, and it does not
-present unavailable module or uninstall operations as implemented.
+`u` scans provider availability; `U` targets the highlighted provider-backed
+update candidate, presents the exact manager command and confirmation phrase,
+and enters the shared confirmation-bound update lane. `r` refreshes the local
+snapshot. The dashboard does not silently execute destructive actions, and it
+does not present unavailable module or uninstall operations as implemented.
 The current Ratatui widget layer provides componentized panels, status badges,
 section navigation, a live native system monitor, Home/End jumps, Tab/Shift+Tab
 focus cycling, arrow and

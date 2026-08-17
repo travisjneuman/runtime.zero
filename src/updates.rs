@@ -1,9 +1,16 @@
+use rz0_action_plan::ActionPlan;
 use serde::Serialize;
 
 use crate::apps::{AppCatalog, InstalledSoftware, SoftwareUpdate, software_name_key};
 
 pub const UPDATE_CATALOG_CONTRACT: &str = "live_update_catalog";
 const MAX_WARNINGS: usize = rz0_resource_contract::MAX_INVENTORY_WARNINGS;
+
+#[derive(Debug, Clone)]
+pub(crate) struct LiveUpdateReview {
+    pub(crate) catalog: LiveUpdateCatalog,
+    pub(crate) plan: Option<ActionPlan>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LiveUpdateCatalog {
@@ -21,24 +28,26 @@ pub struct LiveUpdateCatalog {
 }
 
 pub fn collect_live_update_catalog(catalog: &AppCatalog) -> LiveUpdateCatalog {
-    let scan = match crate::update_cli::collect_universal_provider_scan(true) {
-        Ok(scan) => scan,
-        Err(error) => {
-            return LiveUpdateCatalog {
-                schema_version: 1,
-                contract: UPDATE_CATALOG_CONTRACT,
-                checked: false,
-                read_only: true,
-                writes_attempted: false,
-                network_read_requested: true,
-                source_count: 0,
-                source_ok_count: 0,
-                candidate_count: 0,
-                candidates: Vec::new(),
-                warnings: vec![format!("universal provider scan failed closed: {error}")],
-            };
-        }
-    };
+    match collect_live_update_review(catalog) {
+        Ok(review) => review.catalog,
+        Err(error) => LiveUpdateCatalog {
+            schema_version: 1,
+            contract: UPDATE_CATALOG_CONTRACT,
+            checked: false,
+            read_only: true,
+            writes_attempted: false,
+            network_read_requested: true,
+            source_count: 0,
+            source_ok_count: 0,
+            candidate_count: 0,
+            candidates: Vec::new(),
+            warnings: vec![format!("universal provider scan failed closed: {error}")],
+        },
+    }
+}
+
+pub(crate) fn collect_live_update_review(catalog: &AppCatalog) -> Result<LiveUpdateReview, String> {
+    let (scan, plan) = crate::update_cli::collect_universal_update_plan(true)?;
     let mut candidates = scan
         .records
         .into_iter()
@@ -53,21 +62,26 @@ pub fn collect_live_update_catalog(catalog: &AppCatalog) -> LiveUpdateCatalog {
             .then_with(|| left.available_version.cmp(&right.available_version))
     });
     candidates.dedup_by(|left, right| {
-        left.software_id == right.software_id && left.available_version == right.available_version
+        left.finding_id == right.finding_id
+            && left.software_id == right.software_id
+            && left.available_version == right.available_version
     });
-    LiveUpdateCatalog {
-        schema_version: 1,
-        contract: UPDATE_CATALOG_CONTRACT,
-        checked: true,
-        read_only: true,
-        writes_attempted: false,
-        network_read_requested: true,
-        source_count: scan.source_count,
-        source_ok_count: scan.source_ok_count,
-        candidate_count: candidates.len(),
-        candidates,
-        warnings: scan.warnings.into_iter().take(MAX_WARNINGS).collect(),
-    }
+    Ok(LiveUpdateReview {
+        catalog: LiveUpdateCatalog {
+            schema_version: 1,
+            contract: UPDATE_CATALOG_CONTRACT,
+            checked: true,
+            read_only: true,
+            writes_attempted: false,
+            network_read_requested: true,
+            source_count: scan.source_count,
+            source_ok_count: scan.source_ok_count,
+            candidate_count: candidates.len(),
+            candidates,
+            warnings: scan.warnings.into_iter().take(MAX_WARNINGS).collect(),
+        },
+        plan,
+    })
 }
 
 fn software_update_from_record(
@@ -83,6 +97,7 @@ fn software_update_from_record(
         .installed_version
         .or_else(|| app.and_then(|app| app.version.clone()));
     Some(SoftwareUpdate {
+        finding_id: record.finding_id,
         software_id,
         manager: record.manager.unwrap_or_else(|| "unknown".to_string()),
         installed_version,

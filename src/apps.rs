@@ -44,6 +44,7 @@ pub struct InstalledSoftware {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SoftwareUpdate {
+    pub finding_id: String,
     pub software_id: String,
     pub manager: String,
     pub installed_version: Option<String>,

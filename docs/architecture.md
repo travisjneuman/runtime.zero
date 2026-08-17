@@ -9,7 +9,7 @@
 ## Layers
 
 1. **CLI core** — argument parsing, launch routing, stable text/JSON output, exit codes, built-in inventory/monitor surfaces, and the explicit updater coordinator.
-2. **Interactive TUI** — Ratatui widgets over Crossterm terminal lifecycle, one canonical software list, cached review controls, and CLI action handoffs.
+2. **Interactive TUI** — Ratatui widgets over Crossterm terminal lifecycle, one canonical software/provider list, cached review controls, and direct entry into the shared updater execution contract.
 3. **Module registry** — manifest model, local manifest validation, installed-module listing, and core-vs-module reporting.
 4. **Policy and contracts** — safety posture, validation, resources, privacy, capabilities, errors, confirmation, cancellation, transactions, and release evidence.
 5. **Action pipeline** — evidence, findings, dry-run plans, exact approval, transaction, and post-action verification. The updater consumes the first bounded core execution lane; other domains remain blocked.

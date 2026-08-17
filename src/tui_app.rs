@@ -6,7 +6,7 @@ use std::time::Duration;
 use crossterm::cursor::{Hide, Show};
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
-    MouseEvent, MouseEventKind,
+    KeyModifiers, MouseEvent, MouseEventKind,
 };
 use crossterm::execute;
 use crossterm::terminal::{
@@ -22,7 +22,22 @@ use crate::tui_layout::TuiLayoutTier;
 use crate::tui_ratatui::draw_dashboard;
 use crate::tui_ratatui_support::help_height;
 use crate::tui_state::{TuiAction, TuiInput, TuiMouseTarget, TuiState};
-use crate::updates::LiveUpdateCatalog;
+use crate::update_cli::TuiUpdateChallenge;
+use crate::update_execution::UpdateExecutionReport;
+use crate::updates::LiveUpdateReview;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UpdatePhase {
+    Check,
+    Prepare,
+    Execute,
+}
+
+enum TuiUpdateResult {
+    Review(Result<LiveUpdateReview, String>),
+    Challenge(Result<TuiUpdateChallenge, String>),
+    Execution(Result<UpdateExecutionReport, String>),
+}
 
 pub fn run_interactive_tui(launch_context: &LaunchRoutingReport, color: bool) -> io::Result<()> {
     let mut stdout = io::stdout();
@@ -39,16 +54,32 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
 ) -> io::Result<()> {
     let mut dashboard = tui_dashboard::dashboard();
     let mut state = TuiState::new(dashboard.sections.len());
-    let mut update_receiver: Option<Receiver<LiveUpdateCatalog>> = None;
+    let mut update_receiver: Option<Receiver<TuiUpdateResult>> = None;
+    let mut update_controller = None;
+    let mut update_phase = None;
+    let mut pending_update_selection = None;
     render(terminal, &dashboard, &state, launch_context, color)?;
     loop {
-        if poll_update_result(&mut dashboard, &mut update_receiver) {
+        if let Some(result) = poll_update_result(&mut update_receiver, update_phase) {
+            finish_update_result(
+                &mut dashboard,
+                &mut state,
+                result,
+                &mut update_receiver,
+                &mut update_controller,
+                &mut update_phase,
+                &mut pending_update_selection,
+            );
             dashboard.apply_software_view(state.software_view());
             render(terminal, &dashboard, &state, launch_context, color)?;
         }
         let input = if event::poll(Duration::from_secs(1))? {
             match event::read()? {
-                Event::Key(key) => input_from_key(key, state.search_active()),
+                Event::Key(key) => input_from_key(
+                    key,
+                    state.search_active(),
+                    state.update_confirmation_active(),
+                ),
                 Event::Mouse(mouse) => input_from_mouse(mouse, terminal.size()?.into()),
                 Event::Resize(_, _) => Some(TuiInput::Resize),
                 _ => None,
@@ -57,19 +88,42 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
             Some(TuiInput::RefreshMonitor)
         };
         if let Some(input) = input {
+            let confirmation_was_active = state.update_confirmation_active();
             match state.apply(input) {
-                TuiAction::Quit => break,
-                TuiAction::CheckUpdates => {
-                    if update_receiver.is_none() {
-                        if let Some(catalog) = dashboard.start_update_check() {
-                            let (sender, receiver) = mpsc::channel();
-                            thread::spawn(move || {
-                                let updates = crate::updates::collect_live_update_catalog(&catalog);
-                                let _ = sender.send(updates);
-                            });
-                            update_receiver = Some(receiver);
+                TuiAction::Quit => {
+                    if update_phase == Some(UpdatePhase::Execute) {
+                        if let Some(controller) = update_controller.as_ref() {
+                            controller.cancel(
+                                rz0_cancellation_contract::CancellationReason::UserRequested,
+                            );
+                            dashboard.cancel_update_action();
                         }
+                    } else {
+                        break;
                     }
+                }
+                TuiAction::CheckUpdates => {
+                    pending_update_selection = None;
+                    start_update_check(&mut dashboard, &mut update_receiver, &mut update_phase);
+                }
+                TuiAction::UpdateSelected => {
+                    start_selected_update(
+                        &mut dashboard,
+                        &state,
+                        &mut update_receiver,
+                        &mut update_phase,
+                        &mut pending_update_selection,
+                    );
+                }
+                TuiAction::SubmitUpdateConfirmation => {
+                    let phrase = state.finish_update_confirmation();
+                    start_update_execution(
+                        &mut dashboard,
+                        phrase,
+                        &mut update_receiver,
+                        &mut update_controller,
+                        &mut update_phase,
+                    );
                 }
                 TuiAction::RefreshMonitor => {
                     dashboard.refresh_monitor();
@@ -90,7 +144,20 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
                 }
                 TuiAction::Continue => {}
             }
-            poll_update_result(&mut dashboard, &mut update_receiver);
+            if confirmation_was_active && matches!(input, TuiInput::Back) {
+                dashboard.cancel_update_action();
+            }
+            if let Some(result) = poll_update_result(&mut update_receiver, update_phase) {
+                finish_update_result(
+                    &mut dashboard,
+                    &mut state,
+                    result,
+                    &mut update_receiver,
+                    &mut update_controller,
+                    &mut update_phase,
+                    &mut pending_update_selection,
+                );
+            }
             dashboard.apply_software_view(state.software_view());
             let row_count = dashboard
                 .sections
@@ -104,22 +171,189 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
 }
 
 fn poll_update_result(
+    receiver: &mut Option<Receiver<TuiUpdateResult>>,
+    phase: Option<UpdatePhase>,
+) -> Option<TuiUpdateResult> {
+    match receiver.as_ref().map(Receiver::try_recv) {
+        Some(Ok(result)) => Some(result),
+        Some(Err(TryRecvError::Disconnected)) => Some(match phase {
+            Some(UpdatePhase::Check) | None => {
+                TuiUpdateResult::Review(Err("update worker disconnected".to_string()))
+            }
+            Some(UpdatePhase::Prepare) => TuiUpdateResult::Challenge(Err(
+                "update preparation worker disconnected".to_string(),
+            )),
+            Some(UpdatePhase::Execute) => {
+                TuiUpdateResult::Execution(Err("update execution worker disconnected".to_string()))
+            }
+        }),
+        Some(Err(TryRecvError::Empty)) | None => None,
+    }
+}
+
+fn start_update_check(
     dashboard: &mut tui_dashboard::TuiDashboard,
-    receiver: &mut Option<Receiver<LiveUpdateCatalog>>,
-) -> bool {
-    let result = receiver.as_ref().map(Receiver::try_recv);
+    receiver: &mut Option<Receiver<TuiUpdateResult>>,
+    phase: &mut Option<UpdatePhase>,
+) {
+    if receiver.is_some() {
+        return;
+    }
+    let Some(catalog) = dashboard.start_update_check() else {
+        return;
+    };
+    let (sender, new_receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let result = crate::updates::collect_live_update_review(&catalog);
+        let _ = sender.send(TuiUpdateResult::Review(result));
+    });
+    *receiver = Some(new_receiver);
+    *phase = Some(UpdatePhase::Check);
+}
+
+fn start_selected_update(
+    dashboard: &mut tui_dashboard::TuiDashboard,
+    state: &TuiState,
+    receiver: &mut Option<Receiver<TuiUpdateResult>>,
+    phase: &mut Option<UpdatePhase>,
+    pending_selection: &mut Option<String>,
+) {
+    if receiver.is_some() || dashboard.pending_update_challenge().is_some() {
+        return;
+    }
+    let selected_id = dashboard.selected_software_id(
+        state.selected_section,
+        state.selected_detail_row,
+        state.software_view(),
+    );
+    if let Some(action) = dashboard.selected_update_action(
+        state.selected_section,
+        state.selected_detail_row,
+        state.software_view(),
+    ) {
+        if action.disposition != rz0_action_plan::ActionDisposition::Planned {
+            dashboard.update_action_unavailable(&format!(
+                "selected update is currently {:?}",
+                action.disposition
+            ));
+            return;
+        }
+        dashboard.start_update_prepare(&action);
+        start_update_prepare(action.action_id, receiver, phase);
+        return;
+    }
+    if dashboard.has_update_review() {
+        dashboard
+            .update_action_unavailable("selected item has no current provider update candidate");
+        return;
+    }
+    *pending_selection = selected_id;
+    start_update_check(dashboard, receiver, phase);
+    if pending_selection.is_none() && receiver.is_none() {
+        dashboard.update_action_unavailable("select an installed software or provider row first");
+    }
+}
+
+fn start_update_prepare(
+    action_id: String,
+    receiver: &mut Option<Receiver<TuiUpdateResult>>,
+    phase: &mut Option<UpdatePhase>,
+) {
+    if receiver.is_some() {
+        return;
+    }
+    let (sender, new_receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let result = crate::update_cli::prepare_tui_update(&action_id);
+        let _ = sender.send(TuiUpdateResult::Challenge(result));
+    });
+    *receiver = Some(new_receiver);
+    *phase = Some(UpdatePhase::Prepare);
+}
+
+fn start_update_execution(
+    dashboard: &mut tui_dashboard::TuiDashboard,
+    phrase: String,
+    receiver: &mut Option<Receiver<TuiUpdateResult>>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    phase: &mut Option<UpdatePhase>,
+) {
+    if receiver.is_some() {
+        return;
+    }
+    let Some(prepared) = dashboard.pending_update_challenge().cloned() else {
+        dashboard.update_action_unavailable("no pending update confirmation exists");
+        return;
+    };
+    let (new_controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+    let (sender, new_receiver) = mpsc::channel();
+    dashboard.begin_update_execution();
+    thread::spawn(move || {
+        let result = crate::update_cli::execute_tui_update(prepared, &phrase, &cancellation);
+        let _ = sender.send(TuiUpdateResult::Execution(result));
+    });
+    *controller = Some(new_controller);
+    *receiver = Some(new_receiver);
+    *phase = Some(UpdatePhase::Execute);
+}
+
+fn finish_update_result(
+    dashboard: &mut tui_dashboard::TuiDashboard,
+    state: &mut TuiState,
+    result: TuiUpdateResult,
+    receiver: &mut Option<Receiver<TuiUpdateResult>>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    phase: &mut Option<UpdatePhase>,
+    pending_selection: &mut Option<String>,
+) {
+    *receiver = None;
     match result {
-        Some(Ok(updates)) => {
-            dashboard.complete_update_check(updates);
-            *receiver = None;
-            true
+        TuiUpdateResult::Review(result) => match result {
+            Ok(review) => {
+                dashboard.complete_update_review(review);
+                *phase = None;
+                if let Some(selected_id) = pending_selection.take() {
+                    if let Some(action) = dashboard.update_action_for_software_id(&selected_id) {
+                        if action.disposition == rz0_action_plan::ActionDisposition::Planned {
+                            dashboard.start_update_prepare(&action);
+                            start_update_prepare(action.action_id, receiver, phase);
+                        } else {
+                            dashboard.update_action_unavailable(&format!(
+                                "selected update is currently {:?}",
+                                action.disposition
+                            ));
+                        }
+                    } else {
+                        dashboard.update_action_unavailable(
+                            "selected item has no current provider update candidate",
+                        );
+                    }
+                }
+            }
+            Err(error) => {
+                *phase = None;
+                pending_selection.take();
+                dashboard.fail_update_check_with_error(&error);
+            }
+        },
+        TuiUpdateResult::Challenge(result) => {
+            *phase = None;
+            match result {
+                Ok(challenge) => {
+                    dashboard.complete_update_challenge(challenge);
+                    state.begin_update_confirmation();
+                }
+                Err(error) => dashboard.fail_update_action(&error),
+            }
         }
-        Some(Err(TryRecvError::Disconnected)) => {
-            dashboard.fail_update_check();
-            *receiver = None;
-            true
+        TuiUpdateResult::Execution(result) => {
+            *phase = None;
+            *controller = None;
+            match result {
+                Ok(report) => dashboard.complete_update_execution(&report),
+                Err(error) => dashboard.fail_update_action(&error),
+            }
         }
-        Some(Err(TryRecvError::Empty)) | None => false,
     }
 }
 
@@ -133,9 +367,25 @@ fn render<B: Backend<Error = io::Error>>(
     draw_dashboard(terminal, dashboard, state, color)
 }
 
-fn input_from_key(key: KeyEvent, search_active: bool) -> Option<TuiInput> {
+fn input_from_key(
+    key: KeyEvent,
+    search_active: bool,
+    update_confirmation_active: bool,
+) -> Option<TuiInput> {
     if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
         return None;
+    }
+    if update_confirmation_active {
+        if key.modifiers.contains(KeyModifiers::CONTROL) {
+            return Some(TuiInput::Back);
+        }
+        return Some(match key.code {
+            KeyCode::Esc => TuiInput::Back,
+            KeyCode::Enter => TuiInput::SubmitUpdateConfirmation,
+            KeyCode::Backspace => TuiInput::ConfirmBackspace,
+            KeyCode::Char(value) => TuiInput::ConfirmCharacter(value),
+            _ => TuiInput::Other,
+        });
     }
     if search_active {
         return Some(match key.code {
@@ -166,7 +416,8 @@ fn input_from_key(key: KeyEvent, search_active: bool) -> Option<TuiInput> {
         KeyCode::BackTab => TuiInput::FocusPrevious,
         KeyCode::Enter | KeyCode::Char(' ') => TuiInput::Activate,
         KeyCode::Char('r') | KeyCode::Char('R') => TuiInput::Refresh,
-        KeyCode::Char('u') | KeyCode::Char('U') => TuiInput::CheckUpdates,
+        KeyCode::Char('u') => TuiInput::CheckUpdates,
+        KeyCode::Char('U') => TuiInput::UpdateSelected,
         KeyCode::Char('m') | KeyCode::Char('M') => TuiInput::OpenMonitor,
         KeyCode::Char('/') => TuiInput::BeginSearch,
         KeyCode::Char('f') | KeyCode::Char('F') => TuiInput::FilterNext,
@@ -248,26 +499,30 @@ mod tests {
 
     #[test]
     fn q_key_maps_to_quit_without_printable_output() {
-        let input = input_from_key(KeyEvent::from(KeyCode::Char('q')), false);
+        let input = input_from_key(KeyEvent::from(KeyCode::Char('q')), false, false);
         assert_eq!(input, Some(TuiInput::Quit));
     }
 
     #[test]
     fn help_and_navigation_keys_are_supported() {
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('?')), false),
+            input_from_key(KeyEvent::from(KeyCode::Char('?')), false, false),
             Some(TuiInput::ToggleHelp)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('r')), false),
+            input_from_key(KeyEvent::from(KeyCode::Char('r')), false, false),
             Some(TuiInput::Refresh)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('u')), false),
+            input_from_key(KeyEvent::from(KeyCode::Char('u')), false, false),
             Some(TuiInput::CheckUpdates)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('m')), false),
+            input_from_key(KeyEvent::from(KeyCode::Char('U')), false, false),
+            Some(TuiInput::UpdateSelected)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Char('m')), false, false),
             Some(TuiInput::OpenMonitor)
         );
         assert_eq!(
@@ -277,32 +532,33 @@ mod tests {
                     KeyModifiers::NONE,
                     KeyEventKind::Repeat,
                 ),
-                false
+                false,
+                false,
             ),
             Some(TuiInput::Other)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Tab), false),
+            input_from_key(KeyEvent::from(KeyCode::Tab), false, false),
             Some(TuiInput::FocusNext)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Up), false),
+            input_from_key(KeyEvent::from(KeyCode::Up), false, false),
             Some(TuiInput::PreviousItem)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('j')), false),
+            input_from_key(KeyEvent::from(KeyCode::Char('j')), false, false),
             Some(TuiInput::NextItem)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('k')), false),
+            input_from_key(KeyEvent::from(KeyCode::Char('k')), false, false),
             Some(TuiInput::PreviousItem)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Home), false),
+            input_from_key(KeyEvent::from(KeyCode::Home), false, false),
             Some(TuiInput::FirstSection)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::End), false),
+            input_from_key(KeyEvent::from(KeyCode::End), false, false),
             Some(TuiInput::LastSection)
         );
     }
@@ -338,19 +594,39 @@ mod tests {
     #[test]
     fn search_keys_are_text_input_only_while_search_is_active() {
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char('q')), true),
+            input_from_key(KeyEvent::from(KeyCode::Char('q')), true, false),
             Some(TuiInput::SearchCharacter('q'))
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Backspace), true),
+            input_from_key(KeyEvent::from(KeyCode::Backspace), true, false),
             Some(TuiInput::SearchBackspace)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Enter), true),
+            input_from_key(KeyEvent::from(KeyCode::Enter), true, false),
             Some(TuiInput::EndSearch)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Esc), true),
+            input_from_key(KeyEvent::from(KeyCode::Esc), true, false),
+            Some(TuiInput::Back)
+        );
+    }
+
+    #[test]
+    fn confirmation_keys_are_text_input_only_until_submit() {
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Char('q')), false, true),
+            Some(TuiInput::ConfirmCharacter('q'))
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Backspace), false, true),
+            Some(TuiInput::ConfirmBackspace)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Enter), false, true),
+            Some(TuiInput::SubmitUpdateConfirmation)
+        );
+        assert_eq!(
+            input_from_key(KeyEvent::from(KeyCode::Esc), false, true),
             Some(TuiInput::Back)
         );
     }
@@ -361,22 +637,25 @@ mod tests {
             KeyEvent::new_with_kind(KeyCode::Down, KeyModifiers::NONE, KeyEventKind::Release);
         let repeat =
             KeyEvent::new_with_kind(KeyCode::Down, KeyModifiers::NONE, KeyEventKind::Repeat);
-        assert_eq!(input_from_key(release, false), None);
-        assert_eq!(input_from_key(repeat, false), Some(TuiInput::NextItem));
+        assert_eq!(input_from_key(release, false, false), None);
+        assert_eq!(
+            input_from_key(repeat, false, false),
+            Some(TuiInput::NextItem)
+        );
     }
 
     #[test]
     fn activation_and_back_keys_are_read_only_navigation_inputs() {
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Enter), false),
+            input_from_key(KeyEvent::from(KeyCode::Enter), false, false),
             Some(TuiInput::Activate)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Char(' ')), false),
+            input_from_key(KeyEvent::from(KeyCode::Char(' ')), false, false),
             Some(TuiInput::Activate)
         );
         assert_eq!(
-            input_from_key(KeyEvent::from(KeyCode::Esc), false),
+            input_from_key(KeyEvent::from(KeyCode::Esc), false, false),
             Some(TuiInput::Back)
         );
     }
@@ -397,7 +676,7 @@ mod tests {
         let state = TuiState::new(dashboard.sections.len());
         let frame = render_dashboard_with_state(&dashboard, false, 80, 24, &state);
         assert!(frame.contains("runtime.zero"));
-        assert!(frame.contains("keys: q quit"));
+        assert!(frame.contains("q quit"));
         assert!(!frame.contains("q\n"));
         assert_eq!(
             launch.launch_mode,

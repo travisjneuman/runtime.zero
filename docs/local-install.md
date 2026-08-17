@@ -70,12 +70,12 @@ rz0 doctor
 ```
 
 Bare `rz0` opens the local-software TUI in an interactive terminal. Inventory,
-details, and monitoring are read-only; pressing `u` explicitly queries manager
-availability and may read network metadata but never applies an update.
-Subcommands, JSON output, pipes, redirection, and automation contexts remain on
-the scriptable CLI path. The separately confirmed `updates --apply` command can
-mutate manager-owned software and should not be treated as part of this local
-installer.
+details, and monitoring are read-only; `u` scans provider availability and `U`
+updates the highlighted candidate after showing the exact command and accepting
+the plan-bound phrase. Subcommands, JSON output, pipes, redirection, and
+automation contexts remain on the scriptable CLI path. The CLI
+`updates --apply` lane uses the same executor for automation and less frequent
+operator use.
 
 ## Uninstall or roll back
 

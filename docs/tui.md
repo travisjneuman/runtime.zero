@@ -16,11 +16,11 @@ Scriptable output is written through guarded stdout/stderr handling so common
 pipe consumers can stop reading without turning a closed pipe into a user-facing
 panic.
 
-The TUI is the interactive local-software dashboard. It is part of the
-foundation, not an optional feature module, and it does not replace stable CLI
-contracts. Every displayed operation must either work from the TUI or identify
-the exact CLI entry point that performs it; planned or unavailable operations
-must not be presented as completed capabilities.
+The TUI is the primary interactive local-software control surface. It is part
+of the foundation, not an optional feature module, and it shares the same
+provider discovery, exact action-plan, confirmation, transaction, and
+post-update verification contracts as the CLI. The CLI remains the scriptable
+and automation-oriented surface.
 
 ## Terminal behavior
 
@@ -61,8 +61,11 @@ Minimum keys:
 - `q`: quit safely;
 - `r`: refresh the bounded local snapshot;
 - `m`: jump to the live system monitor;
-- `u`: check configured manager availability sources using bounded probes; this
-  may request network metadata but never updates software;
+- `u`: scan all discovered provider availability sources; this may request
+  network metadata but never updates software;
+- `U`: update the highlighted installed-software or provider row. runtime.zero
+  refreshes exact evidence, shows the manager/target/command, accepts the exact
+  challenge phrase in the TUI, and executes the shared update transaction;
 - `/`: begin bounded software-name/source/ID search; Enter accepts and Esc cancels;
 - `f`: cycle software filters (all, applications, package managers, reviewable);
 - `s`: cycle software sort order (name, version, kind);
@@ -94,10 +97,10 @@ The dashboard performs bounded local reads at startup and shows:
 
 The dashboard must not claim planned modules are installed or active. Enter
 shows the selected item's details and exact available command. Protected system
-software is blocked. Update writes use the explicit, confirmation-bound
-`rz0 updates --apply` CLI lane; the dashboard does not silently execute them.
-`u` is an explicit availability query and may read manager network metadata, but
-it never applies an update.
+software remains blocked. `U` is an explicit, confirmation-bound update action;
+it never guesses a provider command and it pauses visibly on unavailable,
+blocked, drifted, failed, or recovery-required evidence. `u` remains the
+non-mutating provider availability scan.
 
 
 ## Current shell layout
@@ -143,7 +146,7 @@ layer.
 `rz0 --json` exposes the same foundation dashboard state as a machine-readable
 contract. The contract is additive and currently schema version `1`.
 
-Required top-level fields:
+Required top-level fields for `rz0 --json`:
 
 - `schema_version: 1`;
 - `contract: "foundation_dashboard"`;
@@ -155,12 +158,13 @@ Required top-level fields:
 - section rows whose visible labels remain the meaning source.
 
 JSON output must never include ANSI escape sequences and must not depend on
-terminal dimensions, color mode, raw mode, or Ratatui rendering state.
+terminal dimensions, color mode, raw mode, or Ratatui rendering state. The
+scriptable dashboard remains a read-only snapshot; an interactive TUI update
+changes the live TUI state to `writes_attempted: true` only after the shared
+executor publishes a verified receipt.
 
 ## Known TUI limitations
 
-- Update confirmation/execution remains a CLI handoff rather than an in-TUI
-  write flow.
 - Uninstall, cleanup, integrity remediation, and module lifecycle are reviews or
   unavailable, not interactive actions; privacy-reviewed report output is CLI-only.
 - Search/filter/sort operate on the cached inventory until `r` refreshes it.
@@ -169,8 +173,9 @@ terminal dimensions, color mode, raw mode, or Ratatui rendering state.
 - Automated buffer/PTY tests do not replace real terminal, keyboard, mouse,
   screen-reader, SSH, tmux/screen, Windows Console/Terminal, and human review.
 - A manual page, shell completions, and operator recovery guide now exist.
-  Direct TUI recovery/rollback/progress/cancellation, localization, and human
-  accessibility review remain incomplete.
+  Direct TUI rollback/recovery completion, localization, and human
+  accessibility review remain incomplete; cancellation is surfaced while an
+  update worker is running and recovery status remains available from the CLI.
 
 ## Website parity backlog
 
@@ -222,12 +227,16 @@ Manual check after refreshing the installed binary:
    advance three rows per wheel event and remain visible at the bottom.
 7. Press `m`; the system monitor section should show live native resource and
    process counters and refresh once per second.
-8. Press `u`; explicit manager availability checks should render update
-   candidates or an unavailable-source warning without executing updates.
-9. Press `r`; the local snapshot should refresh.
-10. Press Esc; details/help should close or focus should back out before quitting.
-11. Press `h` or `?`; help should toggle without typed input echo.
-12. Press `q`; the TUI should exit and restore the normal prompt.
+8. Press `u`; all discovered provider lanes should render update candidates or
+   explicit unavailable/delegated/observed-only warnings.
+9. Highlight a planned candidate and press `U`; the TUI should show the exact
+   manager, target, command, and challenge phrase. Type the phrase and press
+   Enter to execute, or Esc to cancel.
+10. Press `r`; the local snapshot should refresh.
+11. Press Esc; details/help/confirmation should close or focus should back out
+   before quitting.
+12. Press `h` or `?`; help should toggle without typed input echo.
+13. Press `q`; the TUI should exit and restore the normal prompt.
 
 ## Brand and maintainability
 

@@ -29,9 +29,9 @@ itself a future TUI reference and is known to be stale.
 - [ ] Replace stale “future TUI” copy with an honest description of the real
   pre-alpha TUI without implying production maturity.
 - [ ] Keep copy honest: inventory reads/details and monitor snapshots are read-
-  only; `u` may read network metadata; explicit updater writes remain in the
-  confirmation-bound CLI lane; do not imply module activation or uninstall/
-  cleanup execution.
+  only; `u` may read network metadata; `U` enters the same exact
+  confirmation-bound updater lane as the CLI; do not imply module activation
+  or uninstall/cleanup execution.
 - [ ] Show synthetic installed-software rows without machine paths or implying that uninstall reviews execute from the public mockup.
 - [ ] Preserve `BRAND.md` color semantics: Dossier Navy / Burnished Brass, red only for danger/error/destructive states.
 - [ ] Run static-site safety checks for `innerHTML`, `document.write`, `eval(`, `new Function`, rejected red/rust/copper accents, footer/link integrity, and viewport rendering.

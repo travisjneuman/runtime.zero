@@ -60,10 +60,11 @@ rz0 store init --dry-run
 rz0 store init --yes
 ```
 
-Bare `rz0` opens a live read-only installed-software TUI in interactive
-terminals. It shows bounded local applications/Homebrew records and uninstall
-reviews alongside module posture, but it must not claim planned module families
-are installed or executable. Explicit subcommands remain the
+Bare `rz0` opens a live installed-software TUI in interactive terminals. It
+shows bounded local applications, universal provider candidates, and uninstall
+reviews alongside module posture; `U` can execute a selected updater action
+through the shared exact-confirmation lane. It must not claim planned module
+families are installed or executable. Explicit subcommands remain the
 scriptable CLI surface. See [`tui.md`](tui.md) for the raw-key TUI contract,
 layout boundaries, and maintenance boundaries.
 
@@ -139,7 +140,8 @@ plus the explicit `rz0 store init --dry-run` / `--yes` scaffold gate.
 The foundation is ready for first-module planning only inside a read-only,
 first-party boundary. The first module may rely on manifest validation,
 SHA-256 package integrity checks, dry-run install planning, store plan/status,
-registry/receipt validation, stable JSON output, and read-only TUI surfacing.
+registry/receipt validation, stable JSON output, and TUI inventory/update-action
+surfacing.
 
 Starting module work does not approve module execution, real install/update/
 uninstall behavior, third-party trust, production signing, release/package publishing,

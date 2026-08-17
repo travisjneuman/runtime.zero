@@ -61,7 +61,7 @@ fn render_dashboard(
     render_header(frame, vertical[0], dashboard, tier, color);
     render_body(frame, vertical[1], dashboard, state, tier, color);
     render_help(frame, vertical[2], state, color);
-    render_footer(frame, vertical[3], color);
+    render_footer(frame, vertical[3], dashboard, state, color);
 }
 
 fn render_body(
@@ -271,7 +271,12 @@ fn render_selected_details(
 }
 
 fn render_help(frame: &mut Frame<'_>, area: Rect, state: &TuiState, color: bool) {
-    let lines = if state.search_active() {
+    let lines = if state.update_confirmation_active() {
+        vec![Line::raw(format!(
+            "UPDATE CONFIRMATION · type the exact phrase shown in DETAILS · Enter applies · Esc cancels · entered: {}",
+            state.update_confirmation_phrase()
+        ))]
+    } else if state.search_active() {
         vec![Line::raw(format!(
             "search: {} · type to filter · Backspace edit · Enter accept · Esc cancel",
             state.search_query()
@@ -280,13 +285,13 @@ fn render_help(frame: &mut Frame<'_>, area: Rect, state: &TuiState, color: bool)
         vec![
             Line::raw("Tab/Shift+Tab areas · ↑/↓/j/k move · mouse wheel scrolls · Enter details"),
             Line::raw(
-                "m monitor · u check updates · / search · f filter · s sort · r refresh · Esc back",
+                "Esc back · m monitor · u scan · U update selected · / search · f filter · s sort · r refresh",
             ),
             Line::raw("q quit · h or ? close this help"),
         ]
     } else {
         vec![Line::raw(
-            "Tab areas · ↑/↓/j/k move · mouse wheel scrolls · Enter details · m monitor · u updates · q quit",
+            "Tab areas · ↑/↓/j/k move · mouse wheel scrolls · Enter details · u scan · U update selected · q quit",
         )]
     };
     frame.render_widget(

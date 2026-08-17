@@ -2,7 +2,8 @@ use std::io::{self, Cursor, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 use std::{collections::BTreeMap, fs};
 
-use rz0_action_plan::{ActionDisposition, ActionPlan};
+use rz0_action_plan::{ActionDisposition, ActionPlan, PlanAction};
+use rz0_cancellation_contract::CancellationToken;
 use rz0_module_updater::{
     ManagerKind, ManagerParseContext, ProviderProbeSpec, SerialUpdateItemStatus,
     SerialUpdateQueuePlan, UPDATE_QUEUE_CONTRACT, UpdaterFindingInput, build_serial_update_queue,
@@ -14,10 +15,11 @@ use sha2::{Digest, Sha256};
 
 use crate::ExitCode;
 use crate::module_store::module_store_plan;
+use crate::store_init::{StoreInitMode, StoreInitOptions, store_init_report};
 use crate::update_execution::{
     UpdateChallengeView, UpdateExecutionReport, UpdateExecutionRequest, build_update_challenge,
     execute_update_action, make_single_action_plan, observe_manager_executable,
-    validate_update_confirmation,
+    validate_tui_update_confirmation, validate_update_confirmation,
 };
 
 const MAX_INPUT_BYTES: u64 = rz0_resource_contract::MAX_FINDING_REPORT_BYTES;
@@ -484,12 +486,19 @@ pub(crate) struct UniversalProviderScan {
     pub(crate) source_ok_count: usize,
     pub(crate) records: Vec<rz0_module_updater::UpdateRecord>,
     pub(crate) warnings: Vec<String>,
+    pub(crate) input: UpdaterFindingInput,
 }
 
-pub(crate) fn collect_universal_provider_scan(
-    allow_network_read: bool,
-) -> Result<UniversalProviderScan, String> {
-    let command = ParsedArgs {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TuiUpdateChallenge {
+    pub(crate) plan: ActionPlan,
+    pub(crate) action: PlanAction,
+    pub(crate) challenge: rz0_confirmation_contract::ConfirmationChallenge,
+    pub(crate) view: UpdateChallengeView,
+}
+
+fn universal_provider_command(allow_network_read: bool) -> ParsedArgs {
+    ParsedArgs {
         fixture: None,
         manager_output: None,
         manager: None,
@@ -510,14 +519,118 @@ pub(crate) fn collect_universal_provider_scan(
         recovery_status: false,
         transaction: None,
         format: OutputFormat::Text,
-    };
+    }
+}
+
+pub(crate) fn collect_universal_provider_scan(
+    allow_network_read: bool,
+) -> Result<UniversalProviderScan, String> {
+    let command = universal_provider_command(allow_network_read);
     let built = build_all_provider_input(&command)?;
+    let input = built.input;
     Ok(UniversalProviderScan {
         source_count: built.source_count,
         source_ok_count: built.source_ok_count,
-        records: built.input.records,
+        records: input.records.clone(),
         warnings: built.warnings,
+        input,
     })
+}
+
+pub(crate) fn collect_universal_update_plan(
+    allow_network_read: bool,
+) -> Result<(UniversalProviderScan, Option<ActionPlan>), String> {
+    let scan = collect_universal_provider_scan(allow_network_read)?;
+    let report = classify_updates(&scan.input)?;
+    let has_candidates =
+        scan.input.records.iter().any(|record| {
+            record.installed && record.manager_record_present && record.update_available
+        });
+    let plan = if has_candidates {
+        Some(build_update_action_plan(&scan.input, &report)?)
+    } else {
+        None
+    };
+    Ok((scan, plan))
+}
+
+pub(crate) fn prepare_tui_update(action_id: &str) -> Result<TuiUpdateChallenge, String> {
+    let command = universal_provider_command(true);
+    let built = build_input(&command)?;
+    let report = classify_updates(&built.input)?;
+    let plan = build_update_plan_if_candidates(&built.input, &report)?
+        .ok_or_else(|| "fresh provider evidence contains no update candidates".to_string())?;
+    let action = plan
+        .actions
+        .iter()
+        .find(|action| action.action_id == action_id)
+        .ok_or_else(|| format!("fresh provider evidence no longer lists update '{action_id}'"))?;
+    if action.disposition != ActionDisposition::Planned {
+        return Err(format!(
+            "update '{}' is currently {:?} and cannot execute",
+            action_id, action.disposition
+        ));
+    }
+    let single_plan = make_single_action_plan(&plan, action)?;
+    let single_action = single_plan
+        .actions
+        .first()
+        .cloned()
+        .ok_or_else(|| "single-action update plan is empty".to_string())?;
+    let issued = unix_seconds();
+    let manual_recovery_acknowledged = !single_action.rollback.supported;
+    let (challenge, view) = build_update_challenge(
+        &single_plan,
+        &single_action,
+        manual_recovery_acknowledged,
+        issued,
+    )?;
+    Ok(TuiUpdateChallenge {
+        plan: single_plan,
+        action: single_action,
+        challenge,
+        view,
+    })
+}
+
+pub(crate) fn execute_tui_update(
+    prepared: TuiUpdateChallenge,
+    phrase: &str,
+    cancellation: &CancellationToken,
+) -> Result<UpdateExecutionReport, String> {
+    let response = validate_tui_update_confirmation(&prepared.challenge, phrase, unix_seconds())?;
+    let state_root = ensure_update_state_root()?;
+    let finding_id = prepared.action.finding_id.clone();
+    let command = universal_provider_command(true);
+    execute_update_action(UpdateExecutionRequest {
+        state_root: &state_root,
+        plan: &prepared.plan,
+        action: &prepared.action,
+        challenge: &prepared.challenge,
+        response: &response,
+        now_unix_seconds: unix_seconds(),
+        environment: probe_environment(),
+        cancellation,
+        verify_after: || verify_update_after(&command, &finding_id),
+    })
+}
+
+fn ensure_update_state_root() -> Result<PathBuf, String> {
+    let state_root = PathBuf::from(module_store_plan(None, None, "update execution").state_root);
+    let report = store_init_report(&[], StoreInitOptions::new(StoreInitMode::Apply));
+    if report.status.is_blocked() {
+        return Err(format!(
+            "runtime.zero local state could not be initialized for the TUI update: {:?}",
+            report.status
+        ));
+    }
+    if !state_root.is_dir() {
+        return Err(format!(
+            "runtime.zero update state root is unavailable after initialization: {}",
+            state_root.display()
+        ));
+    }
+    Ok(state_root)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2522,6 +2635,20 @@ fn apply_update_command(
     )
 }
 
+fn build_update_plan_if_candidates(
+    input: &UpdaterFindingInput,
+    report: &rz0_finding_contract::FindingReport,
+) -> Result<Option<ActionPlan>, String> {
+    let has_candidates = input
+        .records
+        .iter()
+        .any(|record| record.installed && record.manager_record_present && record.update_available);
+    if !has_candidates {
+        return Ok(None);
+    }
+    build_update_action_plan(input, report).map(Some)
+}
+
 fn apply_one_update_command(
     command: &ParsedArgs,
     input: &UpdaterFindingInput,
@@ -2820,8 +2947,14 @@ fn verify_update_after(command: &ParsedArgs, finding_id: &str) -> Result<String,
     let fresh_built = build_input(command)?;
     let fresh_input = &fresh_built.input;
     let fresh_report = classify_updates(fresh_input)?;
-    let fresh_plan = build_update_action_plan(fresh_input, &fresh_report)
-        .map_err(|error| format!("fresh update verification plan failed closed: {error}"))?;
+    let Some(fresh_plan) = build_update_plan_if_candidates(fresh_input, &fresh_report)
+        .map_err(|error| format!("fresh update verification plan failed closed: {error}"))?
+    else {
+        return Ok(
+            "fresh manager availability evidence reports no remaining update candidates"
+                .to_string(),
+        );
+    };
     verify_candidate_absent(&fresh_plan, finding_id)
 }
 

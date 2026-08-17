@@ -5,7 +5,7 @@ pub(crate) struct TuiCommandPreview {
     pub preview: &'static str,
 }
 
-pub(crate) const COMMANDS: [TuiCommandPreview; 6] = [
+pub(crate) const COMMANDS: [TuiCommandPreview; 7] = [
     TuiCommandPreview {
         label: "doctor",
         command: "rz0 doctor",
@@ -25,6 +25,11 @@ pub(crate) const COMMANDS: [TuiCommandPreview; 6] = [
         label: "software",
         command: "rz0 apps",
         preview: "list installed applications and packages",
+    },
+    TuiCommandPreview {
+        label: "updates",
+        command: "rz0 updates --dry-run --all-providers --allow-network-read --plan",
+        preview: "review every discovered provider update action",
     },
     TuiCommandPreview {
         label: "uninstall",

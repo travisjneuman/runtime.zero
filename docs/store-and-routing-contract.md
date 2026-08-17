@@ -328,14 +328,14 @@ The TUI key contract is:
 The terminal guard must restore raw mode, cursor visibility, and the normal
 screen on exit or panic unwinding.
 
-The TUI may show built-in bounded read-only software evidence plus foundation
-store/module state. Its six sections are overview, local store, installed
-software, modules, actions, and system monitor. Installed software is one canonical object list:
+The TUI may show built-in bounded software evidence plus foundation store/module
+state. Its six sections are overview, local store, installed software, modules,
+actions, and system monitor. Installed software is one canonical object list:
 each row shows details and only an applicable protected, manager-review,
-quarantine-review, or unsupported uninstall posture. Details show exact CLI
-entry points; manager update writes use the separate confirmation-bound updater
-lane. The TUI must not imply optional modules are installed or active when the
-installed registry is empty.
+quarantine-review, or unsupported uninstall posture. `u` scans providers and
+`U` enters the same confirmation-bound updater lane as the CLI, including exact
+manager identity and post-update verification. The TUI must not imply optional
+modules are installed or active when the installed registry is empty.
 
 ## Brand and output constraints
 

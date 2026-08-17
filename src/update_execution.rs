@@ -154,13 +154,40 @@ pub fn validate_update_confirmation(
     phrase: &str,
     now_unix_seconds: u64,
 ) -> Result<ConfirmationResponse, String> {
+    validate_update_confirmation_on_surface(
+        challenge,
+        phrase,
+        now_unix_seconds,
+        ConfirmationSurface::Cli,
+    )
+}
+
+pub fn validate_tui_update_confirmation(
+    challenge: &ConfirmationChallenge,
+    phrase: &str,
+    now_unix_seconds: u64,
+) -> Result<ConfirmationResponse, String> {
+    validate_update_confirmation_on_surface(
+        challenge,
+        phrase,
+        now_unix_seconds,
+        ConfirmationSurface::Tui,
+    )
+}
+
+fn validate_update_confirmation_on_surface(
+    challenge: &ConfirmationChallenge,
+    phrase: &str,
+    now_unix_seconds: u64,
+    surface: ConfirmationSurface,
+) -> Result<ConfirmationResponse, String> {
     let response = ConfirmationResponse {
         schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
         contract: CONFIRMATION_RESPONSE_CONTRACT.to_string(),
         challenge_id: challenge.challenge_id.clone(),
         challenge_sha256: challenge.challenge_sha256.clone(),
         confirmed_unix_seconds: now_unix_seconds,
-        surface: ConfirmationSurface::Cli,
+        surface,
         phrase: phrase.to_string(),
         interactive: true,
         single_use: true,

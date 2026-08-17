@@ -52,7 +52,9 @@ security/integrity remain synthetic-only. Across these four families there is:
 - no signed lifecycle artifact or installation/activation path;
 - no direct TUI mutation flow.
 
-Their manifests remain `planned`. Core does not install or execute them.
+Their manifests remain `planned`. Core does not install or execute these
+non-updater families. The updater is the separate foundation-owned exception
+with the shared CLI/TUI manager apply lane.
 
 Current tests establish only that:
 

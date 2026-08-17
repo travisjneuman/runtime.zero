@@ -45,7 +45,10 @@ fn render_plain_dashboard_without_ansi() {
     assert!(rendered.contains("runtime.zero rz0"));
     assert!(rendered.contains("COMMANDS"));
     assert!(rendered.contains("rz0 store status"));
-    assert!(rendered.contains("installed software · Enter details · m monitor · u checks updates"));
+    assert!(
+        rendered
+            .contains("installed software · Enter details · u scan providers · U update selected")
+    );
     assert!(!rendered.contains("\x1b["));
 }
 
@@ -94,6 +97,11 @@ fn update_check_status_is_visible_in_compact_interactive_frames() {
     dashboard.apply_software_view(state.software_view());
     let checking = render_dashboard_with_state(&dashboard, false, 80, 24, &state);
     assert!(checking.contains("checking provider availability"));
+    assert!(
+        dashboard
+            .update_action_status
+            .contains("waiting for results")
+    );
 
     dashboard.complete_update_check(LiveUpdateCatalog {
         schema_version: 1,
@@ -111,6 +119,11 @@ fn update_check_status_is_visible_in_compact_interactive_frames() {
     dashboard.apply_software_view(state.software_view());
     let checked = render_dashboard_with_state(&dashboard, false, 80, 24, &state);
     assert!(checked.contains("checked · 2 candidates · 3/5 sources"));
+    assert!(
+        dashboard
+            .update_action_status
+            .contains("review ready · U updates the selected item")
+    );
 
     assert!(dashboard.start_update_check().is_some());
     dashboard.fail_update_check();
