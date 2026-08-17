@@ -9,7 +9,7 @@
 - **Reviewed starting baseline:**
   `84d52c46bf1cd5f57f4a59d5d15dcb3017bfc2ef`.
 - **Current behavior implementation:**
-  `c2a15c646e9a255f4ac8a6bac48445c015beec30`.
+  `3f125c5c3d031a67e3f229c2026f066abd8b70dd`.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -18,9 +18,11 @@
   quarantine/restore, module lifecycle execution, Windows execution, and
   third-party execution remain unavailable.
 
-For document precedence and the full topic map, see
-[`documentation-index.md`](documentation-index.md). The 2026-07-30 pause handoff
-and earlier plans remain historical evidence only.
+For the product end state, module contract, enable/disable semantics, delivery
+waves, and next-shift checklist, see
+[`engineering-handoff.md`](engineering-handoff.md). For document precedence and
+the full topic map, see [`documentation-index.md`](documentation-index.md). The
+2026-07-30 pause handoff and earlier plans remain historical evidence only.
 
 ## Executive assessment
 
@@ -29,6 +31,16 @@ pre-alpha updater executor. It remains far from a defensible 1.0 release because
 full platform source parity, OS capability isolation, rollback, exact recovery
 completion, module trust/lifecycle, uninstall/cleanup execution, accessibility,
 compatibility labs, packaging channels, and release operations are incomplete.
+
+The product direction beyond the initial seven release-gated families is a full
+system-management platform composed of independently installable and
+enableable modules. Users should be able to choose inventory, updates,
+developer/AI tools, services, cleanup, security, network, hardware, backup,
+automation, and other reviewed capabilities without forcing every feature into
+the core or enabling every module. That is the end-state direction; the current
+repository has the contracts and planning model but not the executable optional
+module lifecycle. See [`engineering-handoff.md`](engineering-handoff.md) for the
+target state and sequencing.
 
 The strongest implemented areas are:
 
@@ -311,6 +323,14 @@ activate, invoke, repair, migrate, upgrade, deactivate, or uninstall modules.
 Test-key signatures, schemas, fixtures, process tests, and lifecycle plans do not
 provide production trust or authority.
 
+The target lifecycle must make those choices user-visible and reversible:
+installed, disabled, enabled/active, degraded/blocked, and action-authorized
+are distinct states. Disable stops module-owned collection, scheduling, network
+work, UI actions, and mutation while preserving state; uninstall is a separate
+explicit data-retention and rollback decision. The target CLI/TUI controls are
+not current commands and must wait for foundation-owned registry publication,
+trust, configuration, receipts, recovery, and module-host execution.
+
 ## Foundation ownership map
 
 | Package | Implemented responsibility | Important open boundary |
@@ -376,6 +396,11 @@ external). The 2026-08-17 continuation additionally passed `cargo fmt --check`,
 `cargo run -- scan --dry-run`; it also completed live updater smoke effects on
 the development Mac as described above. No uninstall, Cloudflare/site
 mutation, release publication, or production release action was run.
+
+The updater/TUI continuation was then committed as
+`3f125c5c3d031a67e3f229c2026f066abd8b70dd`; this documentation continuation
+starts from that behavior snapshot. The docs-only commit must rerun the
+repository checks before it becomes the current handoff baseline.
 
 ## Known limitations
 

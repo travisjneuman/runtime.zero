@@ -5,6 +5,13 @@ CLI/TUI launch routing. Store inspection remains read-only; store
 initialization is explicit, user-local, and limited to runtime.zero-owned
 scaffolding.
 
+The end-state store is the foundation-owned source of truth for independently
+managed modules. It must persist verified package identity, enabled/disabled and
+degraded state, effective configuration digest, dependency/conflict decisions,
+receipts, pending recovery, and module-owned data references without allowing a
+module to invent a private registry. The product direction, state semantics,
+and target lifecycle are in [`engineering-handoff.md`](engineering-handoff.md).
+
 ## Local module store contract
 
 The future local module store is user-local by default. Machine-wide installs
@@ -106,6 +113,10 @@ Schema version `1` expects:
 
 `module_dir` is optional for forward compatibility with future receipt-first
 records, but `id`, `version`, `manifest_path`, and `receipt_path` are required.
+The current schema-1 parser does not yet persist executable lifecycle state. A
+future reviewed extension may add a `state` field whose values distinguish at
+least `disabled`, `active`, and `degraded/blocked`; a registry state never
+authorizes a domain action by itself.
 Paths are registry references, not instructions to write files. They must be
 relative, must not use backslashes, absolute paths, URL-like values, or `..`
 traversal, and must stay in the expected future store classes:

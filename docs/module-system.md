@@ -4,7 +4,12 @@
 > updater execution lane, per-family maturity, and continuation order, begin
 > with [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
-Modules are the unit of growth for `runtime.zero`. The foundation should remain useful with zero optional modules installed.
+Modules are the unit of growth for `runtime.zero`. The foundation should remain
+useful with zero optional modules installed. The end state is a full
+system-management platform in which every feature family and provider can be
+installed and managed as an independently versioned module. See
+[`engineering-handoff.md`](engineering-handoff.md) for the product horizon and
+next-shift implementation order.
 
 A module manifest declares:
 
@@ -28,6 +33,15 @@ A module manifest declares:
 
 Every module must be safe to run in discovery/dry-run mode before it is allowed to mutate anything.
 
+Every module must also be independently manageable. Installed bytes, enabled
+state, active execution, and authorization for a particular action are separate
+facts. A user may enable inventory without enabling cleanup, enable a specific
+AI-tool/provider module without enabling all package managers, or disable a
+module while retaining its settings, evidence, and receipts. Disable must stop
+module-owned collection, network work, scheduling, UI actions, and mutation;
+uninstall is a separate explicit transition with its own data-retention and
+rollback review.
+
 Core primitives are not feature modules. `core.cli`, `core.policy`, and
 `core.registry` describe the foundation. Optional modules are listed separately
 and are not bundled, installed, or executed by default.
@@ -42,6 +56,14 @@ rollback, and where required process-isolation gates. Modules supply domain
 behavior; they must not implement lifecycle state machines, cancellation
 engines, registries, receipts, or transaction coordinators. See
 [`module-lifecycle-contract.md`](module-lifecycle-contract.md).
+
+Schema 1 currently plans these transitions but does not execute them. The target
+runtime must expose the same foundation-owned transitions through both the TUI
+and CLI: inspect, install, enable, configure, invoke, disable, upgrade, repair,
+migrate, and uninstall. The target command names and state semantics are
+documented in [`engineering-handoff.md`](engineering-handoff.md); they must not
+be advertised as current commands until registry publication, trust,
+configuration, receipts, recovery, and the TUI path are implemented together.
 
 ## Current registry surface
 
@@ -182,6 +204,15 @@ package, and no uninstall/cleanup/integrity execution exists. See
 - system integrity/security check integrations;
 - report/export modules;
 - future premium or commercial modules.
+
+These are the initial seven release-gated families, not an exhaustive end-state
+catalog. Future independently managed families may cover package/install
+provisioning, developer and AI toolchains, services and persistence, storage and
+data hygiene, performance/operations, network and connectivity, hardware and
+firmware, OS settings, backup/recovery, automation/scheduling, account/provider
+integrations, and explicitly separated remote/fleet management. Every addition
+must receive a named platform/provider acceptance cell and the same lifecycle,
+trust, capability, transaction, privacy, recovery, CLI, JSON, and TUI treatment.
 
 ## Trust model
 

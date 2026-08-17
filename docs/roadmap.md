@@ -13,6 +13,37 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 > and restart sequence. Use [`documentation-index.md`](documentation-index.md)
 > for document precedence.
 
+## Product horizon: full system management through modules
+
+The roadmap below is the initial release path, not the terminal product scope.
+The end state is a full system-management platform in which every feature or
+provider is an independently versioned module that users can install, enable,
+configure, disable, update, repair, or uninstall for their own use case. The
+foundation owns the shared control plane; modules own domain behavior. The TUI
+is the primary interactive workflow and the CLI remains an equally capable
+scriptable surface over the same contracts.
+
+The initial seven families — inventory/environment, updater, uninstall,
+leftovers, cache, security/integrity, and report/export — are the first release
+gate. Later waves can add developer and AI toolchains, additional package/app
+providers, services and persistence, storage/data hygiene, network and hardware
+management, OS settings, backup/recovery, automation, account/provider
+integrations, and explicitly separated remote/fleet modules. A new family does
+not inherit support from a similar one: it gets its own provider, platform,
+trust, capability, lifecycle, TUI/CLI/JSON, transaction, recovery, and release
+evidence cells. See [`engineering-handoff.md`](engineering-handoff.md) for the
+full catalog, module contract, state semantics, and shift handoff.
+
+The dependency order is therefore:
+
+1. finish the foundation-owned module store, trust, lifecycle, configuration,
+   capability, process, transaction, and recovery platform;
+2. bring the initial seven families through equal-platform production evidence;
+3. expand source/provider coverage and add new capability modules in explicit
+   waves without enlarging the foundation through special cases;
+4. consider third-party and remote/fleet ecosystems only after local lifecycle,
+   revocation, support, and recovery are production-ready.
+
 ## Phase 1 — foundation baseline (implemented; not a production gate)
 
 - [x] Public Rust CLI, safety/security/contribution docs, brand, and static site.
@@ -294,6 +325,8 @@ See [`production-readiness.md`](production-readiness.md).
 
 - [x] Add a documentation precedence/index map and reconcile the post-pause
   product status, command surface, write boundaries, and validation totals.
+- [x] Add the explicit full-system modular end state, enable/disable semantics,
+  module contract, delivery waves, and next-shift engineering handoff.
 - [ ] Keep every command/help/TUI/module/site claim synchronized as behavior
   changes; add automated documentation/schema drift checks only after workflow
   approval.

@@ -313,6 +313,16 @@ These commands parse, validate, hash, and plan. They do not install, activate,
 invoke, repair, migrate, upgrade, deactivate, or uninstall module code. The
 seven first-party manifests remain planned.
 
+The product direction is broader than this current planning surface: every
+feature family or provider should eventually be an independently manageable
+module that users can enable or disable for their use case. The target lifecycle
+must distinguish installed, enabled, active, degraded/blocked, and action-
+authorized states, and disabling must stop module-owned work without deleting
+its data. The target `enable`, `disable`, `configure`, `repair`, and
+`uninstall` controls are not implemented current commands. See
+[`engineering-handoff.md`](engineering-handoff.md) for the end-state catalog,
+contract, and next-shift sequence.
+
 ## Shell completion
 
 ```bash

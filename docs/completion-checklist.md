@@ -7,6 +7,13 @@ workstream level as of 2026-08-09. The machine-generated release ledger remains
 the exhaustive cell-level authority: every frozen target × seven module families
 × 12 lifecycle stages must be `proven` or evidence-backed `not_applicable`.
 
+The seven families are the initial release gate, not the full product horizon.
+The end state is documented in [`engineering-handoff.md`](engineering-handoff.md):
+every additional system-management capability or provider is an independently
+versioned module that users can enable or disable. This checklist must be
+extended with new platform/provider/lifecycle cells whenever a future module is
+formally admitted to a release scope.
+
 A future feature, commercial module, or third-party ecosystem is not part of
 1.0 unless it is explicitly added to the frozen scope. Adding one also adds its
 full platform/lifecycle acceptance cells.

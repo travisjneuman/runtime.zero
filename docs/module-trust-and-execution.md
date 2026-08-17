@@ -11,6 +11,13 @@ library only as a bounded read adapter and does not install, activate, or execut
 its lifecycle package/development binary. The core-owned manager updater is a
 separate narrow execution lane and does not authorize module execution.
 
+This gate is the prerequisite for the end-state product described in
+[`engineering-handoff.md`](engineering-handoff.md): users must be able to choose
+which verified modules are enabled without allowing an untrusted package,
+dependency, provider, or module-specific policy file to expand authority. The
+initial seven release families and every later system-management module use this
+same trust, capability, isolation, transaction, and recovery gate.
+
 ## Threat model
 
 The future design must assume:

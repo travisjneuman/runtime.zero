@@ -1,6 +1,8 @@
 # Production Readiness and Completion Matrix
 
-`runtime.zero` is pre-alpha. This document defines the finite completion model
+`runtime.zero` is pre-alpha. The long-term product direction is the modular
+full-system-management platform described in
+[`engineering-handoff.md`](engineering-handoff.md). This document defines the finite completion model
 that must replace vague claims such as “finish the full build” or “100%
 complete.” Production completion means every required acceptance cell for the
 frozen `1.0` scope has evidence; it does not mean the software will never evolve.
@@ -51,9 +53,11 @@ foundation services. It must not invent its own trust root, process host,
 transaction format, confirmation flow, logger, updater, store, sandbox, or
 rollback engine.
 
-## Frozen 1.0 module catalog
+## Initial 1.0 module catalog
 
-The currently named functional module families form the initial 1.0 catalog:
+The currently named functional module families form the initial 1.0 release
+catalog. This is the first supported gate, not a claim that the product ends
+after these seven families:
 
 1. **Inventory and environment** — PATH, tools, applications, packages,
    services, persistence, and normalized system evidence.
@@ -71,10 +75,26 @@ The currently named functional module families form the initial 1.0 catalog:
    support bundles without credentials or sensitive raw paths by default.
 
 Module installation, trust, activation, capability enforcement, lifecycle, and
-self/module management remain foundation responsibilities. A future commercial
-or third-party module is not part of 1.0 until its exact function is named and
-added to this matrix; once added, it receives the same platform and lifecycle
-requirements as every other module.
+self/module management remain foundation responsibilities. Users must be able
+to enable or disable each verified module independently; module state is not the
+same as action authorization. A future module family or provider is not a
+support claim until its exact function is named and added to an acceptance
+matrix; once added, it receives the same platform and lifecycle requirements as
+every other module.
+
+## End-state expansion rule
+
+After the initial release gate, the catalog can grow to cover developer and AI
+toolchains, additional package and app providers, services and persistence,
+storage and data hygiene, performance/operations, network and connectivity,
+hardware and firmware, OS settings, backup/recovery, automation, account and
+provider integrations, and explicitly separated remote/fleet management. These
+are product-horizon categories, not completed 1.0 scope. Each new module must
+declare its provider/source matrix, dependencies/conflicts, capabilities,
+configuration, privacy classes, enable/disable semantics, and recovery contract
+before it is admitted. The release ledger must then add the module's platform ×
+lifecycle cells rather than silently treating it as covered by a neighboring
+module.
 
 ## Equal platform matrix
 

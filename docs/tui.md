@@ -22,6 +22,14 @@ provider discovery, exact action-plan, confirmation, transaction, and
 post-update verification contracts as the CLI. The CLI remains the scriptable
 and automation-oriented surface.
 
+At the end state, the TUI is also the main module-management workflow: users
+will inspect module capabilities, dependencies, settings, permissions, and
+receipts, then explicitly enable or disable individual modules for their use
+case. Those controls must call the foundation-owned lifecycle and registry
+services and remain equal to the CLI/JSON path. The current TUI can display
+module posture and enter the updater lane, but optional module enable/disable,
+configuration, installation, execution, and uninstall are not implemented.
+
 ## Terminal behavior
 
 The interactive TUI uses [`crossterm`](https://crates.io/crates/crossterm) for

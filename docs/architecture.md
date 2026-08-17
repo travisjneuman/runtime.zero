@@ -4,7 +4,11 @@
 > dependency-ordered restart sequence are captured in
 > [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
-`runtime.zero` is a modular system-management runtime, not a monolithic cleaner script. The core is the smallest durable foundation that can describe, validate, list, and eventually run explicitly installed modules under safety policy.
+`runtime.zero` is a modular system-management runtime, not a monolithic cleaner
+script. The core is the smallest durable foundation that can describe, validate,
+list, and eventually run explicitly installed modules under safety policy. The
+full product direction and next-shift work order are in
+[`engineering-handoff.md`](engineering-handoff.md).
 
 ## Layers
 
@@ -17,6 +21,32 @@
 7. **Modules** — separately built domain packages that require explicit lifecycle/trust before core execution. The inventory library is embedded only as a bounded read adapter.
 8. **Quarantine/restore** — test-proven semantics for future timestamped local quarantine instead of hard delete; no product mover exists yet.
 
+## End-state module platform
+
+The seven named families in the initial 1.0 matrix are the first release gate,
+not the product ceiling. The end state is a full system-management platform in
+which every additional capability is an independently versioned module: package
+and application providers, developer and AI tools, services and persistence,
+storage and cleanup, security and integrity, networking, hardware, OS settings,
+backup/recovery, automation, account integrations, and later explicitly
+governed remote-management modules.
+
+The foundation must make those additions composable rather than turning each
+new provider into a special case in `src/`. A module contributes domain evidence,
+findings, plans, actions, configuration, and TUI/CLI/JSON views. The foundation
+contributes identity, trust, capability grants, process hosting, permissions,
+resource ceilings, confirmation, transactions, receipts, rollback, recovery,
+privacy, diagnostics, and lifecycle state.
+
+The user-facing state model separates `installed`, `enabled`, `active`,
+`degraded/blocked`, and `authorized`. A disabled module remains inspectable but
+does no collection, network work, scheduling, UI action, or mutation. Enabling
+revalidates trust, dependencies, conflicts, platform support, configuration,
+and pending recovery. Uninstall is a separate explicit transition and never
+means “delete whatever the module can find.” The detailed state and command
+shape are defined in [`engineering-handoff.md`](engineering-handoff.md) and
+remain a target until lifecycle execution is implemented.
+
 ## Foundation boundary
 
 The core may include self-description, `doctor`, manifest schemas, output
@@ -24,8 +54,11 @@ contracts, policy primitives, bounded read-only inventory adapters, and the
 explicitly scoped updater executor needed for a useful zero-module product. It
 must not bundle arbitrary write-capable domain modules by default. First-party
 modules should be optional packages with declared capabilities, risk level,
-supported platforms, and safety behavior. Third-party modules require a
-separate trust model before implementation.
+supported platforms, provider/source scope, and safety behavior. Users must be
+able to choose which verified modules are enabled for their use case; the
+foundation must not silently enable a dependency or make every module part of
+the default runtime. Third-party modules require a separate trust model before
+implementation.
 
 Local manifest loading is read-only and declarative. Loading a manifest means
 parsing and validating JSON metadata; it does not load code, fetch dependencies,
@@ -199,3 +232,15 @@ verified immutable package -> production trust/provenance
 ```
 
 Schema 1 deliberately cannot authorize that flow.
+
+The eventual enabled-module flow adds a foundation-owned lifecycle step before
+the domain flow:
+
+```text
+verified package -> install/registry receipt -> explicit enable
+-> trust/dependency/capability/configuration checks -> active module
+-> shared evidence/plan/action pipeline -> explicit disable or uninstall
+```
+
+This is an architectural target, not a claim that `rz0 modules enable`,
+`disable`, or module execution exists today.

@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot (reviewed 2026-08-17):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a six-section TUI, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The coordinator now resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. It remains pre-alpha: Windows production containment, private/UI-only app channels, exact recovery completion, native rollback, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`current status`](docs/project-status-and-resumption.md), and [`documentation guide`](docs/documentation-index.md).
+> **Current pre-alpha snapshot (reviewed 2026-08-17):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a six-section TUI, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The coordinator now resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. It remains pre-alpha: Windows production containment, private/UI-only app channels, exact recovery completion, native rollback, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`current status`](docs/project-status-and-resumption.md), [`engineering handoff`](docs/engineering-handoff.md), and [`documentation guide`](docs/documentation-index.md).
 
 ## The promise
 
@@ -110,7 +110,12 @@ complete.
 The installed `rz0` foundation is not meant to contain every domain feature.
 It remains useful with zero optional modules installed because inventory is a
 built-in foundation adapter, while executable actions are owned by explicit
-foundation lanes:
+foundation lanes. The end goal is a full system-management platform: every
+feature family or provider becomes an independently versioned module that an
+end user can install, enable, configure, disable, update, repair, or uninstall
+for their use case. The initial seven families are the first release gate, not
+the ceiling. Read [`docs/engineering-handoff.md`](docs/engineering-handoff.md)
+for the complete product horizon and shift plan.
 
 - `core.cli` handles command routing and output.
 - `core.policy` defines shared safety metadata and executable action gates.
@@ -123,7 +128,15 @@ foundation component, not a completed end-user capability. Safe confirmation,
 rollback, and privilege gates may pause an action, but they must not hide an
 otherwise available action behind permanent read-only wording.
 
-First-party feature modules are planned as separate install/use choices. A full bundle may exist later as a convenience distribution, but it should not redefine the core. Third-party modules require a hardened trust model before support is added.
+First-party feature modules are planned as separate install/use choices. The
+future module platform must distinguish installed, enabled, active,
+degraded/blocked, and action-authorized states. Disabling a module must stop
+its collection, network work, scheduling, UI actions, and mutation while
+preserving its settings, evidence, and receipts; uninstall is a separate
+explicit, data-retention-aware lifecycle. A full bundle may exist later as a
+convenience distribution, but it should not redefine the core. Third-party and
+remote modules require hardened trust, capability, isolation, revocation, and
+support models before support is added.
 
 The foundation can validate local module manifests without executing module
 code. The fixture/captured-output `rz0 updates --dry-run` surface can classify
@@ -158,7 +171,10 @@ rz0 modules install --dry-run path/to/module-package
 Module validation and installation planning remain local and bounded. The
 current module planner does not fetch, trust, activate, or run module code;
 module installation writes remain a separate lifecycle implementation and must
-not be confused with manager update execution.
+not be confused with manager update execution. Target commands such as
+`rz0 modules enable`, `disable`, `configure`, `repair`, and `uninstall` are not
+current commands until the foundation-owned lifecycle, registry publication,
+receipts, recovery, and TUI path are implemented together.
 
 The dry-run planner also reports future local store and CLI/TUI routing
 contract metadata in JSON output. These fields describe where future state would
@@ -412,7 +428,7 @@ The project is intentionally modular:
 
 - Rust CLI core for command parsing, built-in bounded inventory/monitoring, policy, contracts, JSON output, non-authorizing planning/recovery contracts, and the narrow explicit manager-update coordinator.
 - Platform adapters for Windows, macOS, and Linux.
-- Separately built first-party module families for inventory, updater domain logic, uninstall, leftovers, cache, security/integrity, and report/export; their lifecycle manifests remain planned.
+- Separately built first-party module families for inventory, updater domain logic, uninstall, leftovers, cache, security/integrity, and report/export. These are the initial release-gated families; the long-term catalog also includes developer/AI tooling, services/persistence, storage/data hygiene, security, network/hardware, OS settings, backup/recovery, automation, account/provider, and explicitly separated remote/fleet modules. Their executable lifecycle remains planned.
 - Interactive local-software TUI using crossterm for raw/mouse terminal
   lifecycle and Ratatui for the widget dashboard, with componentized panels,
   visible selected rows, section navigation, details, mouse-wheel scrolling,
@@ -420,7 +436,10 @@ The project is intentionally modular:
   action entry points;
   subcommands remain the stable automation/script surface.
 
-Start with [`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md)
+Start with [`docs/engineering-handoff.md`](docs/engineering-handoff.md) for the
+full-system-management end state, module contract, enable/disable semantics,
+delivery waves, and next-shift checklist. Then use
+[`docs/project-status-and-resumption.md`](docs/project-status-and-resumption.md)
 for the current reviewed source snapshot, behavior, known limitations, evidence,
 and dependency-ordered restart checklist. Use
 [`docs/documentation-index.md`](docs/documentation-index.md) for document

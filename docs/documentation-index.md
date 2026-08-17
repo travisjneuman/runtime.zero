@@ -11,15 +11,17 @@ When two documents appear to conflict, use this order:
 
 1. [`SAFETY.md`](../SAFETY.md) and [`SECURITY.md`](../SECURITY.md) for safety and
    security boundaries.
-2. [`project-status-and-resumption.md`](project-status-and-resumption.md) for the
+2. [`engineering-handoff.md`](engineering-handoff.md) for the product end state,
+   modularity rules, and the next-shift direction.
+3. [`project-status-and-resumption.md`](project-status-and-resumption.md) for the
    current implemented product, validation baseline, limitations, and next work.
-3. [`production-readiness.md`](production-readiness.md) for the definition of a
+4. [`production-readiness.md`](production-readiness.md) for the definition of a
    complete 1.0 product.
-4. [`roadmap.md`](roadmap.md) for dependency order and checked/unchecked work.
-5. The narrow topic contract for field-level or subsystem behavior.
-6. Dated audits and old artifact measurements only for the source commit they
+5. [`roadmap.md`](roadmap.md) for dependency order and checked/unchecked work.
+6. The narrow topic contract for field-level or subsystem behavior.
+7. Dated audits and old artifact measurements only for the source commit they
    name.
-7. Private `_meta.notes` records for historical operator evidence; public
+8. Private `_meta.notes` records for historical operator evidence; public
    behavior must still be verified against this repository.
 
 Source and tests remain the final implementation evidence. A checked roadmap
@@ -32,6 +34,7 @@ cell.
 | Document | Audience | Purpose |
 | --- | --- | --- |
 | [`README.md`](../README.md) | Users and contributors | Product overview, quick start, current command surface, and honest maturity summary |
+| [`engineering-handoff.md`](engineering-handoff.md) | Next engineering shift | Full-system-management end state, module contract, enable/disable semantics, delivery waves, and current handoff |
 | [`project-status-and-resumption.md`](project-status-and-resumption.md) | Maintainers | Current code baseline, capabilities, known debts, validation, and restart order |
 | [`roadmap.md`](roadmap.md) | Maintainers and reviewers | Dependency-ordered implementation progress |
 | [`production-readiness.md`](production-readiness.md) | Release and security reviewers | Finite 1.0 completion definition and platform × module × lifecycle matrix |
@@ -54,8 +57,8 @@ cell.
 
 | Document | Current role |
 | --- | --- |
-| [`architecture.md`](architecture.md) | Core/module/platform layering, current read and write flows, and authority boundaries |
-| [`module-system.md`](module-system.md) | Module catalog, registry, manifests, and core-versus-module ownership |
+| [`architecture.md`](architecture.md) | Core/module/platform layering, end-state control plane, current read and write flows, and authority boundaries |
+| [`module-system.md`](module-system.md) | Module catalog, registry, manifests, enablement target, and core-versus-module ownership |
 | [`foundation-readiness.md`](foundation-readiness.md) | Current foundation maturity and prerequisites for broader module work |
 | [`tui.md`](tui.md) | Interactive routing, keys, layouts, rendering, accessibility, and TUI limitations |
 | [`system-monitor.md`](system-monitor.md) | Native monitor schema, platform collectors, metric caveats, and no-remediation boundary |
@@ -161,14 +164,16 @@ hub and latest documentation audit identify which older plans are superseded.
 For every behavior-changing change:
 
 1. Update the narrow contract and its module/package README.
-2. Update `project-status-and-resumption.md` when the user-visible surface,
+2. Update `engineering-handoff.md` when the product direction, module contract,
+   lifecycle semantics, or next-shift dependency changes.
+3. Update `project-status-and-resumption.md` when the user-visible surface,
    validation baseline, or top remaining dependency changes.
-3. Update `roadmap.md` only when implementation evidence changes a checkbox.
-4. Update `production-readiness.md` only when the completion definition,
+4. Update `roadmap.md` only when implementation evidence changes a checkbox.
+5. Update `production-readiness.md` only when the completion definition,
    required matrix, or maturity evidence changes.
-5. Keep `README.md`, `SAFETY.md`, CLI help, TUI labels, and website claims
+6. Keep `README.md`, `SAFETY.md`, CLI help, TUI labels, and website claims
    mutually honest.
-6. Preserve dated artifact/test measurements with their source commit; never
+7. Preserve dated artifact/test measurements with their source commit; never
    silently relabel old evidence as current.
-7. Run Markdown-link, formatting, test, privacy, and secret checks before
+8. Run Markdown-link, formatting, test, privacy, and secret checks before
    publication.

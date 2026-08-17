@@ -26,6 +26,32 @@ process isolation. Invocation is nonmutating at the lifecycle layer but still
 requires identity, capabilities, isolation, and trust. Domain action writes use
 the separate action-plan and transaction contracts.
 
+## End-state user semantics
+
+The transition grammar is the foundation for a user-selectable module platform.
+`installed` means verified bytes and registry state exist; `active` means the
+module passed trust, dependency, platform, capability, configuration, and
+recovery checks; `disabled` means the module remains installed but performs no
+collection, network work, scheduling, UI action, or mutation. `degraded` or
+`blocked` means the module is present but a named prerequisite prevents some or
+all behavior. A module action being active never authorizes a particular system
+mutation: that action still needs its own finding, plan, confirmation,
+transaction, and verification.
+
+Disable is an explicit deactivation that preserves module data, settings,
+receipts, and evidence. Uninstall is a separate transition that reviews the
+exact module-owned write set and data-retention choice; it must refuse shared,
+credential, project, backup, and unknown paths. Enable revalidates package
+integrity, trust/revocation, dependencies, conflicts, platform support,
+effective capabilities, configuration, and pending recovery. Startup must not
+implicitly enable, migrate, repair, upgrade, or uninstall a module.
+
+The current implementation only plans these transitions. The executable
+lifecycle, registry publication, TUI/CLI controls, and disabled-work guarantee
+are P0 work for the end-state platform. See
+[`engineering-handoff.md`](engineering-handoff.md) for the target command shape
+and the shift sequence.
+
 The core module-install dry-run now embeds the canonical foundation install
 transition instead of maintaining a private lifecycle model. No lifecycle plan
 installs, activates, invokes, repairs, migrates, upgrades, deactivates, or removes
