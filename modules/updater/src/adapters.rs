@@ -12,6 +12,8 @@ pub enum ManagerKind {
     HomebrewFormula,
     HomebrewCask,
     MacPorts,
+    MacAppStore,
+    AppleSoftwareUpdate,
     Winget,
     Apt,
     Dnf,
@@ -27,6 +29,8 @@ impl ManagerKind {
             Self::HomebrewFormula => "homebrew-formula",
             Self::HomebrewCask => "homebrew-cask",
             Self::MacPorts => "macports",
+            Self::MacAppStore => "mac-app-store",
+            Self::AppleSoftwareUpdate => "apple-software-update",
             Self::Winget => "winget",
             Self::Apt => "apt",
             Self::Dnf => "dnf",
@@ -39,7 +43,11 @@ impl ManagerKind {
 
     pub const fn platform(self) -> &'static str {
         match self {
-            Self::HomebrewFormula | Self::HomebrewCask | Self::MacPorts => "macos",
+            Self::HomebrewFormula
+            | Self::HomebrewCask
+            | Self::MacPorts
+            | Self::MacAppStore
+            | Self::AppleSoftwareUpdate => "macos",
             Self::Winget => "windows",
             Self::Apt | Self::Dnf | Self::Pacman | Self::Zypper | Self::Snap | Self::Flatpak => {
                 "linux"
@@ -50,8 +58,10 @@ impl ManagerKind {
     pub const fn query_arguments(self) -> &'static [&'static str] {
         match self {
             Self::HomebrewFormula => &["outdated", "--json=v2"],
-            Self::HomebrewCask => &["outdated", "--cask", "--json=v2"],
+            Self::HomebrewCask => &["outdated", "--cask", "--greedy", "--json=v2"],
             Self::MacPorts => &["outdated"],
+            Self::MacAppStore => &["outdated", "--json"],
+            Self::AppleSoftwareUpdate => &["--list"],
             Self::Winget => &[
                 "list",
                 "--upgrade-available",
@@ -67,18 +77,33 @@ impl ManagerKind {
         }
     }
 
-    pub const fn upgrade_arguments(self, package: &str) -> [&str; 3] {
+    pub fn upgrade_arguments(self, package: &str) -> Vec<String> {
         match self {
-            Self::HomebrewFormula => ["upgrade", package, ""],
-            Self::HomebrewCask => ["upgrade", "--cask", package],
-            Self::MacPorts => ["upgrade", package, ""],
-            Self::Winget => ["upgrade", "--id", package],
-            Self::Apt => ["install", "--only-upgrade", package],
-            Self::Dnf => ["upgrade", package, ""],
-            Self::Pacman => ["-S", package, ""],
-            Self::Zypper => ["update", package, ""],
-            Self::Snap => ["refresh", package, ""],
-            Self::Flatpak => ["update", package, ""],
+            Self::HomebrewFormula => vec!["upgrade".to_string(), package.to_string()],
+            Self::HomebrewCask => vec![
+                "upgrade".to_string(),
+                "--cask".to_string(),
+                "--greedy".to_string(),
+                package.to_string(),
+            ],
+            Self::MacPorts => vec!["upgrade".to_string(), package.to_string()],
+            Self::MacAppStore => vec!["update".to_string(), package.to_string()],
+            Self::AppleSoftwareUpdate => vec!["--install".to_string(), package.to_string()],
+            Self::Winget => vec![
+                "upgrade".to_string(),
+                "--id".to_string(),
+                package.to_string(),
+            ],
+            Self::Apt => vec![
+                "install".to_string(),
+                "--only-upgrade".to_string(),
+                package.to_string(),
+            ],
+            Self::Dnf => vec!["upgrade".to_string(), package.to_string()],
+            Self::Pacman => vec!["-S".to_string(), package.to_string()],
+            Self::Zypper => vec!["update".to_string(), package.to_string()],
+            Self::Snap => vec!["refresh".to_string(), package.to_string()],
+            Self::Flatpak => vec!["update".to_string(), package.to_string()],
         }
     }
 
@@ -86,6 +111,8 @@ impl ManagerKind {
         match self {
             Self::HomebrewFormula | Self::HomebrewCask => "homebrew",
             Self::MacPorts => "macports",
+            Self::MacAppStore => "mas",
+            Self::AppleSoftwareUpdate => "softwareupdate",
             Self::Winget => "winget",
             Self::Apt => "apt",
             Self::Dnf => "dnf",
@@ -110,6 +137,12 @@ pub struct ManagerProbeSpec {
 
 const HOMEBREW_EXECUTABLES: &[&str] = &["/opt/homebrew/bin/brew", "/usr/local/bin/brew"];
 const MACPORTS_EXECUTABLES: &[&str] = &["/opt/local/bin/port"];
+const MAS_EXECUTABLES: &[&str] = &[
+    "/opt/homebrew/bin/mas",
+    "/usr/local/bin/mas",
+    "/opt/local/bin/mas",
+];
+const SOFTWAREUPDATE_EXECUTABLES: &[&str] = &["/usr/sbin/softwareupdate"];
 const WINGET_EXECUTABLES: &[&str] = &[
     r"C:\Windows\System32\winget.exe",
     r"C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller\winget.exe",
@@ -131,6 +164,13 @@ pub fn manager_probe_specs() -> Vec<ManagerProbeSpec> {
         ),
         spec(ManagerKind::HomebrewCask, HOMEBREW_EXECUTABLES, true, false),
         spec(ManagerKind::MacPorts, MACPORTS_EXECUTABLES, true, true),
+        spec(ManagerKind::MacAppStore, MAS_EXECUTABLES, true, true),
+        spec(
+            ManagerKind::AppleSoftwareUpdate,
+            SOFTWAREUPDATE_EXECUTABLES,
+            true,
+            true,
+        ),
         spec(ManagerKind::Winget, WINGET_EXECUTABLES, true, false),
         spec(ManagerKind::Apt, APT_EXECUTABLES, true, true),
         spec(ManagerKind::Dnf, DNF_EXECUTABLES, true, true),
@@ -200,6 +240,8 @@ pub fn parse_manager_output(
         ManagerKind::Dnf => parse_dnf(context, text),
         ManagerKind::Pacman => parse_pacman(context, text),
         ManagerKind::MacPorts => parse_macports(context, text),
+        ManagerKind::MacAppStore => parse_mas(context, text),
+        ManagerKind::AppleSoftwareUpdate => parse_softwareupdate(context, text),
         ManagerKind::Winget | ManagerKind::Zypper | ManagerKind::Snap | ManagerKind::Flatpak => {
             Err(format!(
                 "{} output parser is not yet locale-safe; source remains unavailable",
@@ -207,6 +249,91 @@ pub fn parse_manager_output(
             ))
         }
     }
+}
+
+fn parse_mas(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    let mut records = Vec::new();
+    for line in text.lines().filter(|line| !line.trim().is_empty()) {
+        let value: serde_json::Value = serde_json::from_str(line)
+            .map_err(|error| format!("parse mac-app-store JSON line: {error}"))?;
+        let adam_id = value
+            .get("adamID")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| "mac-app-store record is missing numeric 'adamID'".to_string())?;
+        let _name = required_string(&value, "name")?;
+        let installed = required_string(&value, "version")?;
+        let available = required_string(&value, "newVersion")?;
+        push_record(
+            &mut records,
+            make_record(context, &adam_id.to_string(), Some(installed), available)?,
+            context.manager,
+        )?;
+    }
+    if records.is_empty() && !text.lines().any(|line| line.trim() == "No outdated apps.") {
+        return Err("mac-app-store output contains no recognized JSON app records".to_string());
+    }
+    Ok(records)
+}
+
+fn parse_softwareupdate(
+    context: &ManagerParseContext,
+    text: &str,
+) -> Result<Vec<UpdateRecord>, String> {
+    if text
+        .lines()
+        .any(|line| line.trim() == "No new software available.")
+    {
+        return Ok(Vec::new());
+    }
+    let mut records = Vec::new();
+    let mut label: Option<String> = None;
+    for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        if let Some(value) = line
+            .strip_prefix("* Label: ")
+            .or_else(|| line.strip_prefix("- Label: "))
+        {
+            if label.is_some() {
+                return Err(
+                    "softwareupdate output contains a label without a recognized detail line"
+                        .to_string(),
+                );
+            }
+            if value.is_empty() {
+                return Err("softwareupdate output contains an empty update label".to_string());
+            }
+            label = Some(value.to_string());
+            continue;
+        }
+        let Some(details) = line.strip_prefix("Title: ") else {
+            continue;
+        };
+        let Some((_, version_tail)) = details.split_once(", Version: ") else {
+            return Err("softwareupdate detail line has no exact Version field".to_string());
+        };
+        let available = version_tail
+            .split_once(", ")
+            .map_or(version_tail, |(version, _)| version)
+            .trim_end_matches(',')
+            .trim();
+        let label = label
+            .take()
+            .ok_or_else(|| "softwareupdate detail line preceded its Label line".to_string())?;
+        if available.is_empty() {
+            return Err("softwareupdate detail line has an empty Version field".to_string());
+        }
+        push_record(
+            &mut records,
+            make_record(context, &label, None, available.to_string())?,
+            context.manager,
+        )?;
+    }
+    if label.is_some() {
+        return Err("softwareupdate output ended with an incomplete update record".to_string());
+    }
+    if records.is_empty() {
+        return Err("softwareupdate output contains no recognized update records".to_string());
+    }
+    Ok(records)
 }
 
 fn parse_homebrew(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
@@ -379,13 +506,7 @@ fn make_record(
             return Err(format!("manager record '{name}' has an invalid version"));
         }
     }
-    let arguments = context
-        .manager
-        .upgrade_arguments(name)
-        .into_iter()
-        .filter(|argument| !argument.is_empty())
-        .map(str::to_string)
-        .collect();
+    let arguments = context.manager.upgrade_arguments(name);
     Ok(UpdateRecord {
         finding_id: format!("update.{}.{}", context.manager.id(), slug),
         subject_reference: format!("package:{}:{}", context.manager.id(), slug),
@@ -496,6 +617,49 @@ mod tests {
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].available_version.as_deref(), Some("1.1"));
         assert_eq!(records[0].arguments, ["upgrade", "alpha"]);
+
+        let cask = parse_manager_output(
+            &context(ManagerKind::HomebrewCask),
+            br#"{"casks":[{"name":"alpha","installed_versions":["1.0"],"current_version":"1.1"}]}"#,
+        )
+        .expect("Homebrew cask records");
+        assert_eq!(
+            cask[0].arguments,
+            ["upgrade", "--cask", "--greedy", "alpha"]
+        );
+    }
+
+    #[test]
+    fn parses_mac_app_store_json_lines_and_softwareupdate_labels() {
+        let mas = parse_manager_output(
+            &context(ManagerKind::MacAppStore),
+            br#"{"adamID":409183694,"name":"Keynote","newVersion":"12.0","version":"11.0"}
+{"adamID":123,"name":"Pages","newVersion":"14.0","version":"13.0"}
+"#,
+        )
+        .expect("Mac App Store records");
+        assert_eq!(mas.len(), 2);
+        assert_eq!(mas[0].finding_id, "update.mac-app-store.409183694");
+        assert_eq!(mas[0].arguments, ["update", "409183694"]);
+
+        let softwareupdate = parse_manager_output(
+            &context(ManagerKind::AppleSoftwareUpdate),
+            b"Software Update Tool\n* Label: macOS-15.6-24G90\n    Title: macOS Sequoia, Version: 15.6, Size: 1K, Recommended: YES, Action: restart,\n",
+        )
+        .expect("Apple software update records");
+        assert_eq!(softwareupdate.len(), 1);
+        assert_eq!(
+            softwareupdate[0].arguments,
+            ["--install", "macOS-15.6-24G90"]
+        );
+        assert!(
+            parse_manager_output(
+                &context(ManagerKind::AppleSoftwareUpdate),
+                b"No new software available.\n"
+            )
+            .expect("no Apple updates")
+            .is_empty()
+        );
     }
 
     #[test]
@@ -527,6 +691,8 @@ mod tests {
             ManagerKind::HomebrewFormula,
             ManagerKind::HomebrewCask,
             ManagerKind::MacPorts,
+            ManagerKind::MacAppStore,
+            ManagerKind::AppleSoftwareUpdate,
             ManagerKind::Winget,
             ManagerKind::Apt,
             ManagerKind::Dnf,
@@ -550,7 +716,7 @@ mod tests {
                     assert!(records.iter().all(|record| {
                         !record.finding_id.chars().any(char::is_control)
                             && !record.subject_reference.chars().any(char::is_control)
-                            && record.arguments.len() <= 3
+                            && record.arguments.len() <= 4
                     }));
                 }
             }

@@ -191,7 +191,9 @@ fn match_record(
             ManagerKind::MacPorts => app.source_id == "macos.macports.packages",
             ManagerKind::Apt => app.source_id == "linux.dpkg.packages",
             ManagerKind::Pacman => app.source_id == "linux.pacman.packages",
-            ManagerKind::Winget
+            ManagerKind::MacAppStore
+            | ManagerKind::AppleSoftwareUpdate
+            | ManagerKind::Winget
             | ManagerKind::Dnf
             | ManagerKind::Zypper
             | ManagerKind::Snap
@@ -221,6 +223,10 @@ fn probe_environment() -> Vec<(String, String)> {
         if let Some(home) = std::env::var_os("HOME").and_then(|value| value.into_string().ok()) {
             environment.push(("HOME".to_string(), home));
         }
+        environment.push(("LANG".to_string(), "C".to_string()));
+        environment.push(("LC_ALL".to_string(), "C".to_string()));
+        environment.push(("LC_CTYPE".to_string(), "C".to_string()));
+        environment.push(("LANGUAGE".to_string(), "C".to_string()));
         environment.push(("HOMEBREW_NO_AUTO_UPDATE".to_string(), "1".to_string()));
         environment.push(("HOMEBREW_NO_ENV_HINTS".to_string(), "1".to_string()));
         environment.push((

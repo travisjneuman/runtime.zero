@@ -95,6 +95,7 @@ fn subcommand_help_is_scriptable_and_successful() {
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
     assert!(out.contains("--recovery-status --transaction"));
+    assert!(out.contains("--all-providers --allow-network-read"));
 }
 
 #[test]
@@ -110,6 +111,7 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("rz0 report [--format text|json]"));
     assert!(out.contains("rz0 completions <bash|zsh|fish|powershell>"));
     assert!(out.contains("rz0 updates --dry-run --fixture"));
+    assert!(out.contains("rz0 updates --dry-run --all-providers"));
     assert!(out.contains("rz0 updates --recovery-status --transaction"));
 }
 

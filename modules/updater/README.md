@@ -22,6 +22,9 @@ rz0 updates --dry-run --manager homebrew-formula \
   --manager-output /tmp/homebrew-outdated.json \
   --executable /opt/homebrew/bin/brew --plan --queue --format json
 
+# Bounded live review of the allowlisted macOS providers
+rz0 updates --dry-run --all-providers --allow-network-read --plan --queue --format json
+
 rz0 updates --recovery-status --transaction <exact-transaction-id>
 
 # After reviewing the challenge emitted by --apply without --confirm:
@@ -48,10 +51,15 @@ outcome, backed by a canonical external-effect receipt, and followed by fresh
 verification; no sudo/helper or arbitrary shell path is used.
 
 The module includes bounded, locale-reviewed parser slices for Homebrew JSON,
-APT, DNF, Pacman, and MacPorts fixture output, plus explicit probe
-specifications for Windows Winget and major Linux/macOS managers. Winget,
+APT, DNF, Pacman, MacPorts, Mac App Store `mas` JSON lines, and Apple
+`softwareupdate --list` output, plus explicit probe specifications for Windows
+Winget and major Linux/macOS managers. Homebrew cask review uses the documented
+greedy mode so latest/auto-updating casks are not silently omitted. Winget,
 Zypper, Snap, and Flatpak parsing currently fails closed as not yet locale-safe.
-A probe specification is not production runtime evidence.
+A probe specification is not production runtime evidence. `--all-providers`
+is intentionally bounded: vendor self-updaters, direct installers, language
+ecosystems, and unknown providers are reported as uncovered until each receives
+its own reviewed adapter.
 
 ## Apply-lane limitations
 

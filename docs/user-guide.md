@@ -190,11 +190,22 @@ rz0 updates --dry-run --probe \
   --executable /opt/homebrew/bin/brew \
   --allow-network-read \
   --plan
+
+# Review all currently supported macOS provider lanes
+rz0 updates --dry-run --all-providers \
+  --allow-network-read \
+  --plan --queue
 ```
 
 The executable is opened directly, bounded, hashed, identified, and sealed into
 the resulting plan. A second invocation must reproduce the same plan identity;
 manager executable replacement invalidates confirmation.
+
+`--all-providers` probes the allowlisted Homebrew formula/cask, MacPorts, Mac
+App Store (`mas`, when installed), and Apple Software Update sources in series.
+It records source success/failure and explicitly reports uncovered categories
+such as vendor self-updaters, direct installers, language-specific environments,
+and unknown providers. This is broad review coverage, not a universal updater.
 
 ### Apply lane
 

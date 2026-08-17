@@ -36,6 +36,14 @@ The collectors do not invoke `mdfind`, `pkgutil`, `launchctl`, or a manager.
 Launchd labels and metadata paths are inventory evidence only; loaded/running
 state is not asserted.
 
+The explicit `rz0 updates --dry-run --all-providers --allow-network-read` lane
+adds bounded live availability probes for Homebrew formulae and casks (greedy
+cask mode), MacPorts, Mac App Store `mas` when installed, and Apple
+`softwareupdate`. A missing provider or parser drift is retained as a warning.
+This does not cover vendor self-updaters, direct installers, language-specific
+package environments, or unknown providers, and therefore does not claim
+universal macOS coverage.
+
 ### Current mutation blocks
 
 The updater can observe and seal a manager executable but cannot launch the exact

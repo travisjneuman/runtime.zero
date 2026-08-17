@@ -20,6 +20,7 @@ use crate::update_execution::{
 };
 
 const MAX_INPUT_BYTES: u64 = rz0_resource_contract::MAX_FINDING_REPORT_BYTES;
+const MAX_PROVIDER_WARNINGS: usize = rz0_resource_contract::MAX_INVENTORY_WARNINGS;
 const UPDATES_CONTRACT: &str = "updater_cli_review";
 
 pub fn updates_command(args: &[String]) -> (ExitCode, String, String) {
@@ -39,11 +40,12 @@ pub fn updates_command(args: &[String]) -> (ExitCode, String, String) {
     if command.recovery_status {
         return recovery_status_command(&command);
     }
-    let input = match build_input(&command) {
+    let built_input = match build_input(&command) {
         Ok(input) => input,
         Err(error) => return (ExitCode::Usage, String::new(), format!("{error}\n")),
     };
-    let report = match classify_updates(&input) {
+    let input = &built_input.input;
+    let report = match classify_updates(input) {
         Ok(report) => report,
         Err(error) => {
             return (
@@ -54,10 +56,10 @@ pub fn updates_command(args: &[String]) -> (ExitCode, String, String) {
         }
     };
     if command.apply {
-        return apply_update_command(&command, &input, &report);
+        return apply_update_command(&command, input, &report);
     }
     let output = if command.queue {
-        let plan = match build_update_action_plan(&input, &report) {
+        let plan = match build_update_action_plan(input, &report) {
             Ok(plan) => plan,
             Err(error) => {
                 return (
@@ -68,16 +70,16 @@ pub fn updates_command(args: &[String]) -> (ExitCode, String, String) {
             }
         };
         match build_serial_update_queue(&plan) {
-            Ok(queue) => render_queue(&queue, command.format),
+            Ok(queue) => render_queue(&queue, command.format, &built_input),
             Err(error) => Err(error),
         }
     } else if command.plan {
-        match build_update_action_plan(&input, &report) {
-            Ok(plan) => render_plan(&plan, command.format),
+        match build_update_action_plan(input, &report) {
+            Ok(plan) => render_plan(&plan, command.format, &built_input),
             Err(error) => Err(error),
         }
     } else {
-        render_report(&report, command.format)
+        render_report(&report, command.format, &built_input)
     };
     match output {
         Ok(output) => (ExitCode::Ok, output, String::new()),
@@ -99,6 +101,7 @@ struct ParsedArgs {
     apply: bool,
     action: Option<String>,
     all: bool,
+    all_providers: bool,
     confirm: Option<String>,
     challenge_issued_unix_seconds: Option<u64>,
     accept_no_rollback: bool,
@@ -122,6 +125,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         apply: false,
         action: None,
         all: false,
+        all_providers: false,
         confirm: None,
         challenge_issued_unix_seconds: None,
         accept_no_rollback: false,
@@ -179,6 +183,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
                 );
             }
             "--all" => parsed.all = true,
+            "--all-providers" => parsed.all_providers = true,
             "--confirm" => {
                 index += 1;
                 parsed.confirm = Some(
@@ -262,6 +267,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             || parsed.queue
             || parsed.action.is_some()
             || parsed.all
+            || parsed.all_providers
             || parsed.confirm.is_some()
             || parsed.challenge_issued_unix_seconds.is_some()
             || parsed.accept_no_rollback
@@ -284,8 +290,8 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
                     .to_string(),
             );
         }
-        if !parsed.probe {
-            return Err("--apply requires an explicit live --probe".to_string());
+        if !parsed.probe && !parsed.all_providers {
+            return Err("--apply requires an explicit live --probe or --all-providers".to_string());
         }
         if !parsed.allow_network_write {
             return Err("--apply requires --allow-network-write".to_string());
@@ -293,8 +299,13 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         if parsed.plan || parsed.queue {
             return Err("--apply cannot be combined with --plan or --queue".to_string());
         }
-        if (parsed.action.is_none() && !parsed.all) || (parsed.action.is_some() && parsed.all) {
-            return Err("--apply requires exactly one --action ID or --all".to_string());
+        let selectors = usize::from(parsed.action.is_some())
+            + usize::from(parsed.all)
+            + usize::from(parsed.all_providers);
+        if selectors != 1 {
+            return Err(
+                "--apply requires exactly one --action ID, --all, or --all-providers".to_string(),
+            );
         }
     } else if !parsed.dry_run {
         return Err("updates is report-only and requires --dry-run".to_string());
@@ -314,8 +325,8 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
     if parsed.probe && parsed.manager_output.is_some() {
         return Err("--probe cannot be combined with --manager-output".to_string());
     }
-    if parsed.allow_network_read && !parsed.probe {
-        return Err("--allow-network-read requires --probe".to_string());
+    if parsed.allow_network_read && !parsed.probe && !parsed.all_providers {
+        return Err("--allow-network-read requires --probe or --all-providers".to_string());
     }
     if parsed.allow_network_write && !parsed.apply {
         return Err("--allow-network-write requires --apply".to_string());
@@ -329,8 +340,27 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
     if parsed.all && !parsed.apply {
         return Err("--all requires --apply".to_string());
     }
-    if parsed.action.is_some() && parsed.all {
-        return Err("--action and --all are mutually exclusive".to_string());
+    if parsed.all_providers {
+        if !parsed.allow_network_read {
+            return Err("--all-providers requires --allow-network-read".to_string());
+        }
+        if parsed.fixture.is_some()
+            || parsed.manager_output.is_some()
+            || parsed.manager.is_some()
+            || parsed.executable.is_some()
+            || parsed.probe
+        {
+            return Err(
+                "--all-providers is a live system-provider probe and cannot be combined with a fixture, manager selection, or --probe details"
+                    .to_string(),
+            );
+        }
+    }
+    if (parsed.action.is_some() && parsed.all)
+        || (parsed.action.is_some() && parsed.all_providers)
+        || (parsed.all && parsed.all_providers)
+    {
+        return Err("--action, --all, and --all-providers are mutually exclusive".to_string());
     }
     if parsed.confirm.is_some() && !parsed.apply {
         return Err("--confirm requires --apply".to_string());
@@ -347,6 +377,14 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
     if parsed.all && (parsed.confirm.is_some() || parsed.challenge_issued_unix_seconds.is_some()) {
         return Err(
             "--all requires one interactive confirmation per item and cannot take --confirm"
+                .to_string(),
+        );
+    }
+    if parsed.all_providers
+        && (parsed.confirm.is_some() || parsed.challenge_issued_unix_seconds.is_some())
+    {
+        return Err(
+            "--all-providers requires one interactive confirmation per item and cannot take --confirm"
                 .to_string(),
         );
     }
@@ -429,9 +467,44 @@ fn recovery_guidance(
     }
 }
 
-fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
+#[derive(Debug, Clone)]
+struct BuiltInput {
+    input: UpdaterFindingInput,
+    source_count: usize,
+    source_ok_count: usize,
+    sources: Vec<ProviderSourceStatus>,
+    warnings: Vec<String>,
+    aggregate: bool,
+    live_probe: bool,
+    network_read_requested: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ProviderSourceStatus {
+    provider: String,
+    status: String,
+    candidate_count: usize,
+}
+
+fn provider_context(built: &BuiltInput) -> Option<&BuiltInput> {
+    built.aggregate.then_some(built)
+}
+
+fn build_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
+    if command.all_providers {
+        return build_all_provider_input(command);
+    }
     if let Some(path) = command.fixture.as_deref() {
-        return read_input(path);
+        return Ok(BuiltInput {
+            input: read_input(path)?,
+            source_count: 1,
+            source_ok_count: 1,
+            sources: Vec::new(),
+            warnings: Vec::new(),
+            aggregate: false,
+            live_probe: false,
+            network_read_requested: false,
+        });
     }
     let manager = command.manager.ok_or_else(|| {
         "provide a local evidence fixture via --fixture, captured manager output via --manager-output, or explicit --probe".to_string()
@@ -441,12 +514,6 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
         .find(|spec| spec.manager == manager)
         .ok_or_else(|| "manager probe specification is unavailable".to_string())?;
     let (bytes, executable, executable_identity) = if command.probe {
-        if !command.allow_network_read && spec.network_required {
-            return Err(
-                "this manager probe may access network metadata; pass --allow-network-read explicitly"
-                    .to_string(),
-            );
-        }
         if manager.platform() != std::env::consts::OS {
             return Err(format!(
                 "manager '{}' is for {} and cannot be probed on {}",
@@ -469,40 +536,8 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
         ) {
             return Err("--executable is not the allowlisted path for this manager".to_string());
         }
-        let executable_identity = observe_manager_executable(Path::new(&executable))?;
-        let output =
-            rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
-                executable: PathBuf::from(&executable),
-                arguments: spec
-                    .query_arguments
-                    .iter()
-                    .map(|argument| (*argument).to_string())
-                    .collect(),
-                working_directory: PathBuf::from("/"),
-                environment: probe_environment(),
-                timeout: std::time::Duration::from_secs(10),
-                output_limit: MAX_INPUT_BYTES,
-            })
-            .map_err(|error| format!("manager probe failed closed: {error}"))?;
-        let accepted_nonzero = manager == ManagerKind::Dnf && output.status.code() == Some(100);
-        if !output.status.success() && !accepted_nonzero {
-            return Err(format!(
-                "manager probe exited with an unaccepted status: {}",
-                output.status
-            ));
-        }
-        let identity_after = observe_manager_executable(Path::new(&executable))?;
-        if identity_after != executable_identity {
-            return Err(
-                "manager executable identity changed during the live availability probe"
-                    .to_string(),
-            );
-        }
-        let bytes = if output.stdout.bytes.is_empty() {
-            output.stderr.bytes
-        } else {
-            output.stdout.bytes
-        };
+        let (bytes, executable_identity) =
+            probe_manager_output(&spec, Path::new(&executable), command.allow_network_read)?;
         (bytes, executable, Some(executable_identity))
     } else {
         let path = command
@@ -517,8 +552,195 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
         };
         (read_bounded_bytes(path)?, executable, executable_identity)
     };
-    let context = ManagerParseContext {
+    let records = parse_manager_records(&spec, &bytes, executable, executable_identity)?;
+    Ok(single_built_input(
         manager,
+        records,
+        command.probe,
+        command.probe && command.allow_network_read,
+    ))
+}
+
+fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
+    if std::env::consts::OS != "macos" {
+        return Err(format!(
+            "--all-providers currently supports the macOS provider inventory only; this host is {}",
+            std::env::consts::OS
+        ));
+    }
+    let specs = rz0_module_updater::manager_probe_specs_for_platform(std::env::consts::OS);
+    let mut records = Vec::new();
+    let mut sources = Vec::new();
+    let mut warnings = vec![
+        "coverage is bounded: self-updating vendor apps, direct installers, language-specific environments, and unrecognized providers require separate adapters".to_string(),
+    ];
+    let mut source_ok_count = 0usize;
+    for spec in &specs {
+        let Some(executable) = resolve_probe_executable(spec.executable_candidates) else {
+            sources.push(ProviderSourceStatus {
+                provider: spec.manager.id().to_string(),
+                status: "missing".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "{} availability source executable was not found",
+                spec.manager.id()
+            ));
+            continue;
+        };
+        let (bytes, identity) =
+            match probe_manager_output(spec, &executable, command.allow_network_read) {
+                Ok(value) => value,
+                Err(error) => {
+                    sources.push(ProviderSourceStatus {
+                        provider: spec.manager.id().to_string(),
+                        status: "unavailable".to_string(),
+                        candidate_count: 0,
+                    });
+                    warnings.push(format!(
+                        "{} availability source unavailable: {error}",
+                        spec.manager.id()
+                    ));
+                    continue;
+                }
+            };
+        match parse_manager_records(
+            spec,
+            &bytes,
+            executable.display().to_string(),
+            Some(identity),
+        ) {
+            Ok(mut source_records) => {
+                source_ok_count = source_ok_count.saturating_add(1);
+                sources.push(ProviderSourceStatus {
+                    provider: spec.manager.id().to_string(),
+                    status: "ok".to_string(),
+                    candidate_count: source_records.len(),
+                });
+                records.append(&mut source_records);
+            }
+            Err(error) => {
+                sources.push(ProviderSourceStatus {
+                    provider: spec.manager.id().to_string(),
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} availability output unavailable: {error}",
+                    spec.manager.id()
+                ));
+            }
+        }
+    }
+    records.sort_by(|left, right| left.finding_id.cmp(&right.finding_id));
+    records.dedup_by(|left, right| left.finding_id == right.finding_id);
+    warnings.truncate(MAX_PROVIDER_WARNINGS);
+    let normalized = serde_json::to_vec(&records)
+        .map_err(|error| format!("normalize aggregate manager evidence: {error}"))?;
+    let evidence_digest = sha256(&normalized);
+    Ok(BuiltInput {
+        input: UpdaterFindingInput {
+            schema_version: 1,
+            contract: rz0_module_updater::INPUT_CONTRACT.to_string(),
+            platform: std::env::consts::OS.to_string(),
+            input_evidence_sha256: evidence_digest.clone(),
+            source_id: format!("system.{}.providers", std::env::consts::OS),
+            source_evidence_sha256: evidence_digest,
+            records,
+        },
+        source_count: specs.len(),
+        source_ok_count,
+        sources,
+        warnings,
+        aggregate: true,
+        live_probe: true,
+        network_read_requested: command.allow_network_read,
+    })
+}
+
+fn single_built_input(
+    manager: ManagerKind,
+    records: Vec<rz0_module_updater::UpdateRecord>,
+    live_probe: bool,
+    network_read_requested: bool,
+) -> BuiltInput {
+    let normalized = serde_json::to_vec(&records).unwrap_or_default();
+    let evidence_digest = sha256(&normalized);
+    BuiltInput {
+        input: UpdaterFindingInput {
+            schema_version: 1,
+            contract: rz0_module_updater::INPUT_CONTRACT.to_string(),
+            platform: manager.platform().to_string(),
+            input_evidence_sha256: evidence_digest.clone(),
+            source_id: format!("manager.{}", manager.id()),
+            source_evidence_sha256: evidence_digest,
+            records,
+        },
+        source_count: 1,
+        source_ok_count: 1,
+        sources: Vec::new(),
+        warnings: Vec::new(),
+        aggregate: false,
+        live_probe,
+        network_read_requested,
+    }
+}
+
+fn probe_manager_output(
+    spec: &rz0_module_updater::ManagerProbeSpec,
+    executable: &Path,
+    allow_network_read: bool,
+) -> Result<(Vec<u8>, rz0_action_plan::ActionExecutableIdentity), String> {
+    if !allow_network_read && spec.network_required {
+        return Err(
+            "this manager probe may access network metadata; pass --allow-network-read explicitly"
+                .to_string(),
+        );
+    }
+    let executable_identity = observe_manager_executable(executable)?;
+    let output =
+        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+            executable: executable.to_path_buf(),
+            arguments: spec
+                .query_arguments
+                .iter()
+                .map(|argument| (*argument).to_string())
+                .collect(),
+            working_directory: PathBuf::from("/"),
+            environment: probe_environment(),
+            timeout: std::time::Duration::from_secs(10),
+            output_limit: MAX_INPUT_BYTES,
+        })
+        .map_err(|error| format!("manager probe failed closed: {error}"))?;
+    let accepted_nonzero = spec.manager == ManagerKind::Dnf && output.status.code() == Some(100);
+    if !output.status.success() && !accepted_nonzero {
+        return Err(format!(
+            "manager probe exited with an unaccepted status: {}",
+            output.status
+        ));
+    }
+    let identity_after = observe_manager_executable(executable)?;
+    if identity_after != executable_identity {
+        return Err(
+            "manager executable identity changed during the live availability probe".to_string(),
+        );
+    }
+    let bytes = if output.stdout.bytes.is_empty() {
+        output.stderr.bytes
+    } else {
+        output.stdout.bytes
+    };
+    Ok((bytes, executable_identity))
+}
+
+fn parse_manager_records(
+    spec: &rz0_module_updater::ManagerProbeSpec,
+    bytes: &[u8],
+    executable: String,
+    executable_identity: Option<rz0_action_plan::ActionExecutableIdentity>,
+) -> Result<Vec<rz0_module_updater::UpdateRecord>, String> {
+    let context = ManagerParseContext {
+        manager: spec.manager,
         executable: (!executable.is_empty()).then_some(executable),
         executable_sha256: executable_identity
             .as_ref()
@@ -528,19 +750,18 @@ fn build_input(command: &ParsedArgs) -> Result<UpdaterFindingInput, String> {
         requires_elevation: spec.requires_elevation,
         rollback_supported: false,
     };
-    let mut records = parse_manager_output(&context, &bytes)?;
+    let mut records = parse_manager_output(&context, bytes)?;
     records.sort_by(|left, right| left.finding_id.cmp(&right.finding_id));
-    let normalized = serde_json::to_vec(&records)
-        .map_err(|error| format!("normalize manager evidence: {error}"))?;
-    let evidence_digest = sha256(&normalized);
-    Ok(UpdaterFindingInput {
-        schema_version: 1,
-        contract: rz0_module_updater::INPUT_CONTRACT.to_string(),
-        platform: manager.platform().to_string(),
-        input_evidence_sha256: evidence_digest.clone(),
-        source_id: format!("manager.{}", manager.id()),
-        source_evidence_sha256: evidence_digest,
-        records,
+    Ok(records)
+}
+
+fn resolve_probe_executable(candidates: &[&str]) -> Option<PathBuf> {
+    candidates.iter().map(Path::new).find_map(|path| {
+        let metadata = fs::symlink_metadata(path).ok()?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return None;
+        }
+        Some(path.to_path_buf())
     })
 }
 
@@ -549,7 +770,7 @@ fn apply_update_command(
     input: &UpdaterFindingInput,
     report: &rz0_finding_contract::FindingReport,
 ) -> (ExitCode, String, String) {
-    if command.all {
+    if command.all || command.all_providers {
         return apply_all_update_command(command, input, report);
     }
     apply_one_update_command(
@@ -738,15 +959,16 @@ fn apply_all_update_command(
     }
     let mut output = String::new();
     for action_id in action_ids {
-        let fresh_input = match build_input(command) {
+        let fresh_built = match build_input(command) {
             Ok(input) => input,
             Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
         };
-        let fresh_report = match classify_updates(&fresh_input) {
+        let fresh_input = &fresh_built.input;
+        let fresh_report = match classify_updates(fresh_input) {
             Ok(report) => report,
             Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
         };
-        let fresh_plan = match build_update_action_plan(&fresh_input, &fresh_report) {
+        let fresh_plan = match build_update_action_plan(fresh_input, &fresh_report) {
             Ok(plan) => plan,
             Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
         };
@@ -815,7 +1037,7 @@ fn apply_all_update_command(
         per_item.challenge_issued_unix_seconds = Some(issued);
         let (code, stdout, stderr) = apply_one_update_command(
             &per_item,
-            &fresh_input,
+            fresh_input,
             &fresh_report,
             per_item.action.as_deref().unwrap_or_default(),
         );
@@ -836,9 +1058,10 @@ fn apply_all_update_command(
 }
 
 fn verify_update_after(command: &ParsedArgs, finding_id: &str) -> Result<String, String> {
-    let fresh_input = build_input(command)?;
-    let fresh_report = classify_updates(&fresh_input)?;
-    let fresh_plan = build_update_action_plan(&fresh_input, &fresh_report)
+    let fresh_built = build_input(command)?;
+    let fresh_input = &fresh_built.input;
+    let fresh_report = classify_updates(fresh_input)?;
+    let fresh_plan = build_update_action_plan(fresh_input, &fresh_report)
         .map_err(|error| format!("fresh update verification plan failed closed: {error}"))?;
     verify_candidate_absent(&fresh_plan, finding_id)
 }
@@ -995,6 +1218,10 @@ fn probe_environment() -> Vec<(String, String)> {
         environment.push(("PATH".to_string(), path.to_string()));
     }
     if std::env::consts::OS == "macos" {
+        environment.push(("LANG".to_string(), "C".to_string()));
+        environment.push(("LC_ALL".to_string(), "C".to_string()));
+        environment.push(("LC_CTYPE".to_string(), "C".to_string()));
+        environment.push(("LANGUAGE".to_string(), "C".to_string()));
         environment.push(("HOMEBREW_NO_AUTO_UPDATE".to_string(), "1".to_string()));
         environment.push(("HOMEBREW_NO_ENV_HINTS".to_string(), "1".to_string()));
     }
@@ -1075,6 +1302,8 @@ fn parse_manager_kind(value: &str) -> Result<ManagerKind, String> {
         ManagerKind::HomebrewFormula,
         ManagerKind::HomebrewCask,
         ManagerKind::MacPorts,
+        ManagerKind::MacAppStore,
+        ManagerKind::AppleSoftwareUpdate,
         ManagerKind::Winget,
         ManagerKind::Apt,
         ManagerKind::Dnf,
@@ -1091,23 +1320,38 @@ fn parse_manager_kind(value: &str) -> Result<ManagerKind, String> {
 fn render_report(
     report: &rz0_finding_contract::FindingReport,
     format: OutputFormat,
+    built: &BuiltInput,
 ) -> Result<String, String> {
+    let provider = provider_context(built);
     match format {
         OutputFormat::Text => Ok(format!(
-            "runtime.zero updater review\n\ncontract: {UPDATES_CONTRACT}\nsource_contract: {}\nreport_id: {}\nread_only: yes\nwrites_attempted: no\nupdate_candidates: {}\nblocked: {}\n\nNo manager command, network request, or write was performed.\n",
+            "runtime.zero updater review\n\ncontract: {UPDATES_CONTRACT}\nsource_contract: {}\nreport_id: {}\nread_only: yes\nwrites_attempted: no\nupdate_candidates: {}\nblocked: {}\n{}{}\n",
             report.contract,
             report.report_id,
             report.summary.manager_action_candidate_count,
             report.summary.blocked_count,
+            render_provider_text(provider),
+            render_probe_text(built),
         )),
-        OutputFormat::Json => render_json(&CliReview::Report(report)),
+        OutputFormat::Json => match provider {
+            Some(provider) => render_json(&ProviderReview {
+                coverage: ProviderCoverage::from(provider),
+                result: report,
+            }),
+            None => render_json(&CliReview::Report(report)),
+        },
     }
 }
 
-fn render_plan(plan: &ActionPlan, format: OutputFormat) -> Result<String, String> {
+fn render_plan(
+    plan: &ActionPlan,
+    format: OutputFormat,
+    built: &BuiltInput,
+) -> Result<String, String> {
+    let provider = provider_context(built);
     match format {
         OutputFormat::Text => Ok(format!(
-            "runtime.zero updater plan\n\ncontract: {UPDATES_CONTRACT}\nplan_id: {}\ndry_run: yes\nwrites_attempted: no\nplanned_actions: {}\nblocked_actions: {}\nexecution_authorized: no\n\nNo manager command, network request, or write was performed.\n",
+            "runtime.zero updater plan\n\ncontract: {UPDATES_CONTRACT}\nplan_id: {}\ndry_run: yes\nwrites_attempted: no\nplanned_actions: {}\nblocked_actions: {}\nexecution_authorized: no\n{}{}\n",
             plan.plan_id,
             plan.actions
                 .iter()
@@ -1117,15 +1361,28 @@ fn render_plan(plan: &ActionPlan, format: OutputFormat) -> Result<String, String
                 .iter()
                 .filter(|action| action.disposition != ActionDisposition::Planned)
                 .count(),
+            render_provider_text(provider),
+            render_probe_text(built),
         )),
-        OutputFormat::Json => render_json(&CliReview::Plan(plan)),
+        OutputFormat::Json => match provider {
+            Some(provider) => render_json(&ProviderReview {
+                coverage: ProviderCoverage::from(provider),
+                result: plan,
+            }),
+            None => render_json(&CliReview::Plan(plan)),
+        },
     }
 }
 
-fn render_queue(queue: &SerialUpdateQueuePlan, format: OutputFormat) -> Result<String, String> {
+fn render_queue(
+    queue: &SerialUpdateQueuePlan,
+    format: OutputFormat,
+    built: &BuiltInput,
+) -> Result<String, String> {
+    let provider = provider_context(built);
     match format {
         OutputFormat::Text => Ok(format!(
-            "runtime.zero serial updater queue\n\ncontract: {UPDATE_QUEUE_CONTRACT}\nqueue_id: {}\nitems: {}\npending: {}\nblocked: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n\nThe queue is review-only and pauses on failure, drift, cancellation, or recovery.\n",
+            "runtime.zero serial updater queue\n\ncontract: {UPDATE_QUEUE_CONTRACT}\nqueue_id: {}\nitems: {}\npending: {}\nblocked: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n{}{}\nThe queue is review-only and pauses on failure, drift, cancellation, or recovery.\n",
             queue.queue_id,
             queue.items.len(),
             queue
@@ -1138,8 +1395,59 @@ fn render_queue(queue: &SerialUpdateQueuePlan, format: OutputFormat) -> Result<S
                 .iter()
                 .filter(|item| item.status == SerialUpdateItemStatus::Blocked)
                 .count(),
+            render_provider_text(provider),
+            render_probe_text(built),
         )),
-        OutputFormat::Json => render_json(&CliReview::Queue(queue)),
+        OutputFormat::Json => match provider {
+            Some(provider) => render_json(&ProviderReview {
+                coverage: ProviderCoverage::from(provider),
+                result: queue,
+            }),
+            None => render_json(&CliReview::Queue(queue)),
+        },
+    }
+}
+
+fn render_provider_text(provider: Option<&BuiltInput>) -> String {
+    let Some(provider) = provider else {
+        return String::new();
+    };
+    let mut output = format!(
+        "provider_sources: {}/{} succeeded\ncoverage: bounded\n",
+        provider.source_ok_count, provider.source_count
+    );
+    if !provider.sources.is_empty() {
+        output.push_str("provider_status:\n");
+        for source in &provider.sources {
+            output.push_str(&format!(
+                "- {}: {} ({} candidates)\n",
+                source.provider, source.status, source.candidate_count
+            ));
+        }
+    }
+    if !provider.warnings.is_empty() {
+        output.push_str("provider_warnings:\n");
+        for warning in &provider.warnings {
+            output.push_str("- ");
+            output.push_str(warning);
+            output.push('\n');
+        }
+    }
+    output
+}
+
+fn render_probe_text(built: &BuiltInput) -> String {
+    if built.live_probe {
+        format!(
+            "live_read_only_probe: yes\nnetwork_read_requested: {}\nLive provider commands were run for availability only; no update write was performed.\n",
+            if built.network_read_requested {
+                "yes"
+            } else {
+                "no"
+            },
+        )
+    } else {
+        "live_read_only_probe: no\nnetwork_read_requested: no\nNo manager command, network request, or write was performed.\n".to_string()
     }
 }
 
@@ -1151,6 +1459,37 @@ enum CliReview<'a> {
     Queue(&'a SerialUpdateQueuePlan),
 }
 
+#[derive(Serialize)]
+struct ProviderCoverage<'a> {
+    source_count: usize,
+    source_ok_count: usize,
+    coverage: &'static str,
+    live_read_only_probe: bool,
+    network_read_requested: bool,
+    sources: &'a [ProviderSourceStatus],
+    warnings: &'a [String],
+}
+
+impl<'a> From<&'a BuiltInput> for ProviderCoverage<'a> {
+    fn from(value: &'a BuiltInput) -> Self {
+        Self {
+            source_count: value.source_count,
+            source_ok_count: value.source_ok_count,
+            coverage: "bounded",
+            live_read_only_probe: value.live_probe,
+            network_read_requested: value.network_read_requested,
+            sources: &value.sources,
+            warnings: &value.warnings,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct ProviderReview<'a, T: Serialize> {
+    coverage: ProviderCoverage<'a>,
+    result: &'a T,
+}
+
 fn render_json(value: &impl Serialize) -> Result<String, String> {
     serde_json::to_string_pretty(value)
         .map(|json| format!("{json}\n"))
@@ -1158,7 +1497,7 @@ fn render_json(value: &impl Serialize) -> Result<String, String> {
 }
 
 fn usage() -> String {
-    "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n\n--apply performs a fresh availability dry-run, requires an exact action ID and explicit network-write approval, then requires a short-lived exact confirmation phrase. Without --confirm it only prints the challenge. Execution requires a plan-sealed executable identity and a reviewed platform binding, is direct/bounded/serial/cancellable, publishes a canonical external-effect receipt before final journal commit, and performs fresh verification; no sudo/helper is invoked. --recovery-status is read-only and never completes or retries an interrupted manager effect.".to_string()
+    "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n       rz0 updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback] [--format text]\n       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n\n--all-providers performs a bounded live review of allowlisted macOS sources: Homebrew formulae/casks, MacPorts, Mac App Store via mas when installed, and Apple Software Update. It reports missing, unsupported, or unrecognized providers instead of claiming universal coverage. --apply performs a fresh availability dry-run, requires explicit network-write approval and exact interactive confirmation. Execution additionally requires a plan-sealed executable identity and a reviewed platform binding; macOS currently fails closed before transaction creation because that binding is not implemented. --recovery-status is read-only and never completes or retries an interrupted manager effect.".to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1238,6 +1577,17 @@ mod tests {
         .expect("serial apply args");
         assert!(all.all);
         assert!(all.action.is_none());
+        let all_providers = parse_args(&[
+            "--dry-run".to_string(),
+            "--all-providers".to_string(),
+            "--allow-network-read".to_string(),
+            "--plan".to_string(),
+            "--queue".to_string(),
+        ])
+        .expect("all-provider review args");
+        assert!(all_providers.all_providers);
+        assert!(!all_providers.probe);
+        assert!(parse_args(&["--dry-run".to_string(), "--all-providers".to_string(),]).is_err());
         let recovery = parse_args(&[
             "--recovery-status".to_string(),
             "--transaction".to_string(),

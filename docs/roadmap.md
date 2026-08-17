@@ -81,6 +81,9 @@ See [`inventory-schema.md`](inventory-schema.md).
   confirmation, transaction journal, receipt, and post-action verification.
 - [x] Homebrew JSON and bounded APT/DNF/Pacman/MacPorts captured-output parsers;
   Winget/Zypper/Snap/Flatpak specifications currently fail closed at parsing.
+- [x] Bounded macOS all-provider review for Homebrew formulae/casks, MacPorts,
+  Mac App Store `mas`, and Apple Software Update with explicit uncovered-source
+  warnings; this does not claim universal provider coverage.
 - [ ] Complete opened-executable identity-to-spawn binding on macOS/Windows and
   enforce platform capability/network/elevation policy; Linux direct execution
   now uses and revalidates its held `/proc/self/fd` binding.

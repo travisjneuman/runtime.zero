@@ -82,6 +82,11 @@ for the write path; unsupported platforms fail closed.
 Review fixture, captured, or explicitly probed manager availability; optionally
 build a finding-bound plan or serial queue.
 .TP
+.B updates --dry-run --all-providers --allow-network-read ...
+Run the bounded macOS provider review for Homebrew formulae/casks, MacPorts,
+Mac App Store via mas when installed, and Apple Software Update. Missing or
+uncovered sources remain warnings; this is not universal provider coverage.
+.TP
 .B updates --apply ...
 Pre-alpha manager execution lane. It requires a fresh probe, network intent,
 one exact action, a plan-sealed executable identity, a reviewed platform

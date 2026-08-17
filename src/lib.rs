@@ -96,14 +96,25 @@ pub fn version_text() -> String {
 }
 
 pub fn help_text() -> String {
-    format!(
+    let mut help = format!(
         "{title} — {subtitle}\n\nUsage:\n  {cmd}\n  {cmd} --tui\n  {cmd} --no-tui\n  {cmd} --json\n  {cmd} --color auto|always|never\n  {cmd} --version\n  {cmd} doctor [--format json]\n  {cmd} apps [--format text|json]\n  {cmd} uninstall plan <installed-software-id> [--executable <manager-path>] [--format text|json]\n  {cmd} completions <bash|zsh|fish|powershell>\n  {cmd} modules [--format text|json]\n  {cmd} modules --from <dir> [--format text|json]\n  {cmd} modules validate <manifest.json> [--format text|json]\n  {cmd} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n  {cmd} store plan [--format json]\n  {cmd} store status [--store-root <path>] [--format json]\n  {cmd} store init --dry-run [--format json]\n  {cmd} store init --yes [--format json]\n  {cmd} scan --dry-run [--include-raw-paths] [--format text|json]\n  {cmd} monitor [--format text|json]\n  {cmd} report [--format text|json]\n  {cmd} updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n  {cmd} updates --dry-run --manager <id> --manager-output <path> --executable <path> [--plan] [--queue] [--format text|json]\n  {cmd} updates --dry-run --probe --manager <id> --executable <path> --allow-network-read [--plan] [--queue] [--format text|json]
   {cmd} updates --apply --probe --manager <id> --executable <path> --allow-network-read --allow-network-write (--action <id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <phrase>]\n  {cmd} updates --recovery-status --transaction <id> [--format text|json]\n\nFoundation safety posture:\n  {safety}\n\nThe core includes bounded local inventory, a native system monitor, a privacy-reviewed summary report, local manifest validation, and installed-module listing. Mutating updates require explicit apply mode, plan-sealed manager identity, a reviewed identity-to-spawn binding, network-write approval, a short-lived plan-bound confirmation, durable external-effect transaction evidence, and fresh post-action verification. Recovery status is read-only. Uninstall and module execution remain separately gated.\n",
         title = brand::TITLE,
         subtitle = brand::SUBTITLE,
         cmd = brand::COMMAND,
         safety = brand::SAFETY_POSTURE
-    )
+    );
+    let provider_usage = format!(
+        "  {} updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback]\n",
+        brand::COMMAND,
+        brand::COMMAND,
+    );
+    if let Some(index) = help.find("\n\nFoundation safety posture:") {
+        help.insert_str(index, &format!("\n{provider_usage}"));
+    } else {
+        help.push_str(&provider_usage);
+    }
+    help
 }
 
 pub fn doctor_text() -> String {

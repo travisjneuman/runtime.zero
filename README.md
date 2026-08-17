@@ -54,6 +54,7 @@ rz0 monitor --format json
 rz0 updates --dry-run --fixture tests/fixtures/updater/evidence.json --plan --queue --format json
 rz0 updates --dry-run --manager homebrew-formula --manager-output /tmp/out.json --executable /opt/homebrew/bin/brew --plan --queue --format json
 rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --plan --queue --format json
+rz0 updates --dry-run --all-providers --allow-network-read --plan --queue --format json
 rz0 updates --recovery-status --transaction <exact-transaction-id>
 rz0 updates --apply --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
 ```
@@ -124,8 +125,11 @@ The foundation can validate local module manifests without executing module
 code. The fixture/captured-output `rz0 updates --dry-run` surface can classify
 updater evidence and emit a serial review queue. The explicit `--probe` path
 runs one bounded, cleared-environment manager query after requiring an
-allowlisted absolute executable path and `--allow-network-read`; `--apply` is
-the separate write lane and additionally requires `--allow-network-write`,
+allowlisted absolute executable path and `--allow-network-read`; `--all-providers`
+performs a bounded macOS review of Homebrew formulae/casks, MacPorts, Mac App
+Store via `mas` when installed, and Apple Software Update while reporting
+missing or uncovered sources; `--apply` is the separate write lane and
+additionally requires `--allow-network-write`,
 exact confirmation, an initialized private store, journal/receipt publication,
 and fresh verification. Linux binds a direct native ELF manager's retained opened
 identity to `/proc/self/fd` spawn and revalidates it after process start; macOS
