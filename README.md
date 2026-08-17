@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot (reviewed 2026-08-16):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a six-section TUI, native monitoring, privacy-reviewed local support summaries, dry-run uninstall findings/plans, and a provider-driven CLI manager-update coordinator. The coordinator now resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; it binds executable identity to spawn on Linux, bridges SIGINT into bounded cancellation, publishes canonical external-effect receipts, and exposes read-only recovery assessment. It still is not a supported production write lane: macOS exact spawn identity, Windows containment, OS sandbox/network enforcement, exact recovery completion, rollback, elevation, and disposable-host proof remain incomplete. Uninstall execution, cleanup/quarantine, module lifecycle execution, signing/distribution, and release evidence remain gated. Start with the [`user guide`](docs/user-guide.md), [`current status`](docs/project-status-and-resumption.md), and [`documentation guide`](docs/documentation-index.md).
+> **Current pre-alpha snapshot (reviewed 2026-08-17):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a six-section TUI, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The coordinator now resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. It remains pre-alpha: Windows production containment, private/UI-only app channels, exact recovery completion, native rollback, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`current status`](docs/project-status-and-resumption.md), and [`documentation guide`](docs/documentation-index.md).
 
 ## The promise
 
@@ -57,6 +57,8 @@ rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homeb
 rz0 updates --dry-run --all-providers --allow-network-read --plan --queue --format json
 rz0 updates --recovery-status --transaction <exact-transaction-id>
 rz0 updates --apply --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
+rz0 updates --apply --all-providers --allow-network-read --allow-network-write --accept-no-rollback
+rz0 updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
 ```
 
 Bare `rz0` opens the live local software dashboard in an interactive terminal.
@@ -96,8 +98,9 @@ embeds the bounded first-party inventory adapter: `rz0 apps` lists path-free
 local software, `rz0 scan --dry-run` collects live redacted evidence, and the
 TUI shows installed applications/packages, source identifiers, service and
 persistence counts, versions when available, and ownership-specific uninstall
-review commands. Explicit Homebrew/manager
-updates use `rz0 updates --apply`; protected system applications and uninstall
+review commands. Provider-native updates use `rz0 updates --apply` for the
+discovered system managers, language/package environments, self-updaters, and
+declared application channels; protected system applications and uninstall
 reviews remain blocked from execution until their own transaction lanes are
 complete.
 
@@ -129,17 +132,18 @@ allowlisted absolute executable path and `--allow-network-read`; `--all-provider
 performs a provider-driven review of installed system managers,
 language/package environments, known self-updaters, and declared application
 update metadata. On macOS this includes Homebrew formulae/casks, MacPorts, Mac
-App Store via `mas` when installed, Apple Software Update, Electron GitHub
-metadata, and observed Sparkle channels; other platforms use the providers
-native to that host. Missing, observed-only, and unsupported sources remain
-explicit rather than being treated as universal coverage. `--apply` is the
-separate write lane and
-additionally requires `--allow-network-write`,
-exact confirmation, an initialized private store, journal/receipt publication,
-and fresh verification. Linux binds a direct native ELF manager's retained opened
-identity to `/proc/self/fd` spawn and revalidates it after process start; macOS
-and Windows fail closed because their exact production spawn/containment bindings remain
-incomplete. The network flags are explicit intent rather than an OS network
+App Store via `mas` when installed, Apple Software Update, npm prefixes,
+crates.io Cargo installs, AIUP-managed native tools, Warp's standalone signed
+CLI store, Electron/Squirrel GitHub metadata, and observed Sparkle channels;
+other platforms use the providers native to that host. Missing, delegated,
+observed-only, and unsupported sources remain explicit rather than being
+treated as universal coverage. `--apply` is the
+separate write lane and additionally requires `--allow-network-write`, exact
+confirmation, an initialized private store, journal/receipt publication, and
+fresh verification. Linux binds a direct native ELF manager's retained opened
+identity to `/proc/self/fd` spawn; macOS uses last-moment path identity/digest
+revalidation; Windows remains blocked pending production process-image
+containment. The network flags are explicit intent rather than an OS network
 sandbox. See the current-status guide
 before evaluating this lane. Installed manifests must also pass local SHA-256 integrity checks
 for explicitly listed package files:
@@ -209,9 +213,9 @@ module. A separate schema-1 production execution assessment enumerates all
 artifact, capability, executable-identity, process, runtime, and transaction
 gates while remaining structurally unable to authorize execution. The
 `crates/artifact-identity/` hashes and identifies one receipt-relative file
-through the same returned handle and can issue a non-authorizing Linux/Windows
-spawn-identity lease; macOS deliberately remains unsupported pending an exact
-primitive. `crates/capability-contract/` supplies one shared least-privilege
+through the same returned handle and can issue a non-authorizing Linux lease or
+macOS path-revalidation binding; production Windows spawn containment remains
+incomplete. `crates/capability-contract/` supplies one shared least-privilege
 vocabulary plus exact partition/list validation for manifests, protocols, and
 action plans while granting no authority.
 `crates/cancellation-contract/` provides a one-atomic first-reason cancellation

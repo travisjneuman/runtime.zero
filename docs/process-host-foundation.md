@@ -29,9 +29,10 @@ The default library provides:
 The opt-in inventory version-probe adapter and updater manager apply lane consume
 the shared drain, descriptor audit, Unix group teardown, process ceilings, and
 atomic deadline/cancellation signal. The mutating lane accepts a borrow-scoped
-`BoundExecutable`: Linux native-ELF manager execution substitutes the held `/proc/self/fd`
-identity, keeps the
-lease through spawn, and revalidates after child creation. It clears the
+`BoundExecutable`: Linux native-ELF manager execution substitutes the held
+`/proc/self/fd` identity, keeps the lease through spawn, and revalidates after
+child creation; macOS revalidates the direct path's device/inode/link/size/digest
+immediately before spawn. It clears the
 environment, uses `/` as working directory, rejects truncated streams, and reaps
 on timeout or cancellation. Windows probes/apply fail closed at production
 handle/containment policy rather than using the post-spawn test Job assignment.
@@ -47,9 +48,9 @@ race-free production mechanism.
 The module-protocol test transport now consumes this crate rather than owning
 capture and containment code. On Linux and Windows builds it also creates the
 child from the borrow-scoped verified executable binding and drops that lease
-only after spawn. macOS guarded tests retain their explicit test-helper path;
-production macOS execution remains blocked because no reviewed exact handle-to-
-spawn primitive exists.
+only after spawn. macOS guarded tests cover the path revalidation binding;
+Darwin's lack of a public fexecve-style primitive means this remains a
+last-moment path binding rather than a held-descriptor substitution.
 
 This crate exposes no production module runner. The narrow Unix group primitive
 does not create execution authority. Trust,

@@ -14,8 +14,8 @@ cross-target compilation is useful evidence but does not prove runtime behavior.
 | Service/persistence metadata | launchd plist labels | systemd unit-file labels | service registry metadata |
 | Monitor depth | native host/memory/disk/network/process sample | native host/memory/disk/network/process sample | host/memory/disk/network/process sample; some CPU/depth limitations remain |
 | Exact executable observation | vnode/open-file metadata and digest | open file, inode/device/link/mode/digest | handle/file identity and digest |
-| Identity-to-spawn binding | **Blocked** | held `/proc/self/fd/<fd>` direct launch | **Blocked for production** |
-| Manager apply | Fails closed before transaction | Narrow pre-alpha lane exists; not production-supported | Fails closed |
+| Identity-to-spawn binding | path identity/digest revalidated immediately before spawn | held `/proc/self/fd/<fd>` direct launch | **Blocked for production** |
+| Manager apply | Working pre-alpha lane with sudo wrapper and receipts | Narrow pre-alpha lane exists; scripts/interpreter chains remain blocked | Fails closed |
 | Store creation | User-local scaffold implemented | User-local scaffold implemented | Blocked pending runtime ACL proof |
 | Uninstall execution | Not implemented | Not implemented | Not implemented |
 | Module lifecycle execution | Not implemented | Not implemented | Not implemented |
@@ -40,18 +40,22 @@ The explicit `rz0 updates --dry-run --all-providers --allow-network-read` lane
 resolves provider ownership and adds bounded live availability probes for
 Homebrew formulae and casks (greedy cask mode), MacPorts, Mac App Store `mas`
 when installed, Apple `softwareupdate`, npm global prefixes, pip, RubyGems,
-`rustup`, `uv`, Grok, Hermes, and oh-my-pi. It also audits observed-only Warp,
-aiup, and Cargo channels, declared Electron GitHub metadata, and Sparkle app
-bundles. A missing provider, parser drift, UI-only updater, or direct installer
-is retained as an explicit warning. Unknown sources are never upgraded by a
-guessed command, so this is broad provider coverage rather than a mathematical
-claim of universal macOS support.
+`rustup`, `uv`, Grok, Hermes, and oh-my-pi. It also executes native AIUP,
+crates.io Cargo, and standalone Warp lanes, inspects declared Electron/Squirrel
+GitHub metadata, and reports Sparkle app bundles. A missing provider, parser
+drift, UI-only updater, or direct installer is retained as an explicit warning.
+Unknown sources are never upgraded by a guessed command, so this is broad
+provider coverage rather than a mathematical claim of universal macOS support.
 
-### Current mutation blocks
+### Current mutation behavior
 
-The updater can observe and seal a manager executable but cannot launch the exact
-opened Mach-O identity using a reviewed primitive. Pathname spawn would reopen
-the replacement race, so the action fails before transaction preparation.
+The updater observes and seals a manager executable, then revalidates its direct
+path's device/inode/link/size/digest immediately before the serialized spawn
+boundary. macOS does not expose a public fexecve-style primitive, so this is a
+last-moment path binding rather than Linux's held-descriptor substitution. Known
+self-updaters may replace their launcher during a successful update; fresh
+availability verification proves the resulting state. The manager action is
+journaled and receipt-backed; private/UI-only app channels remain explicit gaps.
 
 Store creation uses user-local POSIX permission checks. No launch daemon,
 privileged helper, Authorization Services flow, notarized package, or sandbox

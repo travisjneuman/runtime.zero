@@ -17,6 +17,7 @@ use rz0_confirmation_contract::{
     ConfirmationConsumption, ConfirmationResponse, ConfirmationRisk, ConfirmationSurface,
     confirmation_response_sha256, seal_confirmation_challenge, seal_confirmation_consumption,
 };
+use rz0_resource_contract::MAX_EXECUTABLE_BYTES;
 use rz0_transaction_contract::{
     DurabilityRequirements, EXTERNAL_EFFECT_RECEIPT_CONTRACT,
     EXTERNAL_EFFECT_RECEIPT_SCHEMA_VERSION, ExternalEffectErrorCode,
@@ -157,6 +158,19 @@ fn cancellation_and_tampering_fail_closed_without_fabricating_outcome_evidence()
             .next()
             .is_none()
     );
+}
+
+#[test]
+fn signed_large_executable_bindings_are_valid_receipt_evidence() {
+    let root = TestRoot::new();
+    let evidence = Evidence::new(root.path());
+    let mut receipt = evidence.receipt();
+    receipt.executable_size_bytes = MAX_EXECUTABLE_BYTES;
+    receipt.executable_binding = "path_identity_revalidated;warp-native".to_string();
+    seal_external_effect_receipt(&mut receipt);
+
+    let validation = validate_external_effect_receipt(&receipt, &evidence.journal);
+    assert!(validation.valid, "{:?}", validation.errors);
 }
 
 struct Evidence {

@@ -116,7 +116,7 @@ fn render_report_text(report: &rz0_finding_contract::FindingReport) -> String {
 
 fn render_queue_text(queue: &rz0_module_updater::SerialUpdateQueuePlan) -> String {
     format!(
-        "runtime.zero serial update queue\n\nqueue_id: {}\nactions: {}\npending: {}\nblocked: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n\nThe queue is review-only and pauses on failure, drift, cancellation, or recovery.\n",
+        "runtime.zero serial update queue\n\nqueue_id: {}\nactions: {}\npending: {}\nblocked: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n\nThe queue is ready for explicit apply; each item is re-probed, confirmed, and pauses on failure, drift, cancellation, or recovery.\n",
         queue.queue_id,
         queue.items.len(),
         queue

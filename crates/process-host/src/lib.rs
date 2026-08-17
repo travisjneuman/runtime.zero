@@ -200,7 +200,7 @@ fn run_process_inner(
         ));
     }
 
-    let launch_path = match executable {
+    let launch_path = match &executable {
         ExecutableSelection::Direct => {
             validate_direct_executable(&request.executable)?;
             request.executable.as_path()
@@ -231,6 +231,14 @@ fn run_process_inner(
             ProcessHostErrorCode::Cancelled,
             format!("process was cancelled at the serialized spawn boundary: {reason:?}"),
         ));
+    }
+    if let ExecutableSelection::Bound(binding) = &executable {
+        binding.verify_spawn_path().map_err(|error| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::UnsupportedContainment,
+                format!("revalidate bound executable immediately before spawn: {error}"),
+            )
+        })?;
     }
 
     let mut command = Command::new(launch_path);

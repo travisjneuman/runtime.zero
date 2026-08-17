@@ -106,7 +106,7 @@ Every module must reach the same lifecycle bar on every supported platform:
 | Module | Windows | macOS | Linux | Current maturity |
 | --- | --- | --- | --- | --- |
 | Inventory/environment | Required | Required | Required | Built-in catalog/scan with source IDs plus bounded macOS receipts/MacPorts/launchd, Linux dpkg/pacman/systemd, and Windows registry/service metadata; broader source depth and runtime parity incomplete |
-| Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, Linux native-ELF identity-bound execution, SIGINT cancellation, exact journal evidence, canonical external-effect receipts, and read-only recovery status; macOS/Windows binding, OS capability/network enforcement, rollback/recovery completion, manager proof, and full runtime matrix incomplete |
+| Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, macOS path-revalidated and Linux native-ELF manager execution, SIGINT cancellation, isolated npm environments, exact journal evidence, canonical external-effect receipts, and fresh post-action verification; Windows containment, OS capability/network enforcement, rollback/recovery completion, manager proof, and full runtime matrix incomplete |
 | Uninstall | Required | Required | Required | Live catalog records become shared findings and optional sealed dry-run manager plans; no uninstall/elevation/quarantine execution |
 | Leftovers | Required | Required | Required | Synthetic protected-data/exact-runtime classifier + quarantine fixtures only |
 | Cache management | Required | Required | Required | Synthetic ownership/exact-evidence classifier only |
@@ -175,11 +175,12 @@ parallel once its shared foundation dependency is stable.
    measurements, and narrower optimization goals must consume shared policies.
 3. Close package and executable identity races; the same-open-handle artifact
    identity primitive, Unix no-follow traversal, and compile-checked Windows NT
-   root-relative state operations exist. Borrow-scoped Linux `/proc` and Windows
-   deny-replacement spawn leases also exist, while macOS fails closed. The core
-   updater consumes the Linux lease for direct native ELF managers; adversarial
-   runtime/containment proof, Windows binding/ACL proof, script/interpreter
-   identity, and an exact macOS primitive remain. Guarded Windows test-host
+   root-relative state operations exist. Borrow-scoped Linux `/proc`, macOS
+   path-revalidation, and Windows deny-replacement spawn leases also exist. The
+   core updater consumes the Linux lease for direct native ELF managers and the
+   macOS binding for manager scripts/binaries; adversarial runtime/containment
+   proof, Windows binding/ACL proof, script/interpreter identity on Linux, and
+   an exact Darwin fexecve-style primitive remain. Guarded Windows test-host
    builds retain their lease through spawn, but this is not production proof. Implement production signatures, key policy,
    provenance, freshness, transparency, and revocation.
 4. Implement platform process/handle/tree containment, capability enforcement,

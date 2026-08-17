@@ -197,8 +197,8 @@ pub fn build_update_action_plan(
         evidence_sha256: report.input_evidence_sha256.clone(),
         actions,
         warnings: vec![
-            "schema-1 update plans are review-only; no manager command may execute".to_string(),
-            "each action must be revalidated against fresh installed evidence before any future execution".to_string(),
+            "schema-1 update plans are dry-run inputs; explicit CLI apply performs fresh evidence and confirmation checks before executing a manager command".to_string(),
+            "each action is revalidated against fresh installed evidence immediately before execution".to_string(),
         ],
     };
     let validation = validate_action_plan(&plan);
@@ -225,11 +225,7 @@ pub fn build_serial_update_queue(plan: &ActionPlan) -> Result<SerialUpdateQueueP
             action_id: action.action_id.clone(),
             finding_id: action.finding_id.clone(),
             target: action.target.clone(),
-            status: if action.rollback.supported {
-                SerialUpdateItemStatus::Pending
-            } else {
-                SerialUpdateItemStatus::Blocked
-            },
+            status: SerialUpdateItemStatus::Pending,
         })
         .collect::<Vec<_>>();
     if items.is_empty() {
@@ -246,8 +242,8 @@ pub fn build_serial_update_queue(plan: &ActionPlan) -> Result<SerialUpdateQueueP
         product_execution_authorized: false,
         items,
         warnings: vec![
-            "queue items are serial and each item requires fresh evidence before any future execution".to_string(),
-            "items without proven manager rollback remain blocked even when their dry-run action is valid".to_string(),
+            "queue items are serial and each item requires fresh evidence and explicit confirmation before execution".to_string(),
+            "items without proven manager rollback require --accept-no-rollback at apply time and use durable recovery evidence".to_string(),
             "a failure, drift, cancellation, or recovery requirement pauses the queue".to_string(),
         ],
     })

@@ -1,6 +1,6 @@
-use std::fs;
 use std::io::{self, Cursor, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
+use std::{collections::BTreeMap, fs};
 
 use rz0_action_plan::{ActionDisposition, ActionPlan};
 use rz0_module_updater::{
@@ -300,12 +300,12 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         if parsed.plan || parsed.queue {
             return Err("--apply cannot be combined with --plan or --queue".to_string());
         }
-        let selectors = usize::from(parsed.action.is_some())
-            + usize::from(parsed.all)
-            + usize::from(parsed.all_providers);
-        if selectors != 1 {
+        if parsed.all && (parsed.action.is_some() || parsed.all_providers) {
+            return Err("--action, --all, and --all-providers are mutually exclusive".to_string());
+        }
+        if !parsed.action.is_some() && !parsed.all && !parsed.all_providers {
             return Err(
-                "--apply requires exactly one --action ID, --all, or --all-providers".to_string(),
+                "--apply requires an exact --action ID, --all, or --all-providers".to_string(),
             );
         }
     } else if !parsed.dry_run {
@@ -357,10 +357,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             );
         }
     }
-    if (parsed.action.is_some() && parsed.all)
-        || (parsed.action.is_some() && parsed.all_providers)
-        || (parsed.all && parsed.all_providers)
-    {
+    if (parsed.action.is_some() && parsed.all) || (parsed.all && parsed.all_providers) {
         return Err("--action, --all, and --all-providers are mutually exclusive".to_string());
     }
     if parsed.confirm.is_some() && !parsed.apply {
@@ -382,6 +379,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         );
     }
     if parsed.all_providers
+        && parsed.action.is_none()
         && (parsed.confirm.is_some() || parsed.challenge_issued_unix_seconds.is_some())
     {
         return Err(
@@ -573,9 +571,35 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
     let mut records = Vec::new();
     let mut sources = Vec::new();
     let mut warnings = vec![
-        "coverage is provider-driven: installed managers, language environments, and known self-updaters are inspected when their exact read-only adapter is available; unknown or mutation-only providers remain visible as bounded gaps".to_string(),
+        "coverage is provider-driven: installed managers, language environments, and known self-updaters are inspected when an exact availability and update adapter is available; unknown or provider-specific channels remain visible as bounded gaps".to_string(),
     ];
     let mut source_ok_count = 0usize;
+    if let Some(provider) = providers
+        .iter()
+        .find(|provider| provider.manager == ManagerKind::Aiup)
+    {
+        collect_aiup_managed_updates(
+            command.allow_network_read,
+            provider,
+            &mut records,
+            &mut sources,
+            &mut warnings,
+            &mut source_ok_count,
+        );
+    }
+    if let Some(provider) = providers
+        .iter()
+        .find(|provider| provider.manager == ManagerKind::CargoInstall)
+    {
+        collect_cargo_install_updates(
+            command.allow_network_read,
+            provider,
+            &mut records,
+            &mut sources,
+            &mut warnings,
+            &mut source_ok_count,
+        );
+    }
     for spec in static_specs
         .iter()
         .filter(|spec| !spec.executable_candidates.is_empty())
@@ -661,10 +685,27 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
         {
             continue;
         }
-        if matches!(
-            provider.manager,
-            ManagerKind::Warp | ManagerKind::Aiup | ManagerKind::CargoInstall
-        ) {
+        if provider.manager == ManagerKind::Warp && cfg!(target_os = "macos") {
+            continue;
+        }
+        if provider.manager == ManagerKind::Deno
+            && (provider.executable.starts_with("/opt/homebrew")
+                || provider.executable.starts_with("/usr/local"))
+            && sources
+                .iter()
+                .any(|source| source.provider == "homebrew-formula" && source.status == "ok")
+        {
+            sources.push(ProviderSourceStatus {
+                provider: provider.instance_id.clone(),
+                status: "delegated".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(
+                "Deno is installed from a Homebrew prefix; its update is delegated to the Homebrew formula lane because this binary was built without native self-upgrade support".to_string(),
+            );
+            continue;
+        }
+        if provider.manager == ManagerKind::Warp {
             sources.push(ProviderSourceStatus {
                 provider: provider.instance_id.clone(),
                 status: "observed_only".to_string(),
@@ -750,19 +791,499 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
 fn observed_only_provider_warning(manager: ManagerKind) -> String {
     match manager {
         ManagerKind::Warp => {
-            "warp is installed, but its documented TUI command has no read-only availability adapter; use the signed Warp application/provider channel".to_string()
+            "warp is installed outside the standalone CLI layout; the signed Warp application/provider channel remains explicit until that installation exposes its native update store".to_string()
         }
         ManagerKind::Aiup => {
-            "aiup is installed as a high-level tool orchestrator; its managed npm/native channels are probed separately, and its dry-run is not treated as independent availability evidence".to_string()
+            "aiup is installed as a high-level tool orchestrator; its managed npm/native channels are probed separately, and only non-delegated native actions are attached to the AIUP update lane".to_string()
         }
         ManagerKind::CargoInstall => {
-            "cargo is installed, but cargo has no built-in read-only outdated query for cargo-installed binaries; they remain observed-only unless an owner adapter is available".to_string()
+            "cargo is installed, but its installed registry packages could not be attached to the crates.io update lane; path and alternate-registry installs remain explicit".to_string()
         }
         _ => format!(
-            "{} is installed but has no reviewed read-only availability adapter",
+            "{} is installed but has no reviewed availability/update adapter",
             manager.id()
         ),
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CargoInstalledPackage {
+    name: String,
+    version: String,
+    binaries: Vec<String>,
+}
+
+fn collect_aiup_managed_updates(
+    allow_network_read: bool,
+    provider: &ProviderProbeSpec,
+    records: &mut Vec<rz0_module_updater::UpdateRecord>,
+    sources: &mut Vec<ProviderSourceStatus>,
+    warnings: &mut Vec<String>,
+    source_ok_count: &mut usize,
+) {
+    let provider_id = provider.instance_id.clone();
+    if !allow_network_read {
+        sources.push(ProviderSourceStatus {
+            provider: provider_id,
+            status: "blocked".to_string(),
+            candidate_count: 0,
+        });
+        warnings.push("aiup managed-tool availability requires --allow-network-read".to_string());
+        return;
+    }
+    let (bytes, identity) = match probe_provider_output(provider, true) {
+        Ok(value) => value,
+        Err(error) => {
+            sources.push(ProviderSourceStatus {
+                provider: provider_id,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!("aiup managed-tool dry-run unavailable: {error}"));
+            return;
+        }
+    };
+    let (commands, versions) = parse_aiup_dry_run(&bytes);
+    let selected = commands
+        .into_iter()
+        .filter_map(|(tool, commands)| {
+            let installed = versions.get(&tool).is_some_and(|version| {
+                !version.eq_ignore_ascii_case("not installed")
+                    && !version.eq_ignore_ascii_case("missing")
+            });
+            if !installed {
+                return None;
+            }
+            let relevant = commands
+                .into_iter()
+                .filter(|command| !aiup_command_is_delegated(command))
+                .collect::<Vec<_>>();
+            (!relevant.is_empty()).then_some((tool, relevant))
+        })
+        .collect::<Vec<_>>();
+    if selected.is_empty() {
+        sources.push(ProviderSourceStatus {
+            provider: provider_id,
+            status: "ok".to_string(),
+            candidate_count: 0,
+        });
+        *source_ok_count = source_ok_count.saturating_add(1);
+        return;
+    }
+    let mut arguments = vec!["only".to_string()];
+    let mut identity_material = String::new();
+    for (tool, commands) in &selected {
+        arguments.push(tool.clone());
+        identity_material.push_str(tool);
+        identity_material.push('\0');
+        for command in commands {
+            identity_material.push_str(command);
+            identity_material.push('\0');
+        }
+    }
+    arguments.push("--no-install".to_string());
+    if arguments.len() > rz0_action_plan::MAX_ARGUMENTS {
+        sources.push(ProviderSourceStatus {
+            provider: provider_id,
+            status: "unavailable".to_string(),
+            candidate_count: 0,
+        });
+        warnings.push(
+            "aiup managed-tool selection exceeds the bounded action argument ceiling".to_string(),
+        );
+        return;
+    }
+    let digest = sha256(format!("aiup-managed\0{identity_material}").as_bytes());
+    let target_version = format!("aiup-{}", &digest[..12]);
+    records.push(rz0_module_updater::UpdateRecord {
+        finding_id: format!("update.aiup.{}", &digest[..16]),
+        subject_reference: "tooling:aiup-managed".to_string(),
+        installed: true,
+        manager_record_present: true,
+        update_available: true,
+        installed_version: Some("present".to_string()),
+        available_version: Some(target_version),
+        manager: Some("aiup".to_string()),
+        executable: Some(provider.executable.display().to_string()),
+        executable_sha256: Some(identity.sha256),
+        executable_size_bytes: Some(identity.size_bytes),
+        arguments,
+        network_required: true,
+        requires_elevation: provider.requires_elevation,
+        rollback_supported: false,
+    });
+    sources.push(ProviderSourceStatus {
+        provider: provider_id,
+        status: "ok".to_string(),
+        candidate_count: 1,
+    });
+    *source_ok_count = source_ok_count.saturating_add(1);
+}
+
+fn parse_aiup_dry_run(bytes: &[u8]) -> (BTreeMap<String, Vec<String>>, BTreeMap<String, String>) {
+    let mut commands = BTreeMap::<String, Vec<String>>::new();
+    let mut versions = BTreeMap::<String, String>::new();
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return (commands, versions);
+    };
+    let mut current_tool = None;
+    let mut in_versions = false;
+    for line in text.lines() {
+        if let Some(value) = line.split_once("TOOL START: ").map(|(_, value)| value)
+            && let Some(tool) = value.strip_suffix(" ==========")
+            && valid_aiup_field(tool, 80)
+        {
+            current_tool = Some(tool.to_string());
+            commands.entry(tool.to_string()).or_default();
+            in_versions = false;
+            continue;
+        }
+        if line.contains("=== Detected tool versions ===") {
+            current_tool = None;
+            in_versions = true;
+            continue;
+        }
+        if let Some(command) = line.split_once("DRY-RUN: ").map(|(_, value)| value.trim())
+            && let Some(tool) = current_tool.as_ref()
+            && !command.is_empty()
+            && command.len() <= 512
+            && !command.chars().any(char::is_control)
+        {
+            commands
+                .entry(tool.clone())
+                .or_default()
+                .push(command.to_string());
+            continue;
+        }
+        if in_versions {
+            let mut fields = line.split_whitespace();
+            let Some(tool) = fields.next() else {
+                continue;
+            };
+            let version = fields.collect::<Vec<_>>().join(" ");
+            if version.is_empty() {
+                continue;
+            }
+            if valid_aiup_field(tool, 80) && valid_aiup_version(&version) {
+                versions.insert(tool.to_string(), version.to_string());
+            }
+        }
+    }
+    (commands, versions)
+}
+
+fn valid_aiup_field(value: &str, maximum: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= maximum
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+}
+
+fn valid_aiup_version(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 120
+        && !value.chars().any(char::is_control)
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_' | b' '))
+}
+
+fn aiup_command_is_delegated(command: &str) -> bool {
+    let command = command.trim_start();
+    command == "brew update"
+        || command.starts_with("brew ")
+        || command.starts_with("npm ")
+        || command.starts_with("npm-update ")
+}
+
+fn collect_cargo_install_updates(
+    allow_network_read: bool,
+    provider: &ProviderProbeSpec,
+    records: &mut Vec<rz0_module_updater::UpdateRecord>,
+    sources: &mut Vec<ProviderSourceStatus>,
+    warnings: &mut Vec<String>,
+    source_ok_count: &mut usize,
+) {
+    let provider_id = provider.instance_id.clone();
+    if !allow_network_read {
+        sources.push(ProviderSourceStatus {
+            provider: provider_id,
+            status: "blocked".to_string(),
+            candidate_count: 0,
+        });
+        warnings.push(
+            "cargo registry availability requires --allow-network-read to query crates.io"
+                .to_string(),
+        );
+        return;
+    }
+    let (bytes, identity) = match probe_provider_output(provider, allow_network_read) {
+        Ok(value) => value,
+        Err(error) => {
+            sources.push(ProviderSourceStatus {
+                provider: provider_id,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "cargo registry installed-package inventory unavailable: {error}"
+            ));
+            return;
+        }
+    };
+    let (packages, skipped_non_registry) = match parse_cargo_install_list(&bytes) {
+        Ok(value) => value,
+        Err(error) => {
+            sources.push(ProviderSourceStatus {
+                provider: provider_id,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "cargo registry installed-package inventory was not parseable: {error}"
+            ));
+            return;
+        }
+    };
+    if skipped_non_registry > 0 {
+        warnings.push(format!(
+            "cargo inventory skipped {skipped_non_registry} path or alternate-registry package(s); only crates.io registry installs have a portable public availability API"
+        ));
+    }
+    if packages.is_empty() {
+        sources.push(ProviderSourceStatus {
+            provider: provider_id,
+            status: "ok".to_string(),
+            candidate_count: 0,
+        });
+        *source_ok_count = source_ok_count.saturating_add(1);
+        return;
+    }
+    let Some(curl) = resolve_probe_executable(&[
+        "/usr/bin/curl",
+        "/opt/homebrew/bin/curl",
+        "/usr/local/bin/curl",
+    ]) else {
+        sources.push(ProviderSourceStatus {
+            provider: provider_id,
+            status: "unavailable".to_string(),
+            candidate_count: 0,
+        });
+        warnings.push(
+            "cargo registry packages were found, but no direct curl executable is available for crates.io metadata"
+                .to_string(),
+        );
+        return;
+    };
+    let curl_identity = match observe_manager_executable(&curl) {
+        Ok(identity) => identity,
+        Err(error) => {
+            sources.push(ProviderSourceStatus {
+                provider: provider_id,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "cargo registry metadata helper executable unavailable: {error}"
+            ));
+            return;
+        }
+    };
+    let existing_record_count = records.len();
+    let mut partial = false;
+    let mut metadata_failures = 0usize;
+    for package in packages {
+        let latest = match probe_crates_io_latest(&curl, &package.name) {
+            Ok(latest) => latest,
+            Err(error) => {
+                partial = true;
+                metadata_failures = metadata_failures.saturating_add(1);
+                warnings.push(format!(
+                    "cargo registry metadata unavailable for {}: {error}",
+                    package.name
+                ));
+                continue;
+            }
+        };
+        if latest == package.version {
+            continue;
+        }
+        let mut arguments = vec!["install".to_string(), "--force".to_string()];
+        for binary in &package.binaries {
+            arguments.push("--bin".to_string());
+            arguments.push(binary.clone());
+        }
+        arguments.push(package.name.clone());
+        if arguments.len() > rz0_action_plan::MAX_ARGUMENTS {
+            partial = true;
+            warnings.push(format!(
+                "cargo registry package {} has too many installed binaries for one bounded update action",
+                package.name
+            ));
+            continue;
+        }
+        let digest = sha256(format!("cargo-install:{}:{}", package.name, latest).as_bytes());
+        records.push(rz0_module_updater::UpdateRecord {
+            finding_id: format!("update.cargo-install.{}", &digest[..16]),
+            subject_reference: format!("package:cargo-install:{}", package.name),
+            installed: true,
+            manager_record_present: true,
+            update_available: true,
+            installed_version: Some(package.version),
+            available_version: Some(latest),
+            manager: Some("cargo".to_string()),
+            executable: Some(provider.executable.display().to_string()),
+            executable_sha256: Some(identity.sha256.clone()),
+            executable_size_bytes: Some(identity.size_bytes),
+            arguments,
+            network_required: true,
+            requires_elevation: provider.requires_elevation,
+            rollback_supported: false,
+        });
+    }
+    let _ = observe_manager_executable(&curl).map(|after| {
+        if after != curl_identity {
+            warnings.push("cargo registry metadata helper executable identity changed".to_string());
+        }
+    });
+    if metadata_failures > 0 {
+        warnings.push(format!(
+            "cargo registry availability was partial: {metadata_failures} package metadata request(s) failed"
+        ));
+    }
+    sources.push(ProviderSourceStatus {
+        provider: provider_id,
+        status: if partial { "partial" } else { "ok" }.to_string(),
+        candidate_count: records.len().saturating_sub(existing_record_count),
+    });
+    if !partial {
+        *source_ok_count = source_ok_count.saturating_add(1);
+    }
+}
+
+fn parse_cargo_install_list(bytes: &[u8]) -> Result<(Vec<CargoInstalledPackage>, usize), String> {
+    let text = std::str::from_utf8(bytes)
+        .map_err(|_| "cargo install list output is not valid UTF-8".to_string())?;
+    let mut packages = Vec::new();
+    let mut skipped_non_registry = 0usize;
+    let mut current: Option<(CargoInstalledPackage, bool)> = None;
+    for line in text.lines().filter(|line| !line.trim().is_empty()) {
+        if line.chars().next().is_some_and(char::is_whitespace) {
+            let Some((package, _registry)) = current.as_mut() else {
+                return Err(
+                    "cargo install list contains a binary without a package header".to_string(),
+                );
+            };
+            let binary = line.trim();
+            if !valid_cargo_field(binary, 160) {
+                return Err("cargo install list contains an invalid binary name".to_string());
+            }
+            if !package.binaries.iter().any(|known| known == binary) {
+                package.binaries.push(binary.to_string());
+            }
+            continue;
+        }
+        if let Some((package, registry)) = current.take() {
+            if registry && !package.binaries.is_empty() {
+                packages.push(package);
+            } else {
+                skipped_non_registry = skipped_non_registry.saturating_add(1);
+            }
+        }
+        let header = line.strip_suffix(':').unwrap_or(line);
+        let (header, source) = header
+            .rsplit_once(" (")
+            .map_or((header, "crates.io"), |value| {
+                let source = value.1.strip_suffix(')').unwrap_or(value.1);
+                (value.0, source)
+            });
+        let Some((name, version)) = header.rsplit_once(' ') else {
+            return Err("cargo install list contains an invalid package header".to_string());
+        };
+        let version = version.trim_start_matches('v');
+        if !valid_cargo_field(name, 240) || !valid_cargo_field(version, 120) {
+            return Err("cargo install list contains an invalid package identity".to_string());
+        }
+        let registry = source == "crates.io"
+            || source == "registry+https://github.com/rust-lang/crates.io-index";
+        current = Some((
+            CargoInstalledPackage {
+                name: name.to_string(),
+                version: version.to_string(),
+                binaries: Vec::new(),
+            },
+            registry,
+        ));
+        if packages.len() >= 256 {
+            return Err("cargo install list exceeds the installed-package ceiling".to_string());
+        }
+    }
+    if let Some((package, registry)) = current {
+        if registry && !package.binaries.is_empty() {
+            packages.push(package);
+        } else {
+            skipped_non_registry = skipped_non_registry.saturating_add(1);
+        }
+    }
+    Ok((packages, skipped_non_registry))
+}
+
+fn valid_cargo_field(value: &str, maximum: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= maximum
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_' | b'+'))
+}
+
+fn probe_crates_io_latest(curl: &Path, package: &str) -> Result<String, String> {
+    if !valid_cargo_field(package, 240)
+        || package
+            .bytes()
+            .any(|byte| !byte.is_ascii_alphanumeric() && !matches!(byte, b'-' | b'_'))
+    {
+        return Err("crate name is not a valid crates.io path component".to_string());
+    }
+    let url = format!("https://crates.io/api/v1/crates/{package}");
+    let output =
+        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+            executable: curl.to_path_buf(),
+            arguments: vec![
+                "--fail".to_string(),
+                "--silent".to_string(),
+                "--show-error".to_string(),
+                "--max-time".to_string(),
+                "20".to_string(),
+                "--header".to_string(),
+                "Accept: application/json".to_string(),
+                "--header".to_string(),
+                "User-Agent: runtime.zero".to_string(),
+                url,
+            ],
+            working_directory: PathBuf::from("/"),
+            environment: probe_environment(),
+            timeout: std::time::Duration::from_secs(25),
+            output_limit: MAX_INPUT_BYTES,
+        })
+        .map_err(|error| format!("crates.io probe failed: {error}"))?;
+    if !output.status.success() {
+        return Err(format!("crates.io probe exited with {}", output.status));
+    }
+    let bytes = if output.stdout.bytes.is_empty() {
+        &output.stderr.bytes
+    } else {
+        &output.stdout.bytes
+    };
+    let value: serde_json::Value = serde_json::from_slice(bytes)
+        .map_err(|error| format!("parse crates.io metadata: {error}"))?;
+    value
+        .get("crate")
+        .and_then(|crate_value| crate_value.get("max_version"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|version| valid_cargo_field(version, 120))
+        .map(str::to_string)
+        .ok_or_else(|| "crates.io metadata has no bounded max_version".to_string())
 }
 
 #[cfg(target_os = "macos")]
@@ -774,6 +1295,15 @@ struct ElectronAppUpdateSpec {
     owner: String,
     repository: String,
     prerelease: bool,
+    bundle_path: PathBuf,
+    shipit_path: PathBuf,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, Clone)]
+struct ElectronRelease {
+    version: String,
+    download_url: String,
 }
 
 #[cfg(target_os = "macos")]
@@ -784,6 +1314,13 @@ fn collect_macos_application_updates(
     warnings: &mut Vec<String>,
     source_ok_count: &mut usize,
 ) {
+    collect_warp_agent_cli_updates(
+        allow_network_read,
+        records,
+        sources,
+        warnings,
+        source_ok_count,
+    );
     let sparkle_apps = discover_sparkle_apps();
     if !sparkle_apps.is_empty() {
         sources.push(ProviderSourceStatus {
@@ -845,6 +1382,21 @@ fn collect_macos_application_updates(
                 continue;
             }
         };
+        let shipit_identity = match observe_manager_executable(&app.shipit_path) {
+            Ok(identity) => identity,
+            Err(error) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider_id,
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} application ShipIt executable unavailable: {error}",
+                    bundle_path
+                ));
+                continue;
+            }
+        };
         let url = format!(
             "https://api.github.com/repos/{}/{}/releases?per_page=20",
             app.owner, app.repository
@@ -877,41 +1429,56 @@ fn collect_macos_application_updates(
                 ));
             }
         });
-        let output = match output {
-            Ok(output) if output.status.success() => output,
-            Ok(output) => {
-                sources.push(ProviderSourceStatus {
-                    provider: provider_id,
-                    status: "unavailable".to_string(),
-                    candidate_count: 0,
-                });
+        let (bytes, primary_probe_error) = match output {
+            Ok(output) if output.status.success() => (
+                if output.stdout.bytes.is_empty() {
+                    output.stderr.bytes
+                } else {
+                    output.stdout.bytes
+                },
+                None,
+            ),
+            Ok(output) => (
+                Vec::new(),
+                Some(format!(
+                    "primary GitHub release probe failed with {}",
+                    output.status
+                )),
+            ),
+            Err(error) => (
+                Vec::new(),
+                Some(format!("primary GitHub release probe failed: {error}")),
+            ),
+        };
+        let release = match primary_probe_error {
+            Some(primary_error) => match probe_electron_tag_releases(curl, &app) {
+                Ok(release) => Ok(release),
+                Err(fallback_error) => Err(format!(
+                    "{primary_error}; tag-based GitHub release fallback failed: {fallback_error}"
+                )),
+            },
+            None => match parse_electron_release(&bytes, &app) {
+                Ok(release) => Ok(release),
+                Err(primary_error) => match probe_electron_tag_releases(curl, &app) {
+                    Ok(release) => Ok(release),
+                    Err(fallback_error) => Err(format!(
+                        "{primary_error}; tag-based GitHub release fallback failed: {fallback_error}"
+                    )),
+                },
+            },
+        };
+        let _ = observe_manager_executable(curl).map(|after| {
+            if after != identity {
                 warnings.push(format!(
-                    "{} application release metadata probe failed with {}",
-                    bundle_path, output.status
-                ));
-                continue;
-            }
-            Err(error) => {
-                sources.push(ProviderSourceStatus {
-                    provider: provider_id,
-                    status: "unavailable".to_string(),
-                    candidate_count: 0,
-                });
-                warnings.push(format!(
-                    "{} application release metadata probe failed: {error}",
+                    "{} application release fallback executable identity changed",
                     bundle_path
                 ));
-                continue;
             }
-        };
-        let bytes = if output.stdout.bytes.is_empty() {
-            &output.stderr.bytes
-        } else {
-            &output.stdout.bytes
-        };
-        match parse_electron_release(bytes, &app) {
-            Ok(Some(available_version)) => {
-                let digest = sha256(format!("{}:{available_version}", app.bundle_id).as_bytes());
+        });
+        match release {
+            Ok(Some(release)) => {
+                let target_version = release.version.clone();
+                let digest = sha256(format!("{}:{}", app.bundle_id, release.version).as_bytes());
                 records.push(rz0_module_updater::UpdateRecord {
                     finding_id: format!("update.electron-app.{}", &digest[..16]),
                     subject_reference: format!("application:{}", app.bundle_id),
@@ -919,12 +1486,19 @@ fn collect_macos_application_updates(
                     manager_record_present: true,
                     update_available: true,
                     installed_version: Some(app.installed_version.clone()),
-                    available_version: Some(available_version),
-                    manager: None,
-                    executable: None,
-                    executable_sha256: None,
-                    executable_size_bytes: None,
-                    arguments: Vec::new(),
+                    available_version: Some(target_version.clone()),
+                    manager: Some("electron-squirrel".to_string()),
+                    executable: Some(app.shipit_path.display().to_string()),
+                    executable_sha256: Some(shipit_identity.sha256.clone()),
+                    executable_size_bytes: Some(shipit_identity.size_bytes),
+                    arguments: vec![
+                        format!("{}.ShipIt", app.bundle_id),
+                        app.bundle_path.display().to_string(),
+                        release.download_url,
+                        app.installed_version.clone(),
+                        target_version,
+                        app.bundle_id.clone(),
+                    ],
                     network_required: true,
                     requires_elevation: false,
                     rollback_supported: false,
@@ -963,6 +1537,309 @@ fn collect_macos_application_updates(
             app_count
         ));
     }
+}
+
+#[cfg(target_os = "macos")]
+fn collect_warp_agent_cli_updates(
+    allow_network_read: bool,
+    records: &mut Vec<rz0_module_updater::UpdateRecord>,
+    sources: &mut Vec<ProviderSourceStatus>,
+    warnings: &mut Vec<String>,
+    source_ok_count: &mut usize,
+) {
+    let Some(warp) = resolve_named_probe_executable("warp") else {
+        return;
+    };
+    let provider = "warp-agent-cli:standalone".to_string();
+    if !is_standalone_warp_path(&warp) {
+        sources.push(ProviderSourceStatus {
+            provider,
+            status: "observed_only".to_string(),
+            candidate_count: 0,
+        });
+        warnings.push(
+            "warp is installed outside its standalone versioned CLI layout; its app/provider channel remains explicit until a native update manager is discovered".to_string(),
+        );
+        return;
+    }
+    let Some((versions_root, current_link)) = warp_layout_paths(&warp) else {
+        sources.push(ProviderSourceStatus {
+            provider,
+            status: "unavailable".to_string(),
+            candidate_count: 0,
+        });
+        warnings.push("warp standalone CLI layout could not be revalidated".to_string());
+        return;
+    };
+    let Some(installed_version) = warp_installed_version(&warp) else {
+        sources.push(ProviderSourceStatus {
+            provider,
+            status: "unavailable".to_string(),
+            candidate_count: 0,
+        });
+        warnings.push("warp standalone CLI version metadata was unavailable".to_string());
+        return;
+    };
+    if !allow_network_read {
+        sources.push(ProviderSourceStatus {
+            provider,
+            status: "blocked".to_string(),
+            candidate_count: 0,
+        });
+        warnings
+            .push("warp standalone CLI release metadata requires --allow-network-read".to_string());
+        return;
+    }
+    let Some(curl) = resolve_probe_executable(&["/usr/bin/curl", "/opt/homebrew/bin/curl"]) else {
+        sources.push(ProviderSourceStatus {
+            provider,
+            status: "missing".to_string(),
+            candidate_count: 0,
+        });
+        warnings.push("warp standalone CLI was found, but curl is unavailable".to_string());
+        return;
+    };
+    let curl_identity = match observe_manager_executable(&curl) {
+        Ok(identity) => identity,
+        Err(error) => {
+            sources.push(ProviderSourceStatus {
+                provider,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "warp release probe executable unavailable: {error}"
+            ));
+            return;
+        }
+    };
+    let (arch, asset_arch) = match std::env::consts::ARCH {
+        "aarch64" => ("aarch64", "aarch64"),
+        "x86_64" => ("x86_64", "x86_64"),
+        _ => {
+            sources.push(ProviderSourceStatus {
+                provider,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings
+                .push("warp standalone CLI has no supported macOS architecture lane".to_string());
+            return;
+        }
+    };
+    let download_url =
+        format!("https://app.warp.dev/download/cli?arch={arch}&os=macos&package=tar");
+    let output =
+        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+            executable: curl.to_path_buf(),
+            arguments: vec![
+                "--fail".to_string(),
+                "--location".to_string(),
+                "--silent".to_string(),
+                "--show-error".to_string(),
+                "--max-time".to_string(),
+                "30".to_string(),
+                "--output".to_string(),
+                "/dev/null".to_string(),
+                "--write-out".to_string(),
+                "\\n%{url_effective}\\n".to_string(),
+                download_url.clone(),
+            ],
+            working_directory: PathBuf::from("/"),
+            environment: probe_environment(),
+            timeout: std::time::Duration::from_secs(40),
+            output_limit: MAX_INPUT_BYTES,
+        });
+    let _ = observe_manager_executable(&curl).map(|after| {
+        if after != curl_identity {
+            warnings.push("warp release probe executable identity changed".to_string());
+        }
+    });
+    let output = match output {
+        Ok(output) if output.status.success() => output,
+        Ok(output) => {
+            sources.push(ProviderSourceStatus {
+                provider,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "warp release metadata probe failed with {}",
+                output.status
+            ));
+            return;
+        }
+        Err(error) => {
+            sources.push(ProviderSourceStatus {
+                provider,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!("warp release metadata probe failed: {error}"));
+            return;
+        }
+    };
+    let bytes = if output.stdout.bytes.is_empty() {
+        &output.stderr.bytes
+    } else {
+        &output.stdout.bytes
+    };
+    let Some((available_version, resolved_download_url)) =
+        parse_warp_release_location(bytes, asset_arch)
+    else {
+        sources.push(ProviderSourceStatus {
+            provider,
+            status: "unavailable".to_string(),
+            candidate_count: 0,
+        });
+        warnings
+            .push("warp release metadata did not return an exact signed archive URL".to_string());
+        return;
+    };
+    if available_version == installed_version {
+        sources.push(ProviderSourceStatus {
+            provider,
+            status: "ok".to_string(),
+            candidate_count: 0,
+        });
+        *source_ok_count = source_ok_count.saturating_add(1);
+        return;
+    }
+    let warp_identity = match observe_manager_executable(&warp) {
+        Ok(identity) => identity,
+        Err(error) => {
+            sources.push(ProviderSourceStatus {
+                provider,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "warp standalone executable identity unavailable: {error}"
+            ));
+            return;
+        }
+    };
+    let digest = sha256(format!("warp-agent-cli:{available_version}").as_bytes());
+    records.push(rz0_module_updater::UpdateRecord {
+        finding_id: format!("update.warp-agent-cli.{}", &digest[..16]),
+        subject_reference: "package:warp-agent-cli:warp".to_string(),
+        installed: true,
+        manager_record_present: true,
+        update_available: true,
+        installed_version: Some(installed_version.clone()),
+        available_version: Some(available_version.clone()),
+        manager: Some("warp-agent-cli".to_string()),
+        executable: Some(warp.display().to_string()),
+        executable_sha256: Some(warp_identity.sha256),
+        executable_size_bytes: Some(warp_identity.size_bytes),
+        arguments: vec![
+            download_url,
+            current_link.display().to_string(),
+            versions_root.display().to_string(),
+            installed_version,
+            available_version,
+            "warp-tui-stable".to_string(),
+            resolved_download_url,
+        ],
+        network_required: true,
+        requires_elevation: false,
+        rollback_supported: false,
+    });
+    sources.push(ProviderSourceStatus {
+        provider,
+        status: "ok".to_string(),
+        candidate_count: 1,
+    });
+    *source_ok_count = source_ok_count.saturating_add(1);
+}
+
+#[cfg(target_os = "macos")]
+fn resolve_named_probe_executable(name: &str) -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    for directory in std::env::split_paths(&path) {
+        let candidate = directory.join(name);
+        let Ok(canonical) = fs::canonicalize(&candidate) else {
+            continue;
+        };
+        let Ok(metadata) = fs::symlink_metadata(&canonical) else {
+            continue;
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            continue;
+        }
+        return Some(canonical);
+    }
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn is_standalone_warp_path(path: &Path) -> bool {
+    path.file_name().and_then(|value| value.to_str()) == Some("warp-tui-stable")
+        && path
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.starts_with('v'))
+        && path
+            .parent()
+            .and_then(Path::parent)
+            .and_then(Path::file_name)
+            .and_then(|value| value.to_str())
+            == Some("versions")
+        && path
+            .ancestors()
+            .any(|ancestor| ancestor.file_name().and_then(|value| value.to_str()) == Some(".warp"))
+}
+
+#[cfg(target_os = "macos")]
+fn warp_layout_paths(path: &Path) -> Option<(PathBuf, PathBuf)> {
+    let version_root = path.parent()?.to_path_buf();
+    let versions_root = version_root.parent()?.to_path_buf();
+    let tui_root = versions_root.parent()?.to_path_buf();
+    let current_link = tui_root.join("current");
+    let metadata = fs::symlink_metadata(&current_link).ok()?;
+    let current_target = fs::canonicalize(current_link.join("warp-tui-stable")).ok()?;
+    if !metadata.file_type().is_symlink() || current_target != path {
+        return None;
+    }
+    Some((versions_root, current_link))
+}
+
+#[cfg(target_os = "macos")]
+fn warp_installed_version(path: &Path) -> Option<String> {
+    let version_root = path.parent()?;
+    let metadata = fs::symlink_metadata(version_root).ok()?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return None;
+    }
+    let bytes =
+        read_small_direct_file(&version_root.join("resources/bundled/metadata/version.json"))
+            .ok()?;
+    let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    let version = value.get("warp_version")?.as_str()?.trim();
+    valid_app_field(version, 120)
+}
+
+#[cfg(target_os = "macos")]
+fn parse_warp_release_location(bytes: &[u8], arch: &str) -> Option<(String, String)> {
+    let text = std::str::from_utf8(bytes).ok()?;
+    let prefix = "https://releases.warp.dev/stable/v";
+    text.lines().find_map(|line| {
+        let url = line.trim();
+        let version_tail = url.strip_prefix(prefix)?;
+        let marker = format!("/cli/macos/{arch}/oz-stable-macos-{arch}.tar.gz");
+        let version = version_tail.strip_suffix(&marker)?;
+        if version.is_empty()
+            || version.len() > 120
+            || version.chars().any(|value| value.is_control())
+            || !version
+                .chars()
+                .all(|value| value.is_ascii_alphanumeric() || matches!(value, '.' | '_' | '-'))
+        {
+            return None;
+        }
+        Some((format!("v{version}"), url.to_string()))
+    })
 }
 
 #[cfg(target_os = "macos")]
@@ -1037,6 +1914,23 @@ fn discover_electron_app_specs() -> Vec<ElectronAppUpdateSpec> {
             if !is_app || !fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.is_dir()) {
                 continue;
             }
+            let Ok(bundle_path) = fs::canonicalize(&path) else {
+                continue;
+            };
+            let shipit_candidate = bundle_path
+                .join("Contents/Frameworks/Squirrel.framework/Versions/Current/Resources/ShipIt");
+            let Ok(shipit_path) = fs::canonicalize(&shipit_candidate) else {
+                continue;
+            };
+            let Ok(shipit_metadata) = fs::symlink_metadata(&shipit_path) else {
+                continue;
+            };
+            if shipit_metadata.file_type().is_symlink()
+                || !shipit_metadata.is_file()
+                || !is_squirrel_shipit_path(&shipit_path)
+            {
+                continue;
+            }
             let info_path = path.join("Contents/Info.plist");
             let Ok(bytes) = read_small_direct_file(&info_path) else {
                 continue;
@@ -1096,6 +1990,8 @@ fn discover_electron_app_specs() -> Vec<ElectronAppUpdateSpec> {
                     owner,
                     repository,
                     prerelease,
+                    bundle_path,
+                    shipit_path,
                 });
             }
         }
@@ -1109,7 +2005,7 @@ fn discover_electron_app_specs() -> Vec<ElectronAppUpdateSpec> {
 fn parse_electron_release(
     bytes: &[u8],
     app: &ElectronAppUpdateSpec,
-) -> Result<Option<String>, String> {
+) -> Result<Option<ElectronRelease>, String> {
     let releases: Vec<serde_json::Value> = serde_json::from_slice(bytes)
         .map_err(|error| format!("parse GitHub release JSON: {error}"))?;
     for release in releases {
@@ -1135,10 +2031,53 @@ fn parse_electron_release(
         else {
             continue;
         };
-        if version != app.installed_version {
-            return Ok(Some(version));
+        let version = version.trim_start_matches('v').to_string();
+        if version == app.installed_version {
+            return Ok(None);
         }
-        return Ok(None);
+        let arch = match std::env::consts::ARCH {
+            "aarch64" => "arm64",
+            "x86_64" => "x64",
+            _ => {
+                return Err("Electron macOS updater has no supported host architecture".to_string());
+            }
+        };
+        let prefix = format!(
+            "https://github.com/{}/{}/releases/download/",
+            app.owner, app.repository
+        );
+        let download_url = release
+            .get("assets")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|assets| {
+                assets.iter().find_map(|asset| {
+                    let name = asset.get("name").and_then(serde_json::Value::as_str)?;
+                    let url = asset
+                        .get("browser_download_url")
+                        .and_then(serde_json::Value::as_str)?;
+                    if name.ends_with(".zip")
+                        && name.contains(arch)
+                        && !name.ends_with(".blockmap")
+                        && url.starts_with(&prefix)
+                        && url.len() <= 2048
+                        && !url.chars().any(char::is_control)
+                    {
+                        Some(url.to_string())
+                    } else {
+                        None
+                    }
+                })
+            })
+            .ok_or_else(|| {
+                format!(
+                    "no signed Electron macOS {} zip asset was returned for {}",
+                    arch, app.name
+                )
+            })?;
+        return Ok(Some(ElectronRelease {
+            version,
+            download_url,
+        }));
     }
     Err(format!(
         "no matching {} GitHub release was returned for {}",
@@ -1149,6 +2088,119 @@ fn parse_electron_release(
         },
         app.name
     ))
+}
+
+#[cfg(target_os = "macos")]
+fn probe_electron_tag_releases(
+    curl: &Path,
+    app: &ElectronAppUpdateSpec,
+) -> Result<Option<ElectronRelease>, String> {
+    let tags_url = format!(
+        "https://api.github.com/repos/{}/{}/tags?per_page=20",
+        app.owner, app.repository
+    );
+    let tags_bytes = probe_electron_github_url(curl, tags_url)?;
+    let tags: Vec<serde_json::Value> = serde_json::from_slice(&tags_bytes)
+        .map_err(|error| format!("parse GitHub tag JSON: {error}"))?;
+    let mut last_error = None;
+    for tag in tags.into_iter().take(20) {
+        let Some(tag_name) = tag
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|value| valid_app_field(value, 120))
+            .filter(|value| is_github_path_component(value))
+        else {
+            continue;
+        };
+        let release_url = format!(
+            "https://api.github.com/repos/{}/{}/releases/tags/{}",
+            app.owner, app.repository, tag_name
+        );
+        let release_bytes = match probe_electron_github_url(curl, release_url) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                last_error = Some(error);
+                continue;
+            }
+        };
+        let release: serde_json::Value = match serde_json::from_slice(&release_bytes) {
+            Ok(release) => release,
+            Err(error) => {
+                last_error = Some(format!("parse GitHub tagged release JSON: {error}"));
+                continue;
+            }
+        };
+        let document = serde_json::to_vec(&[release])
+            .map_err(|error| format!("serialize GitHub tagged release JSON: {error}"))?;
+        match parse_electron_release(&document, app) {
+            Ok(result) => return Ok(result),
+            Err(error) => last_error = Some(error),
+        }
+    }
+    Err(last_error
+        .unwrap_or_else(|| format!("no usable GitHub tag release was returned for {}", app.name)))
+}
+
+#[cfg(target_os = "macos")]
+fn probe_electron_github_url(curl: &Path, url: String) -> Result<Vec<u8>, String> {
+    let output =
+        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+            executable: curl.to_path_buf(),
+            arguments: vec![
+                "--fail".to_string(),
+                "--silent".to_string(),
+                "--show-error".to_string(),
+                "--max-time".to_string(),
+                "20".to_string(),
+                "--header".to_string(),
+                "Accept: application/vnd.github+json".to_string(),
+                "--header".to_string(),
+                "User-Agent: runtime.zero".to_string(),
+                url,
+            ],
+            working_directory: PathBuf::from("/"),
+            environment: probe_environment(),
+            timeout: std::time::Duration::from_secs(25),
+            output_limit: MAX_INPUT_BYTES,
+        })
+        .map_err(|error| format!("GitHub release probe failed: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "GitHub release probe exited with {}",
+            output.status
+        ));
+    }
+    Ok(if output.stdout.bytes.is_empty() {
+        output.stderr.bytes
+    } else {
+        output.stdout.bytes
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn is_github_path_component(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+}
+
+#[cfg(target_os = "macos")]
+fn is_squirrel_shipit_path(path: &Path) -> bool {
+    path.file_name().and_then(|value| value.to_str()) == Some("ShipIt")
+        && path
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|value| value.to_str())
+            == Some("Resources")
+        && path.ancestors().any(|ancestor| {
+            ancestor.file_name().and_then(|value| value.to_str()) == Some("Squirrel.framework")
+        })
+        && path.ancestors().any(|ancestor| {
+            ancestor
+                .extension()
+                .is_some_and(|extension| extension == "app")
+        })
 }
 
 #[cfg(target_os = "macos")]
@@ -1417,7 +2469,7 @@ fn apply_update_command(
     input: &UpdaterFindingInput,
     report: &rz0_finding_contract::FindingReport,
 ) -> (ExitCode, String, String) {
-    if command.all || command.all_providers {
+    if command.all || (command.all_providers && command.action.is_none()) {
         return apply_all_update_command(command, input, report);
     }
     apply_one_update_command(
@@ -1705,6 +2757,24 @@ fn apply_all_update_command(
 }
 
 fn verify_update_after(command: &ParsedArgs, finding_id: &str) -> Result<String, String> {
+    if finding_id.starts_with("update.aiup.") {
+        let fresh_built = build_input(command)?;
+        let aiup_source = fresh_built
+            .sources
+            .iter()
+            .find(|source| source.provider == "aiup:managed")
+            .ok_or_else(|| "fresh AIUP managed-tool inventory source disappeared".to_string())?;
+        if aiup_source.status == "unavailable" || aiup_source.status == "missing" {
+            return Err(format!(
+                "fresh AIUP managed-tool inventory is unavailable after the native update: {}",
+                aiup_source.status
+            ));
+        }
+        return Ok(format!(
+            "AIUP native managed-tool update completed and fresh managed-tool inventory is available (remaining refresh candidates: {})",
+            aiup_source.candidate_count
+        ));
+    }
     let fresh_built = build_input(command)?;
     let fresh_input = &fresh_built.input;
     let fresh_report = classify_updates(fresh_input)?;
@@ -1856,13 +2926,35 @@ fn probe_environment() -> Vec<(String, String)> {
     if let Some(home) = std::env::var_os("HOME").and_then(|value| value.into_string().ok()) {
         environment.push(("HOME".to_string(), home));
     }
-    let path = match std::env::consts::OS {
+    let mut path_entries = Vec::new();
+    let default_path = match std::env::consts::OS {
         "macos" => "/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin",
         "linux" => "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
         _ => "",
     };
-    if !path.is_empty() {
-        environment.push(("PATH".to_string(), path.to_string()));
+    for entry in std::env::split_paths(std::ffi::OsStr::new(default_path)).chain(
+        std::env::var_os("PATH")
+            .into_iter()
+            .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>()),
+    ) {
+        if !entry.is_absolute()
+            || entry.as_os_str().is_empty()
+            || entry
+                .components()
+                .any(|component| matches!(component, std::path::Component::ParentDir))
+            || path_entries.iter().any(|known| known == &entry)
+        {
+            continue;
+        }
+        path_entries.push(entry);
+        if path_entries.len() == 128 {
+            break;
+        }
+    }
+    if let Ok(path) = std::env::join_paths(path_entries) {
+        if let Ok(path) = path.into_string() {
+            environment.push(("PATH".to_string(), path));
+        }
     }
     if std::env::consts::OS == "macos" {
         environment.push(("LANG".to_string(), "C".to_string()));
@@ -2041,7 +3133,7 @@ fn render_queue(
     let provider = provider_context(built);
     match format {
         OutputFormat::Text => Ok(format!(
-            "runtime.zero serial updater queue\n\ncontract: {UPDATE_QUEUE_CONTRACT}\nqueue_id: {}\nitems: {}\npending: {}\nblocked: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n{}{}\nThe queue is review-only and pauses on failure, drift, cancellation, or recovery.\n",
+            "runtime.zero serial updater queue\n\ncontract: {UPDATE_QUEUE_CONTRACT}\nqueue_id: {}\nitems: {}\npending: {}\nblocked: {}\ndry_run: yes\nwrites_attempted: no\nexecution_authorized: no\n{}{}\nThe queue is ready for explicit apply; each item is re-probed and confirmed, then pauses on failure, drift, cancellation, or recovery.\n",
             queue.queue_id,
             queue.items.len(),
             queue
@@ -2156,7 +3248,18 @@ fn render_json(value: &impl Serialize) -> Result<String, String> {
 }
 
 fn usage() -> String {
-    "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n       rz0 updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback] [--format text]\n       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n\n--all-providers performs a provider-driven live review of installed system managers, language/package environments, known self-updaters, and declared application update metadata. On macOS this includes Homebrew, Apple Software Update, npm global prefixes, pip, RubyGems, Grok, oh-my-pi, Electron GitHub metadata, and observed Sparkle channels when present; missing, observed-only, and unsupported providers remain explicit. --apply performs a fresh availability dry-run, requires explicit network-write approval and exact interactive confirmation. Execution additionally requires a plan-sealed executable identity and a reviewed platform binding; macOS currently fails closed before transaction creation because that binding is not implemented. --recovery-status is read-only and never completes or retries an interrupted manager effect.".to_string()
+    concat!(
+        "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n",
+        "       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n",
+        "       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n",
+        "       rz0 updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n",
+        "       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
+        "       rz0 updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
+        "       rz0 updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback] [--format text]\n",
+        "       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n\n",
+        "--all-providers performs a provider-driven live review of installed system managers, language/package environments, known self-updaters, and declared application update metadata. On macOS this includes Homebrew formulae/casks, Apple Software Update, npm global prefixes, pip, RubyGems, rustup, uv, Grok, Hermes, oh-my-pi, AIUP-managed tools, crates.io Cargo installs, Warp's standalone signed CLI store, Electron/Squirrel GitHub metadata, and observed Sparkle channels when present; missing, delegated, observed-only, and unsupported providers remain explicit. --apply performs a fresh availability probe, requires explicit network-write approval and exact interactive confirmation, runs the native manager command, and verifies the result. Elevated managers use non-interactive /usr/bin/sudo; authenticate with sudo before invoking rz0. Known self-updaters may replace their launcher during a successful update. --recovery-status never completes or retries an interrupted manager effect."
+    )
+    .to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2246,6 +3349,37 @@ mod tests {
         .expect("all-provider review args");
         assert!(all_providers.all_providers);
         assert!(!all_providers.probe);
+        let targeted_all_providers = parse_args(&[
+            "--apply".to_string(),
+            "--all-providers".to_string(),
+            "--allow-network-read".to_string(),
+            "--allow-network-write".to_string(),
+            "--action".to_string(),
+            "update.update.electron-app.example".to_string(),
+            "--accept-no-rollback".to_string(),
+            "--challenge-issued-unix-seconds".to_string(),
+            "1700000000".to_string(),
+            "--confirm".to_string(),
+            "confirm update.plan.item abcdef123456".to_string(),
+        ])
+        .expect("targeted all-provider apply args");
+        assert!(targeted_all_providers.apply);
+        assert!(targeted_all_providers.all_providers);
+        assert_eq!(
+            targeted_all_providers.action.as_deref(),
+            Some("update.update.electron-app.example")
+        );
+        let serial_all_providers = parse_args(&[
+            "--apply".to_string(),
+            "--all-providers".to_string(),
+            "--allow-network-read".to_string(),
+            "--allow-network-write".to_string(),
+            "--accept-no-rollback".to_string(),
+        ])
+        .expect("serial all-provider apply args");
+        assert!(serial_all_providers.apply);
+        assert!(serial_all_providers.all_providers);
+        assert!(serial_all_providers.action.is_none());
         assert!(parse_args(&["--dry-run".to_string(), "--all-providers".to_string(),]).is_err());
         let recovery = parse_args(&[
             "--recovery-status".to_string(),
@@ -2285,6 +3419,58 @@ mod tests {
             ])
             .is_err()
         );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn parses_warp_official_release_redirects() {
+        let bytes = b"\nhttps://releases.warp.dev/stable/v0.2026.08.12.21.54.stable_00/cli/macos/aarch64/oz-stable-macos-aarch64.tar.gz\n";
+        assert_eq!(
+            parse_warp_release_location(bytes, "aarch64"),
+            Some((
+                "v0.2026.08.12.21.54.stable_00".to_string(),
+                "https://releases.warp.dev/stable/v0.2026.08.12.21.54.stable_00/cli/macos/aarch64/oz-stable-macos-aarch64.tar.gz".to_string()
+            ))
+        );
+        assert!(parse_warp_release_location(bytes, "x86_64").is_none());
+    }
+
+    #[test]
+    fn parses_cargo_registry_install_list_and_skips_non_registry_sources() {
+        let bytes = br#"ripgrep v14.1.0 (registry+https://github.com/rust-lang/crates.io-index):
+    rg
+    rg-alt
+local-tool v0.1.0 (path+file:///tmp/local-tool):
+    local-tool
+"#;
+        let (packages, skipped) = parse_cargo_install_list(bytes).expect("cargo list");
+        assert_eq!(skipped, 1);
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "ripgrep");
+        assert_eq!(packages[0].version, "14.1.0");
+        assert_eq!(packages[0].binaries, ["rg", "rg-alt"]);
+    }
+
+    #[test]
+    fn parses_aiup_dry_run_and_ignores_delegated_channels() {
+        let bytes = b"[INFO] ========== TOOL START: antigravity ==========
+[INFO] DRY-RUN: curl -fsSL https://example.invalid/install.sh | bash
+[INFO] ========== TOOL DONE: antigravity ==========
+[INFO] ========== TOOL START: codex ==========
+[INFO] DRY-RUN: npm install -g --prefix /tmp/npm @openai/codex@latest
+[INFO] ========== TOOL DONE: codex ==========
+=== Detected tool versions ===
+antigravity 1.1.12
+codex codex-cli 0.147.0
+";
+        let (commands, versions) = parse_aiup_dry_run(bytes);
+        assert_eq!(
+            versions.get("antigravity").map(String::as_str),
+            Some("1.1.12")
+        );
+        assert_eq!(commands["antigravity"].len(), 1);
+        assert!(!aiup_command_is_delegated(&commands["antigravity"][0]));
+        assert!(aiup_command_is_delegated(&commands["codex"][0]));
     }
 
     #[test]

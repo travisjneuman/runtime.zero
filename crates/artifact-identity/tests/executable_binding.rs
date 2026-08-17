@@ -60,7 +60,7 @@ fn held_descriptor_binding_executes_verified_identity_after_visible_path_replace
 
 #[cfg(target_os = "macos")]
 #[test]
-fn macos_fails_closed_without_a_reviewed_handle_to_spawn_primitive() {
+fn macos_revalidates_the_visible_path_before_spawn() {
     let root = TestRoot::new();
     let source = std::env::current_exe().expect("current test executable");
     let executable = root.path().join("verified-test-binary");
@@ -75,7 +75,21 @@ fn macos_fails_closed_without_a_reviewed_handle_to_spawn_primitive() {
         },
     )
     .expect("verify executable");
-    assert!(bind_verified_executable(&verified).is_err());
+    let binding = bind_verified_executable(&verified).expect("bind path-revalidated executable");
+    assert_eq!(
+        binding.mechanism(),
+        rz0_artifact_identity::ExecutableBindingMechanism::PathIdentityRevalidated
+    );
+    binding
+        .verify_spawn_path()
+        .expect("visible path matches before replacement");
+
+    fs::rename(&executable, root.path().join("original-moved"))
+        .expect("move visible executable path");
+    fs::write(&executable, b"#!/bin/sh\necho replacement-executed\n").expect("write replacement");
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).expect("replacement mode");
+    assert!(binding.verify_spawn_path().is_err());
 }
 
 struct TestRoot(PathBuf);

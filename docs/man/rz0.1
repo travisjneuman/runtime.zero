@@ -85,16 +85,16 @@ build a finding-bound plan or serial queue.
 .B updates --dry-run --all-providers --allow-network-read ...
 Run the provider-driven review for installed managers, language/package
 environments, known self-updaters, and declared application update metadata.
-Missing, observed-only, and unsupported sources remain warnings; this is not a
-claim of universal provider coverage.
+Missing, delegated, observed-only, and unsupported sources remain warnings;
+this is not a claim of universal provider coverage.
 .TP
 .B updates --apply ...
 Pre-alpha manager execution lane. It requires a fresh probe, network intent,
-one exact action, a plan-sealed executable identity, a reviewed platform
-identity-to-spawn binding, a short-lived exact confirmation, durable
-journal/effect receipt, and fresh verification. It never invokes sudo or an
-interactive helper. Unsupported identity/containment platforms fail before
-spawn.
+one exact action or interactive serial queue, a plan-sealed executable identity,
+a platform identity-to-spawn binding, a short-lived exact confirmation, durable
+journal/effect receipt, and fresh verification. Elevated managers use
+non-interactive /usr/bin/sudo and require prior sudo authentication. Known
+self-updaters may replace their launcher during a successful update.
 .TP
 .B updates --recovery-status --transaction ID [--format text|json]
 Read and classify exact durable manager-effect evidence. It never retries,

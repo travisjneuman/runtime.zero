@@ -21,7 +21,9 @@ require:
 - a normalized relative path with no absolute, traversal, URL-like, backslash,
   empty, dot, or control-character components;
 - direct directory components and a final regular file;
-- an expected lowercase SHA-256 and size no greater than 64 MiB;
+- an expected lowercase SHA-256 and size no greater than the applicable
+  foundation limit (64 MiB for ordinary artifacts and 512 MiB for executable
+  identities);
 - a platform identity that can be queried from the opened handle;
 - exactly one filesystem link, rejecting hardlinked receipt artifacts.
 
@@ -48,9 +50,9 @@ Windows behavior is target-compiled but still needs adversarial runtime proof.
 Native tests prove digest/size/path rejection, symlinked root/artifact rejection,
 hardlink rejection, and that post-use revalidation detects a Unix path
 replacement while the returned handle continues to expose the original bytes.
-The native macOS binding test deliberately proves fail-closed unsupported
-behavior. Windows and Linux binding target checks remain compile evidence until
-real runtime tests exist.
+The native macOS binding test proves direct-path identity/digest revalidation
+and detects visible-path replacement before spawn. Windows and Linux binding
+target checks remain compile evidence until real runtime tests exist.
 
 ## Security boundary
 
@@ -62,8 +64,9 @@ reports `execution_authorized: false`:
 - Windows exposes the canonical path only while retaining the original
   share-read-only handle, which denies normal write/delete replacement across
   `CreateProcess` path resolution;
-- macOS and other Unix systems fail closed because `/dev/fd` is not a reliable
-  executable primitive and no reviewed handle-to-spawn implementation exists.
+- macOS uses `path_identity_revalidated`: Darwin has no public fexecve-style
+  primitive, so the direct path's device/inode/link/size/digest is revalidated
+  immediately before the serialized spawn boundary;
 
 The core updater now consumes this binding in its confirmed execution lane.
 Linux passes the `BoundExecutable` to the process host, which substitutes the
@@ -79,7 +82,7 @@ are complete. No production execution assessment should mark either gate proven
 until the verified handle is bound to the actual platform execution primitive
 and adversarial replacement tests pass. Linux has implementation evidence for
 the binding, but not the complete production isolation/runtime matrix; macOS and
-Windows remain incomplete.
+Windows remain pre-alpha/incomplete for release.
 
 See [`module-process-protocol.md`](module-process-protocol.md),
 [`module-trust-and-execution.md`](module-trust-and-execution.md), and

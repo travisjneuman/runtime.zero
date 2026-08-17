@@ -150,13 +150,14 @@ interactive serial `--all` queue), explicit network-write approval, an
 initialized private store, an exact short-lived challenge, and a manual-recovery
 acknowledgement when manager rollback is not proven. Before confirmation is
 consumed it obtains a platform executable binding. Linux invokes a direct native
-ELF manager through the held `/proc/self/fd` identity; unsupported macOS/Windows bindings fail before
-transaction preparation. The lane publishes single-use confirmation and exact
-write-intent/outcome journal events, captures bounded cancellable process-group
-output, revalidates executable identity, verifies fresh manager evidence, and
-synchronizes a canonical external-effect receipt before final commit. It never
-invokes `sudo` or an interactive privilege helper; elevated managers require an
-already-root process. Failure/cancellation/verification mismatch leaves
+ELF manager through the held `/proc/self/fd` identity; macOS revalidates the
+direct path identity/digest; Windows remains blocked at production containment.
+The lane publishes single-use confirmation and exact write-intent/outcome journal
+events, captures bounded cancellable process-group output, revalidates
+executable identity, verifies fresh manager evidence, and synchronizes a
+canonical external-effect receipt before final commit. Elevated managers use
+non-interactive `/usr/bin/sudo`; npm receives an isolated cache and inherited
+absolute runtime PATH entries. Failure/cancellation/verification mismatch leaves
 `recovery_required` evidence where publication remains possible.
 
 This does not authorize arbitrary module execution, third-party packages,
@@ -166,7 +167,7 @@ requires the platform/disposable-host evidence applicable to the target.
 
 The updater execution bridge is not the final generic action executor. Linux
 identity-to-spawn binding and canonical external-effect receipt reconciliation
-now exist, but exact macOS/Windows binding, OS network/capability enforcement,
+now exist on macOS/Linux, but exact Windows binding, OS network/capability enforcement,
 full boundary-by-boundary cancellation, exact recovery completion, and rollback
 remain incomplete. `updates --recovery-status` assesses receipt/journal evidence
 without mutating it. A successful locally confirmed update report records one

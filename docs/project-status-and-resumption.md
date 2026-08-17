@@ -2,7 +2,7 @@
 
 ## Snapshot identity
 
-- **Reviewed:** 2026-08-10.
+- **Reviewed:** 2026-08-17.
 - **Product status:** active pre-alpha development; not production-ready and not
   a supported release.
 - **Canonical branch:** `main`.
@@ -13,10 +13,10 @@
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
-- **Current writes:** explicit user-local Unix store scaffolding and a narrow
-  manager-update coordinator exist. Uninstall, cleanup, quarantine/restore,
-  module lifecycle execution, elevation, and third-party execution remain
-  unavailable.
+- **Current writes:** explicit user-local Unix store scaffolding and a working
+  macOS/Linux manager-update executor exist. Uninstall, cleanup,
+  quarantine/restore, module lifecycle execution, Windows execution, and
+  third-party execution remain unavailable.
 
 For document precedence and the full topic map, see
 [`documentation-index.md`](documentation-index.md). The 2026-07-30 pause handoff
@@ -24,8 +24,8 @@ and earlier plans remain historical evidence only.
 
 ## Executive assessment
 
-`runtime.zero` now has a broad read-only product surface and a materially
-hardened updater experiment. It remains far from a defensible 1.0 release because
+`runtime.zero` now has a broad provider-driven product surface and a working
+pre-alpha updater executor. It remains far from a defensible 1.0 release because
 full platform source parity, OS capability isolation, rollback, exact recovery
 completion, module trust/lifecycle, uninstall/cleanup execution, accessibility,
 compatibility labs, packaging channels, and release operations are incomplete.
@@ -45,13 +45,18 @@ The strongest implemented areas are:
 - Linux opened-executable identity-to-spawn binding, bounded process-group
   teardown, caller cancellation, exact updater write evidence, canonical
   external-effect receipts, and read-only recovery assessment;
+- provider-native macOS/Linux updater execution for Homebrew formulae/casks,
+  Apple Software Update, npm prefixes, pip, RubyGems, rustup, uv, AIUP, Cargo,
+  Warp, known self-updaters, and declared Electron/Squirrel application
+  channels, with explicit delegated, missing, and observed-only source states;
 - deterministic local packaging/SBOM/notice generation, shell completions, a
   manual page, and operator guides.
 
 The largest immediate risks are:
 
-- macOS manager execution fails closed because no reviewed opened-artifact-to-
-  spawn primitive exists;
+- macOS uses a last-moment direct-path identity/digest binding because Darwin
+  exposes no public fexecve-style primitive; this is weaker than Linux's held
+  descriptor launch and remains pre-alpha;
 - Windows updater execution fails closed because exact process-image binding and
   race-free Job Object containment are incomplete;
 - Unix process groups are containment aids, not syscall/filesystem/network/
@@ -60,10 +65,32 @@ The largest immediate risks are:
   verification, and write boundary;
 - a valid external-effect receipt can identify an interrupted final journal
   commit, but no exact approval-bound recovery-completion command exists;
-- manager-native rollback/elevation and disposable-host power-loss/fault proof
-  remain absent;
+- native rollback, exact recovery completion, and disposable-host power-loss/
+  fault proof remain absent; elevated managers use non-interactive `/usr/bin/sudo`;
 - inventory service records are metadata presence/configuration evidence, not
   complete live-status, ownership, dependency, or actionability proof.
+
+### 2026-08-17 live updater evidence
+
+The current development Mac produced a bounded live review of 20 provider
+sources and 85 planned actions. Native apply support is present for every
+source that returned an exact manager/update adapter in that review, including
+Homebrew formulae/casks, Apple Software Update, both discovered npm prefixes,
+pip, RubyGems, AIUP-managed tools, crates.io Cargo installs, Warp's standalone
+CLI store, and declared Electron/Squirrel releases. Deno is explicitly
+delegated to its Homebrew formula because the installed binary lacks native
+self-upgrade support. MacPorts, Mac App Store, and Hermes were reported as
+missing on this host; 12 Sparkle bundles were observed-only because Sparkle's
+public tooling does not provide a generic external app-update command.
+
+Live smoke work committed OMP, Pi/npm-prefix, and AIUP effects through the
+canonical receipt path. Warp's standalone CLI store switched to and verified
+the signed current version, but earlier live transactions reached recovery
+status before receipt publication because the receipt contract rejected a
+valid large executable and native binding suffix; the contract and regression
+test are now corrected. T3 Code's Electron/Squirrel action is executable and
+has a current release target, but the running T3 process was left open; quit
+the app normally before applying that action from a fresh plan.
 
 ## Current command surface
 
@@ -83,6 +110,8 @@ rz0 updates --dry-run --probe --manager <id> --executable <path> --allow-network
 rz0 updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]
 rz0 updates --recovery-status --transaction <id> [--format text|json]
 rz0 updates --apply --probe --manager <id> --executable <path> --allow-network-read --allow-network-write (--action <id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <seconds>] [--confirm <phrase>] [--format text|json]
+rz0 updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback] [--format text]
+rz0 updates --apply --all-providers --allow-network-read --allow-network-write --action <id> [--accept-no-rollback] [--challenge-issued-unix-seconds <seconds>] [--confirm <phrase>] [--format text|json]
 rz0 modules [--from <directory>] [--format text|json]
 rz0 modules validate <manifest.json> [--format text|json]
 rz0 modules install --dry-run <package> [--format text|json]
@@ -109,7 +138,7 @@ completion source has parser-coverage tests but is not generated by the parser;
 | `updates --all-providers` | Providers may read remote metadata after acknowledgement | No product write | Provider-driven bounded review across installed managers, language environments, self-updaters, and declared app metadata; missing, observed-only, and unsupported sources remain warnings |
 | updater fixture/captured output | No | No | Implemented review/planning |
 | `updates --recovery-status` | No | No | Implemented deterministic evidence assessment only |
-| `updates --apply` | Explicit read/write acknowledgement; not OS-isolated | Manager plus private journal/receipt writes | Linux-shaped pre-alpha lane; macOS/Windows blocked |
+| `updates --apply` | Explicit read/write acknowledgement; not OS-isolated | Manager plus private journal/receipt writes | Working macOS/Linux pre-alpha lane with receipts; Windows blocked |
 | uninstall plan | No | No | Shared finding and optional sealed action plan; no execution |
 | module validation/install planning | No | No | Implemented planning only |
 | store plan/status | No | No | Implemented read-only inspection |
@@ -187,8 +216,12 @@ only. See [`privacy-and-sharing.md`](privacy-and-sharing.md).
 
 The updater consumes strict fixtures, bounded captured output, or one explicit
 live probe. Homebrew JSON and bounded APT/DNF/Pacman/MacPorts parser slices exist.
-Winget/Zypper/Snap/Flatpak specifications fail closed where parsers are not
-accepted. Findings, action plans, and queue plans remain non-authorizing.
+The all-provider lane also has native update adapters for Homebrew,
+Apple Software Update, npm prefixes, language tools, AIUP-managed tools,
+crates.io Cargo installs, Warp's standalone CLI store, and declared
+Electron/Squirrel releases. Winget/Zypper/Snap/Flatpak specifications fail
+closed where parsers are not accepted. Findings, action plans, and queue plans
+remain non-authorizing until the apply lane consumes an exact confirmation.
 
 Live discovery observes the exact manager artifact and seals its SHA-256, size,
 and platform identity into each plan. Replacement invalidates plan/confirmation
@@ -220,9 +253,12 @@ On Unix, the first SIGINT during the confirmed lane becomes typed
 publishes recovery-required evidence where possible. It does not reverse an
 external effect already performed.
 
-macOS fails before transaction preparation because the exact identity-to-spawn
-binding is unsupported. Windows remains blocked at production binding and
-process-tree containment. No hidden `sudo`/UAC path exists.
+macOS manager apply uses direct-path identity/digest revalidation immediately
+before spawn. Windows remains blocked at production binding and process-tree
+containment. Elevated Unix manager actions use non-interactive `/usr/bin/sudo`;
+no password or interactive helper is collected. Known self-updaters may replace
+their launcher and are verified through the declared transition plus fresh
+provider evidence.
 
 ### Recovery assessment
 
@@ -260,7 +296,7 @@ All seven first-party manifests remain `planned`:
 | Family | Current implementation | Major missing work |
 | --- | --- | --- |
 | Inventory/environment | Embedded read-only collector plus development binary | Full source/platform parity and signed lifecycle |
-| Updater | Evidence/findings/plans plus narrow core coordinator | Production isolation, rollback/recovery, managers, runtime matrix |
+| Updater | Provider-driven plans plus working macOS/Linux core executor | Windows isolation, rollback/recovery, manager/runtime matrix, release proof |
 | Uninstall | Shared synthetic/live findings and dry-run manager plans | Every execution/elevation/quarantine/rollback path |
 | Leftovers | Synthetic exact-runtime-owned classifier | Live ownership discovery and quarantine |
 | Cache | Synthetic ownership-aware classifier | Live bounded adapters, budgets, quarantine/restore |
@@ -291,7 +327,7 @@ provide production trust or authority.
 | `cancellation-contract` | First-reason cancellation/deadline | Remaining boundary integration |
 | `process-host` | Bounded direct transport and Unix groups | OS sandbox/Windows production host |
 | `secure-fs` | Opened-directory state I/O | Windows ACL creation/runtime and FS matrix |
-| `artifact-identity` | Same-handle identity plus bound spawn lease | Exact macOS and Windows production binding |
+| `artifact-identity` | Same-handle identity plus Linux lease and macOS path-revalidation binding | Windows production binding and cross-platform runtime proof |
 | `module-trust` | Test-key signature/staging contracts | Production roots/provenance/revocation |
 | `module-protocol` | Unauthorized preview/test child | Production module host |
 | `module-lifecycle` | Eight planning transitions | No lifecycle execution |
@@ -332,8 +368,11 @@ Final validation for
 `cargo-audit` and `cargo-deny` were unavailable and were not auto-installed.
 Locked metadata still resolved 150 packages (31 workspace and 119 external), and
 native target-filtered release metadata covered 119 reachable packages (96
-external). No real update/uninstall, Cloudflare/site mutation, release
-publication, or production action was run.
+external). The 2026-08-17 continuation additionally passed `cargo fmt --check`,
+`cargo test --workspace`, `cargo check --workspace`, `cargo run -- doctor`, and
+`cargo run -- scan --dry-run`; it also completed live updater smoke effects on
+the development Mac as described above. No uninstall, Cloudflare/site
+mutation, release publication, or production release action was run.
 
 ## Known limitations
 

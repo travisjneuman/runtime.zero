@@ -113,12 +113,13 @@ single-use. Regenerate the challenge after any plan/executable change or expiry.
 Do not trim, script, save, or reuse a phrase. Queue actions each receive an
 independent phrase.
 
-## Apply is blocked on macOS
+## Apply fails on macOS
 
-Expected current behavior. macOS observation can seal executable identity, but
-no reviewed exact opened-artifact-to-spawn mechanism is implemented. Apply fails
-before transaction preparation. Do not substitute a pathname spawn or disable
-the check.
+The supported pre-alpha macOS lane uses a direct path identity/digest
+revalidation immediately before spawn. If it fails, inspect the exact manager
+path and rerun the fresh probe; do not substitute an arbitrary pathname or
+disable the identity check. Known self-updaters may replace their launcher and
+are verified through fresh provider evidence after the command.
 
 ## Apply is blocked on Windows
 

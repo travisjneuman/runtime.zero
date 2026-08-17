@@ -6,7 +6,7 @@ path, production support, or permission to cross a later gate. Windows, macOS,
 Linux, and every frozen 1.0 module family are equal release requirements; see
 [`production-readiness.md`](production-readiness.md).
 
-> **Reviewed 2026-08-09.** The 2026-07-30 pause was superseded by the
+> **Reviewed 2026-08-17.** The 2026-07-30 pause was superseded by the
 > 2026-08-01 TUI, updater, and native-monitor continuation. Resume with
 > [`project-status-and-resumption.md`](project-status-and-resumption.md), which
 > records the current implementation boundary, validation totals, known debts,
@@ -23,10 +23,10 @@ Linux, and every frozen 1.0 module family are equal release requirements; see
 - [x] Explicit store scaffolding and confirmation-bound updater manager
   execution as foundation write surfaces.
 - [ ] Promote both write surfaces to complete platform runtime evidence; updater
-  now has Linux identity-bound spawn, cancellation-aware execution, canonical
-  external-effect receipts, and read-only recovery assessment, but still needs
-  exact macOS/Windows binding, OS containment, recovery completion, rollback,
-  and disposable-host proof.
+  now has working macOS/Linux manager execution, cancellation-aware execution,
+  canonical external-effect receipts, isolated npm execution, and fresh
+  post-action verification, but still needs Windows containment, recovery
+  completion, rollback, and disposable-host proof.
 
 ## Phase 2 — inventory contracts and primitives (implemented; runtime proof remains)
 
@@ -85,9 +85,11 @@ See [`inventory-schema.md`](inventory-schema.md).
   environments, known self-updaters, multiple npm prefixes, and declared app
   metadata, with explicit missing/observed-only/unsupported-source warnings;
   this does not claim universal provider coverage.
-- [ ] Complete opened-executable identity-to-spawn binding on macOS/Windows and
-  enforce platform capability/network/elevation policy; Linux direct execution
-  now uses and revalidates its held `/proc/self/fd` binding.
+- [x] Implement the macOS path identity/digest revalidation binding and
+  provider-native manager apply path; Linux direct execution uses and
+  revalidates its held `/proc/self/fd` binding.
+- [ ] Complete Windows opened-executable identity-to-spawn binding and enforce
+  platform capability/network/elevation policy across the full target matrix.
 - [x] Reconcile updater journal/receipt publication through the canonical
   external-effect transaction/recovery model with write-intent/outcome evidence
   and deterministic read-only recovery assessment.
@@ -95,8 +97,8 @@ See [`inventory-schema.md`](inventory-schema.md).
   receipt, and write boundaries; confirmed Unix execution now bridges SIGINT
   through bounded process-group teardown.
 - [ ] Native rollback, Windows production containment, manager-specific locale/
-  source-agreement/offline/runtime proof, real failure/recovery evidence, and
-  equal-platform production acceptance remain.
+  source-agreement/offline/runtime proof, exact recovery completion, real
+  failure/recovery evidence, and equal-platform production acceptance remain.
 
 ## Phase 5 — uninstall, leftovers, quarantine, and restore
 
@@ -231,12 +233,13 @@ See [`action-planning.md`](action-planning.md).
 - [ ] Propagate cancellation through remaining production process/write hosts
   and prove real process/power-loss recovery and rollback on every platform.
 - [x] Add a non-authorizing borrow-scoped executable binding: Linux held `/proc`
-  descriptor path, Windows deny-write/delete handle lease, and fail-closed macOS.
+  descriptor path, macOS path identity/digest revalidation, and Windows
+  deny-write/delete handle lease.
 - [x] Integrate Linux/Windows executable leases through guarded test-host spawn.
-- [ ] Adversarially prove Linux/Windows binding in a production contained host,
-  implement a reviewed exact macOS spawn primitive, close descriptor/
-  handle-inheritance and Windows suspended-create races, obtain real Job Object
-  proof, enforce capabilities, and complete sandbox/isolation runtime tests.
+- [ ] Adversarially prove Linux/macOS/Windows binding in production-contained
+  hosts, close descriptor/handle-inheritance and Windows suspended-create races,
+  obtain real Job Object proof, enforce capabilities, and complete
+  sandbox/isolation runtime tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote
   feeds, third-party modules, deployment automation, and production actions only
   after their separate explicit approvals.

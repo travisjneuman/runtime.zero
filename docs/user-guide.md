@@ -58,9 +58,8 @@ rz0 doctor --format json
 
 Diagnostics omit host name, user name, current directory, environment values,
 and raw paths. The updater policy check reports platform-specific execution
-blocks. On macOS, manager apply currently fails before transaction preparation
-because no reviewed exact opened-artifact-to-spawn primitive exists. Windows
-also remains blocked by production process containment.
+posture. On macOS, manager apply is available as a pre-alpha path-revalidated
+lane; Windows remains blocked by production process containment.
 
 ### Installed software and source identity
 
@@ -203,13 +202,15 @@ manager executable replacement invalidates confirmation.
 
 `--all-providers` resolves installed provider owners instead of assuming that a
 bundle name identifies its update channel. It probes system managers, global
-language/package environments, and known self-updaters when their exact
-read-only adapter is available. On this Mac that includes Homebrew, Apple
-Software Update, npm global prefixes, pip, RubyGems, Grok, oh-my-pi, `uv`, and
-declared Electron GitHub release metadata; it also reports Hermes, Warp, aiup,
-Cargo-installed binaries, and Sparkle apps when present. This catches npm-owned
+language/package environments, and known self-updaters when an exact
+availability/update adapter is available. On this Mac that includes Homebrew,
+Apple Software Update, npm global prefixes, pip, RubyGems, Grok, oh-my-pi, `uv`,
+AIUP-managed native tools, crates.io Cargo installs, Warp's standalone CLI, and
+declared Electron/Squirrel GitHub release metadata; it also reports Hermes,
+MacPorts, Mac App Store, and Sparkle apps when present. This catches npm-owned
 CLIs such as Codex, Pi, GSD, and Kilo when their actual prefix is discovered.
-Every source is reported as successful, missing, unavailable, or observed-only.
+Every source is reported as successful, missing, unavailable, delegated, or
+observed-only.
 Direct installers, private vendor services, unknown bundles, and UI-only
 channels remain visible gaps until a reviewed owner adapter exists. This is
 provider-driven bounded coverage, not a claim that arbitrary software can be
@@ -217,20 +218,36 @@ updated safely by guessing a command.
 
 ### Apply lane
 
-The apply lane remains pre-alpha and unsupported. It requires an initialized
-store, fresh live probe, network-read/write acknowledgement, one exact action or
-interactive serial queue, no-rollback acknowledgement where applicable, and a
-five-minute phrase.
+The apply lane is a working pre-alpha manager executor. It requires an
+initialized store, fresh live probe, network-read/write acknowledgement, one
+exact action or interactive serial queue, no-rollback acknowledgement where
+applicable, and a five-minute phrase.
+
+Initialize the private runtime.zero state once, then update every executable
+provider that the host can prove:
+
+```bash
+rz0 store init --yes
+rz0 updates --apply --all-providers \
+  --allow-network-read --allow-network-write --accept-no-rollback
+```
+
+For one aggregate candidate, use `--action` with `--all-providers`; this is how
+prefix-specific npm actions such as Pi, GSD, and Kilo are selected. Providers
+that require system privilege use `/usr/bin/sudo -n`; authenticate first with
+`sudo -v`, or start the command from an already elevated shell. runtime.zero
+does not collect a password or invoke an interactive helper.
 
 First request a challenge, then repeat the exact command with the emitted phrase
 and timestamp. Do not script the phrase or use it across actions.
 
-Execution now requires a platform `BoundExecutable` lease before confirmation is
-consumed. Linux uses the held `/proc/self/fd` launch identity for direct native ELF
-managers; scripts/interpreter chains fail before transaction preparation. macOS
-fails closed
-before transaction creation because an exact mechanism is not implemented.
-Windows remains fail-closed at production handle/process containment.
+Execution requires a platform `BoundExecutable` lease before confirmation is
+consumed. Linux uses the held `/proc/self/fd` launch identity for direct native
+ELF managers; scripts/interpreter chains fail before transaction preparation.
+macOS revalidates the direct path's device/inode/link/size/digest immediately
+before spawn. Windows remains fail-closed at production handle/process
+containment. Known self-updaters may replace their own launcher; the executor
+accepts that declared transition and relies on fresh provider verification.
 
 A successful supported-platform action records an exact manager write intent,
 uses the cancellable bounded process host, revalidates the executable, performs
@@ -239,8 +256,10 @@ and only then appends final committed journal evidence. A SIGINT during the
 Unix execution lane requests typed cancellation and process-group teardown.
 This is not a syscall/filesystem/network sandbox and is not production proof.
 
-Never test a real update on a normal workstation. Mutation evidence belongs on
-snapshot-backed disposable hosts with synthetic, noncritical packages.
+The live Mac smoke path has executed OMP and npm-prefix updates successfully and
+published committed external-effect receipts. For broad runs, expect a provider
+to pause on a failed item and resume from a new fresh review rather than
+silently skipping it.
 
 ## Recovery status
 

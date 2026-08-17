@@ -121,7 +121,7 @@ impl ManagerKind {
             Self::Rustup => &["check", "--no-self-update"],
             Self::UvTools => &["tool", "list", "--outdated"],
             Self::Deno => &["upgrade", "--dry-run"],
-            Self::Aiup => &["list"],
+            Self::Aiup => &["--no-install", "--dry-run"],
             Self::CargoInstall => &["install", "--list"],
         }
     }
@@ -136,7 +136,7 @@ impl ManagerKind {
                 package.to_string(),
             ],
             Self::MacPorts => vec!["upgrade".to_string(), package.to_string()],
-            Self::MacAppStore => vec!["update".to_string(), package.to_string()],
+            Self::MacAppStore => vec!["upgrade".to_string(), package.to_string()],
             Self::AppleSoftwareUpdate => vec!["--install".to_string(), package.to_string()],
             Self::Winget => vec![
                 "upgrade".to_string(),
@@ -266,7 +266,7 @@ pub fn manager_probe_specs() -> Vec<ManagerProbeSpec> {
         ),
         spec(ManagerKind::HomebrewCask, HOMEBREW_EXECUTABLES, true, false),
         spec(ManagerKind::MacPorts, MACPORTS_EXECUTABLES, true, true),
-        spec(ManagerKind::MacAppStore, MAS_EXECUTABLES, true, true),
+        spec(ManagerKind::MacAppStore, MAS_EXECUTABLES, true, false),
         spec(
             ManagerKind::AppleSoftwareUpdate,
             SOFTWAREUPDATE_EXECUTABLES,
@@ -380,6 +380,32 @@ pub const fn dynamic_provider_ids() -> &'static [&'static str] {
 }
 
 fn discover_dynamic_providers(providers: &mut Vec<ProviderProbeSpec>) {
+    #[cfg(target_os = "macos")]
+    for (command, manager, instance_id) in [
+        ("port", ManagerKind::MacPorts, "macports:default"),
+        ("mas", ManagerKind::MacAppStore, "mac-app-store:default"),
+    ] {
+        if providers.iter().any(|provider| provider.manager == manager) {
+            continue;
+        }
+        if let Some(executable) = find_command(command) {
+            providers.push(ProviderProbeSpec {
+                manager,
+                instance_id: instance_id.to_string(),
+                executable,
+                query_arguments: manager
+                    .query_arguments()
+                    .iter()
+                    .map(|argument| (*argument).to_string())
+                    .collect(),
+                network_required: true,
+                requires_elevation: manager == ManagerKind::MacPorts,
+                read_only: true,
+                update_prefix: None,
+            });
+        }
+    }
+
     if let Some(npm) = find_command("npm") {
         let mut prefixes = vec![None];
         for prefix in npm_prefix_candidates() {
@@ -452,12 +478,8 @@ fn discover_dynamic_providers(providers: &mut Vec<ProviderProbeSpec>) {
         ("rustup", ManagerKind::Rustup, "rustup:default"),
         ("uv", ManagerKind::UvTools, "uv-tools:default"),
         ("deno", ManagerKind::Deno, "deno:default"),
-        ("aiup", ManagerKind::Aiup, "aiup:observed-only"),
-        (
-            "cargo",
-            ManagerKind::CargoInstall,
-            "cargo-install:observed-only",
-        ),
+        ("aiup", ManagerKind::Aiup, "aiup:managed"),
+        ("cargo", ManagerKind::CargoInstall, "cargo-install:registry"),
     ] {
         if let Some(executable) = find_command(command) {
             providers.push(ProviderProbeSpec {
@@ -565,13 +587,30 @@ fn custom_executable_allowed(manager: &str, platform: &str, executable: &str) ->
     };
     let under_system_prefix = path.starts_with("/opt/homebrew") || path.starts_with("/usr/local");
     match manager {
+        "macports" => {
+            path.file_name().is_some_and(|name| name == "port")
+                && (path.starts_with("/opt/local") || under_system_prefix)
+        }
+        "mas" => {
+            path.file_name().is_some_and(|name| name == "mas")
+                && (under_home(".local") || path.starts_with("/opt/local") || under_system_prefix)
+        }
         "npm" => {
-            path.file_name().is_some_and(|name| name == "npm")
+            path.file_name()
+                .is_some_and(|name| matches!(name.to_str(), Some("npm" | "npm-cli.js")))
                 && (under_home(".local") || under_home(".npm-global") || under_system_prefix)
         }
         "python" => {
             path.file_name().is_some_and(|name| {
-                matches!(name.to_str(), Some("python" | "python3" | "pip" | "pip3"))
+                name.to_str().is_some_and(|value| {
+                    matches!(value, "python" | "python3" | "pip" | "pip3")
+                        || value.strip_prefix("python3.").is_some_and(|suffix| {
+                            !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
+                        })
+                        || value.strip_prefix("pip3.").is_some_and(|suffix| {
+                            !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
+                        })
+                })
             }) && (under_home(".local")
                 || under_home(".pyenv")
                 || under_system_prefix
@@ -613,6 +652,16 @@ fn custom_executable_allowed(manager: &str, platform: &str, executable: &str) ->
                         .is_some_and(|value| value.starts_with("warp-"))
             }) && (under_home(".local") || under_home(".warp") || under_system_prefix)
         }
+        "warp-agent-cli" => {
+            path.file_name()
+                .is_some_and(|name| name == "warp-tui-stable")
+                && path
+                    .parent()
+                    .and_then(Path::file_name)
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with('v'))
+                && under_home(".warp/tui/versions")
+        }
         "rustup" => {
             path.file_name().is_some_and(|name| name == "rustup")
                 && (under_home(".cargo/bin") || under_home(".rustup") || under_system_prefix)
@@ -629,6 +678,23 @@ fn custom_executable_allowed(manager: &str, platform: &str, executable: &str) ->
         "cargo" => {
             path.file_name().is_some_and(|name| name == "cargo")
                 && (under_home(".cargo/bin") || under_system_prefix)
+        }
+        "electron-squirrel" => {
+            path.file_name().is_some_and(|name| name == "ShipIt")
+                && path
+                    .parent()
+                    .and_then(Path::file_name)
+                    .is_some_and(|name| name == "Resources")
+                && path.ancestors().any(|ancestor| {
+                    ancestor
+                        .file_name()
+                        .is_some_and(|name| name == "Squirrel.framework")
+                })
+                && path.ancestors().any(|ancestor| {
+                    ancestor
+                        .extension()
+                        .is_some_and(|extension| extension == "app")
+                })
         }
         _ => false,
     }
@@ -1302,6 +1368,21 @@ mod tests {
             assert!(!specs.is_empty(), "{platform}");
             assert!(specs.iter().all(|spec| spec.read_only));
         }
+        let macos_specs = manager_probe_specs_for_platform("macos");
+        assert_eq!(
+            macos_specs
+                .iter()
+                .find(|spec| spec.manager == ManagerKind::MacAppStore)
+                .map(|spec| spec.requires_elevation),
+            Some(false)
+        );
+        assert_eq!(
+            macos_specs
+                .iter()
+                .find(|spec| spec.manager == ManagerKind::MacPorts)
+                .map(|spec| spec.requires_elevation),
+            Some(true)
+        );
     }
 
     #[test]
@@ -1325,6 +1406,12 @@ mod tests {
             } else {
                 "/usr/local/bin/npm"
             }
+        ));
+        #[cfg(target_os = "macos")]
+        assert!(manager_executable_allowed(
+            "npm",
+            "macos",
+            "/opt/homebrew/Cellar/node/26.5.0/libexec/lib/node_modules/npm/bin/npm-cli.js"
         ));
         #[cfg(target_os = "macos")]
         assert!(manager_executable_allowed(
@@ -1367,7 +1454,7 @@ mod tests {
         .expect("Mac App Store records");
         assert_eq!(mas.len(), 2);
         assert_eq!(mas[0].finding_id, "update.mac-app-store.409183694");
-        assert_eq!(mas[0].arguments, ["update", "409183694"]);
+        assert_eq!(mas[0].arguments, ["upgrade", "409183694"]);
 
         let softwareupdate = parse_manager_output(
             &context(ManagerKind::AppleSoftwareUpdate),

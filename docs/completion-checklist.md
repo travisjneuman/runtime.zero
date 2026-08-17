@@ -31,10 +31,11 @@ full platform/lifecycle acceptance cells.
 
 ## 2. Harden current core write paths
 
-- [ ] Bind every updater manager executable from a verified opened artifact or
-  equally reviewed platform identity primitive through the actual spawn.
+- [x] Bind every supported updater manager executable from a verified opened
+  artifact or equally reviewed platform identity primitive through the actual
+  spawn on macOS/Linux; Windows remains gated.
 - [ ] Replace path allowlisting alone with adversarially proven replacement-race
-  closure on Linux and Windows and a reviewed exact macOS mechanism.
+  closure on Linux/macOS/Windows and complete platform containment proof.
 - [x] Integrate updater confirmation, journal, receipt, and final state through
   the canonical transaction/commit-receipt/recovery model rather than a
   parallel partial flow.

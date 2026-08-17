@@ -286,7 +286,7 @@ pub fn validate_external_effect_receipt(
         }
     }
     if receipt.executable_size_bytes == 0
-        || receipt.executable_size_bytes > rz0_resource_contract::MAX_ARTIFACT_BYTES
+        || receipt.executable_size_bytes > rz0_resource_contract::MAX_EXECUTABLE_BYTES
         || receipt.stdout_bytes > rz0_resource_contract::MAX_FINDING_REPORT_BYTES
         || receipt.stderr_bytes > rz0_resource_contract::MAX_FINDING_REPORT_BYTES
     {
@@ -295,10 +295,7 @@ pub fn validate_external_effect_receipt(
     if receipt.completed_unix_seconds < receipt.started_unix_seconds {
         errors.push("receipt completion precedes start".to_string());
     }
-    if !matches!(
-        receipt.executable_binding.as_str(),
-        "proc_held_descriptor_path" | "deny_write_delete_handle"
-    ) {
+    if !valid_executable_binding(&receipt.executable_binding) {
         errors.push("receipt executable binding mechanism is unsupported".to_string());
     }
     if receipt.exit_code != 0 {
@@ -316,6 +313,23 @@ pub fn validate_external_effect_receipt(
         valid: errors.is_empty(),
         errors,
     }
+}
+
+fn valid_executable_binding(value: &str) -> bool {
+    let (base, suffix) = value.split_once(';').unwrap_or((value, ""));
+    let valid_base = matches!(
+        base,
+        "proc_held_descriptor_path" | "path_identity_revalidated" | "deny_write_delete_handle"
+    );
+    let valid_suffix = suffix.is_empty()
+        || suffix == "wrapper=sudo"
+        || suffix == "self-replaced"
+        || suffix == "warp-native"
+        || suffix == "wrapper=sudo;self-replaced"
+        || suffix == "wrapper=sudo;warp-native"
+        || suffix == "warp-native;self-replaced"
+        || suffix == "wrapper=sudo;warp-native;self-replaced";
+    valid_base && valid_suffix
 }
 
 pub fn publish_external_effect_receipt(

@@ -105,7 +105,8 @@ pub fn help_text() -> String {
         safety = brand::SAFETY_POSTURE
     );
     let provider_usage = format!(
-        "  {} updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback]\n",
+        "  {} updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback\n",
+        brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
     );

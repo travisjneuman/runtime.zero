@@ -19,7 +19,13 @@
 
 ## Foundation boundary
 
-The core may include self-description, `doctor`, safe dry-run scaffolding, manifest schemas, output contracts, policy primitives, and bounded read-only inventory adapters needed for a useful zero-module product. It must not bundle write-capable domain modules by default. First-party modules should be optional packages with declared capabilities, risk level, supported platforms, and safety behavior. Third-party modules require a separate trust model before implementation.
+The core may include self-description, `doctor`, manifest schemas, output
+contracts, policy primitives, bounded read-only inventory adapters, and the
+explicitly scoped updater executor needed for a useful zero-module product. It
+must not bundle arbitrary write-capable domain modules by default. First-party
+modules should be optional packages with declared capabilities, risk level,
+supported platforms, and safety behavior. Third-party modules require a
+separate trust model before implementation.
 
 Local manifest loading is read-only and declarative. Loading a manifest means
 parsing and validating JSON metadata; it does not load code, fetch dependencies,
@@ -95,7 +101,8 @@ release.
 `crates/artifact-identity/` opens, bounds, hashes, identifies, revalidates, and
 returns the same file handle without execution. Linux can expose the held
 `/proc/self/fd` spawn identity and the core updater consumes it for direct native
-ELF managers; exact macOS and production Windows binding remain later gates. `crates/module-trust/` supplies a
+ELF managers; macOS uses direct-path identity/digest revalidation and production
+Windows binding remains a later gate. `crates/module-trust/` supplies a
 test-key-only detached Ed25519 verification contract without adding a signer,
 key store, installer, execution path, or production trust root. Schema-1
 staging plans and OS-temp integration tests also exercise immutable publication
@@ -114,9 +121,10 @@ An explicit-feature integration lane launches only a Cargo-built test helper
 from a guarded OS-temp receipt-like path to exercise framing, shared bounded
 drains, Unix inheritable-descriptor refusal, Unix process-group teardown, and
 compile-only Windows Job Object tree teardown. Linux and Windows builds hold the
-verified executable lease through spawn; Windows handle auditing and all
-production macOS spawning still fail closed. No core or inventory-module launch
-exists. Future module
+verified executable lease through spawn; Windows handle auditing and production
+macOS module spawning still fail closed. The updater has a separate bounded
+core execution lane with macOS path revalidation. No core or inventory-module
+launch exists outside that updater lane. Future module
 execution, production signing, capability enforcement, durable transactions,
 and distribution work is gated by
 [`module-trust-and-execution.md`](module-trust-and-execution.md).
@@ -176,7 +184,8 @@ fresh manager probe -> updater finding report -> dry-run action plan
 ```
 
 This is the only current system-manager write flow. Linux direct native ELF
-execution consumes the opened lease; macOS/Windows fail closed. Read-only
+execution consumes the opened lease; macOS uses path identity/digest
+revalidation; Windows fails closed. Read-only
 recovery status reconciles receipt/journal state, but exact recovery completion,
 native rollback, OS capability isolation, and disposable-host proof remain
 production blockers.

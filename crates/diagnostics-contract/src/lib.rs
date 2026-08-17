@@ -338,13 +338,11 @@ fn pass(id: DiagnosticCheckId, detail: &str) -> DiagnosticCheck {
 
 fn updater_execution_check(os: &str) -> DiagnosticCheck {
     match os {
-        "macos" => DiagnosticCheck {
-            id: DiagnosticCheckId::UpdaterExecutionPolicy,
-            status: DiagnosticStatus::Unavailable,
-            detail: "manager apply blocked: exact macOS identity-to-spawn binding is unavailable"
-                .to_string(),
-            error_code: Some(FoundationErrorCode::UnsupportedOperation),
-        },
+        "macos" => blocked(
+            DiagnosticCheckId::UpdaterExecutionPolicy,
+            "manager apply is available as a pre-alpha path-revalidated lane; production release authorization remains incomplete",
+            FoundationErrorCode::ExecutionNotAuthorized,
+        ),
         "windows" => DiagnosticCheck {
             id: DiagnosticCheckId::UpdaterExecutionPolicy,
             status: DiagnosticStatus::Unavailable,
