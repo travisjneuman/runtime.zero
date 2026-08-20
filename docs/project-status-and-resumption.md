@@ -6,13 +6,13 @@
 - **Product status:** active pre-alpha development; not production-ready and not
   a supported release.
 - **Canonical branch:** `main`.
-- **Reviewed starting baseline:**
-  `3ccd2d0` (`Add independent release package verification`).
+- **Reviewed source baseline:**
+  `f50eb5b` (`Expose bounded cache review surface`).
 - **Current behavior implementation:**
-  `3ccd2d0` on `main`, including the redesigned TUI, Rust toolchain contract,
-  AIUP updater-provider adapter, digest-bound lifecycle planning, explicit
-  provider ownership in Toolchain rows, and guarded Windows store
-  initialization plus independent portable-package verification.
+  `f50eb5b` on `main`, including the redesigned TUI, Rust toolchain contract,
+  AIUP updater-provider adapter, bounded cache evidence review, digest-bound
+  lifecycle planning, explicit provider ownership in Toolchain rows, guarded
+  Windows store initialization, and independent portable-package verification.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -21,14 +21,14 @@
   quarantine/restore, module lifecycle execution, Windows execution, and
   third-party execution remain unavailable.
 
-The exact pushed head is `3ccd2d03b6d73807e663b3fe6dc196d8d11bcbea`; local
-`main` and `origin/main` match. The current-head validation baseline passes
-`cargo fmt --all -- --check`, `cargo test --workspace --locked`, strict
-workspace Clippy, Linux/Windows cross-target `cargo check`, and
-`git diff --check`. The macOS arm64 release artifact passes the four-case PTY
-smoke and 10-sample performance checks, but remains unsigned and unnotarized.
-The portable package passes the independent ZIP verifier; its exact hashes are
-recorded in the private runtime.zero handoff note.
+The cache slice is pushed at `f50eb5b`; local `main` and `origin/main` matched
+after publication. The source validation baseline passes `cargo fmt --all
+-- --check`, `cargo test --workspace --locked`, strict workspace Clippy,
+Linux/Windows cross-target `cargo check`, and `git diff --check`. The final
+release artifact must be rebuilt against the exact post-documentation head;
+the macOS arm64 artifact remains unsigned and unnotarized until an owner-led
+signing/notarization lane exists. Exact package hashes belong in the private
+runtime.zero handoff note.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
