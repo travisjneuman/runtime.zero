@@ -7,9 +7,11 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed starting baseline:**
-  `e015b17` (`Redesign TUI and add Rust toolchain surface`).
+  `bf73fb2` (`Show toolchain provider ownership in TUI`).
 - **Current behavior implementation:**
-  `e015b17` plus documentation-only follow-up on `main`.
+  `bf73fb2` on `main`, including the redesigned TUI, Rust toolchain contract,
+  digest-bound lifecycle planning, and explicit provider ownership in Toolchain
+  rows.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
