@@ -7,12 +7,12 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed starting baseline:**
-  `7014dcb` (`Clarify unavailable TUI launch reason`).
+  `3ccd2d0` (`Add independent release package verification`).
 - **Current behavior implementation:**
-  `7014dcb` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `3ccd2d0` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, digest-bound lifecycle planning, explicit
   provider ownership in Toolchain rows, and guarded Windows store
-  initialization.
+  initialization plus independent portable-package verification.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -21,14 +21,14 @@
   quarantine/restore, module lifecycle execution, Windows execution, and
   third-party execution remain unavailable.
 
-The exact pushed head is `7014dcb99920d68dc5990455aad469b9f94391e6`; local
+The exact pushed head is `3ccd2d03b6d73807e663b3fe6dc196d8d11bcbea`; local
 `main` and `origin/main` match. The current-head validation baseline passes
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, strict
 workspace Clippy, Linux/Windows cross-target `cargo check`, and
 `git diff --check`. The macOS arm64 release artifact passes the four-case PTY
 smoke and 10-sample performance checks, but remains unsigned and unnotarized.
-The portable package and exact hashes are recorded in the private runtime.zero
-handoff note.
+The portable package passes the independent ZIP verifier; its exact hashes are
+recorded in the private runtime.zero handoff note.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
