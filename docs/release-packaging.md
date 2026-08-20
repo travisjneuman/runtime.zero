@@ -52,6 +52,24 @@ The wrapper builds `rz0` in release mode and calls
 - performs no upload, signing, account access, installation, deployment, or
   release creation.
 
+After packaging, run the independent verifier against the archive and its
+checksum file:
+
+```bash
+python3 scripts/verify_release_package.py \
+  --archive target/release-package-<commit>/runtime-zero-0.1.0-aarch64-apple-darwin.zip \
+  --checksum-file target/release-package-<commit>/runtime-zero-0.1.0-aarch64-apple-darwin.zip.sha256 \
+  --source-commit <full-commit> \
+  --target aarch64-apple-darwin
+```
+
+The verifier opens the ZIP independently, rejects traversal, duplicate,
+symlink, oversized, and multi-root members, then checks the required public
+files and every binary/SBOM/notice digest recorded by `artifact-manifest.json`.
+It reports `decision: pass` only when the manifest is bound to the requested
+source commit and target. This validates package integrity; it does not create
+signatures, notarize, publish, install, or authorize a release.
+
 `scripts/generate_release_metadata.py` traverses the Cargo metadata graph from
 only the `runtime-zero` package, excludes dev-only edges, filters the selected
 target, binds the exact final binary, and emits deterministic SPDX and notice

@@ -395,6 +395,7 @@ scripts/build-package.sh aarch64-apple-darwin /tmp/runtime-zero-package
 scripts/build-dmg.sh aarch64-apple-darwin /tmp/runtime-zero-dmg
 scripts/benchmark_final_artifact.py --binary /path/to/rz0 --target aarch64-apple-darwin --source-commit <commit> --output /tmp/rz0-performance.json
 scripts/smoke_terminal_artifact.py --binary /path/to/rz0 --target aarch64-apple-darwin --source-commit <commit> --output /tmp/rz0-terminal.json
+python3 scripts/verify_release_package.py --archive target/release-package-<commit>/runtime-zero-0.1.0-aarch64-apple-darwin.zip --checksum-file target/release-package-<commit>/runtime-zero-0.1.0-aarch64-apple-darwin.zip.sha256 --source-commit <commit> --target aarch64-apple-darwin
 cargo deny check
 ```
 
