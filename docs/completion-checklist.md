@@ -205,6 +205,8 @@ full platform/lifecycle acceptance cells.
 
 ### Leftovers
 
+- [x] Add a bounded, path-free, read-only runtime.zero-owned module/log evidence
+  adapter and expose its shared finding contract through the CLI and TUI.
 - [ ] Implement bounded post-uninstall ownership adapters for receipts, shims,
   launch/service entries, exact runtime-owned files, and approved roots.
 - [ ] Prove stale versus user-valued/shared/config/log/backup evidence and keep

@@ -128,7 +128,7 @@ Every module must reach the same lifecycle bar on every supported platform:
 | Inventory/environment | Required | Required | Required | Built-in catalog/scan with source IDs plus bounded macOS receipts/MacPorts/launchd, Linux dpkg/pacman/systemd, and Windows registry/service metadata; broader source depth and runtime parity incomplete |
 | Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, macOS path-revalidated and Linux native-ELF manager execution, SIGINT cancellation, isolated npm environments, exact journal evidence, canonical external-effect receipts, and fresh post-action verification; Windows containment, OS capability/network enforcement, rollback/recovery completion, manager proof, and full runtime matrix incomplete |
 | Uninstall | Required | Required | Required | Live catalog records become shared findings and optional sealed dry-run manager plans; no uninstall/elevation/quarantine execution |
-| Leftovers | Required | Required | Required | Synthetic protected-data/exact-runtime classifier + quarantine fixtures only |
+| Leftovers | Required | Required | Required | Bounded runtime.zero-owned module/log evidence plus synthetic classifier; no quarantine or platform parity proof |
 | Cache management | Required | Required | Required | Bounded known-root read-only evidence and synthetic classifier; no cleanup/quarantine or platform parity proof |
 | Security/integrity | Required | Required | Required | Synthetic exact-digest report-only classifier only |
 | Report/export | Required | Required | Required | Integrated summary-only `rz0 report`, shared strict contract, and stdin/stdout source module; signed lifecycle/final-artifact runtime proof open |

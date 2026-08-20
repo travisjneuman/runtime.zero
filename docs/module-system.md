@@ -209,7 +209,8 @@ different maturity levels. Updater owns parser/planning behavior used by the
 core's separate coordinator; uninstall accepts selected live catalog evidence
 and can build a sealed non-authorizing manager plan. Cache now has a bounded
 known-root read-only adapter exposed through `rz0 cache --dry-run`; leftovers
-and security/integrity remain synthetic-only. None is a signed/active lifecycle
+has the same bounded adapter over runtime.zero-owned module/log roots, while
+security/integrity remains synthetic-only. None is a signed/active lifecycle
 package, and no uninstall/cleanup/integrity execution exists. See
 [`domain-classifier-modules.md`](domain-classifier-modules.md).
 

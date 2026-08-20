@@ -113,8 +113,9 @@ the updater consumes its bound mutating transport, but it is not an OS sandbox.
 `crates/finding-contract/` owns path-free typed ownership/data-class/confidence/
 risk/disposition evidence and conservative protected-data policy for five module
 families; it cannot authorize an action. Updater and uninstall now turn selected
-live evidence into shared findings/plans, while leftovers/cache/integrity remain
-synthetic and no non-updater execution exists. `crates/confirmation-contract/` owns
+live evidence into shared findings/plans, while leftovers/cache expose bounded
+read-only evidence and integrity remains synthetic; no non-updater execution
+exists. `crates/confirmation-contract/` owns
 exact short-lived interactive plan binding,
 response digests, and single-use consumption evidence without execution
 authority. `crates/error-contract/` owns stable machine codes and conservative privacy/retry

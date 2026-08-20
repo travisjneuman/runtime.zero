@@ -62,6 +62,7 @@ rz0-inventory-contract = { version = "0.1.0", path = "crates/inventory-contract"
 rz0-module-lifecycle = { version = "0.1.0", path = "crates/module-lifecycle" }
 rz0-module-inventory = { version = "0.1.0", path = "modules/inventory" }
 rz0-module-cache = { version = "0.1.0", path = "modules/cache" }
+rz0-module-leftovers = { version = "0.1.0", path = "modules/leftovers" }
 rz0-module-uninstall = { version = "0.1.0", path = "modules/uninstall" }
 rz0-module-updater = { version = "0.1.0", path = "modules/updater" }
 rz0-process-host = { version = "0.1.0", path = "crates/process-host" }

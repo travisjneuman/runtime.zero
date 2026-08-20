@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "contract": "leftover_finding_input",
+  "platform": "fixture",
+  "input_evidence_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_id": "leftover.fixture",
+  "source_evidence_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "records": [
+    {
+      "finding_id": "leftover.fixture",
+      "subject_reference": "leftover:fixture",
+      "ownership": "runtime_owned",
+      "data_class": "orphaned_data",
+      "exact_evidence": null
+    }
+  ]
+}

@@ -1,8 +1,9 @@
 # Leftovers module
 
-`rz0-module-leftovers` is a development-only post-uninstall classifier over
-caller-supplied synthetic evidence. It maps records into the shared path-free
-finding contract.
+`rz0-module-leftovers` is the ownership-aware classifier used by the read-only
+`rz0 leftovers --dry-run` foundation surface. It maps bounded runtime.zero-owned
+module/log evidence or caller-supplied fixture evidence into the shared
+path-free finding contract.
 
 Current policy:
 
@@ -13,13 +14,17 @@ Current policy:
   according to foundation policy;
 - classification never grants action authority.
 
-The package does not scan filesystems, package receipts, shims, services,
-launch entries, or PATH; it does not plan writes, quarantine, restore, or delete.
-It has no binary/process protocol, live platform capability, signed lifecycle
-artifact, or core integration. Its manifest remains `planned`.
+The core live adapter inspects only runtime.zero's own module and log roots. It
+rejects root symlinks, skips descendant symlinks and special files, caps entries
+and aggregate bytes, deduplicates warnings, and emits directory-listing
+evidence without treating it as an action-ready file identity. It does not scan
+package receipts, shims, services, launch entries, or PATH; neither live nor
+fixture mode writes, plans, quarantines, restores, or deletes anything. Its
+manifest remains `planned`.
 
-Completion requires bounded post-uninstall adapters on every target, exact
-ownership/provenance and stale-state proof, adversarial/partial-evidence
-fixtures, finding-bound plans, receipt-scoped quarantine/restore, retention and
-conflict policy, cancellation/recovery, CLI/JSON/TUI, and all release-ledger
-cells. Broad recursive leftover scans remain out of scope.
+Before 1.0 it needs exact ownership/provenance and stale-state proof,
+adversarial/partial-evidence fixtures, finding-bound plans, receipt-scoped
+quarantine/restore, retention and conflict policy, cancellation/recovery,
+platform parity, and all release-ledger cells. Broad recursive leftover scans
+remain out of scope. The TUI Diagnostics workspace shows the same bounded
+observation and warning state; it does not add a second action path.

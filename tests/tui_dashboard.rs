@@ -23,6 +23,10 @@ fn dashboard_does_not_claim_active_feature_modules() {
     assert_eq!(dashboard.update_check_status, "not checked");
     assert_eq!(dashboard.update_candidate_count, 0);
     assert!(dashboard.cache_status.starts_with("live") || dashboard.cache_status == "unavailable");
+    assert!(
+        dashboard.leftovers_status.starts_with("live")
+            || dashboard.leftovers_status == "unavailable"
+    );
     let diagnostics = dashboard
         .sections
         .iter()
@@ -32,8 +36,8 @@ fn dashboard_does_not_claim_active_feature_modules() {
         diagnostics
             .rows
             .iter()
-            .any(|row| row.value.contains("cache observations")
-                || row.value.contains("cache evidence unavailable"))
+            .any(|row| row.value.contains("bounded evidence")
+                || row.value.contains("cache/leftovers evidence unavailable"))
     );
     let monitor = dashboard
         .sections

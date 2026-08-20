@@ -740,6 +740,7 @@ dependencies = [
  "rz0-inventory-contract",
  "rz0-module-cache",
  "rz0-module-inventory",
+ "rz0-module-leftovers",
  "rz0-module-lifecycle",
  "rz0-module-uninstall",
  "rz0-module-updater",

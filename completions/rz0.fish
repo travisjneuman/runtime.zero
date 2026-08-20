@@ -3,6 +3,7 @@ complete -c rz0 -f
 complete -c rz0 -n '__fish_use_subcommand' -a doctor -d 'Show privacy-safe diagnostics'
 complete -c rz0 -n '__fish_use_subcommand' -a apps -d 'List path-free installed software'
 complete -c rz0 -n '__fish_use_subcommand' -a cache -d 'Review bounded cache evidence without mutation'
+complete -c rz0 -n '__fish_use_subcommand' -a leftovers -d 'Review bounded runtime.zero-owned evidence without mutation'
 complete -c rz0 -n '__fish_use_subcommand' -a uninstall -d 'Build a read-only uninstall plan'
 complete -c rz0 -n '__fish_use_subcommand' -a modules -d 'Inspect module manifests and plans'
 complete -c rz0 -n '__fish_use_subcommand' -a store -d 'Inspect or initialize the local store'
@@ -45,6 +46,10 @@ complete -c rz0 -n '__fish_seen_subcommand_from cache' -l dry-run
 complete -c rz0 -n '__fish_seen_subcommand_from cache' -l fixture -rF
 complete -c rz0 -n '__fish_seen_subcommand_from cache' -l format -xa 'text json'
 complete -c rz0 -n '__fish_seen_subcommand_from cache' -l json
+complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l dry-run
+complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l fixture -rF
+complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l format -xa 'text json'
+complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l json
 complete -c rz0 -n '__fish_seen_subcommand_from store' -a 'plan status init'
 complete -c rz0 -n '__fish_seen_subcommand_from store' -l store-root -rF
 complete -c rz0 -n '__fish_seen_subcommand_from store' -l dry-run

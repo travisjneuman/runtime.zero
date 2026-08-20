@@ -49,8 +49,9 @@ confirmation/transaction/runtime gates.
 The contract is implemented and fixture-tested. The updater now emits it from
 strict fixture, captured-manager, and explicit live-probe evidence before
 building action plans. Core uninstall reviews emit shared findings, and the
-cache family now emits bounded known-root live evidence through
-`rz0 cache --dry-run`; leftovers and integrity remain synthetic classifiers.
+cache and leftovers now emit bounded live evidence through `rz0 cache --dry-run`
+and `rz0 leftovers --dry-run`; security/integrity remains a synthetic
+classifier.
 
 Every remaining domain needs comprehensive adversarial fixtures, bounded live
 adapters, exact source provenance, CLI/JSON/TUI integration, and artifact-only

@@ -72,6 +72,33 @@ fn cache_review_has_a_scriptable_read_only_contract() {
 }
 
 #[test]
+fn leftovers_review_has_a_scriptable_read_only_contract() {
+    let fixture = format!(
+        "{}/tests/fixtures/leftovers/valid.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let (code, out, err) = run([
+        "leftovers",
+        "--dry-run",
+        "--fixture",
+        &fixture,
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("leftovers JSON");
+    assert_eq!(value["contract"], "leftovers_review");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["raw_paths_included"], false);
+    assert_eq!(
+        value["finding_report"]["contract"],
+        "classified_finding_report"
+    );
+}
+
+#[test]
 fn doctor_is_read_only_bootstrap_diagnostic() {
     let (code, out, err) = run(["doctor"]);
     assert_eq!(code, ExitCode::Ok);

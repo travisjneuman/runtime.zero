@@ -132,6 +132,21 @@ The JSON result contains a `cache_review` envelope and the shared
 `classified_finding_report`. User/shared/unknown cache data remains report-only
 or blocked. The TUI Diagnostics workspace shows the same observation status.
 
+### Leftover evidence
+
+```bash
+rz0 leftovers --dry-run
+rz0 leftovers --dry-run --format json
+rz0 leftovers --dry-run --fixture tests/fixtures/leftovers/valid.json --format json
+```
+
+Leftover review is bounded and read-only. Live mode inspects only runtime.zero
+module and log roots; it never scans the home directory, profile, drive, PATH,
+package receipts, services, or launch entries. Symlinks and special files are
+skipped, entry/byte ceilings are enforced, and directory-listing evidence is
+report-only because it does not prove stale ownership or a safe exact-file
+transaction. No cleanup, quarantine, restore, or deletion is authorized.
+
 ### System monitor
 
 ```bash

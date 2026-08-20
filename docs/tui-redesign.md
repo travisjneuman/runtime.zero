@@ -56,6 +56,9 @@ Rules:
 - Diagnostics includes the bounded cache observation count and warning state
   from the same `cache_review` contract as `rz0 cache --dry-run`; it never
   exposes a second cleanup or quarantine action path.
+- Diagnostics combines bounded leftovers evidence with the cache row so the
+  shell does not grow a second command rail; it uses the same `leftovers_review`
+  contract as `rz0 leftovers --dry-run` and remains report-only.
 - Help is a modal overlay, not a permanent panel. Search and confirmation use
   the same modal treatment.
 - The footer is one status line plus one short key line. Long prose belongs in

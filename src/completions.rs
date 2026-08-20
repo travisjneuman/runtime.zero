@@ -47,6 +47,7 @@ mod tests {
                 "doctor",
                 "apps",
                 "cache",
+                "leftovers",
                 "uninstall",
                 "modules",
                 "store",
