@@ -12,11 +12,18 @@ rz0 modules --from <directory>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
 rz0 modules install --dry-run <package-dir-or-manifest> --format json
+rz0 modules lifecycle-plan install --dry-run --module-id first-party.inventory \
+  --from-state absent --to-state installed_inactive --to-version 0.1.0
 ```
 
 The loader is read-only. It reads JSON metadata from the local filesystem and
 returns validation results and dry-run plans. It does not fetch remote content,
 install modules, enable modules, run module code, or repair invalid manifests.
+
+Lifecycle review is separate from manifest loading. The
+`modules lifecycle-plan` command renders the crate-owned transition grammar,
+including its ordered gates and digest, but it does not publish or execute any
+state transition.
 
 ## Manifest shape
 

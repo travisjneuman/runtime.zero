@@ -73,6 +73,7 @@ rz0 modules --format json
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
+rz0 modules lifecycle-plan install --dry-run --module-id first-party.inventory --from-state absent --to-state installed_inactive --to-version 0.1.0
 rz0 store plan
 rz0 store plan --format json
 rz0 store status
@@ -149,6 +150,16 @@ and forbidden path classes. The `launch_context` object records that explicit
 subcommands stay on the scriptable CLI path. These are contract fields only:
 the command still creates no directories, writes no registry or receipt files,
 and launches no TUI.
+
+`rz0 modules lifecycle-plan` exposes the canonical schema-1 transition grammar
+without adding a second lifecycle implementation. It requires an operation,
+module ID, source state, destination state, and `--dry-run`; versions are
+required by the transition grammar when the selected operation needs them. The
+output includes the exact ordered foundation gates and a SHA-256 plan digest.
+It is useful for review, fixtures, and future TUI/CLI parity, but it does not
+publish registry state, consume confirmation, launch module code, or authorize
+execution. Invalid transitions, such as upgrading an active module, fail
+closed.
 
 See [`manifest-validation.md`](manifest-validation.md) for the validation
 contract and current trust boundaries. See

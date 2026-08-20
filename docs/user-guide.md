@@ -326,6 +326,8 @@ remains blocked pending ACL/runtime proof.
 rz0 modules
 rz0 modules validate modules/inventory/rz0-module.json
 rz0 modules install --dry-run modules/inventory
+rz0 modules lifecycle-plan invoke --dry-run --module-id first-party.inventory \
+  --from-state active --to-state active --from-version 0.1.0 --to-version 0.1.0
 ```
 
 These commands parse, validate, hash, and plan. They do not install, activate,

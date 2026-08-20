@@ -287,6 +287,10 @@ a nested `store` object with the future store schema and paths, plus a
 `launch_context` object proving the command ran as an explicit scriptable CLI
 subcommand.
 
+`rz0 modules lifecycle-plan` is also an explicit scriptable CLI subcommand. It
+renders a digest-bound schema-1 lifecycle plan and never initializes the store,
+publishes a registry, or launches a module.
+
 The store contract includes safety flags:
 
 - `rollback_supported`;

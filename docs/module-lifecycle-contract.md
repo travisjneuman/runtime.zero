@@ -56,3 +56,17 @@ The core module-install dry-run now embeds the canonical foundation install
 transition instead of maintaining a private lifecycle model. No lifecycle plan
 installs, activates, invokes, repairs, migrates, upgrades, deactivates, or removes
 anything.
+
+The CLI review surface is:
+
+```bash
+rz0 modules lifecycle-plan <operation> --dry-run \
+  --module-id <module-id> \
+  --from-state <state> --to-state <state> \
+  [--from-version <version>] [--to-version <version>] \
+  [--transition-id <id>] [--format text|json]
+```
+
+This is a plan renderer over the crate-owned grammar, not lifecycle execution.
+It is intentionally available before the future registry publication and
+trust/runtime gates are complete.

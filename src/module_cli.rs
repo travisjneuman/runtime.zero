@@ -4,6 +4,7 @@ use std::path::Path;
 use crate::{
     ExitCode, brand, module_install_plan, module_manifest, module_registry, module_validation,
 };
+use rz0_module_lifecycle::{ModuleLifecycleOperation, ModuleLifecycleState, module_lifecycle_plan};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OutputFormat {
@@ -25,6 +26,16 @@ enum ModulesAction {
         path: String,
         format: OutputFormat,
     },
+    LifecyclePlan {
+        operation: ModuleLifecycleOperation,
+        module_id: String,
+        from_state: ModuleLifecycleState,
+        to_state: ModuleLifecycleState,
+        from_version: Option<String>,
+        to_version: Option<String>,
+        transition_id: Option<String>,
+        format: OutputFormat,
+    },
 }
 
 pub fn modules_command(args: &[String]) -> (ExitCode, String, String) {
@@ -33,6 +44,25 @@ pub fn modules_command(args: &[String]) -> (ExitCode, String, String) {
         Ok(ModulesAction::List { format, from }) => render_modules(format, from.as_deref()),
         Ok(ModulesAction::Validate { path, format }) => render_validation(format, &path),
         Ok(ModulesAction::InstallDryRun { path, format }) => render_install_plan(format, &path),
+        Ok(ModulesAction::LifecyclePlan {
+            operation,
+            module_id,
+            from_state,
+            to_state,
+            from_version,
+            to_version,
+            transition_id,
+            format,
+        }) => render_lifecycle_plan(
+            format,
+            operation,
+            &module_id,
+            from_state,
+            to_state,
+            from_version,
+            to_version,
+            transition_id,
+        ),
         Err(err) => (ExitCode::Usage, String::new(), err),
     }
 }
@@ -52,6 +82,7 @@ fn parse_modules_args(args: &[String]) -> Result<ModulesAction, String> {
         }
         Some("validate") => parse_validate_args(&args[1..]),
         Some("install") => parse_install_args(&args[1..]),
+        Some("lifecycle-plan") => parse_lifecycle_plan_args(&args[1..]),
         _ => parse_list_args(args),
     }
 }
@@ -126,6 +157,109 @@ fn parse_install_args(args: &[String]) -> Result<ModulesAction, String> {
     Ok(install_dry_run_action(&path, format))
 }
 
+fn parse_lifecycle_plan_args(args: &[String]) -> Result<ModulesAction, String> {
+    let mut operation = None;
+    let mut module_id = None;
+    let mut from_state = None;
+    let mut to_state = None;
+    let mut from_version = None;
+    let mut to_version = None;
+    let mut transition_id = None;
+    let mut format = OutputFormat::Text;
+    let mut dry_run = false;
+    let mut index = 0usize;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--dry-run" if !dry_run => dry_run = true,
+            "--dry-run" => return Err(lifecycle_plan_usage()),
+            "--module-id" => set_option(&mut module_id, args, &mut index, "module id")?,
+            "--from-state" => set_option(&mut from_state, args, &mut index, "from state")?,
+            "--to-state" => set_option(&mut to_state, args, &mut index, "to state")?,
+            "--from-version" => set_option(&mut from_version, args, &mut index, "from version")?,
+            "--to-version" => set_option(&mut to_version, args, &mut index, "to version")?,
+            "--transition-id" => set_option(&mut transition_id, args, &mut index, "transition id")?,
+            "--json" => format = OutputFormat::Json,
+            "--format" => format = parse_format(args, &mut index)?,
+            value if operation.is_none() => operation = Some(parse_operation(value)?),
+            _ => return Err(lifecycle_plan_usage()),
+        }
+        index += 1;
+    }
+
+    if !dry_run {
+        return Err(lifecycle_plan_usage());
+    }
+    let Some(operation) = operation else {
+        return Err(lifecycle_plan_usage());
+    };
+    let Some(module_id) = module_id else {
+        return Err(lifecycle_plan_usage());
+    };
+    let Some(from_state) = from_state.and_then(|value| parse_state(&value).ok()) else {
+        return Err(lifecycle_plan_usage());
+    };
+    let Some(to_state) = to_state.and_then(|value| parse_state(&value).ok()) else {
+        return Err(lifecycle_plan_usage());
+    };
+
+    Ok(ModulesAction::LifecyclePlan {
+        operation,
+        module_id: module_id.clone(),
+        from_state,
+        to_state,
+        from_version,
+        to_version,
+        transition_id,
+        format,
+    })
+}
+
+fn set_option(
+    slot: &mut Option<String>,
+    args: &[String],
+    index: &mut usize,
+    label: &str,
+) -> Result<(), String> {
+    let Some(value) = args.get(*index + 1) else {
+        return Err(format!("missing {label}\n\n{}", lifecycle_plan_usage()));
+    };
+    if slot.replace(value.clone()).is_some() {
+        return Err(format!("{label} was provided more than once"));
+    }
+    *index += 1;
+    Ok(())
+}
+
+fn parse_operation(value: &str) -> Result<ModuleLifecycleOperation, String> {
+    match value {
+        "install" => Ok(ModuleLifecycleOperation::Install),
+        "activate" => Ok(ModuleLifecycleOperation::Activate),
+        "invoke" => Ok(ModuleLifecycleOperation::Invoke),
+        "deactivate" => Ok(ModuleLifecycleOperation::Deactivate),
+        "repair" => Ok(ModuleLifecycleOperation::Repair),
+        "migrate" => Ok(ModuleLifecycleOperation::Migrate),
+        "upgrade" => Ok(ModuleLifecycleOperation::Upgrade),
+        "uninstall" => Ok(ModuleLifecycleOperation::Uninstall),
+        _ => Err(format!(
+            "unsupported lifecycle operation '{value}'\n\n{}",
+            lifecycle_plan_usage()
+        )),
+    }
+}
+
+fn parse_state(value: &str) -> Result<ModuleLifecycleState, String> {
+    match value {
+        "absent" => Ok(ModuleLifecycleState::Absent),
+        "staged" => Ok(ModuleLifecycleState::Staged),
+        "installed_inactive" => Ok(ModuleLifecycleState::InstalledInactive),
+        "active" => Ok(ModuleLifecycleState::Active),
+        "degraded" => Ok(ModuleLifecycleState::Degraded),
+        "quarantined" => Ok(ModuleLifecycleState::Quarantined),
+        _ => Err(format!("unsupported lifecycle state '{value}'")),
+    }
+}
+
 fn parse_format(args: &[String], index: &mut usize) -> Result<OutputFormat, String> {
     let Some(value) = args.get(*index + 1).map(String::as_str) else {
         return Err(usage_error(args));
@@ -141,6 +275,13 @@ fn parse_format(args: &[String], index: &mut usize) -> Result<OutputFormat, Stri
 fn install_dry_run_usage() -> String {
     format!(
         "module install planning is dry-run only\n\nUsage: {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n",
+        brand::COMMAND
+    )
+}
+
+fn lifecycle_plan_usage() -> String {
+    format!(
+        "module lifecycle planning is dry-run only\n\nUsage: {} modules lifecycle-plan <install|activate|invoke|deactivate|repair|migrate|upgrade|uninstall> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--transition-id <id>] [--format text|json]\n\nStates: absent, staged, installed_inactive, active, degraded, quarantined\nSafety: this command creates a digest-bound, non-authorizing plan; it does not write, execute, activate, disable, or uninstall a module.\n",
         brand::COMMAND
     )
 }
@@ -205,6 +346,149 @@ fn render_install_plan(format: OutputFormat, path: &str) -> (ExitCode, String, S
             Ok(json) => (code, format!("{json}\n"), String::new()),
             Err(err) => (ExitCode::Usage, String::new(), err.to_string()),
         },
+    }
+}
+
+fn render_lifecycle_plan(
+    format: OutputFormat,
+    operation: ModuleLifecycleOperation,
+    module_id: &str,
+    from_state: ModuleLifecycleState,
+    to_state: ModuleLifecycleState,
+    from_version: Option<String>,
+    to_version: Option<String>,
+    transition_id: Option<String>,
+) -> (ExitCode, String, String) {
+    let transition_id = transition_id.unwrap_or_else(|| {
+        format!(
+            "module-lifecycle-{}-{}",
+            operation_label(operation),
+            module_id
+        )
+    });
+    let plan = module_lifecycle_plan(
+        transition_id,
+        module_id.to_string(),
+        operation,
+        from_state,
+        to_state,
+        from_version,
+        to_version,
+    );
+    match plan {
+        Ok(plan) => match format {
+            OutputFormat::Text => (ExitCode::Ok, lifecycle_plan_text(&plan), String::new()),
+            OutputFormat::Json => match serde_json::to_string_pretty(&plan) {
+                Ok(json) => (ExitCode::Ok, format!("{json}\n"), String::new()),
+                Err(err) => (ExitCode::Usage, String::new(), err.to_string()),
+            },
+        },
+        Err(validation) => {
+            let message = match format {
+                OutputFormat::Text => {
+                    let mut out = format!(
+                        "{} module lifecycle plan\n\nstatus: invalid\n",
+                        brand::TITLE
+                    );
+                    for error in validation.errors {
+                        let _ = writeln!(out, "error: {error}");
+                    }
+                    out
+                }
+                OutputFormat::Json => {
+                    serde_json::json!({
+                        "schema_version": rz0_module_lifecycle::MODULE_LIFECYCLE_SCHEMA_VERSION,
+                        "contract": rz0_module_lifecycle::MODULE_LIFECYCLE_CONTRACT,
+                        "valid": false,
+                        "errors": validation.errors,
+                        "dry_run": true,
+                        "writes_attempted": false,
+                        "product_execution_authorized": false,
+                    })
+                    .to_string()
+                        + "\n"
+                }
+            };
+            (ExitCode::Usage, message, String::new())
+        }
+    }
+}
+
+fn lifecycle_plan_text(plan: &rz0_module_lifecycle::ModuleLifecyclePlan) -> String {
+    let mut out = format!("{} module lifecycle plan\n\n", brand::TITLE);
+    let _ = writeln!(out, "status: valid");
+    let _ = writeln!(out, "contract: {}", plan.contract);
+    let _ = writeln!(out, "transition_id: {}", plan.transition_id);
+    let _ = writeln!(out, "module_id: {}", plan.module_id);
+    let _ = writeln!(out, "operation: {}", operation_label(plan.operation));
+    let _ = writeln!(out, "from_state: {}", state_label(plan.from_state));
+    let _ = writeln!(out, "to_state: {}", state_label(plan.to_state));
+    let _ = writeln!(
+        out,
+        "from_version: {}",
+        optional_value(plan.from_version.as_deref())
+    );
+    let _ = writeln!(
+        out,
+        "to_version: {}",
+        optional_value(plan.to_version.as_deref())
+    );
+    let _ = writeln!(
+        out,
+        "required_gates: {}",
+        plan.required_gates
+            .iter()
+            .map(|gate| format!("{gate:?}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    let _ = writeln!(out, "dry_run: {}", plan.dry_run);
+    let _ = writeln!(out, "writes_attempted: {}", plan.writes_attempted);
+    let _ = writeln!(out, "would_mutate: {}", plan.would_mutate);
+    let _ = writeln!(out, "rollback_required: {}", plan.rollback_required);
+    let _ = writeln!(
+        out,
+        "explicit_confirmation_required: {}",
+        plan.explicit_confirmation_required
+    );
+    let _ = writeln!(
+        out,
+        "product_execution_authorized: {}",
+        plan.product_execution_authorized
+    );
+    let _ = writeln!(out, "plan_sha256: {}", plan.plan_sha256);
+    let _ = writeln!(
+        out,
+        "safety: dry-run plan only; no lifecycle action was executed"
+    );
+    out
+}
+
+fn optional_value(value: Option<&str>) -> &str {
+    value.unwrap_or("none")
+}
+
+fn operation_label(operation: ModuleLifecycleOperation) -> &'static str {
+    match operation {
+        ModuleLifecycleOperation::Install => "install",
+        ModuleLifecycleOperation::Activate => "activate",
+        ModuleLifecycleOperation::Invoke => "invoke",
+        ModuleLifecycleOperation::Deactivate => "deactivate",
+        ModuleLifecycleOperation::Repair => "repair",
+        ModuleLifecycleOperation::Migrate => "migrate",
+        ModuleLifecycleOperation::Upgrade => "upgrade",
+        ModuleLifecycleOperation::Uninstall => "uninstall",
+    }
+}
+
+fn state_label(state: ModuleLifecycleState) -> &'static str {
+    match state {
+        ModuleLifecycleState::Absent => "absent",
+        ModuleLifecycleState::Staged => "staged",
+        ModuleLifecycleState::InstalledInactive => "installed_inactive",
+        ModuleLifecycleState::Active => "active",
+        ModuleLifecycleState::Degraded => "degraded",
+        ModuleLifecycleState::Quarantined => "quarantined",
     }
 }
 
@@ -339,7 +623,8 @@ fn usage_error(args: &[String]) -> String {
 
 fn modules_usage() -> String {
     format!(
-        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n\nSafety: module install planning is dry-run only; modules are not executed or fetched.\n",
+        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n\nSafety: module install and lifecycle planning are dry-run only; modules are not executed or fetched.\n",
+        brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND

@@ -29,8 +29,14 @@ complete -c rz0 -n '__fish_seen_subcommand_from uninstall' -a plan
 complete -c rz0 -n '__fish_seen_subcommand_from uninstall' -l executable -rF
 complete -c rz0 -n '__fish_seen_subcommand_from uninstall' -l format -xa 'text json'
 complete -c rz0 -n '__fish_seen_subcommand_from uninstall' -l json
-complete -c rz0 -n '__fish_seen_subcommand_from modules' -a 'validate install'
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -a 'validate install lifecycle-plan'
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l from -rF
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l module-id
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l from-state -xa 'absent staged installed_inactive active degraded quarantined'
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l to-state -xa 'absent staged installed_inactive active degraded quarantined'
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l from-version
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l to-version
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l transition-id
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l dry-run
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l format -xa 'text json'
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l json

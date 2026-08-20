@@ -95,6 +95,7 @@ fn subcommand_help_is_scriptable_and_successful() {
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
     assert!(out.contains("rz0 modules install --dry-run"));
+    assert!(out.contains("rz0 modules lifecycle-plan"));
     assert!(out.contains("modules are not executed or fetched"));
 
     let (code, out, err) = run(["store", "--help"]);
@@ -116,6 +117,57 @@ fn subcommand_help_is_scriptable_and_successful() {
 }
 
 #[test]
+fn module_lifecycle_plan_is_digest_bound_and_non_authorizing() {
+    let (code, out, err) = run([
+        "modules",
+        "lifecycle-plan",
+        "install",
+        "--dry-run",
+        "--module-id",
+        "first-party.inventory",
+        "--from-state",
+        "absent",
+        "--to-state",
+        "installed_inactive",
+        "--to-version",
+        "0.1.0",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("lifecycle plan JSON");
+    assert_eq!(value["contract"], "module_lifecycle_plan");
+    assert_eq!(value["operation"], "install");
+    assert_eq!(value["dry_run"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["product_execution_authorized"], false);
+    assert_eq!(value["explicit_confirmation_required"], true);
+    assert_eq!(value["required_gates"].as_array().unwrap().len(), 7);
+    assert_eq!(value["plan_sha256"].as_str().unwrap().len(), 64);
+
+    let (code, out, err) = run([
+        "modules",
+        "lifecycle-plan",
+        "upgrade",
+        "--dry-run",
+        "--module-id",
+        "first-party.inventory",
+        "--from-state",
+        "active",
+        "--to-state",
+        "installed_inactive",
+        "--from-version",
+        "0.1.0",
+        "--to-version",
+        "0.2.0",
+    ]);
+    assert_eq!(code, ExitCode::Usage);
+    assert!(err.is_empty());
+    assert!(out.contains("unsafe or impossible lifecycle transition"));
+}
+
+#[test]
 fn root_help_mentions_store_root_override() {
     let (code, out, err) = run(["--help"]);
     assert_eq!(code, ExitCode::Ok);
@@ -130,6 +182,7 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("rz0 updates --dry-run --fixture"));
     assert!(out.contains("rz0 updates --dry-run --all-providers"));
     assert!(out.contains("rz0 updates --recovery-status --transaction"));
+    assert!(out.contains("rz0 modules lifecycle-plan"));
 }
 
 #[test]

@@ -76,6 +76,12 @@ Validate one local manifest without loading or executing code.
 .B modules install --dry-run PACKAGE [--format text|json]
 Build a non-authorizing module lifecycle installation plan.
 .TP
+.B modules lifecycle-plan OPERATION --dry-run --module-id ID --from-state STATE --to-state STATE [--from-version VERSION] [--to-version VERSION] [--format text|json]
+Render one digest-bound schema-1 module lifecycle plan. This is a review-only
+surface; it does not publish registry state, execute code, or authorize a
+lifecycle action. Supported operations are install, activate, invoke,
+deactivate, repair, migrate, upgrade, and uninstall.
+.TP
 .B store plan|status|init
 Inspect the local store or explicitly create only runtime.zero-owned user-local
 scaffolding. Use

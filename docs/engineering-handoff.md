@@ -243,6 +243,7 @@ The target command shape is illustrative, not current CLI behavior:
 rz0 modules list --all
 rz0 modules inspect <module-id>
 rz0 modules install <package> --dry-run
+rz0 modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state>
 rz0 modules enable <module-id> --dry-run
 rz0 modules enable <module-id> --confirm <exact-phrase>
 rz0 modules disable <module-id> --dry-run
@@ -258,6 +259,11 @@ runtime, registry publication, trust, configuration, receipts, recovery, and
 TUI flows can support them. The current repository exposes listing, validation,
 store inspection, and installation planning only; it does not yet expose these
 mutating module lifecycle commands.
+
+The current `modules lifecycle-plan` command is a bounded review renderer for
+the crate-owned schema-1 transition grammar. It is not one of the mutating
+commands above: it does not publish state, consume confirmation, execute
+module code, or authorize a transition.
 
 ## Architecture required to reach the end state
 

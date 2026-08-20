@@ -128,6 +128,7 @@ rz0 updates --apply --all-providers --allow-network-read --allow-network-write -
 rz0 modules [--from <directory>] [--format text|json]
 rz0 modules validate <manifest.json> [--format text|json]
 rz0 modules install --dry-run <package> [--format text|json]
+rz0 modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]
 rz0 store plan [--format text|json]
 rz0 store status [--store-root <path>] [--format text|json]
 rz0 store init --dry-run|--yes [--format text|json]

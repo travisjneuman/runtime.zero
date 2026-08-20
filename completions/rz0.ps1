@@ -22,7 +22,7 @@ Register-ArgumentCompleter -Native -CommandName rz0 -ScriptBlock {
     } elseif ($tokens[1] -eq 'store') {
         @('plan','status','init','--store-root','--dry-run','--yes','--format','--json','--help')
     } elseif ($tokens[1] -eq 'modules') {
-        @('validate','install','--from','--format','--json','--help')
+        @('validate','install','lifecycle-plan','--from','--module-id','--from-state','--to-state','--from-version','--to-version','--transition-id','--dry-run','--format','--json','--help')
     } elseif ($tokens[1] -eq 'scan') {
         @('--dry-run','--include-raw-paths','--format','--json','--help')
     } else {

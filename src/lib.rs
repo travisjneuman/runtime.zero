@@ -107,6 +107,13 @@ pub fn help_text() -> String {
     if let Some(index) = help.find(&format!("  {} report", brand::COMMAND)) {
         help.insert_str(index, &toolchain_usage);
     }
+    let lifecycle_usage = format!(
+        "  {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n",
+        brand::COMMAND
+    );
+    if let Some(index) = help.find("\n\nFoundation safety posture:") {
+        help.insert_str(index, &format!("\n{lifecycle_usage}"));
+    }
     let provider_usage = format!(
         "  {} updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback\n",
         brand::COMMAND,

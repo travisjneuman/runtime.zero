@@ -28,7 +28,7 @@ _rz0_complete() {
     case "$command" in
         doctor|apps|monitor|toolchain|report) COMPREPLY=( $(compgen -W '--format --json --help' -- "$current") ) ;;
         uninstall) COMPREPLY=( $(compgen -W 'plan --executable --format --json --help' -- "$current") ) ;;
-        modules) COMPREPLY=( $(compgen -W 'validate install --from --format --json --help' -- "$current") ) ;;
+        modules) COMPREPLY=( $(compgen -W 'validate install lifecycle-plan --from --module-id --from-state --to-state --from-version --to-version --transition-id --dry-run --format --json --help' -- "$current") ) ;;
         store) COMPREPLY=( $(compgen -W 'plan status init --store-root --dry-run --yes --format --json --help' -- "$current") ) ;;
         scan) COMPREPLY=( $(compgen -W '--dry-run --include-raw-paths --format --json --help' -- "$current") ) ;;
         updates) COMPREPLY=( $(compgen -W '--dry-run --fixture --manager-output --manager --executable --probe --allow-network-read --plan --queue --apply --action --all --confirm --challenge-issued-unix-seconds --accept-no-rollback --allow-network-write --recovery-status --transaction --format --json --help' -- "$current") ) ;;

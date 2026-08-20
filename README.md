@@ -33,6 +33,7 @@ rz0 modules --format json
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
+rz0 modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>]
 rz0 store plan
 rz0 store plan --format json
 rz0 store status

@@ -59,6 +59,7 @@ mod tests {
                 assert!(output.contains(command), "{shell} omitted {command}");
             }
             assert!(output.contains("recovery-status"));
+            assert!(output.contains("lifecycle-plan"));
             assert!(error.is_empty());
         }
     }
