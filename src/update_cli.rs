@@ -1,4 +1,6 @@
-use std::io::{self, Cursor, IsTerminal, Read, Write};
+#[cfg(target_os = "macos")]
+use std::io::Cursor;
+use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 use std::{collections::BTreeMap, fs};
 
@@ -2080,11 +2082,6 @@ fn discover_sparkle_apps() -> Vec<String> {
     apps.sort();
     apps.dedup();
     apps
-}
-
-#[cfg(not(target_os = "macos"))]
-fn discover_sparkle_apps() -> Vec<String> {
-    Vec::new()
 }
 
 #[cfg(not(target_os = "macos"))]
