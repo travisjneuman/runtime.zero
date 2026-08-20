@@ -7,12 +7,13 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `f50eb5b` (`Expose bounded cache review surface`).
+  `87aef29` (`Expose bounded leftovers review surface`).
 - **Current behavior implementation:**
-  `f50eb5b` on `main`, including the redesigned TUI, Rust toolchain contract,
-  AIUP updater-provider adapter, bounded cache evidence review, digest-bound
-  lifecycle planning, explicit provider ownership in Toolchain rows, guarded
-  Windows store initialization, and independent portable-package verification.
+  `87aef29` on `main`, including the redesigned TUI, Rust toolchain contract,
+  AIUP updater-provider adapter, bounded cache and leftovers evidence review,
+  digest-bound lifecycle planning, explicit provider ownership in Toolchain rows,
+  guarded Windows store initialization, and independent portable-package
+  verification.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -21,11 +22,12 @@
   quarantine/restore, module lifecycle execution, Windows execution, and
   third-party execution remain unavailable.
 
-The cache slice is pushed at `f50eb5b`; local `main` and `origin/main` matched
-after publication. The source validation baseline passes `cargo fmt --all
--- --check`, `cargo test --workspace --locked`, strict workspace Clippy,
-Linux/Windows cross-target `cargo check`, and `git diff --check`. The final
-release artifact must be rebuilt against the exact post-documentation head;
+The cache slice is pushed at `f50eb5b` and the leftovers slice at `87aef29`;
+local `main` and `origin/main` matched after publication. The source validation
+baseline passes `cargo fmt --all -- --check`, `cargo test --workspace --locked`,
+strict workspace Clippy, Linux/Windows cross-target `cargo check`, and
+`git diff --check`. The final release artifact must be rebuilt against the exact
+post-documentation head;
 the macOS arm64 artifact remains unsigned and unnotarized until an owner-led
 signing/notarization lane exists. Exact package hashes belong in the private
 runtime.zero handoff note.
