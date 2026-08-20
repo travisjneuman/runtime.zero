@@ -36,7 +36,7 @@ type DashboardLoadResult = Result<tui_dashboard::TuiDashboard, String>;
 
 enum TuiUpdateResult {
     Review(Result<LiveUpdateReview, String>),
-    Challenge(Result<TuiUpdateChallenge, String>),
+    Challenge(Box<Result<TuiUpdateChallenge, String>>),
     Execution(Result<UpdateExecutionReport, String>),
 }
 
@@ -225,9 +225,9 @@ fn poll_update_result(
             Some(UpdatePhase::Check) | None => {
                 TuiUpdateResult::Review(Err("update worker disconnected".to_string()))
             }
-            Some(UpdatePhase::Prepare) => TuiUpdateResult::Challenge(Err(
+            Some(UpdatePhase::Prepare) => TuiUpdateResult::Challenge(Box::new(Err(
                 "update preparation worker disconnected".to_string(),
-            )),
+            ))),
             Some(UpdatePhase::Execute) => {
                 TuiUpdateResult::Execution(Err("update execution worker disconnected".to_string()))
             }
@@ -317,7 +317,7 @@ fn start_update_prepare(
     let (sender, new_receiver) = mpsc::channel();
     thread::spawn(move || {
         let result = crate::update_cli::prepare_tui_update(&action_id, Some(&cancellation));
-        let _ = sender.send(TuiUpdateResult::Challenge(result));
+        let _ = sender.send(TuiUpdateResult::Challenge(Box::new(result)));
     });
     *controller = Some(new_controller);
     *receiver = Some(new_receiver);
@@ -394,7 +394,7 @@ fn finish_update_result(
         TuiUpdateResult::Challenge(result) => {
             *controller = None;
             *phase = None;
-            match result {
+            match *result {
                 Ok(challenge) => {
                     dashboard.complete_update_challenge(challenge);
                     state.begin_update_confirmation();

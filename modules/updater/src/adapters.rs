@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -728,6 +729,94 @@ pub struct ManagerParseContext {
     pub rollback_supported: bool,
 }
 
+/// Bounded text evidence emitted by AIUP's `--no-install --dry-run` mode.
+/// AIUP remains the provider-owned orchestrator; runtime.zero owns only this
+/// parser and the later plan/confirmation boundary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AiupDryRunReport {
+    pub commands: BTreeMap<String, Vec<String>>,
+    pub versions: BTreeMap<String, String>,
+}
+
+pub fn parse_aiup_dry_run(bytes: &[u8]) -> Result<AiupDryRunReport, String> {
+    if bytes.len() as u64 > MAX_MANAGER_OUTPUT_BYTES {
+        return Err("AIUP dry-run output exceeds the foundation ceiling".to_string());
+    }
+    let text = std::str::from_utf8(bytes)
+        .map_err(|_| "AIUP dry-run output is not valid UTF-8".to_string())?;
+    let mut commands = BTreeMap::<String, Vec<String>>::new();
+    let mut versions = BTreeMap::<String, String>::new();
+    let mut current_tool = None;
+    let mut in_versions = false;
+    for line in text.lines() {
+        if let Some(value) = line.split_once("TOOL START: ").map(|(_, value)| value)
+            && let Some(tool) = value.strip_suffix(" ==========")
+            && valid_aiup_field(tool, 80)
+        {
+            current_tool = Some(tool.to_string());
+            commands.entry(tool.to_string()).or_default();
+            in_versions = false;
+            continue;
+        }
+        if line.contains("=== Detected tool versions ===") {
+            current_tool = None;
+            in_versions = true;
+            continue;
+        }
+        if let Some(command) = line.split_once("DRY-RUN: ").map(|(_, value)| value.trim())
+            && let Some(tool) = current_tool.as_ref()
+            && !command.is_empty()
+            && command.len() <= 512
+            && !command.chars().any(char::is_control)
+        {
+            commands
+                .entry(tool.clone())
+                .or_default()
+                .push(command.to_string());
+            continue;
+        }
+        if in_versions {
+            let mut fields = line.split_whitespace();
+            let Some(tool) = fields.next() else {
+                continue;
+            };
+            let version = fields.collect::<Vec<_>>().join(" ");
+            if version.is_empty() {
+                continue;
+            }
+            if valid_aiup_field(tool, 80) && valid_aiup_version(&version) {
+                versions.insert(tool.to_string(), version);
+            }
+        }
+    }
+    Ok(AiupDryRunReport { commands, versions })
+}
+
+pub fn aiup_command_is_delegated(command: &str) -> bool {
+    let command = command.trim_start();
+    command == "brew update"
+        || command.starts_with("brew ")
+        || command.starts_with("npm ")
+        || command.starts_with("npm-update ")
+}
+
+fn valid_aiup_field(value: &str, maximum: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= maximum
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+}
+
+fn valid_aiup_version(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 120
+        && !value.chars().any(char::is_control)
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_' | b' '))
+}
+
 pub fn parse_manager_output(
     context: &ManagerParseContext,
     output: &[u8],
@@ -758,7 +847,10 @@ pub fn parse_manager_output(
         ManagerKind::Rustup => parse_rustup(context, text),
         ManagerKind::UvTools => parse_uv_tools(context, text),
         ManagerKind::Deno => parse_deno(context, text),
-        ManagerKind::Aiup | ManagerKind::CargoInstall => Ok(Vec::new()),
+        ManagerKind::Aiup => Err(
+            "AIUP output requires the provider-specific dry-run adapter; it is not a generic manager record stream".to_string(),
+        ),
+        ManagerKind::CargoInstall => Ok(Vec::new()),
         ManagerKind::Winget | ManagerKind::Zypper | ManagerKind::Snap | ManagerKind::Flatpak => {
             Err(format!(
                 "{} output parser is not yet locale-safe; source remains unavailable",
@@ -1576,6 +1668,33 @@ mod tests {
                 .expect("Warp observation")
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn parses_aiup_dry_run_as_bounded_provider_evidence() {
+        let report = parse_aiup_dry_run(
+            b"[INFO] ========== TOOL START: antigravity ==========\n\
+[INFO] DRY-RUN: curl -fsSL https://example.invalid/install.sh | bash\n\
+=== Detected tool versions ===\n\
+antigravity 1.1.12\n",
+        )
+        .expect("AIUP dry-run report");
+        assert_eq!(
+            report.versions.get("antigravity").map(String::as_str),
+            Some("1.1.12")
+        );
+        assert_eq!(report.commands["antigravity"].len(), 1);
+        assert!(!aiup_command_is_delegated(
+            &report.commands["antigravity"][0]
+        ));
+        assert!(aiup_command_is_delegated("npm install -g @openai/codex"));
+        assert!(parse_manager_output(&context(ManagerKind::Aiup), b"").is_err());
+    }
+
+    #[test]
+    fn aiup_dry_run_rejects_invalid_encoding_and_oversized_output() {
+        assert!(parse_aiup_dry_run(&[0xff]).is_err());
+        assert!(parse_aiup_dry_run(&vec![b'x'; MAX_MANAGER_OUTPUT_BYTES as usize + 1]).is_err());
     }
 
     #[test]

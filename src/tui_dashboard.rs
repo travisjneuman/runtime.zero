@@ -485,10 +485,6 @@ fn overview_section(
                     tone: if update_action_status.contains("failed") || !updates.warnings.is_empty()
                     {
                         "warn"
-                    } else if update_action_status.contains("executing")
-                        || update_action_status.contains("confirm")
-                    {
-                        "accent"
                     } else {
                         "accent"
                     },
@@ -752,15 +748,14 @@ fn installed_software_section(
                         .map(display_action_requirements)
                         .unwrap_or_else(|| "requirements unavailable".to_string())
                 );
-                if let Some(action) = action {
-                    if let Some(pending) = pending_update
+                if let Some(action) = action
+                    && let Some(pending) = pending_update
                         .filter(|pending| pending.action.action_id == action.action_id)
-                    {
-                        preview = format!(
-                            "{preview}; confirmation required: type `{}` then Enter · Esc cancels",
-                            pending.view.expected_phrase
-                        );
-                    }
+                {
+                    preview = format!(
+                        "{preview}; confirmation required: type `{}` then Enter · Esc cancels",
+                        pending.view.expected_phrase
+                    );
                 }
                 rows.push(TuiRow {
                     label: "[TOOL]",

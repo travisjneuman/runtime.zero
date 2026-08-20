@@ -29,6 +29,13 @@ A module manifest declares:
 - optional local package integrity metadata;
 - test fixtures.
 
+Provider adapters are not automatically lifecycle modules. For example, AIUP
+is a provider-owned orchestrator consumed by the first-party updater domain:
+runtime.zero reads its bounded no-install dry-run evidence, applies its own
+finding/plan/confirmation boundary, and delegates AIUP's catalog and native
+tool behavior back to AIUP. This keeps one updater module contract instead of
+creating a duplicate AIUP lifecycle, trust, or UI implementation.
+
 ## Design rule
 
 Every module must be safe to run in discovery/dry-run mode before it is allowed to mutate anything.

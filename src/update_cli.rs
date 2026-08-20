@@ -1,16 +1,17 @@
+use std::fs;
 #[cfg(target_os = "macos")]
 use std::io::Cursor;
 use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
-use std::{collections::BTreeMap, fs};
 
 use rz0_action_plan::{ActionDisposition, ActionPlan, PlanAction};
 use rz0_cancellation_contract::CancellationToken;
 use rz0_module_updater::{
     ManagerKind, ManagerParseContext, ProviderProbeSpec, SerialUpdateItemStatus,
-    SerialUpdateQueuePlan, UPDATE_QUEUE_CONTRACT, UpdaterFindingInput, build_serial_update_queue,
-    build_update_action_plan, classify_updates, discover_provider_specs_for_platform,
-    dynamic_provider_ids, manager_probe_specs, parse_manager_output,
+    SerialUpdateQueuePlan, UPDATE_QUEUE_CONTRACT, UpdaterFindingInput, aiup_command_is_delegated,
+    build_serial_update_queue, build_update_action_plan, classify_updates,
+    discover_provider_specs_for_platform, dynamic_provider_ids, manager_probe_specs,
+    parse_aiup_dry_run, parse_manager_output,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -307,7 +308,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         if parsed.all && (parsed.action.is_some() || parsed.all_providers) {
             return Err("--action, --all, and --all-providers are mutually exclusive".to_string());
         }
-        if !parsed.action.is_some() && !parsed.all && !parsed.all_providers {
+        if parsed.action.is_none() && !parsed.all && !parsed.all_providers {
             return Err(
                 "--apply requires an exact --action ID, --all, or --all-providers".to_string(),
             );
@@ -361,7 +362,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             );
         }
     }
-    if (parsed.action.is_some() && parsed.all) || (parsed.all && parsed.all_providers) {
+    if parsed.all && (parsed.action.is_some() || parsed.all_providers) {
         return Err("--action, --all, and --all-providers are mutually exclusive".to_string());
     }
     if parsed.confirm.is_some() && !parsed.apply {
@@ -1026,7 +1027,22 @@ fn collect_aiup_managed_updates(
             return;
         }
     };
-    let (commands, versions) = parse_aiup_dry_run(&bytes);
+    let parsed = match parse_aiup_dry_run(&bytes) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            sources.push(ProviderSourceStatus {
+                provider: provider_id,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(format!(
+                "aiup managed-tool dry-run was not parseable: {error}"
+            ));
+            return;
+        }
+    };
+    let commands = parsed.commands;
+    let versions = parsed.versions;
     let selected = commands
         .into_iter()
         .filter_map(|(tool, commands)| {
@@ -1101,83 +1117,6 @@ fn collect_aiup_managed_updates(
         candidate_count: 1,
     });
     *source_ok_count = source_ok_count.saturating_add(1);
-}
-
-fn parse_aiup_dry_run(bytes: &[u8]) -> (BTreeMap<String, Vec<String>>, BTreeMap<String, String>) {
-    let mut commands = BTreeMap::<String, Vec<String>>::new();
-    let mut versions = BTreeMap::<String, String>::new();
-    let Ok(text) = std::str::from_utf8(bytes) else {
-        return (commands, versions);
-    };
-    let mut current_tool = None;
-    let mut in_versions = false;
-    for line in text.lines() {
-        if let Some(value) = line.split_once("TOOL START: ").map(|(_, value)| value)
-            && let Some(tool) = value.strip_suffix(" ==========")
-            && valid_aiup_field(tool, 80)
-        {
-            current_tool = Some(tool.to_string());
-            commands.entry(tool.to_string()).or_default();
-            in_versions = false;
-            continue;
-        }
-        if line.contains("=== Detected tool versions ===") {
-            current_tool = None;
-            in_versions = true;
-            continue;
-        }
-        if let Some(command) = line.split_once("DRY-RUN: ").map(|(_, value)| value.trim())
-            && let Some(tool) = current_tool.as_ref()
-            && !command.is_empty()
-            && command.len() <= 512
-            && !command.chars().any(char::is_control)
-        {
-            commands
-                .entry(tool.clone())
-                .or_default()
-                .push(command.to_string());
-            continue;
-        }
-        if in_versions {
-            let mut fields = line.split_whitespace();
-            let Some(tool) = fields.next() else {
-                continue;
-            };
-            let version = fields.collect::<Vec<_>>().join(" ");
-            if version.is_empty() {
-                continue;
-            }
-            if valid_aiup_field(tool, 80) && valid_aiup_version(&version) {
-                versions.insert(tool.to_string(), version.to_string());
-            }
-        }
-    }
-    (commands, versions)
-}
-
-fn valid_aiup_field(value: &str, maximum: usize) -> bool {
-    !value.is_empty()
-        && value.len() <= maximum
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
-}
-
-fn valid_aiup_version(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 120
-        && !value.chars().any(char::is_control)
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_' | b' '))
-}
-
-fn aiup_command_is_delegated(command: &str) -> bool {
-    let command = command.trim_start();
-    command == "brew update"
-        || command.starts_with("brew ")
-        || command.starts_with("npm ")
-        || command.starts_with("npm-update ")
 }
 
 fn collect_cargo_install_updates(
@@ -2072,10 +2011,11 @@ fn discover_sparkle_apps() -> Vec<String> {
             {
                 continue;
             }
-            if let Some(name) = path.file_stem().and_then(|value| value.to_str()) {
-                if !name.is_empty() && !name.chars().any(char::is_control) {
-                    apps.push(name.to_string());
-                }
+            if let Some(name) = path.file_stem().and_then(|value| value.to_str())
+                && !name.is_empty()
+                && !name.chars().any(char::is_control)
+            {
+                apps.push(name.to_string());
             }
         }
     }
@@ -3206,10 +3146,10 @@ fn probe_environment() -> Vec<(String, String)> {
             break;
         }
     }
-    if let Ok(path) = std::env::join_paths(path_entries) {
-        if let Ok(path) = path.into_string() {
-            environment.push(("PATH".to_string(), path));
-        }
+    if let Ok(path) = std::env::join_paths(path_entries)
+        && let Ok(path) = path.into_string()
+    {
+        environment.push(("PATH".to_string(), path));
     }
     if std::env::consts::OS == "macos" {
         environment.push(("LANG".to_string(), "C".to_string()));
@@ -3727,7 +3667,9 @@ local-tool v0.1.0 (path+file:///tmp/local-tool):
 antigravity 1.1.12
 codex codex-cli 0.147.0
 ";
-        let (commands, versions) = parse_aiup_dry_run(bytes);
+        let parsed = parse_aiup_dry_run(bytes).expect("AIUP dry-run evidence");
+        let commands = parsed.commands;
+        let versions = parsed.versions;
         assert_eq!(
             versions.get("antigravity").map(String::as_str),
             Some("1.1.12")

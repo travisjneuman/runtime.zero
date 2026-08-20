@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use crate::ArtifactIdentityErrorCode;
 use crate::{ArtifactIdentityError, VerifiedArtifact};
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutableBindingMechanism {
     #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -66,7 +67,7 @@ impl BoundExecutable<'_> {
     pub fn verify_spawn_path(&self) -> Result<(), ArtifactIdentityError> {
         #[cfg(target_os = "macos")]
         {
-            return verify_macos_path_identity(self._artifact);
+            verify_macos_path_identity(self._artifact)
         }
         #[cfg(not(target_os = "macos"))]
         {
@@ -146,11 +147,11 @@ fn platform_binding(
     #[cfg(target_os = "macos")]
     {
         verify_macos_path_identity(artifact)?;
-        return Ok(BoundExecutable {
+        Ok(BoundExecutable {
             launch_path: artifact.canonical_path.clone(),
             mechanism: ExecutableBindingMechanism::PathIdentityRevalidated,
             _artifact: artifact,
-        });
+        })
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -195,20 +196,14 @@ fn verify_macos_path_identity(artifact: &VerifiedArtifact) -> Result<(), Artifac
             format!("inspect opened macOS manager path: {error}"),
         )
     })?;
-    let identity = match &artifact.identity {
-        crate::ArtifactFileIdentity::Unix {
+    let identity = matches!(&artifact.identity, crate::ArtifactFileIdentity::Unix {
             device,
             inode,
             link_count,
         } if metadata.dev() == *device
             && metadata.ino() == *inode
             && metadata.nlink() == *link_count
-            && *link_count == 1 =>
-        {
-            true
-        }
-        _ => false,
-    };
+            && *link_count == 1);
     if !identity || metadata.len() != artifact.size_bytes {
         return Err(ArtifactIdentityError::new(
             ArtifactIdentityErrorCode::IdentityChanged,

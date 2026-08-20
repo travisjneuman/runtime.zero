@@ -38,6 +38,16 @@ enum ModulesAction {
     },
 }
 
+struct LifecyclePlanRenderRequest {
+    operation: ModuleLifecycleOperation,
+    module_id: String,
+    from_state: ModuleLifecycleState,
+    to_state: ModuleLifecycleState,
+    from_version: Option<String>,
+    to_version: Option<String>,
+    transition_id: Option<String>,
+}
+
 pub fn modules_command(args: &[String]) -> (ExitCode, String, String) {
     match parse_modules_args(args) {
         Ok(ModulesAction::Help) => (ExitCode::Ok, modules_usage(), String::new()),
@@ -55,13 +65,15 @@ pub fn modules_command(args: &[String]) -> (ExitCode, String, String) {
             format,
         }) => render_lifecycle_plan(
             format,
-            operation,
-            &module_id,
-            from_state,
-            to_state,
-            from_version,
-            to_version,
-            transition_id,
+            LifecyclePlanRenderRequest {
+                operation,
+                module_id,
+                from_state,
+                to_state,
+                from_version,
+                to_version,
+                transition_id,
+            },
         ),
         Err(err) => (ExitCode::Usage, String::new(), err),
     }
@@ -351,14 +363,17 @@ fn render_install_plan(format: OutputFormat, path: &str) -> (ExitCode, String, S
 
 fn render_lifecycle_plan(
     format: OutputFormat,
-    operation: ModuleLifecycleOperation,
-    module_id: &str,
-    from_state: ModuleLifecycleState,
-    to_state: ModuleLifecycleState,
-    from_version: Option<String>,
-    to_version: Option<String>,
-    transition_id: Option<String>,
+    request: LifecyclePlanRenderRequest,
 ) -> (ExitCode, String, String) {
+    let LifecyclePlanRenderRequest {
+        operation,
+        module_id,
+        from_state,
+        to_state,
+        from_version,
+        to_version,
+        transition_id,
+    } = request;
     let transition_id = transition_id.unwrap_or_else(|| {
         format!(
             "module-lifecycle-{}-{}",
@@ -368,7 +383,7 @@ fn render_lifecycle_plan(
     });
     let plan = module_lifecycle_plan(
         transition_id,
-        module_id.to_string(),
+        module_id,
         operation,
         from_state,
         to_state,

@@ -1,10 +1,18 @@
 # Updater module
 
-The updater is a first-party module. The standalone binary maps
+The updater is a first-party domain module. The standalone binary maps
 caller-supplied installed/manager evidence into the shared finding contract and
 can bind update candidates to the foundation action-plan contract. The core
 owns the manager execution lane so the module cannot invent its own process,
 confirmation, or transaction stack.
+
+AIUP is represented here as a provider adapter inside the updater domain, not
+as a second runtime.zero lifecycle module. The adapter invokes AIUP only in its
+bounded `--no-install --dry-run` review mode, parses that provider-owned text in
+Rust, filters channels delegated to Homebrew/npm, and turns only the remaining
+installed native-tool evidence into a runtime.zero plan. AIUP's own catalog,
+install/uninstall behavior, and terminal UI remain AIUP-owned; runtime.zero
+does not edit or reimplement them.
 
 The standalone binary accepts bounded JSON on standard input:
 
@@ -59,7 +67,9 @@ APT, DNF, Pacman, MacPorts, Mac App Store `mas` JSON lines, Apple
 `uv tool`, Grok, Hermes, and oh-my-pi. Homebrew cask review uses documented
 greedy mode so latest/auto-updating casks are not silently omitted. The
 provider resolver also executes native update lanes for AIUP-managed installed
-tools, crates.io Cargo installs, and Warp's standalone signed CLI store. On
+tools, crates.io Cargo installs, and Warp's standalone signed CLI store. AIUP
+dry-run output has its own strict UTF-8, field, command, and total-output
+ceilings; it is not accepted by the generic manager-record parser. On
 macOS it inspects Electron/Squirrel application release metadata when the
 bundle declares a GitHub provider and identifies Sparkle bundles that must
 remain on their signed in-app channel.
