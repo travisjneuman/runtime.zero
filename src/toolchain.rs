@@ -159,7 +159,7 @@ pub fn collect_toolchain_report() -> Result<ToolchainReport, String> {
 }
 
 fn tool_from_app(app: &InstalledSoftware) -> ToolchainTool {
-    let provider = provider_for_text(&format!(
+    let provider = toolchain_provider_id(&format!(
         "{} {} {} {:?}",
         app.id, app.name, app.source_id, app.identifiers
     ));
@@ -171,6 +171,10 @@ fn tool_from_app(app: &InstalledSoftware) -> ToolchainTool {
         provider,
         state: "ready",
     }
+}
+
+pub(crate) fn toolchain_provider_id(value: &str) -> &'static str {
+    provider_for_text(value)
 }
 
 pub fn is_toolchain_software(app: &InstalledSoftware) -> bool {
@@ -338,6 +342,7 @@ mod tests {
         };
         assert!(is_toolchain_software(&app));
         assert_eq!(provider_for_text("package:npm-global:pi"), "npm-prefix");
+        assert_eq!(toolchain_provider_id("aiup-managed:tool"), "aiup");
         assert!(!is_toolchain_text("application:capital"));
     }
 

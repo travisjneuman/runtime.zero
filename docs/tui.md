@@ -103,7 +103,9 @@ failed or stale evidence remain visible and read-only.
 ## Evidence and provider posture
 
 The Toolchain workspace groups records by evidence-backed provider rather than
-assuming that a display name owns an update channel. It may show native AIUP,
+assuming that a display name owns an update channel. Each tool row now includes
+the bounded provider ID in its value and selected explanation, including
+`aiup` for AIUP-managed evidence. It may show native AIUP,
 Cargo, rustup, npm-prefix, Homebrew, or other discovered provider records. Each
 record must remain visibly distinguishable as ready, update available,
 delegated, unavailable, observed-only, blocked, or unsupported. A provider that

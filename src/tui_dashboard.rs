@@ -12,7 +12,7 @@ use crate::module_registry::ModuleRegistryReport;
 use crate::store_init::{StoreInitMode, StoreInitOptions, StoreInitStatus, store_init_report};
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
 use crate::system_monitor::{self, SystemSnapshot};
-use crate::toolchain::{is_toolchain_software, is_toolchain_text};
+use crate::toolchain::{is_toolchain_software, is_toolchain_text, toolchain_provider_id};
 use crate::tui_dashboard_labels::{
     init_label, init_status_label, init_tone, receipt_label, receipt_state_label, receipt_tone,
     registry_label, registry_state_label, registry_tone, row, row_count, store_state_label,
@@ -663,6 +663,13 @@ fn installed_software_section(
                     ),
                 };
                 let mut options = uninstall_options.to_string();
+                let provider = toolchain_provider_id(&format!(
+                    "{} {} {} {:?}",
+                    app.id, app.name, app.source_id, app.identifiers
+                ));
+                if toolchain_only {
+                    options = format!("provider {provider} · {options}");
+                }
                 if let Some(update) = updates.and_then(|updates| {
                     updates
                         .candidates
@@ -705,7 +712,7 @@ fn installed_software_section(
                     }
                 }
                 preview = format!(
-                    "{preview}; source: {} · identity: {} ({})",
+                    "{preview}; provider: {provider} · source: {} · identity: {} ({})",
                     app.source_id,
                     app.identity_group_id,
                     app.identity_confidence.label()
