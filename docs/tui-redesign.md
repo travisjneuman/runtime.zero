@@ -59,6 +59,9 @@ Rules:
 - Diagnostics combines bounded leftovers evidence with the cache row so the
   shell does not grow a second command rail; it uses the same `leftovers_review`
   contract as `rz0 leftovers --dry-run` and remains report-only.
+- The same row states that integrity has no trusted runtime baseline and needs
+  an explicit fixture; it does not imply that the TUI performed an integrity
+  scan or make a remediation claim.
 - Help is a modal overlay, not a permanent panel. Search and confirmation use
   the same modal treatment.
 - The footer is one status line plus one short key line. Long prose belongs in

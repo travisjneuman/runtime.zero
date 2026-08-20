@@ -50,6 +50,7 @@ pub struct TuiDashboard {
     pub leftovers_status: String,
     pub leftover_finding_count: usize,
     pub leftover_warning_count: usize,
+    pub integrity_status: String,
     pub update_check_status: String,
     pub update_action_status: String,
     pub update_source_count: usize,
@@ -221,6 +222,7 @@ fn build_dashboard(
     let leftover_warning_count = leftovers_value
         .as_ref()
         .map_or(0, |report| report.warnings.len());
+    let integrity_status = "baseline unavailable · explicit fixture required".to_string();
     let default_view = SoftwareView::default();
     TuiDashboard {
         schema_version: 1,
@@ -247,6 +249,7 @@ fn build_dashboard(
         leftovers_status,
         leftover_finding_count,
         leftover_warning_count,
+        integrity_status: integrity_status.clone(),
         update_check_status: "not checked".to_string(),
         update_action_status: "idle · u scans providers · review action requires confirmation"
             .to_string(),
@@ -260,6 +263,7 @@ fn build_dashboard(
             inventory_error: inventory_error.as_deref(),
             cache: cache_value.as_ref(),
             leftovers: leftovers_value.as_ref(),
+            integrity_status: &integrity_status,
             view: &default_view,
             updates: None,
             update_plan: None,
@@ -288,6 +292,7 @@ struct SectionContext<'a> {
     inventory_error: Option<&'a str>,
     cache: Option<&'a CacheReviewReport>,
     leftovers: Option<&'a LeftoversReviewReport>,
+    integrity_status: &'a str,
     view: &'a SoftwareView,
     updates: Option<&'a LiveUpdateCatalog>,
     update_plan: Option<&'a ActionPlan>,
@@ -295,6 +300,12 @@ struct SectionContext<'a> {
     update_status: &'a str,
     update_action_status: &'a str,
     monitor: Option<&'a SystemSnapshot>,
+}
+
+struct EvidenceContext<'a> {
+    cache: Option<&'a CacheReviewReport>,
+    leftovers: Option<&'a LeftoversReviewReport>,
+    integrity_status: &'a str,
 }
 
 fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
@@ -306,6 +317,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
         inventory_error,
         cache,
         leftovers,
+        integrity_status,
         view,
         updates,
         update_plan,
@@ -347,8 +359,11 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
             modules,
             inventory_error,
             update_action_status,
-            cache,
-            leftovers,
+            EvidenceContext {
+                cache,
+                leftovers,
+                integrity_status,
+            },
         ),
     ];
     sections.insert(3, system_monitor_section(monitor));
@@ -361,9 +376,13 @@ fn diagnostics_section(
     modules: &ModuleRegistryReport,
     inventory_error: Option<&str>,
     update_action_status: &str,
-    cache: Option<&CacheReviewReport>,
-    leftovers: Option<&LeftoversReviewReport>,
+    evidence: EvidenceContext<'_>,
 ) -> TuiSection {
+    let EvidenceContext {
+        cache,
+        leftovers,
+        integrity_status,
+    } = evidence;
     let mut rows = vec![
         row(
             tui_theme::LABEL_INFO,
@@ -415,9 +434,10 @@ fn diagnostics_section(
                     tui_theme::LABEL_WARN
                 },
                 &format!(
-                    "bounded evidence · cache {} · leftovers {}",
+                    "bounded evidence · cache {} · leftovers {} · integrity {}",
                     cache.finding_report.summary.finding_count,
-                    leftovers.finding_report.summary.finding_count
+                    leftovers.finding_report.summary.finding_count,
+                    integrity_status
                 ),
                 if cache.warnings.is_empty() && leftovers.warnings.is_empty() {
                     "info"

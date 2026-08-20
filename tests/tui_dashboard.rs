@@ -27,6 +27,7 @@ fn dashboard_does_not_claim_active_feature_modules() {
         dashboard.leftovers_status.starts_with("live")
             || dashboard.leftovers_status == "unavailable"
     );
+    assert!(dashboard.integrity_status.contains("baseline unavailable"));
     let diagnostics = dashboard
         .sections
         .iter()
