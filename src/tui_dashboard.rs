@@ -737,8 +737,10 @@ fn installed_software_section(
                     .rsplit(':')
                     .next()
                     .unwrap_or(update.software_id.as_str());
+                let provider =
+                    toolchain_provider_id(&format!("{} {}", update.software_id, update.manager));
                 let mut preview = format!(
-                    "manager: {} · target: {} · command: {} · {}",
+                    "provider: {provider} · manager: {} · target: {} · command: {} · {}",
                     update.manager,
                     action
                         .map(|action| action.target.as_str())
@@ -763,7 +765,7 @@ fn installed_software_section(
                 rows.push(TuiRow {
                     label: "[TOOL]",
                     value: format!(
-                        "{target_name} · version {} -> {} · {}",
+                        "{target_name} · provider {provider} · version {} -> {} · {}",
                         update.installed_version.as_deref().unwrap_or("unknown"),
                         update.available_version,
                         update_label
