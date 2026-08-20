@@ -84,6 +84,21 @@ Current bounded sources include:
   service registry metadata;
 - process PATH and allowlisted tool discovery on all three platform families.
 
+### Rust, AI, and developer toolchain
+
+```bash
+rz0 toolchain
+rz0 toolchain --format json
+```
+
+This is a bounded local snapshot of toolchain records and provider posture. It
+does not invoke AIUP, Cargo, rustup, npm, or another provider, and it never
+installs or updates anything. Provider states remain explicit (`ready`,
+`observed-only`, or a later failed/blocked state) so an observed binary is not
+mistaken for an executable update authority. The TUI Toolchain workspace uses
+the same classification; provider availability review remains the separate
+read-only `u`/`rz0 updates --dry-run --all-providers` workflow.
+
 Source identifiers, software names, versions, publishers, and service labels may
 be sensitive even when paths are omitted.
 
@@ -128,19 +143,23 @@ Review even a summary before sharing it.
 
 ## Interactive TUI
 
-The six sections are overview, local store, installed software, modules,
-actions, and system monitor. Important controls:
+The task-first TUI has five workspaces: Home, Toolchain, Software, System,
+and Diagnostics. It renders a loading shell before the full local inventory
+and monitor snapshot completes; an explicit `r` refresh is the only retry.
+Important controls:
 
 - `r`: refresh local inventory;
 - `u`: scan every discovered provider for availability and potentially read
   network metadata; it never applies an update;
-- `U`: update the highlighted installed-software or provider row. The TUI
+- `U`: compatibility shortcut for Review action on the highlighted installed-
+  software or provider row. The TUI
   refreshes exact evidence, shows the manager/target/command and challenge
   phrase, then executes after the phrase is entered and accepted;
-- `m`: jump to the one-second monitor view;
+- `m`: select the System workspace;
 - `/`: search; `f`: filter; `s`: sort;
 - arrows or `j`/`k`: move; Home/End: boundaries;
-- Tab/Shift+Tab: change focus; Enter/Space: details;
+- Tab/Shift+Tab: change focus among navigation, details, and the selected
+  context pane; Enter/Space: details;
 - `h`/`?`: help; Esc: back; `q`: quit.
 
 The TUI and CLI share the same exact action plan, confirmation, transaction,

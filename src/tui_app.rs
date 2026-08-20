@@ -20,7 +20,6 @@ use crate::launch_routing::LaunchRoutingReport;
 use crate::tui_dashboard;
 use crate::tui_layout::TuiLayoutTier;
 use crate::tui_ratatui::draw_dashboard;
-use crate::tui_ratatui_support::help_height;
 use crate::tui_state::{TuiAction, TuiInput, TuiMouseTarget, TuiState};
 use crate::update_cli::TuiUpdateChallenge;
 use crate::update_execution::UpdateExecutionReport;
@@ -32,6 +31,8 @@ enum UpdatePhase {
     Prepare,
     Execute,
 }
+
+type DashboardLoadResult = Result<tui_dashboard::TuiDashboard, String>;
 
 enum TuiUpdateResult {
     Review(Result<LiveUpdateReview, String>),
@@ -52,14 +53,28 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
     launch_context: &LaunchRoutingReport,
     color: bool,
 ) -> io::Result<()> {
-    let mut dashboard = tui_dashboard::dashboard();
+    let mut dashboard = tui_dashboard::loading_dashboard();
     let mut state = TuiState::new(dashboard.sections.len());
+    let mut dashboard_receiver = Some(start_dashboard_load());
     let mut update_receiver: Option<Receiver<TuiUpdateResult>> = None;
     let mut update_controller = None;
     let mut update_phase = None;
     let mut pending_update_selection = None;
     render(terminal, &dashboard, &state, launch_context, color)?;
     loop {
+        if let Some(result) = poll_dashboard_result(&mut dashboard_receiver) {
+            match result {
+                Ok(loaded) => dashboard = loaded,
+                Err(detail) => tui_dashboard::mark_startup_load_failed(&mut dashboard, &detail),
+            }
+            dashboard.apply_software_view(state.software_view());
+            let row_count = dashboard
+                .sections
+                .get(state.selected_section)
+                .map_or(0, |section| section.rows.len());
+            state.clamp_detail_row(row_count);
+            render(terminal, &dashboard, &state, launch_context, color)?;
+        }
         if let Some(result) = poll_update_result(&mut update_receiver, update_phase) {
             finish_update_result(
                 &mut dashboard,
@@ -131,16 +146,17 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
                 TuiAction::Refresh => {
                     let selected_section = state.selected_section;
                     let selected_detail_row = state.selected_detail_row;
-                    let selected_command = state.selected_command;
                     let focus_region = state.focus_region;
                     let software_view = state.software_view().clone();
-                    dashboard = tui_dashboard::dashboard();
+                    dashboard = tui_dashboard::loading_dashboard();
                     state = TuiState::new(dashboard.sections.len());
                     state.selected_section = selected_section;
                     state.selected_detail_row = selected_detail_row;
-                    state.selected_command = selected_command;
                     state.focus_region = focus_region;
                     state.set_software_view(software_view);
+                    if dashboard_receiver.is_none() {
+                        dashboard_receiver = Some(start_dashboard_load());
+                    }
                 }
                 TuiAction::Continue => {}
             }
@@ -168,6 +184,30 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
         }
     }
     Ok(())
+}
+
+fn start_dashboard_load() -> Receiver<DashboardLoadResult> {
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let _ = sender.send(Ok(tui_dashboard::dashboard()));
+    });
+    receiver
+}
+
+fn poll_dashboard_result(
+    receiver: &mut Option<Receiver<DashboardLoadResult>>,
+) -> Option<DashboardLoadResult> {
+    match receiver.as_ref().map(Receiver::try_recv) {
+        Some(Ok(result)) => {
+            *receiver = None;
+            Some(result)
+        }
+        Some(Err(TryRecvError::Disconnected)) => {
+            *receiver = None;
+            Some(Err("dashboard worker disconnected".to_string()))
+        }
+        Some(Err(TryRecvError::Empty)) | None => None,
+    }
 }
 
 fn poll_update_result(
@@ -443,23 +483,20 @@ fn mouse_target(column: u16, row: u16, size: Rect) -> TuiMouseTarget {
         return TuiMouseTarget::Details;
     }
 
-    let body_top = 4u16;
-    let help = help_height(&TuiState::new(1), size);
-    let body_height = size
-        .height
-        .saturating_sub(body_top)
-        .saturating_sub(help)
-        .saturating_sub(3);
-    if tier == TuiLayoutTier::Wide || size.width >= 92 {
-        if column < 26 {
-            TuiMouseTarget::Navigation
-        } else if row >= body_top.saturating_add(body_height.saturating_sub(7)) {
-            TuiMouseTarget::Commands
+    let body_top = 3u16;
+    let body_height = size.height.saturating_sub(5);
+    if row < body_top {
+        return TuiMouseTarget::Navigation;
+    }
+    if tier == TuiLayoutTier::Wide || size.width >= 82 {
+        let detail_width = if tier == TuiLayoutTier::Wide { 38 } else { 32 };
+        if column >= size.width.saturating_sub(detail_width) {
+            TuiMouseTarget::Context
         } else {
             TuiMouseTarget::Details
         }
-    } else if row < body_top.saturating_add(8) {
-        TuiMouseTarget::Navigation
+    } else if row >= body_top.saturating_add(body_height.saturating_sub(6)) {
+        TuiMouseTarget::Context
     } else {
         TuiMouseTarget::Details
     }
@@ -576,7 +613,7 @@ mod tests {
         );
         assert_eq!(details, Some(TuiInput::ScrollDown(TuiMouseTarget::Details)));
 
-        let navigation = input_from_mouse(
+        let primary = input_from_mouse(
             MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 column: 5,
@@ -585,10 +622,7 @@ mod tests {
             },
             Rect::new(0, 0, 120, 34),
         );
-        assert_eq!(
-            navigation,
-            Some(TuiInput::ScrollUp(TuiMouseTarget::Navigation))
-        );
+        assert_eq!(primary, Some(TuiInput::ScrollUp(TuiMouseTarget::Details)));
     }
 
     #[test]

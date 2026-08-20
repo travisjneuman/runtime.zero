@@ -1,0 +1,350 @@
+use std::fmt::Write as FmtWrite;
+
+use serde::Serialize;
+
+use crate::apps::{InstalledSoftware, collect_app_catalog};
+use crate::{ExitCode, brand};
+
+pub const TOOLCHAIN_CONTRACT: &str = "toolchain_snapshot";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ToolchainReport {
+    pub schema_version: u8,
+    pub contract: &'static str,
+    pub read_only: bool,
+    pub writes_attempted: bool,
+    pub platform: &'static str,
+    pub providers: Vec<ToolchainProvider>,
+    pub tools: Vec<ToolchainTool>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ToolchainProvider {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub state: &'static str,
+    pub observed_tool_count: usize,
+    pub note: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ToolchainTool {
+    pub id: String,
+    pub name: String,
+    pub version: Option<String>,
+    pub source_id: String,
+    pub provider: &'static str,
+    pub state: &'static str,
+}
+
+const PROVIDERS: [(&str, &str, &str); 8] = [
+    (
+        "aiup",
+        "AIUP",
+        "High-level orchestration is observed; managed native channels remain provider-bound.",
+    ),
+    (
+        "cargo",
+        "Cargo",
+        "Rust registry installs are reviewed through the shared updater contract.",
+    ),
+    (
+        "rustup",
+        "rustup",
+        "Rust toolchain ownership remains separate from Cargo package ownership.",
+    ),
+    (
+        "npm-prefix",
+        "npm prefix",
+        "Global npm records remain scoped to their discovered prefix.",
+    ),
+    (
+        "homebrew",
+        "Homebrew",
+        "Homebrew formula and cask records remain manager-owned.",
+    ),
+    (
+        "python",
+        "Python",
+        "pip and uv records remain explicit provider lanes.",
+    ),
+    (
+        "self-updater",
+        "Native self-updater",
+        "Known self-updaters are observed only until an exact adapter exists.",
+    ),
+    (
+        "native",
+        "Native tool",
+        "The source is visible, but no provider-specific update authority was inferred.",
+    ),
+];
+
+pub fn toolchain_command(args: &[String]) -> (ExitCode, String, String) {
+    if matches!(args, [value] if matches!(value.as_str(), "--help" | "-h" | "help")) {
+        return (ExitCode::Ok, usage(), String::new());
+    }
+    match parse_format(args) {
+        Ok(OutputFormat::Text) => match collect_toolchain_report() {
+            Ok(report) => (ExitCode::Ok, render_text(&report), String::new()),
+            Err(error) => (ExitCode::Usage, String::new(), format!("{error}\n")),
+        },
+        Ok(OutputFormat::Json) => match collect_toolchain_report() {
+            Ok(report) => match serde_json::to_string_pretty(&report) {
+                Ok(json) => (ExitCode::Ok, format!("{json}\n"), String::new()),
+                Err(error) => (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!("toolchain JSON rendering failed: {error}\n"),
+                ),
+            },
+            Err(error) => (ExitCode::Usage, String::new(), format!("{error}\n")),
+        },
+        Err(error) => (
+            ExitCode::Usage,
+            String::new(),
+            format!("{error}\n{}", usage()),
+        ),
+    }
+}
+
+pub fn collect_toolchain_report() -> Result<ToolchainReport, String> {
+    let catalog = collect_app_catalog()?;
+    let mut tools = catalog
+        .apps
+        .iter()
+        .filter(|app| is_toolchain_software(app))
+        .map(tool_from_app)
+        .collect::<Vec<_>>();
+    tools.sort_by(|left, right| {
+        left.provider
+            .cmp(right.provider)
+            .then_with(|| {
+                left.name
+                    .to_ascii_lowercase()
+                    .cmp(&right.name.to_ascii_lowercase())
+            })
+            .then_with(|| left.id.cmp(&right.id))
+    });
+
+    let providers = PROVIDERS
+        .iter()
+        .map(|(id, label, note)| {
+            let observed_tool_count = tools.iter().filter(|tool| tool.provider == *id).count();
+            ToolchainProvider {
+                id,
+                label,
+                state: if observed_tool_count > 0 {
+                    "ready"
+                } else {
+                    "observed-only"
+                },
+                observed_tool_count,
+                note,
+            }
+        })
+        .collect();
+
+    Ok(ToolchainReport {
+        schema_version: 1,
+        contract: TOOLCHAIN_CONTRACT,
+        read_only: true,
+        writes_attempted: false,
+        platform: std::env::consts::OS,
+        providers,
+        tools,
+        warnings: catalog.warnings,
+    })
+}
+
+fn tool_from_app(app: &InstalledSoftware) -> ToolchainTool {
+    let provider = provider_for_text(&format!(
+        "{} {} {} {:?}",
+        app.id, app.name, app.source_id, app.identifiers
+    ));
+    ToolchainTool {
+        id: app.id.clone(),
+        name: app.name.clone(),
+        version: app.version.clone(),
+        source_id: app.source_id.clone(),
+        provider,
+        state: "ready",
+    }
+}
+
+pub fn is_toolchain_software(app: &InstalledSoftware) -> bool {
+    is_toolchain_text(&format!(
+        "{} {} {} {:?}",
+        app.id, app.name, app.source_id, app.identifiers
+    ))
+}
+
+pub fn is_toolchain_text(value: &str) -> bool {
+    [
+        "aiup",
+        "cargo",
+        "rustup",
+        "codex",
+        "claude",
+        "gemini",
+        "ollama",
+        "open-webui",
+        "warp",
+        "cursor",
+        "windsurf",
+        "t3",
+        "pi",
+        "gsd",
+        "omp",
+        "hermes",
+        "grok",
+        "deno",
+        "bun",
+        "pnpm",
+        "npm",
+        "node",
+        "uv",
+        "mise",
+        "asdf",
+    ]
+    .iter()
+    .any(|token| {
+        value
+            .to_ascii_lowercase()
+            .split(|character: char| !character.is_ascii_alphanumeric())
+            .any(|part| part == *token)
+    })
+}
+
+fn provider_for_text(value: &str) -> &'static str {
+    let value = value.to_ascii_lowercase();
+    if value.contains("aiup") {
+        "aiup"
+    } else if value.contains("cargo") {
+        "cargo"
+    } else if value.contains("rustup") {
+        "rustup"
+    } else if value.contains("npm") || value.contains("node") || value.contains("pnpm") {
+        "npm-prefix"
+    } else if value.contains("homebrew") || value.contains("brew") {
+        "homebrew"
+    } else if value.contains("pip") || value.contains("uv") {
+        "python"
+    } else if ["warp", "cursor", "windsurf", "ollama", "t3"]
+        .iter()
+        .any(|token| value.contains(token))
+    {
+        "self-updater"
+    } else {
+        "native"
+    }
+}
+
+fn render_text(report: &ToolchainReport) -> String {
+    let mut output = format!("{} toolchain\n\n", brand::TITLE);
+    let _ = writeln!(output, "mode: read-only local snapshot");
+    let _ = writeln!(output, "platform: {}", report.platform);
+    let _ = writeln!(output, "contract: {}", report.contract);
+    let _ = writeln!(output, "writes attempted: no\n");
+    output.push_str("providers:\n");
+    for provider in &report.providers {
+        let _ = writeln!(
+            output,
+            "  - {} [{}] · {} observed · {}",
+            provider.label, provider.state, provider.observed_tool_count, provider.note
+        );
+    }
+    output.push_str("\ntools:\n");
+    if report.tools.is_empty() {
+        output.push_str("  none observed\n");
+    } else {
+        for tool in &report.tools {
+            let _ = writeln!(
+                output,
+                "  - {} {} · provider {} · source {}",
+                tool.name,
+                tool.version.as_deref().unwrap_or("version unknown"),
+                tool.provider,
+                tool.source_id
+            );
+        }
+    }
+    if !report.warnings.is_empty() {
+        output.push_str("\nwarnings:\n");
+        for warning in &report.warnings {
+            let _ = writeln!(output, "  - {warning}");
+        }
+    }
+    output.push_str(
+        "\nsafety: this command reads bounded local evidence only; it does not install, update, configure, or invoke AIUP.\n",
+    );
+    output
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OutputFormat {
+    Text,
+    Json,
+}
+
+fn parse_format(args: &[String]) -> Result<OutputFormat, String> {
+    let mut format = OutputFormat::Text;
+    let mut index = 0usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--help" | "-h" | "help" if args.len() == 1 => return Err(usage()),
+            "--json" => format = OutputFormat::Json,
+            "--format" => {
+                let Some(value) = args.get(index + 1).map(String::as_str) else {
+                    return Err("toolchain --format requires text or json".to_string());
+                };
+                format = match value {
+                    "text" => OutputFormat::Text,
+                    "json" => OutputFormat::Json,
+                    _ => return Err(format!("unsupported toolchain output format '{value}'")),
+                };
+                index += 1;
+            }
+            value => return Err(format!("unsupported toolchain option '{value}'")),
+        }
+        index += 1;
+    }
+    Ok(format)
+}
+
+fn usage() -> String {
+    "Usage: rz0 toolchain [--format text|json] [--json]\n\nReads bounded local software evidence and reports Rust, AI, and developer-tool provider posture. It never invokes a provider or performs a write.\n".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::apps::{IdentityConfidence, InstallScope, SoftwareKind, UninstallOption};
+
+    #[test]
+    fn toolchain_classifier_is_token_bounded() {
+        let app = InstalledSoftware {
+            id: "package:npm-global:pi".to_string(),
+            name: "pi".to_string(),
+            version: Some("1.0.0".to_string()),
+            source_id: "linux.path".to_string(),
+            identifiers: Vec::new(),
+            identity_group_id: "software.pi".to_string(),
+            identity_confidence: IdentityConfidence::ExactEvidence,
+            kind: SoftwareKind::PlatformPackage,
+            scope: InstallScope::User,
+            uninstall_option: UninstallOption::ManagerReview,
+        };
+        assert!(is_toolchain_software(&app));
+        assert_eq!(provider_for_text("package:npm-global:pi"), "npm-prefix");
+        assert!(!is_toolchain_text("application:capital"));
+    }
+
+    #[test]
+    fn toolchain_command_rejects_write_like_options() {
+        let (code, _, error) = toolchain_command(&["--apply".to_string()]);
+        assert_eq!(code, ExitCode::Usage);
+        assert!(error.contains("unsupported toolchain option"));
+    }
+}

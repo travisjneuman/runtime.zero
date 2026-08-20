@@ -10,6 +10,7 @@ _rz0() {
     'store:inspect or explicitly initialize the local store'
     'scan:collect bounded dry-run inventory'
     'monitor:show a one-shot native system snapshot'
+    'toolchain:show Rust, AI, and developer toolchain posture'
     'report:build a privacy-reviewed local summary'
     'updates:review, apply, or assess recovery for manager updates'
     'completions:print a shell completion script'
@@ -33,7 +34,7 @@ _rz0() {
   fi
   case $words[2] in
     completions) _values 'shell' bash zsh fish powershell ;;
-    doctor|apps|monitor|report) _arguments '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
+    doctor|apps|monitor|toolchain|report) _arguments '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     scan) _arguments '--dry-run[required report-only mode]' '--include-raw-paths[local private paths]' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
     uninstall) _arguments '1:operation:(plan)' '2:installed software id:' '--executable[exact manager path]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
     modules) _arguments '1:operation:(validate install)' '*:manifest or package:_files' '--from[module directory]:directory:_files -/' '--dry-run[required install planning mode]' '--format[output format]:format:(text json)' '--json[JSON output]' ;;

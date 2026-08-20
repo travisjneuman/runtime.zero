@@ -1,6 +1,6 @@
 # Built-in System Monitor
 
-`rz0 monitor` and the TUI's `m` section provide a native, read-only system
+`rz0 monitor` and the TUI's `SYSTEM` workspace provide a native, read-only system
 monitor. This is the runtime.zero equivalent of btop: it is part of the
 installed foundation and does not require btop, top, task-manager, PowerShell,
 or another separately installed program.

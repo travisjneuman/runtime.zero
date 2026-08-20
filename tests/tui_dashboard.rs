@@ -25,7 +25,7 @@ fn dashboard_does_not_claim_active_feature_modules() {
     let monitor = dashboard
         .sections
         .iter()
-        .find(|section| section.title == "system monitor")
+        .find(|section| section.title == "system")
         .expect("system monitor section");
     assert!(monitor.summary.contains("CPU"));
     assert!(monitor.rows.iter().any(|row| row.value.contains("memory")));
@@ -36,8 +36,8 @@ fn dashboard_does_not_claim_active_feature_modules() {
         let installed = dashboard
             .sections
             .iter()
-            .find(|section| section.title == "installed software")
-            .expect("installed software section");
+            .find(|section| section.title == "software")
+            .expect("software section");
         assert!(installed.rows.iter().any(|row| row.label == "[APP]"));
         assert!(installed.rows.iter().any(|row| {
             row.preview

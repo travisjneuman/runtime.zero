@@ -1,101 +1,34 @@
-use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders};
 
-use crate::tui_command_rail::TuiCommandPreview;
-use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection};
-use crate::tui_state::TuiState;
-use crate::tui_theme;
+use crate::tui_dashboard::{TuiDashboard, TuiSection};
 
-pub(crate) const COMPACT_HELP_HEIGHT: u16 = 4;
-pub(crate) const DEFAULT_HELP_HEIGHT: u16 = 5;
-
-pub(crate) fn nav_line(section: &TuiSection, selected: bool, color: bool) -> Line<'static> {
-    let marker = if selected { "▸ " } else { "  " };
-    let suffix = if selected { "  active" } else { "" };
-    let style = if selected {
-        selected_style(color)
+pub(crate) fn selected_index(
+    dashboard: &TuiDashboard,
+    state: &crate::tui_state::TuiState,
+) -> usize {
+    if dashboard.sections.is_empty() {
+        0
     } else {
-        Style::default()
-    };
-    Line::styled(
-        format!("{marker}{} {}{suffix}", section.code, section.title),
-        style,
-    )
+        state.selected_section.min(dashboard.sections.len() - 1)
+    }
 }
 
-pub(crate) fn focused_title(title: impl Into<String>, _focused: bool) -> String {
-    title.into()
+pub(crate) fn selected_section<'a>(
+    dashboard: &'a TuiDashboard,
+    state: &crate::tui_state::TuiState,
+) -> &'a TuiSection {
+    &dashboard.sections[selected_index(dashboard, state)]
 }
 
-pub(crate) fn row_line(row: &TuiRow, color: bool) -> Line<'static> {
-    label_line(row.label, &row.value, row.tone, color)
-}
-
-pub(crate) fn selectable_row_line(row: &TuiRow, selected: bool, color: bool) -> Line<'static> {
-    let marker = if selected { "▶ " } else { "  " };
-    let selected_row_style = if selected {
-        selected_style(color)
+pub(crate) fn selected_row_index(
+    section: &TuiSection,
+    state: &crate::tui_state::TuiState,
+) -> usize {
+    if section.rows.is_empty() {
+        0
     } else {
-        Style::default()
-    };
-    Line::from(vec![
-        Span::styled(marker, selected_row_style),
-        Span::styled(
-            format!("{:<11}", row.label),
-            if selected {
-                selected_row_style
-            } else {
-                tone_style(row.tone, color)
-            },
-        ),
-        Span::styled(row.value.to_string(), selected_row_style),
-    ])
-}
-
-pub(crate) fn command_line(
-    command: TuiCommandPreview,
-    selected: bool,
-    color: bool,
-) -> Line<'static> {
-    let marker = if selected { "▶ " } else { "  " };
-    let style = if selected {
-        selected_style(color)
-    } else {
-        Style::default()
-    };
-    Line::from(vec![
-        Span::styled(marker, style),
-        Span::styled(
-            format!("{:<11}", tui_theme::LABEL_INFO),
-            tone_style("info", color),
-        ),
-        Span::styled(format!("{:<14}", command.label), tone_style("muted", color)),
-        Span::raw(command.command.to_string()),
-    ])
-}
-
-pub(crate) fn label_line(
-    label: &'static str,
-    value: &str,
-    tone: &'static str,
-    color: bool,
-) -> Line<'static> {
-    Line::from(vec![
-        Span::styled(format!("{label:<11}"), tone_style(tone, color)),
-        Span::raw(value.to_string()),
-    ])
-}
-
-pub(crate) fn block<T>(title: T, tone: &'static str, color: bool) -> Block<'static>
-where
-    T: Into<String>,
-{
-    Block::default()
-        .borders(Borders::ALL)
-        .border_style(tone_style(tone, color))
-        .title(title.into())
+        state.selected_detail_row.min(section.rows.len() - 1)
+    }
 }
 
 pub(crate) fn selected_style(color: bool) -> Style {
@@ -130,35 +63,4 @@ pub(crate) fn tone_style(tone: &str, color: bool) -> Style {
         "muted" => Color::Indexed(245),
         _ => Color::Reset,
     })
-}
-
-pub(crate) fn help_height(state: &TuiState, area: Rect) -> u16 {
-    if state.show_help {
-        DEFAULT_HELP_HEIGHT.min(area.height.saturating_sub(10))
-    } else {
-        COMPACT_HELP_HEIGHT.min(area.height.saturating_sub(10))
-    }
-}
-
-pub(crate) fn selected_index(dashboard: &TuiDashboard, state: &TuiState) -> usize {
-    if dashboard.sections.is_empty() {
-        0
-    } else {
-        state.selected_section.min(dashboard.sections.len() - 1)
-    }
-}
-
-pub(crate) fn selected_section<'a>(
-    dashboard: &'a TuiDashboard,
-    state: &TuiState,
-) -> &'a TuiSection {
-    &dashboard.sections[selected_index(dashboard, state)]
-}
-
-pub(crate) fn selected_row_index(section: &TuiSection, state: &TuiState) -> usize {
-    if section.rows.is_empty() {
-        0
-    } else {
-        state.selected_detail_row.min(section.rows.len() - 1)
-    }
 }

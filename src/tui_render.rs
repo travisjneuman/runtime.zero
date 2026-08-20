@@ -1,17 +1,12 @@
-use crate::tui_canvas::{
-    border_bottom, border_top, line, line_plain, separator, split_line_toned, truncate,
-};
-use crate::tui_dashboard::TuiDashboard;
-use crate::tui_render_support::{
-    card_line, format_row, humanize_debug, selected_index, selected_section, tone_for_text,
-};
-use crate::tui_state::TuiState;
+use crate::tui_canvas::{border_bottom, border_top, line, line_plain, separator, truncate};
+use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection};
+use crate::tui_render_support::{selected_index, selected_section};
+use crate::tui_state::{TuiFocusRegion, TuiState};
 use crate::tui_theme;
 
 const TEXT_WIDTH: usize = 86;
 const MIN_WIDTH: usize = 58;
 const MAX_WIDTH: usize = 132;
-const NAV_WIDTH: usize = 24;
 
 pub fn render_dashboard(dashboard: &TuiDashboard, color: bool) -> String {
     render_dashboard_frame(
@@ -45,214 +40,267 @@ fn render_dashboard_frame(
     let width = usize::from(width).clamp(MIN_WIDTH, MAX_WIDTH);
     let height = usize::from(height).max(16);
     let mut lines = Vec::new();
-    lines.extend(header_lines(dashboard, width, color));
-    lines.extend(body_lines(
-        dashboard,
-        state,
-        width,
-        height,
-        interactive,
-        color,
-    ));
-    lines.extend(footer_lines(state, width, interactive, color));
-    lines.push(border_bottom(width));
-    lines.join("\n") + "\n"
-}
-
-fn header_lines(dashboard: &TuiDashboard, width: usize, color: bool) -> Vec<String> {
-    let mut lines = Vec::new();
     lines.push(border_top(width));
     lines.push(line(
-        &format!(
-            "{} {}  v{}",
-            dashboard.title, dashboard.command, dashboard.version
-        ),
+        "runtime.zero / LOCAL CONTROL",
         width,
         color,
         Some(tui_theme::TuiTone::Accent),
     ));
     lines.push(line(
-        "installed software · local-first · provider updates from u/U actions",
+        &format!(
+            "{} · {} software · {} modules · no action runs without confirmation",
+            if dashboard.inventory_status == "loading" {
+                "loading local snapshot"
+            } else {
+                "local snapshot"
+            },
+            dashboard.installed_software_count,
+            dashboard.installed_module_count
+        ),
         width,
         color,
         Some(tui_theme::TuiTone::Info),
     ));
     lines.push(separator(width));
-    lines
-}
-
-fn body_lines(
-    dashboard: &TuiDashboard,
-    state: &TuiState,
-    width: usize,
-    height: usize,
-    interactive: bool,
-    color: bool,
-) -> Vec<String> {
-    let budget = height.saturating_sub(if state.show_help { 12 } else { 9 });
-    if width >= 92 {
-        wide_body_lines(dashboard, state, width, budget, interactive, color)
-    } else {
-        compact_body_lines(dashboard, state, width, budget, interactive, color)
-    }
-}
-
-fn wide_body_lines(
-    dashboard: &TuiDashboard,
-    state: &TuiState,
-    width: usize,
-    budget: usize,
-    interactive: bool,
-    color: bool,
-) -> Vec<String> {
-    let right_width = width.saturating_sub(NAV_WIDTH + 7);
-    let mut left = navigation_lines(dashboard, state, interactive);
-    let mut right = selected_panel_lines(dashboard, state, right_width);
-    right.extend(status_card_lines(dashboard, right_width));
-    right.extend(command_rail_lines(right_width));
-    pad_columns(&mut left, &mut right, budget);
-    left.into_iter()
-        .zip(right)
-        .map(|(l, r)| {
-            split_line_toned(
-                &l,
-                &r,
-                NAV_WIDTH,
-                right_width,
-                tone_for_text(&l),
-                tone_for_text(&r),
-                color,
-            )
-        })
-        .collect()
-}
-
-fn compact_body_lines(
-    dashboard: &TuiDashboard,
-    state: &TuiState,
-    width: usize,
-    budget: usize,
-    interactive: bool,
-    color: bool,
-) -> Vec<String> {
-    let inner = width.saturating_sub(4);
-    let mut content = navigation_lines(dashboard, state, interactive);
-    content.push(String::new());
-    content.extend(selected_panel_lines(dashboard, state, inner));
-    content.extend(status_card_lines(dashboard, inner));
-    content.extend(command_rail_lines(inner));
-    content.truncate(budget.max(1));
-    content
-        .into_iter()
-        .map(|value| line(&value, width, color, tone_for_text(&value)))
-        .collect()
-}
-
-fn navigation_lines(dashboard: &TuiDashboard, state: &TuiState, interactive: bool) -> Vec<String> {
-    let mut lines = vec!["SECTIONS".to_string()];
-    for (index, section) in dashboard.sections.iter().enumerate() {
-        let selected = interactive && index == selected_index(dashboard, state);
-        let marker = if selected { "▸" } else { " " };
-        let suffix = if selected { "  active" } else { "" };
-        lines.push(format!(
-            "{marker} {} {}{}",
-            section.code, section.title, suffix
-        ));
-    }
-    lines
-}
-
-fn selected_panel_lines(dashboard: &TuiDashboard, state: &TuiState, width: usize) -> Vec<String> {
-    let section = selected_section(dashboard, state);
-    let mut lines = vec![format!(
-        "{} · {}",
-        section.code,
-        section.title.to_uppercase()
-    )];
-    lines.push(truncate(section.summary, width));
-    lines.push(format!(
-        "section {} of {}",
-        selected_index(dashboard, state) + 1,
-        dashboard.sections.len()
-    ));
-    lines.push(String::new());
-    for row in &section.rows {
-        lines.push(format_row(row, width));
-    }
-    lines
-}
-
-fn status_card_lines(dashboard: &TuiDashboard, width: usize) -> Vec<String> {
-    let mut lines = vec![String::new(), "STATUS".to_string()];
-    lines.push(card_line(
-        "store",
-        &humanize_debug(&format!("{:?}", dashboard.store_init_status)),
-        "registry",
-        &humanize_debug(&format!("{:?}", dashboard.registry_state)),
-        width,
-    ));
-    lines.push(card_line(
-        "receipts",
-        &humanize_debug(&format!("{:?}", dashboard.receipt_state)),
-        "modules",
-        &format!("{} installed", dashboard.installed_module_count),
-        width,
-    ));
-    lines
-}
-
-fn command_rail_lines(width: usize) -> Vec<String> {
-    vec![
-        String::new(),
-        "COMMANDS".to_string(),
-        truncate("rz0 apps · rz0 scan --dry-run · rz0 --json", width),
-        truncate("rz0 uninstall plan <id> · rz0 doctor", width),
-    ]
-}
-
-fn footer_lines(state: &TuiState, width: usize, interactive: bool, color: bool) -> Vec<String> {
-    let mut lines = vec![separator(width)];
     lines.push(line(
-        "installed software · Enter details · u scan providers · U update selected",
+        &workspace_tabs(dashboard, state),
         width,
         color,
-        Some(tui_theme::TuiTone::DryRun),
+        Some(tui_theme::TuiTone::Accent),
     ));
-    if interactive && state.search_active() {
+    lines.push(separator(width));
+
+    if state.show_help && height < 24 {
+        lines.push(line("HELP", width, color, Some(tui_theme::TuiTone::Info)));
         lines.push(line_plain(
+            "Tab / Shift+Tab focus · arrows/j/k move · Enter details",
+            width,
+        ));
+        lines.push(line_plain("Esc closes help · q quits", width));
+        lines.push(border_bottom(width));
+        return lines.join("\n") + "\n";
+    }
+
+    let section = selected_section(dashboard, state);
+    lines.extend(primary_lines(section, state, width, color));
+    lines.push(separator(width));
+    lines.extend(selected_lines(dashboard, state, width, color));
+    let mut tail = vec![
+        separator(width),
+        line(
+            &status_line(dashboard, state),
+            width,
+            color,
+            Some(tui_theme::TuiTone::Info),
+        ),
+        line_plain(&key_line(state, interactive, width), width),
+    ];
+    if state.show_help {
+        tail.push(separator(width));
+        tail.push(line_plain("HELP", width));
+        tail.push(line_plain(
+            "Tab / Shift+Tab focus · arrows/j/k move · Enter details · Esc closes · q quits",
+            width,
+        ));
+        tail.push(line_plain(
+            "u review providers · Review action [U] · r refresh · m system · / search",
+            width,
+        ));
+    } else if state.search_active() {
+        tail.push(line_plain(
             &format!(
-                "search: {} · type to filter · Backspace edit · Enter accept · Esc cancel",
+                "SEARCH · query: {} · type · Backspace edit · Enter accepts · Esc cancels",
                 state.search_query()
             ),
             width,
         ));
-    } else if interactive && state.show_help {
-        lines.push(line_plain(
-            "keys: Esc back · q quit · m monitor · u scan · U update selected · / search · f filter · s sort · r refresh · Tab areas · Enter details",
+    } else if state.update_confirmation_active() {
+        tail.push(line_plain(
+            &format!(
+                "CONFIRM ONE ACTION · entered: {} · Enter applies · Esc cancels",
+                state.update_confirmation_phrase()
+            ),
             width,
         ));
+    }
+
+    let prefix_budget = height.saturating_sub(tail.len() + 1);
+    lines.truncate(prefix_budget);
+    lines.extend(tail);
+    lines.push(border_bottom(width));
+    lines.join("\n") + "\n"
+}
+
+fn workspace_tabs(dashboard: &TuiDashboard, state: &TuiState) -> String {
+    let names = ["HOME", "TOOLCHAIN", "SOFTWARE", "SYSTEM", "DIAGNOSTICS"];
+    let current = selected_index(dashboard, state);
+    names
+        .iter()
+        .enumerate()
+        .map(|(index, name)| {
+            if index == current {
+                format!("[ {name} ]")
+            } else {
+                format!("  {name}  ")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+fn primary_lines(section: &TuiSection, state: &TuiState, width: usize, color: bool) -> Vec<String> {
+    let title = if section.title == "overview" {
+        "HOME / NEXT STEP"
+    } else {
+        &section.title.to_uppercase()
+    };
+    let mut lines = vec![line(title, width, color, Some(tui_theme::TuiTone::Accent))];
+    lines.push(line(
+        &format!("{} · {} items", section.summary, section.rows.len()),
+        width,
+        color,
+        Some(tui_theme::TuiTone::Muted),
+    ));
+    let selected = if section.rows.is_empty() {
+        0
+    } else {
+        state.selected_detail_row.min(section.rows.len() - 1)
+    };
+    if section.rows.is_empty() {
         lines.push(line_plain(
-            "mouse wheel scrolls lists · Home/End jump to the first/last item",
-            width,
-        ));
-    } else if interactive {
-        lines.push(line_plain(
-            "keys: Tab areas · q quit · m monitor · u scan · U update selected · / search · f filter · s sort · r refresh · Enter details · h help",
+            "No records are available in this workspace.",
             width,
         ));
     } else {
-        lines.push(line_plain(
-            "commands: rz0 doctor · rz0 store status · rz0 store init --dry-run",
-            width,
-        ));
+        for (index, row) in section.rows.iter().enumerate() {
+            lines.push(line(
+                &format_row(row, index == selected, state, width),
+                width,
+                color,
+                tone_for_row(row),
+            ));
+        }
     }
     lines
 }
 
-fn pad_columns(left: &mut Vec<String>, right: &mut Vec<String>, budget: usize) {
-    left.truncate(budget);
-    right.truncate(budget);
-    let target = left.len().max(right.len()).max(1);
-    left.resize(target, String::new());
-    right.resize(target, String::new());
+fn selected_lines(
+    dashboard: &TuiDashboard,
+    state: &TuiState,
+    width: usize,
+    color: bool,
+) -> Vec<String> {
+    let context_focus = state.focus_region == TuiFocusRegion::ContextPane;
+    let section = selected_section(dashboard, state);
+    let selected = if section.rows.is_empty() {
+        0
+    } else {
+        state.selected_detail_row.min(section.rows.len() - 1)
+    };
+    let Some(row) = section.rows.get(selected) else {
+        return vec![line(
+            if context_focus {
+                "NEXT ACTION"
+            } else {
+                "SELECTED"
+            },
+            width,
+            color,
+            Some(if context_focus {
+                tui_theme::TuiTone::Info
+            } else {
+                tui_theme::TuiTone::Accent
+            }),
+        )];
+    };
+    let explanation = if state.preview_open {
+        row.preview
+            .clone()
+            .unwrap_or_else(|| format!("{}: {}", row.label, row.value))
+    } else if context_focus {
+        "Review action [U]: inspect provider evidence before confirmation. No command has run."
+            .to_string()
+    } else {
+        "Press Enter to open the selected explanation; plans never claim that an action ran."
+            .to_string()
+    };
+    vec![
+        line(
+            if context_focus {
+                "NEXT ACTION"
+            } else {
+                "SELECTED"
+            },
+            width,
+            color,
+            Some(if context_focus {
+                tui_theme::TuiTone::Info
+            } else {
+                tui_theme::TuiTone::Accent
+            }),
+        ),
+        line(
+            &format!("{}  {}", row.label, row.value),
+            width,
+            color,
+            tone_for_row(row),
+        ),
+        line_plain(&truncate(&explanation, width.saturating_sub(4)), width),
+    ]
+}
+
+fn status_line(dashboard: &TuiDashboard, state: &TuiState) -> String {
+    if state.update_confirmation_active() {
+        "confirmation required · type the exact phrase in the dialog".to_string()
+    } else if state.search_active() {
+        "search active · type to filter · Enter accepts · Esc cancels".to_string()
+    } else if state.show_help {
+        "help open · Esc closes".to_string()
+    } else {
+        dashboard.update_action_status.clone()
+    }
+}
+
+fn key_line(state: &TuiState, interactive: bool, width: usize) -> String {
+    if !interactive {
+        return "commands: rz0 doctor · rz0 apps · rz0 store status · rz0 --json".to_string();
+    }
+    if state.search_active() {
+        "search input active".to_string()
+    } else if state.show_help {
+        "Esc closes help".to_string()
+    } else if width < 82 {
+        "↑↓ move · Tab focus · Enter details · ? help · q quit".to_string()
+    } else {
+        "↑↓/jk move · Tab focus · Enter details · u check · Review action [U] · r refresh · ? help · q quit"
+            .to_string()
+    }
+}
+
+fn format_row(row: &TuiRow, selected: bool, state: &TuiState, width: usize) -> String {
+    let marker = if selected && state.focus_region == TuiFocusRegion::DetailsPanel {
+        "▶ "
+    } else if selected {
+        "· "
+    } else {
+        "  "
+    };
+    let value_width = width.saturating_sub(20);
+    format!(
+        "{marker}{:<12} {}",
+        row.label,
+        truncate(&row.value, value_width)
+    )
+}
+
+fn tone_for_row(row: &TuiRow) -> Option<tui_theme::TuiTone> {
+    match row.tone {
+        "safe" => Some(tui_theme::TuiTone::Safe),
+        "info" => Some(tui_theme::TuiTone::Info),
+        "accent" => Some(tui_theme::TuiTone::Accent),
+        "dry_run" => Some(tui_theme::TuiTone::DryRun),
+        "warn" => Some(tui_theme::TuiTone::Warn),
+        _ => Some(tui_theme::TuiTone::Muted),
+    }
 }

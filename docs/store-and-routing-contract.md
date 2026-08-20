@@ -327,7 +327,7 @@ The TUI key contract is:
 - Esc closes details/help, returns focus toward navigation, or quits from base
   navigation;
 - `h` or `?` toggles help;
-- Tab and Shift+Tab cycle navigation, details, and command-rail focus;
+- Tab and Shift+Tab cycle navigation, details, and selected-context focus;
 - arrows or `j`/`k` move within the focused region;
 - Home and End jump to the first and last section while navigation is focused;
 - Enter/Space opens or closes selected row/command details;
@@ -340,8 +340,8 @@ The terminal guard must restore raw mode, cursor visibility, and the normal
 screen on exit or panic unwinding.
 
 The TUI may show built-in bounded software evidence plus foundation store/module
-state. Its six sections are overview, local store, installed software, modules,
-actions, and system monitor. Installed software is one canonical object list:
+state. Its five workspaces are Home, Toolchain, Software, System, and
+Diagnostics. Installed software is one canonical object list:
 each row shows details and only an applicable protected, manager-review,
 quarantine-review, or unsupported uninstall posture. `u` scans providers and
 `U` enters the same confirmation-bound updater lane as the CLI, including exact

@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot (reviewed 2026-08-17):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a six-section TUI, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The coordinator now resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. It remains pre-alpha: Windows production containment, private/UI-only app channels, exact recovery completion, native rollback, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`current status`](docs/project-status-and-resumption.md), [`engineering handoff`](docs/engineering-handoff.md), and [`documentation guide`](docs/documentation-index.md).
+> **Current pre-alpha snapshot (reviewed 2026-08-20):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a task-first five-workspace TUI, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The TUI now starts with a loading shell and groups Rust/AI/developer tools in a Toolchain workspace; the old command rail and six-section chrome are retired. The coordinator resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. It remains pre-alpha: Windows production containment, private/UI-only app channels, exact recovery completion, native rollback, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`TUI guide`](docs/tui.md), [`current status`](docs/project-status-and-resumption.md), [`engineering handoff`](docs/engineering-handoff.md), and [`documentation guide`](docs/documentation-index.md).
 
 ## The promise
 
@@ -51,6 +51,8 @@ rz0 scan --dry-run
 rz0 scan --dry-run --format json
 rz0 monitor --format text
 rz0 monitor --format json
+rz0 toolchain
+rz0 toolchain --format json
 rz0 updates --dry-run --fixture tests/fixtures/updater/evidence.json --plan --queue --format json
 rz0 updates --dry-run --manager homebrew-formula --manager-output /tmp/out.json --executable /opt/homebrew/bin/brew --plan --queue --format json
 rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --plan --queue --format json
@@ -61,20 +63,22 @@ rz0 updates --apply --all-providers --allow-network-read --allow-network-write -
 rz0 updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
 ```
 
-Bare `rz0` opens the live local software dashboard in an interactive terminal.
-It uses raw key handling, mouse capture, visible selection, fixed position
-counters, a separate details panel, and direct action entry points. Enter opens
-selected-item details; the mouse wheel advances the list three rows at a time;
-`m` opens the built-in system monitor; it uses native macOS/Linux/Windows
+Bare `rz0` opens the task-first five-workspace dashboard in an interactive
+terminal. It renders a loading shell before the full local snapshot, then uses
+raw key handling, mouse capture, visible selection, a separate selected-context
+panel, and direct review entry points. Enter opens selected-item details; the
+mouse wheel advances the list by a bounded increment; `m` selects the System
+workspace, which uses native macOS/Linux/Windows
 collectors and does not require a separate btop/top/task-manager install.
-`u` scans provider availability; `U` targets the highlighted provider-backed
+`u` scans provider availability; visible Review action (`U` compatibility
+shortcut) targets the highlighted provider-backed
 update candidate, presents the exact manager command and confirmation phrase,
 and enters the shared confirmation-bound update lane. `r` refreshes the local
 snapshot. The dashboard does not silently execute destructive actions, and it
 does not present unavailable module or uninstall operations as implemented.
-The current Ratatui widget layer provides componentized panels, status badges,
-section navigation, a live native system monitor, Home/End jumps, Tab/Shift+Tab
-focus cycling, arrow and
+The current Ratatui widget layer provides two-panel workspaces, semantic
+labels, section navigation, a live native system monitor, Home/End jumps,
+Tab/Shift+Tab focus cycling, arrow and
 `j`/`k` movement, `/` search, `f` filter cycling, `s` sort cycling, and
 wide/standard/compact layout tiers that keep the selected row visible. Esc
 closes details/help or backs out before quitting. Use `rz0 --no-tui` for the
@@ -499,7 +503,7 @@ in `_meta.notes`, not as loose root files.
 
 The first static landing page is live at [`https://rz0.neuman.dev`](https://rz0.neuman.dev) and its source lives in [`site/`](site/). It is deployed through the connected Cloudflare Worker project `runtime-zero` using `site/` as the static output directory.
 
-This first version is dependency-free and public-safe, but its terminal mock predates the real six-section TUI and current updater/monitor surfaces. Website visual or copy changes can deploy through the connected project and therefore remain a separate reviewed lane. Future site work should align to [`BRAND.md`](BRAND.md), mirror current product truth, avoid red as a brand accent, avoid unsafe direct-run commands, and preserve the static deployment unless a framework migration is separately approved.
+This first version is dependency-free and public-safe, but its terminal mock predates the real task-first five-workspace TUI and current updater/monitor surfaces. Website visual or copy changes can deploy through the connected project and therefore remain a separate reviewed lane. Future site work should align to [`BRAND.md`](BRAND.md), mirror current product truth, avoid red as a brand accent, avoid unsafe direct-run commands, and preserve the static deployment unless a framework migration is separately approved.
 
 ## License
 

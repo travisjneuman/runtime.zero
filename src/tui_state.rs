@@ -4,7 +4,6 @@ use crate::apps::SoftwareView;
 pub struct TuiState {
     pub selected_section: usize,
     pub selected_detail_row: usize,
-    pub selected_command: usize,
     pub focus_region: TuiFocusRegion,
     pub show_help: bool,
     pub preview_open: bool,
@@ -13,7 +12,6 @@ pub struct TuiState {
     update_confirmation_active: bool,
     update_confirmation_phrase: String,
     section_count: usize,
-    command_count: usize,
     previous_focus_region: TuiFocusRegion,
 }
 
@@ -21,7 +19,7 @@ pub struct TuiState {
 pub enum TuiFocusRegion {
     LeftNavigation,
     DetailsPanel,
-    CommandRail,
+    ContextPane,
     HelpOverlay,
 }
 
@@ -29,7 +27,7 @@ pub enum TuiFocusRegion {
 pub enum TuiMouseTarget {
     Navigation,
     Details,
-    Commands,
+    Context,
 }
 
 impl TuiMouseTarget {
@@ -37,7 +35,7 @@ impl TuiMouseTarget {
         match self {
             Self::Navigation => TuiFocusRegion::LeftNavigation,
             Self::Details => TuiFocusRegion::DetailsPanel,
-            Self::Commands => TuiFocusRegion::CommandRail,
+            Self::Context => TuiFocusRegion::ContextPane,
         }
     }
 }
@@ -90,12 +88,10 @@ impl TuiState {
         Self {
             selected_section: 0,
             selected_detail_row: 0,
-            selected_command: 0,
             focus_region: TuiFocusRegion::LeftNavigation,
             show_help: false,
             preview_open: false,
             section_count,
-            command_count: crate::tui_command_rail::COMMANDS.len(),
             software_view: SoftwareView::default(),
             search_active: false,
             update_confirmation_active: false,
@@ -205,7 +201,7 @@ impl TuiState {
                         self.selected_detail_row = 0;
                     }
                     TuiFocusRegion::DetailsPanel => self.selected_detail_row = 0,
-                    TuiFocusRegion::CommandRail => self.selected_command = 0,
+                    TuiFocusRegion::ContextPane => {}
                     TuiFocusRegion::HelpOverlay => {}
                 }
                 TuiAction::Continue
@@ -217,11 +213,8 @@ impl TuiState {
                         self.selected_detail_row = 0;
                     }
                     TuiFocusRegion::DetailsPanel => self.selected_detail_row = usize::MAX,
-                    TuiFocusRegion::CommandRail if self.command_count > 0 => {
-                        self.selected_command = self.command_count - 1;
-                    }
                     TuiFocusRegion::LeftNavigation
-                    | TuiFocusRegion::CommandRail
+                    | TuiFocusRegion::ContextPane
                     | TuiFocusRegion::HelpOverlay => {}
                 }
                 TuiAction::Continue
@@ -246,7 +239,7 @@ impl TuiState {
             TuiInput::UpdateSelected => TuiAction::Continue,
             TuiInput::OpenMonitor if !self.show_help => {
                 if self.section_count > 0 {
-                    self.selected_section = self.section_count - 1;
+                    self.selected_section = self.section_count.saturating_sub(2);
                     self.selected_detail_row = 0;
                     self.focus_region = TuiFocusRegion::DetailsPanel;
                     self.preview_open = false;
@@ -350,8 +343,8 @@ impl TuiState {
         }
         self.focus_region = match self.focus_region {
             TuiFocusRegion::LeftNavigation => TuiFocusRegion::DetailsPanel,
-            TuiFocusRegion::DetailsPanel => TuiFocusRegion::CommandRail,
-            TuiFocusRegion::CommandRail | TuiFocusRegion::HelpOverlay => {
+            TuiFocusRegion::DetailsPanel => TuiFocusRegion::ContextPane,
+            TuiFocusRegion::ContextPane | TuiFocusRegion::HelpOverlay => {
                 TuiFocusRegion::LeftNavigation
             }
         };
@@ -364,10 +357,10 @@ impl TuiState {
         }
         self.focus_region = match self.focus_region {
             TuiFocusRegion::LeftNavigation | TuiFocusRegion::HelpOverlay => {
-                TuiFocusRegion::CommandRail
+                TuiFocusRegion::ContextPane
             }
             TuiFocusRegion::DetailsPanel => TuiFocusRegion::LeftNavigation,
-            TuiFocusRegion::CommandRail => TuiFocusRegion::DetailsPanel,
+            TuiFocusRegion::ContextPane => TuiFocusRegion::DetailsPanel,
         };
         self.preview_open = false;
     }
@@ -384,11 +377,7 @@ impl TuiState {
                 TuiFocusRegion::DetailsPanel => {
                     self.selected_detail_row = self.selected_detail_row.saturating_add(1);
                 }
-                TuiFocusRegion::CommandRail => {
-                    if self.command_count > 0 {
-                        self.selected_command = (self.selected_command + 1) % self.command_count;
-                    }
-                }
+                TuiFocusRegion::ContextPane => {}
                 TuiFocusRegion::HelpOverlay => {}
             }
         }
@@ -406,12 +395,7 @@ impl TuiState {
                 TuiFocusRegion::DetailsPanel => {
                     self.selected_detail_row = self.selected_detail_row.saturating_sub(1);
                 }
-                TuiFocusRegion::CommandRail => {
-                    if self.command_count > 0 {
-                        self.selected_command =
-                            (self.selected_command + self.command_count - 1) % self.command_count;
-                    }
-                }
+                TuiFocusRegion::ContextPane => {}
                 TuiFocusRegion::HelpOverlay => {}
             }
         }
@@ -438,7 +422,7 @@ impl TuiState {
                 self.focus_region = TuiFocusRegion::DetailsPanel;
                 self.preview_open = true;
             }
-            TuiFocusRegion::DetailsPanel | TuiFocusRegion::CommandRail => {
+            TuiFocusRegion::DetailsPanel | TuiFocusRegion::ContextPane => {
                 self.preview_open = !self.preview_open;
             }
             TuiFocusRegion::HelpOverlay => {}

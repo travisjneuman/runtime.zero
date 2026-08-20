@@ -7,6 +7,7 @@ complete -c rz0 -n '__fish_use_subcommand' -a modules -d 'Inspect module manifes
 complete -c rz0 -n '__fish_use_subcommand' -a store -d 'Inspect or initialize the local store'
 complete -c rz0 -n '__fish_use_subcommand' -a scan -d 'Collect bounded dry-run inventory'
 complete -c rz0 -n '__fish_use_subcommand' -a monitor -d 'Show a native system snapshot'
+complete -c rz0 -n '__fish_use_subcommand' -a toolchain -d 'Show Rust, AI, and developer toolchain posture'
 complete -c rz0 -n '__fish_use_subcommand' -a report -d 'Build a privacy-reviewed local summary'
 complete -c rz0 -n '__fish_use_subcommand' -a updates -d 'Review, apply, or assess manager updates'
 complete -c rz0 -n '__fish_use_subcommand' -a completions -d 'Print shell completion source'
@@ -16,7 +17,7 @@ complete -c rz0 -l color -xa 'auto always never'
 complete -c rz0 -l help -s h
 complete -c rz0 -l version -s V
 
-for command in doctor apps monitor report
+for command in doctor apps monitor toolchain report
     complete -c rz0 -n "__fish_seen_subcommand_from $command" -l format -xa 'text json'
     complete -c rz0 -n "__fish_seen_subcommand_from $command" -l json
 end

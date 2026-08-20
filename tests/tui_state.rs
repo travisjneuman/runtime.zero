@@ -87,7 +87,7 @@ fn tab_cycles_focus_regions_without_mutating_actions() {
     let _ = state.apply(TuiInput::FocusNext);
     assert_eq!(state.focus_region, TuiFocusRegion::DetailsPanel);
     let _ = state.apply(TuiInput::FocusNext);
-    assert_eq!(state.focus_region, TuiFocusRegion::CommandRail);
+    assert_eq!(state.focus_region, TuiFocusRegion::ContextPane);
     let _ = state.apply(TuiInput::FocusNext);
     assert_eq!(state.focus_region, TuiFocusRegion::LeftNavigation);
     assert!(!state.preview_open);
@@ -98,7 +98,7 @@ fn update_check_key_works_from_every_content_focus_region() {
     for focus_region in [
         TuiFocusRegion::LeftNavigation,
         TuiFocusRegion::DetailsPanel,
-        TuiFocusRegion::CommandRail,
+        TuiFocusRegion::ContextPane,
     ] {
         let mut state = TuiState::new(4);
         state.focus_region = focus_region;
@@ -133,21 +133,20 @@ fn uppercase_update_enters_exact_confirmation_text_mode() {
 fn shift_tab_cycles_focus_backward() {
     let mut state = TuiState::new(4);
     let _ = state.apply(TuiInput::FocusPrevious);
-    assert_eq!(state.focus_region, TuiFocusRegion::CommandRail);
+    assert_eq!(state.focus_region, TuiFocusRegion::ContextPane);
     let _ = state.apply(TuiInput::FocusPrevious);
     assert_eq!(state.focus_region, TuiFocusRegion::DetailsPanel);
 }
 
 #[test]
-fn command_rail_cycles_across_all_preview_entries() {
+fn context_pane_stays_scoped_to_the_selected_row() {
     let mut state = TuiState::new(4);
     let _ = state.apply(TuiInput::FocusNext);
     let _ = state.apply(TuiInput::FocusNext);
-    assert_eq!(state.focus_region, TuiFocusRegion::CommandRail);
-    for _ in 0..7 {
-        let _ = state.apply(TuiInput::NextItem);
-    }
-    assert_eq!(state.selected_command, 0);
+    assert_eq!(state.focus_region, TuiFocusRegion::ContextPane);
+    state.selected_detail_row = 2;
+    let _ = state.apply(TuiInput::NextItem);
+    assert_eq!(state.selected_detail_row, 2);
 }
 
 #[test]
@@ -172,9 +171,9 @@ fn activation_from_navigation_opens_selected_details() {
 
 #[test]
 fn monitor_shortcut_jumps_to_the_last_section() {
-    let mut state = TuiState::new(6);
+    let mut state = TuiState::new(5);
     assert_eq!(state.apply(TuiInput::OpenMonitor), TuiAction::Continue);
-    assert_eq!(state.selected_section, 5);
+    assert_eq!(state.selected_section, 3);
     assert_eq!(state.focus_region, TuiFocusRegion::DetailsPanel);
 }
 

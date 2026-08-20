@@ -58,6 +58,10 @@ support export.
 .B monitor [--format text|json]
 Print one native read-only resource snapshot.
 .TP
+.B toolchain [--format text|json]
+Print Rust, AI, and developer-tool provider posture from bounded local evidence.
+This command never invokes AIUP or another provider and never performs a write.
+.TP
 .B report [--format text|json]
 Build a deterministic summary that omits raw paths, host/user identity,
 application/service names, credentials, process output, and free-form warnings.

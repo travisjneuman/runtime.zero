@@ -12,6 +12,7 @@ use crate::module_registry::ModuleRegistryReport;
 use crate::store_init::{StoreInitMode, StoreInitOptions, StoreInitStatus, store_init_report};
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
 use crate::system_monitor::{self, SystemSnapshot};
+use crate::toolchain::{is_toolchain_software, is_toolchain_text};
 use crate::tui_dashboard_labels::{
     init_label, init_status_label, init_tone, receipt_label, receipt_state_label, receipt_tone,
     registry_label, registry_state_label, registry_tone, row, row_count, store_state_label,
@@ -94,6 +95,41 @@ pub fn private_dashboard() -> TuiDashboard {
     dashboard_with_inventory(false)
 }
 
+pub fn loading_dashboard() -> TuiDashboard {
+    let mut dashboard = private_dashboard();
+    dashboard.inventory_status = "loading".to_string();
+    dashboard.update_check_status = "not started".to_string();
+    dashboard.update_action_status =
+        "loading local snapshot · no provider action is running".to_string();
+    if let Some(home) = dashboard.sections.first_mut() {
+        home.rows.insert(
+            1,
+            row(
+                tui_theme::LABEL_PLAN,
+                "loading local inventory and system evidence",
+                "accent",
+            ),
+        );
+    }
+    dashboard
+}
+
+pub fn mark_startup_load_failed(dashboard: &mut TuiDashboard, detail: &str) {
+    dashboard.inventory_status = format!("unavailable · {detail}");
+    dashboard.update_action_status =
+        "startup load failed · press r to retry explicitly".to_string();
+    if let Some(home) = dashboard.sections.first_mut() {
+        home.rows.insert(
+            1,
+            row(
+                tui_theme::LABEL_WARN,
+                "local inventory did not load; no automatic retry was attempted",
+                "warn",
+            ),
+        );
+    }
+}
+
 fn dashboard_with_inventory(include_software_names: bool) -> TuiDashboard {
     let store = store_status_report(&["tui".to_string()]);
     let init = store_init_report(
@@ -146,7 +182,8 @@ fn build_dashboard(
         service_and_persistence_count: catalog.as_ref().map_or(0, |catalog| catalog.service_count),
         inventory_status,
         update_check_status: "not checked".to_string(),
-        update_action_status: "idle · u scans providers · U updates the selected item".to_string(),
+        update_action_status: "idle · u scans providers · review action requires confirmation"
+            .to_string(),
         update_source_count: 0,
         update_candidate_count: 0,
         sections: sections(SectionContext {
@@ -160,7 +197,7 @@ fn build_dashboard(
             update_plan: None,
             pending_update: None,
             update_status: "not checked",
-            update_action_status: "idle · u scans providers · U updates the selected item",
+            update_action_status: "idle · u scans providers · review action requires confirmation",
             monitor: monitor.as_ref(),
         }),
         palette: palette(),
@@ -212,33 +249,6 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
             update_status,
             update_action_status,
         ),
-        TuiSection {
-            code: "02",
-            title: "local store",
-            summary: "user-local store and registry health",
-            rows: vec![
-                row(
-                    tui_theme::LABEL_INFO,
-                    store_state_label(store.overall_state),
-                    "info",
-                ),
-                row(
-                    init_label(init_status),
-                    init_status_label(init_status),
-                    init_tone(init_status),
-                ),
-                row(
-                    registry_label(store.registry.status),
-                    registry_state_label(store.registry.status),
-                    registry_tone(store.registry.status),
-                ),
-                row(
-                    receipt_label(store.receipts.overall_state),
-                    receipt_state_label(store.receipts.overall_state),
-                    receipt_tone(store.receipts.overall_state),
-                ),
-            ],
-        },
         installed_software_section(
             catalog,
             inventory_error,
@@ -246,71 +256,109 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
             updates,
             update_plan,
             pending_update,
+            true,
         ),
-        TuiSection {
-            code: "04",
-            title: "modules",
-            summary: "first-party module source and lifecycle state",
-            rows: vec![
-                row_count(
-                    tui_theme::LABEL_INFO,
-                    modules.summary.installed_module_count,
-                    "installed modules",
-                    "info",
-                ),
-                row_count(
-                    tui_theme::LABEL_PLAN,
-                    modules.summary.planned_family_count,
-                    "planned first-party families",
-                    "accent",
-                ),
-                row(
-                    tui_theme::LABEL_PLAN,
-                    "inventory adapter is built in; domain modules remain isolated",
-                    "accent",
-                ),
-                row(
-                    tui_theme::LABEL_INFO,
-                    "module package checks are available from the CLI",
-                    "info",
-                ),
-            ],
-        },
-        TuiSection {
-            code: "05",
-            title: "actions",
-            summary: "available actions and permissions",
-            rows: vec![
-                row(
-                    tui_theme::LABEL_OK,
-                    "software inventory and selected update execution are available",
-                    "safe",
-                ),
-                row(
-                    tui_theme::LABEL_INFO,
-                    "initialize local state with `rz0 store init --yes`",
-                    "info",
-                ),
-                row(
-                    tui_theme::LABEL_INFO,
-                    "module package checks are available from the CLI",
-                    "info",
-                ),
-                row(
-                    tui_theme::LABEL_INFO,
-                    "u scans every provider; U prepares and executes the selected update",
-                    "info",
-                ),
-            ],
-        },
+        installed_software_section(
+            catalog,
+            inventory_error,
+            view,
+            updates,
+            update_plan,
+            pending_update,
+            false,
+        ),
+        diagnostics_section(
+            store,
+            init_status,
+            modules,
+            inventory_error,
+            update_action_status,
+        ),
     ];
-    if let Some(monitor) = monitor {
-        sections.push(system_monitor_section(monitor));
-    }
+    sections.insert(3, system_monitor_section(monitor));
     sections
 }
 
-fn system_monitor_section(snapshot: &SystemSnapshot) -> TuiSection {
+fn diagnostics_section(
+    store: &StoreStatusReport,
+    init_status: StoreInitStatus,
+    modules: &ModuleRegistryReport,
+    inventory_error: Option<&str>,
+    update_action_status: &str,
+) -> TuiSection {
+    let mut rows = vec![
+        row(
+            tui_theme::LABEL_INFO,
+            store_state_label(store.overall_state),
+            "info",
+        ),
+        row(
+            init_label(init_status),
+            init_status_label(init_status),
+            init_tone(init_status),
+        ),
+        row(
+            registry_label(store.registry.status),
+            registry_state_label(store.registry.status),
+            registry_tone(store.registry.status),
+        ),
+        row(
+            receipt_label(store.receipts.overall_state),
+            receipt_state_label(store.receipts.overall_state),
+            receipt_tone(store.receipts.overall_state),
+        ),
+        row_count(
+            tui_theme::LABEL_INFO,
+            modules.summary.installed_module_count,
+            "installed modules",
+            "info",
+        ),
+        row_count(
+            tui_theme::LABEL_PLAN,
+            modules.summary.planned_family_count,
+            "planned first-party families",
+            "accent",
+        ),
+        row(
+            tui_theme::LABEL_PLAN,
+            "inventory adapter is built in; domain modules remain isolated",
+            "accent",
+        ),
+        row(
+            tui_theme::LABEL_INFO,
+            "module package checks and store status are available from the CLI",
+            "info",
+        ),
+        row(tui_theme::LABEL_INFO, update_action_status, "info"),
+    ];
+    if let Some(error) = inventory_error {
+        rows.push(row(
+            tui_theme::LABEL_WARN,
+            &format!("inventory error: {error}"),
+            "warn",
+        ));
+    }
+    TuiSection {
+        code: "05",
+        title: "diagnostics",
+        summary: "store, receipts, registry, modules, and recovery evidence",
+        rows,
+    }
+}
+
+fn system_monitor_section(snapshot: Option<&SystemSnapshot>) -> TuiSection {
+    let Some(snapshot) = snapshot else {
+        return TuiSection {
+            code: "04",
+            title: "system",
+            summary: "native system monitor and bounded runtime evidence",
+            rows: vec![row(
+                tui_theme::LABEL_WARN,
+                "system monitor unavailable on this platform",
+                "warn",
+            )],
+        };
+    };
     let mut rows = vec![
         row(
             tui_theme::LABEL_OK,
@@ -397,8 +445,8 @@ fn system_monitor_section(snapshot: &SystemSnapshot) -> TuiSection {
         rows.push(row(tui_theme::LABEL_WARN, warning, "warn"));
     }
     TuiSection {
-        code: "06",
-        title: "system monitor",
+        code: "04",
+        title: "system",
         summary: "live CPU, memory, disk, network, and process activity",
         rows,
     }
@@ -528,7 +576,7 @@ fn overview_section(
     }
     rows.push(row(
         tui_theme::LABEL_INFO,
-        "Tab details · Enter details · u scan providers · U update selected · r refresh",
+        "Tab focus · Enter details · u scan providers · review action · r refresh",
         "info",
     ));
     TuiSection {
@@ -546,13 +594,20 @@ fn installed_software_section(
     updates: Option<&LiveUpdateCatalog>,
     update_plan: Option<&ActionPlan>,
     pending_update: Option<&TuiUpdateChallenge>,
+    toolchain_only: bool,
 ) -> TuiSection {
     let mut rows = Vec::new();
     match catalog {
         Some(catalog) => {
-            let mut visible = visible_apps(catalog, view);
+            let mut visible = visible_apps(catalog, view)
+                .into_iter()
+                .filter(|app| is_toolchain_app(app) == toolchain_only)
+                .collect::<Vec<_>>();
             visible.sort_by(|left, right| view.compare(left, right));
-            let visible_dynamic = visible_dynamic_updates(catalog, updates, view);
+            let visible_dynamic = visible_dynamic_updates(catalog, updates, view)
+                .into_iter()
+                .filter(|update| is_toolchain_update(update) == toolchain_only)
+                .collect::<Vec<_>>();
             let visible_count = visible.len() + visible_dynamic.len();
             rows.push(row_count(
                 tui_theme::LABEL_OK,
@@ -563,7 +618,7 @@ fn installed_software_section(
             rows.push(TuiRow {
                 label: tui_theme::LABEL_INFO,
                 value: format!(
-                    "{} · Enter details · U updates the selected item",
+                    "{} · Enter details · review the selected action before confirmation",
                     view_description(view)
                 ),
                 tone: "info",
@@ -723,11 +778,27 @@ fn installed_software_section(
         )),
     }
     TuiSection {
-        code: "03",
-        title: "installed software",
-        summary: "live software records plus universal provider update candidates",
+        code: if toolchain_only { "02" } else { "03" },
+        title: if toolchain_only {
+            "toolchain"
+        } else {
+            "software"
+        },
+        summary: if toolchain_only {
+            "Rust-first AI and developer toolchain records by provider"
+        } else {
+            "installed application and package records outside the toolchain"
+        },
         rows,
     }
+}
+
+fn is_toolchain_app(app: &InstalledSoftware) -> bool {
+    is_toolchain_software(app)
+}
+
+fn is_toolchain_update(update: &SoftwareUpdate) -> bool {
+    is_toolchain_text(&format!("{} {}", update.software_id, update.manager))
 }
 
 fn visible_apps<'a>(catalog: &'a AppCatalog, view: &SoftwareView) -> Vec<&'a InstalledSoftware> {
@@ -792,7 +863,7 @@ fn update_action<'a>(
 
 fn update_label_and_tone(action: Option<&PlanAction>) -> (&'static str, &'static str) {
     match action.map(|action| action.disposition) {
-        Some(ActionDisposition::Planned) => ("update available · U to update", "accent"),
+        Some(ActionDisposition::Planned) => ("update available · review action", "accent"),
         Some(ActionDisposition::Blocked) => ("update blocked", "warn"),
         Some(ActionDisposition::Unsupported) | None => ("update action unavailable", "warn"),
     }
@@ -866,6 +937,15 @@ impl TuiDashboard {
             &self.update_check_status,
             &self.update_action_status,
         );
+        self.sections[1] = installed_software_section(
+            self.software_catalog.as_ref(),
+            self.inventory_error.as_deref(),
+            view,
+            self.update_catalog.as_ref(),
+            self.update_plan.as_ref(),
+            self.pending_update.as_ref(),
+            true,
+        );
         self.sections[2] = installed_software_section(
             self.software_catalog.as_ref(),
             self.inventory_error.as_deref(),
@@ -873,6 +953,7 @@ impl TuiDashboard {
             self.update_catalog.as_ref(),
             self.update_plan.as_ref(),
             self.pending_update.as_ref(),
+            false,
         );
     }
 
@@ -882,13 +963,12 @@ impl TuiDashboard {
         };
         let snapshot = system_monitor::collect_snapshot(Some(previous));
         self.monitor_snapshot = Some(snapshot.clone());
-        if self
+        if let Some(index) = self
             .sections
-            .last()
-            .is_some_and(|section| section.code == "06")
+            .iter()
+            .position(|section| section.code == "04")
         {
-            let index = self.sections.len() - 1;
-            self.sections[index] = system_monitor_section(&snapshot);
+            self.sections[index] = system_monitor_section(Some(&snapshot));
         }
     }
 
@@ -922,7 +1002,8 @@ impl TuiDashboard {
             updates.candidate_count, updates.source_ok_count, updates.source_count
         );
         self.update_catalog = Some(updates);
-        self.update_action_status = "review ready · U updates the selected item".to_string();
+        self.update_action_status =
+            "review ready · choose Review action for the selected item".to_string();
     }
 
     pub(crate) fn complete_update_review(&mut self, review: LiveUpdateReview) {
@@ -957,11 +1038,25 @@ impl TuiDashboard {
         row_index: usize,
         view: &SoftwareView,
     ) -> Option<String> {
+        let toolchain_only = self
+            .sections
+            .get(section_index)
+            .is_some_and(|section| section.code == "02");
+        if !self
+            .sections
+            .get(section_index)
+            .is_some_and(|section| matches!(section.code, "02" | "03"))
+        {
+            return None;
+        }
         self.selected_update_candidate(section_index, row_index, view)
             .map(|candidate| candidate.software_id.clone())
             .or_else(|| {
                 let catalog = self.software_catalog.as_ref()?;
-                let apps = visible_apps(catalog, view);
+                let apps = visible_apps(catalog, view)
+                    .into_iter()
+                    .filter(|app| is_toolchain_app(app) == toolchain_only)
+                    .collect::<Vec<_>>();
                 let row = row_index.checked_sub(2)?;
                 apps.get(row).map(|app| app.id.clone())
             })
@@ -997,12 +1092,20 @@ impl TuiDashboard {
         row_index: usize,
         view: &SoftwareView,
     ) -> Option<&'a SoftwareUpdate> {
-        if self.sections.get(section_index)?.code != "03" {
-            return None;
-        }
+        let toolchain_only = match self.sections.get(section_index)?.code {
+            "02" => true,
+            "03" => false,
+            _ => return None,
+        };
         let catalog = self.software_catalog.as_ref()?;
-        let apps = visible_apps(catalog, view);
-        let dynamic = visible_dynamic_updates(catalog, self.update_catalog.as_ref(), view);
+        let apps = visible_apps(catalog, view)
+            .into_iter()
+            .filter(|app| is_toolchain_app(app) == toolchain_only)
+            .collect::<Vec<_>>();
+        let dynamic = visible_dynamic_updates(catalog, self.update_catalog.as_ref(), view)
+            .into_iter()
+            .filter(|update| is_toolchain_update(update) == toolchain_only)
+            .collect::<Vec<_>>();
         let row = row_index.checked_sub(2)?;
         if row < apps.len() {
             let app = apps[row];

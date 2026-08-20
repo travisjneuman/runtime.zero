@@ -28,6 +28,23 @@ fn monitor_has_a_scriptable_read_only_snapshot_contract() {
 }
 
 #[test]
+fn toolchain_has_a_scriptable_read_only_snapshot_contract() {
+    let (code, out, err) = run(["toolchain", "--format", "json"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("toolchain JSON");
+    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["contract"], "toolchain_snapshot");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert!(
+        value["providers"]
+            .as_array()
+            .is_some_and(|providers| { providers.iter().any(|provider| provider["id"] == "aiup") })
+    );
+}
+
+#[test]
 fn doctor_is_read_only_bootstrap_diagnostic() {
     let (code, out, err) = run(["doctor"]);
     assert_eq!(code, ExitCode::Ok);

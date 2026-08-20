@@ -262,7 +262,7 @@ full platform/lifecycle acceptance cells.
   representative macOS/Linux shells and terminals.
 - [ ] Keep website, README, help, TUI labels, module docs, safety policy, and
   shipped behavior synchronized.
-- [ ] Update the public website mock to the real six-section TUI and current
+- [ ] Update the public website mock to the real five-workspace TUI and current
   capability boundaries after explicit deployment approval.
 - [ ] Select/finalize brand assets, favicon, README/social art, screenshots, and
   contrast evidence without promoting candidate assets silently.

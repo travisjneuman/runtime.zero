@@ -22,11 +22,11 @@ _rz0_complete() {
     esac
 
     if [[ $COMP_CWORD -eq 1 ]]; then
-        COMPREPLY=( $(compgen -W 'doctor apps uninstall modules store scan monitor report updates completions help version --tui --no-tui --json --color --version --help' -- "$current") )
+        COMPREPLY=( $(compgen -W 'doctor apps uninstall modules store scan monitor toolchain report updates completions help version --tui --no-tui --json --color --version --help' -- "$current") )
         return
     fi
     case "$command" in
-        doctor|apps|monitor|report) COMPREPLY=( $(compgen -W '--format --json --help' -- "$current") ) ;;
+        doctor|apps|monitor|toolchain|report) COMPREPLY=( $(compgen -W '--format --json --help' -- "$current") ) ;;
         uninstall) COMPREPLY=( $(compgen -W 'plan --executable --format --json --help' -- "$current") ) ;;
         modules) COMPREPLY=( $(compgen -W 'validate install --from --format --json --help' -- "$current") ) ;;
         store) COMPREPLY=( $(compgen -W 'plan status init --store-root --dry-run --yes --format --json --help' -- "$current") ) ;;

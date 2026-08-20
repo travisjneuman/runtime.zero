@@ -26,15 +26,13 @@ pub mod store_plan;
 pub mod store_status;
 pub mod store_status_text;
 pub mod system_monitor;
+pub mod toolchain;
 pub mod tui_app;
 pub mod tui_canvas;
-mod tui_command_rail;
 pub mod tui_dashboard;
 mod tui_dashboard_labels;
 pub mod tui_layout;
 pub mod tui_ratatui;
-mod tui_ratatui_components;
-mod tui_ratatui_rail;
 mod tui_ratatui_support;
 pub mod tui_render;
 mod tui_render_support;
@@ -79,6 +77,7 @@ where
         Some("store") => store_cli::store_command(&args[1..]),
         Some("scan") => scan_command(&args[1..]),
         Some("monitor") => system_monitor::monitor_command(&args[1..]),
+        Some("toolchain") => toolchain::toolchain_command(&args[1..]),
         Some("report") => report::report_command(&args[1..]),
         Some("updates") => update_cli::updates_command(&args[1..]),
         Some(command) => unknown_command(command),
@@ -104,6 +103,10 @@ pub fn help_text() -> String {
         cmd = brand::COMMAND,
         safety = brand::SAFETY_POSTURE
     );
+    let toolchain_usage = format!("  {} toolchain [--format text|json]\n", brand::COMMAND);
+    if let Some(index) = help.find(&format!("  {} report", brand::COMMAND)) {
+        help.insert_str(index, &toolchain_usage);
+    }
     let provider_usage = format!(
         "  {} updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback\n",
         brand::COMMAND,

@@ -51,6 +51,7 @@ mod tests {
                 "store",
                 "scan",
                 "monitor",
+                "toolchain",
                 "report",
                 "updates",
                 "completions",

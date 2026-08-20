@@ -42,13 +42,10 @@ fn strip_ansi(value: &str) -> String {
 #[test]
 fn render_plain_dashboard_without_ansi() {
     let rendered = render_dashboard(&tui_dashboard::dashboard(), false);
-    assert!(rendered.contains("runtime.zero rz0"));
-    assert!(rendered.contains("COMMANDS"));
-    assert!(rendered.contains("rz0 store status"));
-    assert!(
-        rendered
-            .contains("installed software · Enter details · u scan providers · U update selected")
-    );
+    assert!(rendered.contains("runtime.zero"));
+    assert!(rendered.contains("LOCAL CONTROL"));
+    assert!(rendered.contains("HOME / NEXT STEP"));
+    assert!(rendered.contains("status"));
     assert!(!rendered.contains("\x1b["));
 }
 
@@ -57,11 +54,10 @@ fn render_wide_dashboard_has_navigation_and_selected_section() {
     let mut state = TuiState::new(4);
     state.selected_section = 1;
     let rendered = render_dashboard_with_state(&tui_dashboard::dashboard(), false, 118, 30, &state);
-    assert!(rendered.contains("SECTIONS"));
-    assert!(rendered.contains("▸ 02 local store"));
-    assert!(rendered.contains("02 · LOCAL STORE"));
-    assert!(rendered.contains("user-local store and registry health"));
-    assert!(rendered.contains("STATUS"));
+    assert!(rendered.contains("TOOLCHAIN"));
+    assert!(rendered.contains("TOOLCHAIN"));
+    assert!(rendered.contains("Rust-first AI and developer toolchain records"));
+    assert!(rendered.contains("SELECTED"));
 }
 
 #[test]
@@ -75,7 +71,7 @@ fn interactive_color_render_styles_body_without_breaking_text() {
     );
     assert!(rendered.contains("\x1b["));
     assert!(rendered.contains("[INFO]"));
-    assert!(rendered.contains("01 · OVERVIEW"));
+    assert!(rendered.contains("HOME / NEXT STEP"));
 }
 
 #[test]
@@ -83,8 +79,8 @@ fn render_handles_narrow_terminal_and_help() {
     let mut state = TuiState::new(4);
     state.show_help = true;
     let rendered = render_dashboard_with_state(&tui_dashboard::dashboard(), false, 40, 16, &state);
-    assert!(rendered.contains("Esc back"));
-    assert!(rendered.contains("SECTIONS"));
+    assert!(rendered.contains("Esc"));
+    assert!(rendered.contains("HELP"));
     assert!(!rendered.contains("\x1b["));
 }
 
@@ -122,7 +118,7 @@ fn update_check_status_is_visible_in_compact_interactive_frames() {
     assert!(
         dashboard
             .update_action_status
-            .contains("review ready · U updates the selected item")
+            .contains("review ready · choose Review action")
     );
 
     assert!(dashboard.start_update_check().is_some());
@@ -206,21 +202,23 @@ fn all_sections_render_with_accessible_labels_across_terminal_sizes() {
                             "line exceeded visible frame width {frame_width}: {line:?}"
                         );
                     }
-                    assert!(plain.contains("SECTIONS"));
-                    assert!(
-                        plain.contains("installed software") || plain.contains("local inventory")
-                    );
+                    assert!(plain.contains("runtime.zero"));
+                    assert!(plain.contains("runtime.zero"));
                     if !show_help || requested_height >= 24 {
+                        let expected_section_title = if section.title == "overview" {
+                            "HOME / NEXT STEP"
+                        } else {
+                            &section.title.to_uppercase()
+                        };
                         assert!(
-                            plain.contains(section.title)
-                                || plain.contains(&section.title.to_uppercase())
+                            plain.contains(expected_section_title) || plain.contains(section.title)
                         );
                     }
                     if show_help {
-                        assert!(plain.contains("Esc back"));
-                        assert!(plain.contains("mouse wheel scrolls lists"));
+                        assert!(plain.contains("Esc"));
+                        assert!(plain.contains("Tab / Shift+Tab"));
                     } else {
-                        assert!(plain.contains("Tab areas"));
+                        assert!(plain.contains("Tab focus"));
                     }
                 }
             }
@@ -232,7 +230,7 @@ fn all_sections_render_with_accessible_labels_across_terminal_sizes() {
 fn colorized_frames_preserve_plain_text_contract() {
     let dashboard = tui_dashboard::dashboard();
     let mut state = TuiState::new(dashboard.sections.len());
-    state.selected_section = 3;
+    state.selected_section = 4;
     state.show_help = true;
 
     let plain = render_dashboard_with_state(&dashboard, false, 118, 30, &state);

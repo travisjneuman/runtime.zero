@@ -48,7 +48,7 @@ The strongest implemented areas are:
   source status;
 - source-specific software identifiers and deterministic identity grouping that
   preserves disagreement;
-- path-free installed-software catalog, six-section TUI, and native monitor;
+- path-free installed-software catalog, task-first five-workspace TUI, and native monitor;
 - privacy-reviewed `rz0 report` summaries with no automatic sharing;
 - shared validation, resource, privacy, capability, error, finding/action,
   confirmation, cancellation, filesystem, artifact-identity, transaction,
@@ -115,6 +115,7 @@ rz0 report [--format text|json]
 rz0 uninstall plan <installed-software-id> [--executable <absolute-path>] [--format text|json]
 rz0 scan --dry-run [--include-raw-paths] [--format text|json]
 rz0 monitor [--format text|json]
+rz0 toolchain [--format text|json]
 rz0 completions <bash|zsh|fish|powershell>
 rz0 updates --dry-run --fixture <evidence.json> [--plan] [--queue] [--format text|json]
 rz0 updates --dry-run --manager <id> --manager-output <path> --executable <path> [--plan] [--queue] [--format text|json]
@@ -169,12 +170,12 @@ TUI. Terminal guards restore raw mode, cursor, mouse capture, and alternate
 screen on normal exit and panic unwinding; ordinary broken pipes are clean exits
 for scriptable output.
 
-The six sections are overview, local store, installed software, modules,
-actions, and system monitor. The overview now separates application/package and
-service/persistence record counts. Controls include `r` inventory refresh, `u`
-explicit manager availability, `m` monitor, `/` search, `f` filter, `s` sort,
-arrows/`j`/`k`, Home/End, Tab/Shift+Tab, Enter/Space, mouse wheel, `h`/`?`, Esc,
-and `q`.
+The five workspaces are Home, Toolchain, Software, System, and Diagnostics.
+The TUI renders a loading shell before the full inventory/monitor worker
+finishes, and `r` is the only explicit retry. Controls include `r` inventory
+refresh, `u` explicit provider availability, visible `Review action [U]`, `m`
+System, `/` search, `f` filter, `s` sort, arrows/`j`/`k`, Home/End,
+Tab/Shift+Tab, Enter/Space, mouse wheel, `h`/`?`, Esc, and `q`.
 
 The TUI has no second mutation implementation: `U` enters the same exact updater
 plan, confirmation, identity-bound process, receipt, and verification path as
@@ -411,9 +412,9 @@ repository checks before it becomes the current handoff baseline.
   uninstall and cleanup actions remain reviews rather than execution flows.
 - No uninstall, cleanup, restore, integrity remediation, or module lifecycle
   execution exists.
-- Interactive TUI first-frame/refresh timing, localization policy, migration/
-  repair guides, and human screen-reader review remain incomplete.
-- The public website mock predates the real six-section product; source/deploy
+- Interactive TUI cross-platform first-frame/refresh review, localization policy,
+  migration/repair guides, and human screen-reader review remain incomplete.
+- The public website mock predates the real five-workspace product; source/deploy
   changes require separate approval.
 
 ### Platforms

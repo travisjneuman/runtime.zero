@@ -47,7 +47,7 @@ cell.
 
 | Document | Purpose |
 | --- | --- |
-| [`user-guide.md`](user-guide.md) | Current workflows, updater apply lane, TUI, uninstall review, recovery status, store, modules, and completion usage |
+| [`user-guide.md`](user-guide.md) | Current workflows, Rust/AI toolchain snapshot, updater apply lane, TUI, uninstall review, recovery status, store, modules, and completion usage |
 | [`troubleshooting.md`](troubleshooting.md) | Fail-closed triage for terminals, inventory, reports, updates, store, builds, and safe bug reports |
 | [`recovery-guide.md`](recovery-guide.md) | Transaction/receipt states, cancellation outcomes, evidence preservation, and current recovery limits |
 | [`privacy-and-sharing.md`](privacy-and-sharing.md) | Output sensitivity, redaction limits, network posture, support-export review, and retention caveats |
@@ -61,6 +61,7 @@ cell.
 | [`module-system.md`](module-system.md) | Module catalog, registry, manifests, enablement target, and core-versus-module ownership |
 | [`foundation-readiness.md`](foundation-readiness.md) | Current foundation maturity and prerequisites for broader module work |
 | [`tui.md`](tui.md) | Interactive routing, keys, layouts, rendering, accessibility, and TUI limitations |
+| [`tui-redesign.md`](tui-redesign.md) | Current task-first TUI product and acceptance contract |
 | [`system-monitor.md`](system-monitor.md) | Native monitor schema, platform collectors, metric caveats, and no-remediation boundary |
 | [`inventory-schema.md`](inventory-schema.md) | Inventory report, collectors, privacy, validation, and remaining parity work |
 | [`action-planning.md`](action-planning.md) | Evidence-to-finding-to-plan-to-confirmation-to-transaction pipeline |
