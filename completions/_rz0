@@ -7,6 +7,7 @@ _rz0() {
     'apps:list path-free installed software'
     'cache:review bounded cache evidence without mutation'
     'leftovers:review bounded runtime.zero-owned evidence without mutation'
+    'integrity:review explicit digest evidence without remediation'
     'uninstall:build a read-only finding-bound uninstall plan'
     'modules:list, validate, or plan module installation'
     'store:inspect or explicitly initialize the local store'
@@ -39,6 +40,7 @@ _rz0() {
     doctor|apps|monitor|toolchain|report) _arguments '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     cache) _arguments '--dry-run[required report-only mode]' '*--fixture[local cache evidence JSON]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     leftovers) _arguments '--dry-run[required report-only mode]' '*--fixture[local leftover evidence JSON]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
+    integrity) _arguments '--dry-run[required report-only mode]' '*--fixture[local integrity evidence JSON]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     scan) _arguments '--dry-run[required report-only mode]' '--include-raw-paths[local private paths]' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
     uninstall) _arguments '1:operation:(plan)' '2:installed software id:' '--executable[exact manager path]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
     modules) _arguments '1:operation:(validate install lifecycle-plan)' '*:manifest, package, or module id:_files' '--from[module directory]:directory:_files -/' '--module-id[module id]:' '--from-state[previous lifecycle state]:state:(absent staged installed_inactive active degraded quarantined)' '--to-state[next lifecycle state]:state:(absent staged installed_inactive active degraded quarantined)' '--from-version[previous module version]:' '--to-version[next module version]:' '--transition-id[exact plan transition id]:' '--dry-run[required planning mode]' '--format[output format]:format:(text json)' '--json[JSON output]' ;;

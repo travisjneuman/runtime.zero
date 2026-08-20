@@ -227,6 +227,8 @@ full platform/lifecycle acceptance cells.
 
 ### Security and integrity
 
+- [x] Expose strict fixture-only exact-digest evidence through the shared
+  report contract while refusing remediation and trusted-baseline claims.
 - [ ] Define exact checks and non-goals without malware-removal or unsupported
   assurance claims.
 - [ ] Establish trusted, versioned baselines and provenance for every integrity

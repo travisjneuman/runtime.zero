@@ -99,6 +99,38 @@ fn leftovers_review_has_a_scriptable_read_only_contract() {
 }
 
 #[test]
+fn integrity_review_is_explicit_fixture_only_and_report_only() {
+    let fixture = format!(
+        "{}/tests/fixtures/integrity/valid.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let (code, out, err) = run([
+        "integrity",
+        "--dry-run",
+        "--fixture",
+        &fixture,
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("integrity JSON");
+    assert_eq!(value["contract"], "integrity_review");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["raw_paths_included"], false);
+    assert_eq!(
+        value["baseline_status"],
+        "caller-supplied fixture; not a runtime trust baseline"
+    );
+    assert_eq!(value["finding_report"]["findings"][0]["risk"], "high");
+    assert_eq!(
+        value["finding_report"]["findings"][0]["disposition"],
+        "report_only"
+    );
+}
+
+#[test]
 fn doctor_is_read_only_bootstrap_diagnostic() {
     let (code, out, err) = run(["doctor"]);
     assert_eq!(code, ExitCode::Ok);

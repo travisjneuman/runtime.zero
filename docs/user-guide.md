@@ -147,6 +147,18 @@ skipped, entry/byte ceilings are enforced, and directory-listing evidence is
 report-only because it does not prove stale ownership or a safe exact-file
 transaction. No cleanup, quarantine, restore, or deletion is authorized.
 
+### Integrity evidence
+
+```bash
+rz0 integrity --dry-run --fixture tests/fixtures/integrity/valid.json --format json
+```
+
+Integrity review is fixture-only until runtime.zero has a trusted, versioned,
+revocable baseline. The shared contract preserves exact digest observations and
+can mark mismatches high-risk, but it never claims malware or vulnerability
+detection and never authorizes remediation, quarantine, restore, or deletion.
+Without `--fixture`, the command fails closed.
+
 ### System monitor
 
 ```bash

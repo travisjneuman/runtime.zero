@@ -8,6 +8,7 @@ pub mod install_receipt;
 mod install_receipt_schema;
 pub mod installed_registry;
 mod installed_registry_path;
+pub mod integrity;
 pub mod inventory;
 pub mod launch_routing;
 pub mod leftovers;
@@ -75,6 +76,7 @@ where
         Some("apps") => apps::apps_command(&args[1..]),
         Some("cache") => cache::cache_command(&args[1..]),
         Some("leftovers") => leftovers::leftovers_command(&args[1..]),
+        Some("integrity") => integrity::integrity_command(&args[1..]),
         Some("uninstall") => apps::uninstall_command(&args[1..]),
         Some("completions") => completions::completions_command(&args[1..]),
         Some("modules") => module_cli::modules_command(&args[1..]),
@@ -124,6 +126,13 @@ pub fn help_text() -> String {
     );
     if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {
         help.insert_str(index, &leftovers_usage);
+    }
+    let integrity_usage = format!(
+        "  {} integrity --dry-run --fixture <integrity-input.json> [--format text|json]\n",
+        brand::COMMAND
+    );
+    if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {
+        help.insert_str(index, &integrity_usage);
     }
     let lifecycle_usage = format!(
         "  {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n",

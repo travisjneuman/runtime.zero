@@ -11,7 +11,7 @@ Five first-party packages consume the shared
 | `modules/uninstall/` | Classifies synthetic or live installed-software evidence and builds optional finding-bound dry-run manager plans | Core `uninstall plan` uses this shared producer; no uninstall execution |
 | `modules/leftovers/` | Classifies bounded runtime.zero-owned module/log evidence for conservative post-uninstall review | Core `rz0 leftovers --dry-run` live adapter plus strict fixture path; no quarantine |
 | `modules/cache/` | Classifies bounded known-root cache evidence while preserving conservative ownership policy | Core `rz0 cache --dry-run` live adapter plus strict fixture path; no cleanup |
-| `modules/security-integrity/` | Classifies exact digest match/mismatch observations | Synthetic input only and report-only |
+| `modules/security-integrity/` | Classifies exact digest match/mismatch observations | Core `rz0 integrity --dry-run --fixture` strict fixture path; report-only and no trusted baseline |
 
 The foundation owns producer/category binding, privacy, protected-data policy,
 resource ceilings, evidence identity, sorting, summary counts, and authority

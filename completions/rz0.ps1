@@ -3,7 +3,7 @@ Register-ArgumentCompleter -Native -CommandName rz0 -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $tokens = @($commandAst.CommandElements | ForEach-Object { $_.Extent.Text })
-    $commands = @('doctor','apps','cache','leftovers','uninstall','modules','store','scan','monitor','toolchain','report','updates','completions','help','version')
+    $commands = @('doctor','apps','cache','leftovers','integrity','uninstall','modules','store','scan','monitor','toolchain','report','updates','completions','help','version')
     $managers = @('homebrew-formula','homebrew-cask','macports','winget','apt','dnf','pacman','zypper','snap','flatpak')
     $candidates = if ($tokens.Count -le 2) {
         $commands + @('--tui','--no-tui','--json','--color','--version','--help')
@@ -26,6 +26,8 @@ Register-ArgumentCompleter -Native -CommandName rz0 -ScriptBlock {
     } elseif ($tokens[1] -eq 'cache') {
         @('--dry-run','--fixture','--format','--json','--help')
     } elseif ($tokens[1] -eq 'leftovers') {
+        @('--dry-run','--fixture','--format','--json','--help')
+    } elseif ($tokens[1] -eq 'integrity') {
         @('--dry-run','--fixture','--format','--json','--help')
     } elseif ($tokens[1] -eq 'scan') {
         @('--dry-run','--include-raw-paths','--format','--json','--help')

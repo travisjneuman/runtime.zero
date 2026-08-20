@@ -49,6 +49,7 @@ rz0 cache --dry-run
 rz0 cache --dry-run --format json
 rz0 leftovers --dry-run
 rz0 leftovers --dry-run --format json
+rz0 integrity --dry-run --fixture tests/fixtures/integrity/valid.json
 rz0 uninstall plan <installed-software-id>
 rz0 uninstall plan <installed-software-id> --executable /opt/homebrew/bin/brew --format json
 rz0 completions bash|zsh|fish|powershell
@@ -393,6 +394,7 @@ cargo run -- scan --dry-run --format json
 cargo run -- report --format json
 cargo run -- cache --dry-run --format json
 cargo run -- leftovers --dry-run --format json
+cargo run -- integrity --dry-run --fixture tests/fixtures/integrity/valid.json --format json
 cargo run -- completions bash
 cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
 cargo run -p rz0-module-inventory -- --format json

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "contract": "integrity_finding_input",
+  "platform": "fixture",
+  "input_evidence_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_id": "integrity.fixture",
+  "source_evidence_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "records": [
+    {
+      "finding_id": "integrity.fixture-mismatch",
+      "subject_reference": "artifact:fixture",
+      "ownership": "system_owned",
+      "data_class": "executable_artifact",
+      "expected_digest_matches": false,
+      "exact_evidence": {
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "size_bytes": 12
+      }
+    }
+  ]
+}

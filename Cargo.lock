@@ -742,6 +742,7 @@ dependencies = [
  "rz0-module-inventory",
  "rz0-module-leftovers",
  "rz0-module-lifecycle",
+ "rz0-module-security-integrity",
  "rz0-module-uninstall",
  "rz0-module-updater",
  "rz0-process-host",
