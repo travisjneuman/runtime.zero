@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `043dca5` (`Expose fixture-only integrity review`).
+  `8132b4e` (`Surface integrity baseline posture in TUI`).
 - **Current behavior implementation:**
-  `043dca5` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `8132b4e` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture-only integrity evidence, digest-bound lifecycle planning, explicit
   provider ownership in Toolchain rows, guarded Windows store initialization,
@@ -22,12 +22,13 @@
   quarantine/restore, module lifecycle execution, Windows execution, and
   third-party execution remain unavailable.
 
-The cache slice is pushed at `f50eb5b`, the leftovers slice at `87aef29`, and
-the fixture-only integrity surface at `043dca5`; local `main` and `origin/main`
-matched after publication. The source validation baseline passes `cargo fmt
---all -- --check`, `cargo test --workspace --locked`, strict workspace Clippy,
-Linux/Windows cross-target `cargo check`, and `git diff --check`. The final
-release artifact must be rebuilt against the exact post-documentation head;
+The cache slice is pushed at `f50eb5b`, the leftovers slice at `87aef29`, the
+fixture-only integrity surface at `043dca5`, and the compact TUI posture update
+at `8132b4e`; local `main` and `origin/main` matched after publication. The
+source validation baseline passes `cargo fmt --all -- --check`,
+`cargo test --workspace --locked`, strict workspace Clippy, Linux/Windows
+cross-target `cargo check`, and `git diff --check`. The final release artifact
+must be rebuilt against the exact post-documentation head;
 the macOS arm64 artifact remains unsigned and unnotarized until an owner-led
 signing/notarization lane exists. Exact package hashes belong in the private
 runtime.zero handoff note.
