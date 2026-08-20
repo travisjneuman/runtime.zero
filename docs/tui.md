@@ -72,7 +72,8 @@ Named layout tiers keep content bounded:
 The terminal guard enters raw mode and the alternate screen, hides the cursor,
 handles resize and key-repeat events, ignores key-release navigation, and
 restores raw mode, cursor visibility, mouse capture, and the normal screen on
-exit or panic unwinding. `NO_COLOR` and `--color=never` preserve all semantic
+exit or panic unwinding. `q` cancels an active provider review or fresh action
+preparation before leaving. `NO_COLOR` and `--color=never` preserve all semantic
 labels without ANSI; JSON is always ANSI-free.
 
 ## Controls

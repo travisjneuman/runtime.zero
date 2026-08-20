@@ -106,26 +106,31 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
             let confirmation_was_active = state.update_confirmation_active();
             match state.apply(input) {
                 TuiAction::Quit => {
-                    if update_phase == Some(UpdatePhase::Execute) {
+                    if update_phase.is_some() {
                         if let Some(controller) = update_controller.as_ref() {
                             controller.cancel(
                                 rz0_cancellation_contract::CancellationReason::UserRequested,
                             );
-                            dashboard.cancel_update_action();
                         }
-                    } else {
-                        break;
+                        dashboard.cancel_update_action();
                     }
+                    break;
                 }
                 TuiAction::CheckUpdates => {
                     pending_update_selection = None;
-                    start_update_check(&mut dashboard, &mut update_receiver, &mut update_phase);
+                    start_update_check(
+                        &mut dashboard,
+                        &mut update_receiver,
+                        &mut update_controller,
+                        &mut update_phase,
+                    );
                 }
                 TuiAction::UpdateSelected => {
                     start_selected_update(
                         &mut dashboard,
                         &state,
                         &mut update_receiver,
+                        &mut update_controller,
                         &mut update_phase,
                         &mut pending_update_selection,
                     );
@@ -234,6 +239,7 @@ fn poll_update_result(
 fn start_update_check(
     dashboard: &mut tui_dashboard::TuiDashboard,
     receiver: &mut Option<Receiver<TuiUpdateResult>>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
     phase: &mut Option<UpdatePhase>,
 ) {
     if receiver.is_some() {
@@ -242,11 +248,14 @@ fn start_update_check(
     let Some(catalog) = dashboard.start_update_check() else {
         return;
     };
+    let (new_controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
     let (sender, new_receiver) = mpsc::channel();
     thread::spawn(move || {
-        let result = crate::updates::collect_live_update_review(&catalog);
+        let result =
+            crate::updates::collect_live_update_review_cancellable(&catalog, Some(&cancellation));
         let _ = sender.send(TuiUpdateResult::Review(result));
     });
+    *controller = Some(new_controller);
     *receiver = Some(new_receiver);
     *phase = Some(UpdatePhase::Check);
 }
@@ -255,6 +264,7 @@ fn start_selected_update(
     dashboard: &mut tui_dashboard::TuiDashboard,
     state: &TuiState,
     receiver: &mut Option<Receiver<TuiUpdateResult>>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
     phase: &mut Option<UpdatePhase>,
     pending_selection: &mut Option<String>,
 ) {
@@ -279,7 +289,7 @@ fn start_selected_update(
             return;
         }
         dashboard.start_update_prepare(&action);
-        start_update_prepare(action.action_id, receiver, phase);
+        start_update_prepare(action.action_id, receiver, controller, phase);
         return;
     }
     if dashboard.has_update_review() {
@@ -288,7 +298,7 @@ fn start_selected_update(
         return;
     }
     *pending_selection = selected_id;
-    start_update_check(dashboard, receiver, phase);
+    start_update_check(dashboard, receiver, controller, phase);
     if pending_selection.is_none() && receiver.is_none() {
         dashboard.update_action_unavailable("select an installed software or provider row first");
     }
@@ -297,16 +307,19 @@ fn start_selected_update(
 fn start_update_prepare(
     action_id: String,
     receiver: &mut Option<Receiver<TuiUpdateResult>>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
     phase: &mut Option<UpdatePhase>,
 ) {
     if receiver.is_some() {
         return;
     }
+    let (new_controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
     let (sender, new_receiver) = mpsc::channel();
     thread::spawn(move || {
-        let result = crate::update_cli::prepare_tui_update(&action_id);
+        let result = crate::update_cli::prepare_tui_update(&action_id, Some(&cancellation));
         let _ = sender.send(TuiUpdateResult::Challenge(result));
     });
+    *controller = Some(new_controller);
     *receiver = Some(new_receiver);
     *phase = Some(UpdatePhase::Prepare);
 }
@@ -351,12 +364,13 @@ fn finish_update_result(
         TuiUpdateResult::Review(result) => match result {
             Ok(review) => {
                 dashboard.complete_update_review(review);
+                *controller = None;
                 *phase = None;
                 if let Some(selected_id) = pending_selection.take() {
                     if let Some(action) = dashboard.update_action_for_software_id(&selected_id) {
                         if action.disposition == rz0_action_plan::ActionDisposition::Planned {
                             dashboard.start_update_prepare(&action);
-                            start_update_prepare(action.action_id, receiver, phase);
+                            start_update_prepare(action.action_id, receiver, controller, phase);
                         } else {
                             dashboard.update_action_unavailable(&format!(
                                 "selected update is currently {:?}",
@@ -371,12 +385,14 @@ fn finish_update_result(
                 }
             }
             Err(error) => {
+                *controller = None;
                 *phase = None;
                 pending_selection.take();
                 dashboard.fail_update_check_with_error(&error);
             }
         },
         TuiUpdateResult::Challenge(result) => {
+            *controller = None;
             *phase = None;
             match result {
                 Ok(challenge) => {

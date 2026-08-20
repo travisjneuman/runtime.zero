@@ -522,25 +522,19 @@ fn universal_provider_command(allow_network_read: bool) -> ParsedArgs {
     }
 }
 
-pub(crate) fn collect_universal_provider_scan(
+pub(crate) fn collect_universal_update_plan_cancellable(
     allow_network_read: bool,
-) -> Result<UniversalProviderScan, String> {
+    cancellation: Option<&CancellationToken>,
+) -> Result<(UniversalProviderScan, Option<ActionPlan>), String> {
     let command = universal_provider_command(allow_network_read);
-    let built = build_all_provider_input(&command)?;
-    let input = built.input;
-    Ok(UniversalProviderScan {
+    let built = build_all_provider_input(&command, cancellation)?;
+    let scan = UniversalProviderScan {
         source_count: built.source_count,
         source_ok_count: built.source_ok_count,
-        records: input.records.clone(),
+        records: built.input.records.clone(),
         warnings: built.warnings,
-        input,
-    })
-}
-
-pub(crate) fn collect_universal_update_plan(
-    allow_network_read: bool,
-) -> Result<(UniversalProviderScan, Option<ActionPlan>), String> {
-    let scan = collect_universal_provider_scan(allow_network_read)?;
+        input: built.input,
+    };
     let report = classify_updates(&scan.input)?;
     let has_candidates =
         scan.input.records.iter().any(|record| {
@@ -554,9 +548,12 @@ pub(crate) fn collect_universal_update_plan(
     Ok((scan, plan))
 }
 
-pub(crate) fn prepare_tui_update(action_id: &str) -> Result<TuiUpdateChallenge, String> {
+pub(crate) fn prepare_tui_update(
+    action_id: &str,
+    cancellation: Option<&CancellationToken>,
+) -> Result<TuiUpdateChallenge, String> {
     let command = universal_provider_command(true);
-    let built = build_input(&command)?;
+    let built = build_input_with_cancellation(&command, cancellation)?;
     let report = classify_updates(&built.input)?;
     let plan = build_update_plan_if_candidates(&built.input, &report)?
         .ok_or_else(|| "fresh provider evidence contains no update candidates".to_string())?;
@@ -645,8 +642,15 @@ fn provider_context(built: &BuiltInput) -> Option<&BuiltInput> {
 }
 
 fn build_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
+    build_input_with_cancellation(command, None)
+}
+
+fn build_input_with_cancellation(
+    command: &ParsedArgs,
+    cancellation: Option<&CancellationToken>,
+) -> Result<BuiltInput, String> {
     if command.all_providers {
-        return build_all_provider_input(command);
+        return build_all_provider_input(command, cancellation);
     }
     if let Some(path) = command.fixture.as_deref() {
         return Ok(BuiltInput {
@@ -694,8 +698,12 @@ fn build_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
         ) {
             return Err("--executable is not the allowlisted path for this manager".to_string());
         }
-        let (bytes, executable_identity) =
-            probe_manager_output(&spec, Path::new(&executable), command.allow_network_read)?;
+        let (bytes, executable_identity) = probe_manager_output(
+            &spec,
+            Path::new(&executable),
+            command.allow_network_read,
+            cancellation,
+        )?;
         (bytes, executable, Some(executable_identity))
     } else {
         let path = command
@@ -719,7 +727,11 @@ fn build_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
     ))
 }
 
-fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> {
+fn build_all_provider_input(
+    command: &ParsedArgs,
+    cancellation: Option<&CancellationToken>,
+) -> Result<BuiltInput, String> {
+    check_cancellation(cancellation)?;
     let platform = std::env::consts::OS;
     let static_specs = rz0_module_updater::manager_probe_specs_for_platform(platform);
     let providers = discover_provider_specs_for_platform(platform);
@@ -736,11 +748,13 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
         collect_aiup_managed_updates(
             command.allow_network_read,
             provider,
+            cancellation,
             &mut records,
             &mut sources,
             &mut warnings,
             &mut source_ok_count,
         );
+        check_cancellation(cancellation)?;
     }
     if let Some(provider) = providers
         .iter()
@@ -749,16 +763,19 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
         collect_cargo_install_updates(
             command.allow_network_read,
             provider,
+            cancellation,
             &mut records,
             &mut sources,
             &mut warnings,
             &mut source_ok_count,
         );
+        check_cancellation(cancellation)?;
     }
     for spec in static_specs
         .iter()
         .filter(|spec| !spec.executable_candidates.is_empty())
     {
+        check_cancellation(cancellation)?;
         let Some(provider) = providers
             .iter()
             .find(|provider| provider.manager == spec.manager)
@@ -774,21 +791,22 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
             ));
             continue;
         };
-        let (bytes, identity) = match probe_provider_output(provider, command.allow_network_read) {
-            Ok(value) => value,
-            Err(error) => {
-                sources.push(ProviderSourceStatus {
-                    provider: provider.instance_id.clone(),
-                    status: "unavailable".to_string(),
-                    candidate_count: 0,
-                });
-                warnings.push(format!(
-                    "{} availability source unavailable: {error}",
-                    provider.instance_id
-                ));
-                continue;
-            }
-        };
+        let (bytes, identity) =
+            match probe_provider_output(provider, command.allow_network_read, cancellation) {
+                Ok(value) => value,
+                Err(error) => {
+                    sources.push(ProviderSourceStatus {
+                        provider: provider.instance_id.clone(),
+                        status: "unavailable".to_string(),
+                        candidate_count: 0,
+                    });
+                    warnings.push(format!(
+                        "{} availability source unavailable: {error}",
+                        provider.instance_id
+                    ));
+                    continue;
+                }
+            };
         match parse_provider_records(provider, &bytes, Some(identity)) {
             Ok(mut source_records) => {
                 bind_provider_instance(&mut source_records, provider);
@@ -834,6 +852,7 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
         .iter()
         .filter(|provider| provider.manager.platform() == "any")
     {
+        check_cancellation(cancellation)?;
         if sources
             .iter()
             .any(|source| source.provider == provider.instance_id)
@@ -869,21 +888,22 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
             warnings.push(observed_only_provider_warning(provider.manager));
             continue;
         }
-        let (bytes, identity) = match probe_provider_output(provider, command.allow_network_read) {
-            Ok(value) => value,
-            Err(error) => {
-                sources.push(ProviderSourceStatus {
-                    provider: provider.instance_id.clone(),
-                    status: "unavailable".to_string(),
-                    candidate_count: 0,
-                });
-                warnings.push(format!(
-                    "{} availability source unavailable: {error}",
-                    provider.instance_id
-                ));
-                continue;
-            }
-        };
+        let (bytes, identity) =
+            match probe_provider_output(provider, command.allow_network_read, cancellation) {
+                Ok(value) => value,
+                Err(error) => {
+                    sources.push(ProviderSourceStatus {
+                        provider: provider.instance_id.clone(),
+                        status: "unavailable".to_string(),
+                        candidate_count: 0,
+                    });
+                    warnings.push(format!(
+                        "{} availability source unavailable: {error}",
+                        provider.instance_id
+                    ));
+                    continue;
+                }
+            };
         match parse_provider_records(provider, &bytes, Some(identity)) {
             Ok(mut source_records) => {
                 bind_provider_instance(&mut source_records, provider);
@@ -911,11 +931,13 @@ fn build_all_provider_input(command: &ParsedArgs) -> Result<BuiltInput, String> 
 
     collect_macos_application_updates(
         command.allow_network_read,
+        cancellation,
         &mut records,
         &mut sources,
         &mut warnings,
         &mut source_ok_count,
     );
+    check_cancellation(cancellation)?;
 
     records.sort_by(|left, right| left.finding_id.cmp(&right.finding_id));
     records.dedup_by(|left, right| left.finding_id == right.finding_id);
@@ -971,11 +993,15 @@ struct CargoInstalledPackage {
 fn collect_aiup_managed_updates(
     allow_network_read: bool,
     provider: &ProviderProbeSpec,
+    cancellation: Option<&CancellationToken>,
     records: &mut Vec<rz0_module_updater::UpdateRecord>,
     sources: &mut Vec<ProviderSourceStatus>,
     warnings: &mut Vec<String>,
     source_ok_count: &mut usize,
 ) {
+    if check_cancellation(cancellation).is_err() {
+        return;
+    }
     let provider_id = provider.instance_id.clone();
     if !allow_network_read {
         sources.push(ProviderSourceStatus {
@@ -986,7 +1012,7 @@ fn collect_aiup_managed_updates(
         warnings.push("aiup managed-tool availability requires --allow-network-read".to_string());
         return;
     }
-    let (bytes, identity) = match probe_provider_output(provider, true) {
+    let (bytes, identity) = match probe_provider_output(provider, true, cancellation) {
         Ok(value) => value,
         Err(error) => {
             sources.push(ProviderSourceStatus {
@@ -1155,11 +1181,15 @@ fn aiup_command_is_delegated(command: &str) -> bool {
 fn collect_cargo_install_updates(
     allow_network_read: bool,
     provider: &ProviderProbeSpec,
+    cancellation: Option<&CancellationToken>,
     records: &mut Vec<rz0_module_updater::UpdateRecord>,
     sources: &mut Vec<ProviderSourceStatus>,
     warnings: &mut Vec<String>,
     source_ok_count: &mut usize,
 ) {
+    if check_cancellation(cancellation).is_err() {
+        return;
+    }
     let provider_id = provider.instance_id.clone();
     if !allow_network_read {
         sources.push(ProviderSourceStatus {
@@ -1173,7 +1203,8 @@ fn collect_cargo_install_updates(
         );
         return;
     }
-    let (bytes, identity) = match probe_provider_output(provider, allow_network_read) {
+    let (bytes, identity) = match probe_provider_output(provider, allow_network_read, cancellation)
+    {
         Ok(value) => value,
         Err(error) => {
             sources.push(ProviderSourceStatus {
@@ -1249,7 +1280,10 @@ fn collect_cargo_install_updates(
     let mut partial = false;
     let mut metadata_failures = 0usize;
     for package in packages {
-        let latest = match probe_crates_io_latest(&curl, &package.name) {
+        if check_cancellation(cancellation).is_err() {
+            return;
+        }
+        let latest = match probe_crates_io_latest(&curl, &package.name, cancellation) {
             Ok(latest) => latest,
             Err(error) => {
                 partial = true;
@@ -1392,7 +1426,11 @@ fn valid_cargo_field(value: &str, maximum: usize) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_' | b'+'))
 }
 
-fn probe_crates_io_latest(curl: &Path, package: &str) -> Result<String, String> {
+fn probe_crates_io_latest(
+    curl: &Path,
+    package: &str,
+    cancellation: Option<&CancellationToken>,
+) -> Result<String, String> {
     if !valid_cargo_field(package, 240)
         || package
             .bytes()
@@ -1401,8 +1439,8 @@ fn probe_crates_io_latest(curl: &Path, package: &str) -> Result<String, String> 
         return Err("crate name is not a valid crates.io path component".to_string());
     }
     let url = format!("https://crates.io/api/v1/crates/{package}");
-    let output =
-        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+    let output = run_read_only_probe(
+        &rz0_process_host::ReadOnlyProcessRequest {
             executable: curl.to_path_buf(),
             arguments: vec![
                 "--fail".to_string(),
@@ -1420,8 +1458,10 @@ fn probe_crates_io_latest(curl: &Path, package: &str) -> Result<String, String> 
             environment: probe_environment(),
             timeout: std::time::Duration::from_secs(25),
             output_limit: MAX_INPUT_BYTES,
-        })
-        .map_err(|error| format!("crates.io probe failed: {error}"))?;
+        },
+        cancellation,
+    )
+    .map_err(|error| format!("crates.io probe failed: {error}"))?;
     if !output.status.success() {
         return Err(format!("crates.io probe exited with {}", output.status));
     }
@@ -1464,6 +1504,7 @@ struct ElectronRelease {
 #[cfg(target_os = "macos")]
 fn collect_macos_application_updates(
     allow_network_read: bool,
+    cancellation: Option<&CancellationToken>,
     records: &mut Vec<rz0_module_updater::UpdateRecord>,
     sources: &mut Vec<ProviderSourceStatus>,
     warnings: &mut Vec<String>,
@@ -1471,6 +1512,7 @@ fn collect_macos_application_updates(
 ) {
     collect_warp_agent_cli_updates(
         allow_network_read,
+        cancellation,
         records,
         sources,
         warnings,
@@ -1496,6 +1538,9 @@ fn collect_macos_application_updates(
     let app_count = apps.len();
     let curl = resolve_probe_executable(&["/usr/bin/curl", "/opt/homebrew/bin/curl"]);
     for app in apps.into_iter().take(48) {
+        if check_cancellation(cancellation).is_err() {
+            return;
+        }
         let provider_id = format!("electron:{}", app.bundle_id);
         let bundle_path = app.bundle_id.clone();
         if !allow_network_read {
@@ -1556,8 +1601,8 @@ fn collect_macos_application_updates(
             "https://api.github.com/repos/{}/{}/releases?per_page=20",
             app.owner, app.repository
         );
-        let output =
-            rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+        let output = run_read_only_probe(
+            &rz0_process_host::ReadOnlyProcessRequest {
                 executable: curl.to_path_buf(),
                 arguments: vec![
                     "--fail".to_string(),
@@ -1575,7 +1620,9 @@ fn collect_macos_application_updates(
                 environment: probe_environment(),
                 timeout: std::time::Duration::from_secs(25),
                 output_limit: MAX_INPUT_BYTES,
-            });
+            },
+            cancellation,
+        );
         let _ = observe_manager_executable(curl).map(|after| {
             if after != identity {
                 warnings.push(format!(
@@ -1606,7 +1653,7 @@ fn collect_macos_application_updates(
             ),
         };
         let release = match primary_probe_error {
-            Some(primary_error) => match probe_electron_tag_releases(curl, &app) {
+            Some(primary_error) => match probe_electron_tag_releases(curl, &app, cancellation) {
                 Ok(release) => Ok(release),
                 Err(fallback_error) => Err(format!(
                     "{primary_error}; tag-based GitHub release fallback failed: {fallback_error}"
@@ -1614,7 +1661,7 @@ fn collect_macos_application_updates(
             },
             None => match parse_electron_release(&bytes, &app) {
                 Ok(release) => Ok(release),
-                Err(primary_error) => match probe_electron_tag_releases(curl, &app) {
+                Err(primary_error) => match probe_electron_tag_releases(curl, &app, cancellation) {
                     Ok(release) => Ok(release),
                     Err(fallback_error) => Err(format!(
                         "{primary_error}; tag-based GitHub release fallback failed: {fallback_error}"
@@ -1697,6 +1744,7 @@ fn collect_macos_application_updates(
 #[cfg(target_os = "macos")]
 fn collect_warp_agent_cli_updates(
     allow_network_read: bool,
+    cancellation: Option<&CancellationToken>,
     records: &mut Vec<rz0_module_updater::UpdateRecord>,
     sources: &mut Vec<ProviderSourceStatus>,
     warnings: &mut Vec<String>,
@@ -1784,8 +1832,8 @@ fn collect_warp_agent_cli_updates(
     };
     let download_url =
         format!("https://app.warp.dev/download/cli?arch={arch}&os=macos&package=tar");
-    let output =
-        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+    let output = run_read_only_probe(
+        &rz0_process_host::ReadOnlyProcessRequest {
             executable: curl.to_path_buf(),
             arguments: vec![
                 "--fail".to_string(),
@@ -1804,7 +1852,9 @@ fn collect_warp_agent_cli_updates(
             environment: probe_environment(),
             timeout: std::time::Duration::from_secs(40),
             output_limit: MAX_INPUT_BYTES,
-        });
+        },
+        cancellation,
+    );
     let _ = observe_manager_executable(&curl).map(|after| {
         if after != curl_identity {
             warnings.push("warp release probe executable identity changed".to_string());
@@ -2040,6 +2090,7 @@ fn discover_sparkle_apps() -> Vec<String> {
 #[cfg(not(target_os = "macos"))]
 fn collect_macos_application_updates(
     _allow_network_read: bool,
+    _cancellation: Option<&CancellationToken>,
     _records: &mut Vec<rz0_module_updater::UpdateRecord>,
     _sources: &mut Vec<ProviderSourceStatus>,
     _warnings: &mut Vec<String>,
@@ -2249,12 +2300,13 @@ fn parse_electron_release(
 fn probe_electron_tag_releases(
     curl: &Path,
     app: &ElectronAppUpdateSpec,
+    cancellation: Option<&CancellationToken>,
 ) -> Result<Option<ElectronRelease>, String> {
     let tags_url = format!(
         "https://api.github.com/repos/{}/{}/tags?per_page=20",
         app.owner, app.repository
     );
-    let tags_bytes = probe_electron_github_url(curl, tags_url)?;
+    let tags_bytes = probe_electron_github_url(curl, tags_url, cancellation)?;
     let tags: Vec<serde_json::Value> = serde_json::from_slice(&tags_bytes)
         .map_err(|error| format!("parse GitHub tag JSON: {error}"))?;
     let mut last_error = None;
@@ -2271,7 +2323,7 @@ fn probe_electron_tag_releases(
             "https://api.github.com/repos/{}/{}/releases/tags/{}",
             app.owner, app.repository, tag_name
         );
-        let release_bytes = match probe_electron_github_url(curl, release_url) {
+        let release_bytes = match probe_electron_github_url(curl, release_url, cancellation) {
             Ok(bytes) => bytes,
             Err(error) => {
                 last_error = Some(error);
@@ -2297,9 +2349,13 @@ fn probe_electron_tag_releases(
 }
 
 #[cfg(target_os = "macos")]
-fn probe_electron_github_url(curl: &Path, url: String) -> Result<Vec<u8>, String> {
-    let output =
-        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+fn probe_electron_github_url(
+    curl: &Path,
+    url: String,
+    cancellation: Option<&CancellationToken>,
+) -> Result<Vec<u8>, String> {
+    let output = run_read_only_probe(
+        &rz0_process_host::ReadOnlyProcessRequest {
             executable: curl.to_path_buf(),
             arguments: vec![
                 "--fail".to_string(),
@@ -2317,8 +2373,10 @@ fn probe_electron_github_url(curl: &Path, url: String) -> Result<Vec<u8>, String
             environment: probe_environment(),
             timeout: std::time::Duration::from_secs(25),
             output_limit: MAX_INPUT_BYTES,
-        })
-        .map_err(|error| format!("GitHub release probe failed: {error}"))?;
+        },
+        cancellation,
+    )
+    .map_err(|error| format!("GitHub release probe failed: {error}"))?;
     if !output.status.success() {
         return Err(format!(
             "GitHub release probe exited with {}",
@@ -2428,10 +2486,30 @@ fn single_built_input(
     }
 }
 
+fn check_cancellation(cancellation: Option<&CancellationToken>) -> Result<(), String> {
+    if let Some(reason) = cancellation.and_then(CancellationToken::reason) {
+        return Err(format!("provider review cancelled: {reason:?}"));
+    }
+    Ok(())
+}
+
+fn run_read_only_probe(
+    request: &rz0_process_host::ReadOnlyProcessRequest,
+    cancellation: Option<&CancellationToken>,
+) -> Result<rz0_process_host::ReadOnlyProcessOutput, rz0_process_host::ProcessHostError> {
+    match cancellation {
+        Some(cancellation) => {
+            rz0_process_host::run_read_only_process_cancellable(request, cancellation)
+        }
+        None => rz0_process_host::run_read_only_process(request),
+    }
+}
+
 fn probe_manager_output(
     spec: &rz0_module_updater::ManagerProbeSpec,
     executable: &Path,
     allow_network_read: bool,
+    cancellation: Option<&CancellationToken>,
 ) -> Result<(Vec<u8>, rz0_action_plan::ActionExecutableIdentity), String> {
     if !allow_network_read && spec.network_required {
         return Err(
@@ -2440,8 +2518,8 @@ fn probe_manager_output(
         );
     }
     let executable_identity = observe_manager_executable(executable)?;
-    let output =
-        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+    let output = run_read_only_probe(
+        &rz0_process_host::ReadOnlyProcessRequest {
             executable: executable.to_path_buf(),
             arguments: spec
                 .query_arguments
@@ -2452,8 +2530,10 @@ fn probe_manager_output(
             environment: probe_environment(),
             timeout: std::time::Duration::from_secs(10),
             output_limit: MAX_INPUT_BYTES,
-        })
-        .map_err(|error| format!("manager probe failed closed: {error}"))?;
+        },
+        cancellation,
+    )
+    .map_err(|error| format!("manager probe failed closed: {error}"))?;
     let accepted_nonzero = accepted_probe_status(spec.manager, output.status.code());
     if !output.status.success() && !accepted_nonzero {
         return Err(format!(
@@ -2478,6 +2558,7 @@ fn probe_manager_output(
 fn probe_provider_output(
     spec: &ProviderProbeSpec,
     allow_network_read: bool,
+    cancellation: Option<&CancellationToken>,
 ) -> Result<(Vec<u8>, rz0_action_plan::ActionExecutableIdentity), String> {
     if !allow_network_read && spec.network_required {
         return Err(
@@ -2505,15 +2586,17 @@ fn probe_provider_output(
             "false".to_string(),
         ));
     }
-    let result =
-        rz0_process_host::run_read_only_process(&rz0_process_host::ReadOnlyProcessRequest {
+    let result = run_read_only_probe(
+        &rz0_process_host::ReadOnlyProcessRequest {
             executable: spec.executable.clone(),
             arguments: spec.query_arguments.clone(),
             working_directory: PathBuf::from("/"),
             environment,
             timeout: std::time::Duration::from_secs(30),
             output_limit: MAX_INPUT_BYTES,
-        });
+        },
+        cancellation,
+    );
     if let Some(cache) = npm_cache {
         let _ = fs::remove_dir_all(cache);
     }
@@ -3594,6 +3677,15 @@ mod tests {
             ])
             .is_err()
         );
+    }
+
+    #[test]
+    fn provider_review_honors_cancellation_before_discovery() {
+        let (controller, token) = rz0_cancellation_contract::cancellation_pair();
+        controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+        let error = collect_universal_update_plan_cancellable(true, Some(&token))
+            .expect_err("cancelled provider review must not begin discovery");
+        assert!(error.contains("provider review cancelled"));
     }
 
     #[cfg(target_os = "macos")]

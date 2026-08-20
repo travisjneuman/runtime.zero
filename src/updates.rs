@@ -1,4 +1,5 @@
 use rz0_action_plan::ActionPlan;
+use rz0_cancellation_contract::CancellationToken;
 use serde::Serialize;
 
 use crate::apps::{AppCatalog, InstalledSoftware, SoftwareUpdate, software_name_key};
@@ -47,7 +48,15 @@ pub fn collect_live_update_catalog(catalog: &AppCatalog) -> LiveUpdateCatalog {
 }
 
 pub(crate) fn collect_live_update_review(catalog: &AppCatalog) -> Result<LiveUpdateReview, String> {
-    let (scan, plan) = crate::update_cli::collect_universal_update_plan(true)?;
+    collect_live_update_review_cancellable(catalog, None)
+}
+
+pub(crate) fn collect_live_update_review_cancellable(
+    catalog: &AppCatalog,
+    cancellation: Option<&CancellationToken>,
+) -> Result<LiveUpdateReview, String> {
+    let (scan, plan) =
+        crate::update_cli::collect_universal_update_plan_cancellable(true, cancellation)?;
     let mut candidates = scan
         .records
         .into_iter()
