@@ -97,6 +97,8 @@ must not require a color-capable terminal.
 The redesign changes presentation, not authority. The CLI and TUI continue to
 share the same typed plan, exact confirmation, executable identity binding,
 process host, transaction/receipt, cancellation, and fresh verification path.
+The process host also detaches Unix provider children from the controlling
+terminal, preventing a provider's own progress UI from corrupting the TUI.
 The TUI never invents ownership, turns a fixture into execution input, or
 promotes an unsupported provider into a planned action.
 

@@ -474,12 +474,30 @@ pub fn audit_inheritable_process_handles() -> Result<(), ProcessHostError> {
     ))
 }
 
-/// Assigns a future Unix child to a dedicated process group before exec.
-/// Non-Unix platforms fail closed until a race-free production primitive exists.
+/// Assigns a future Unix child to a dedicated session and process group before
+/// exec. Starting a new session is important for terminal-native callers:
+/// provider tools must not be able to reopen the parent's controlling terminal
+/// through `/dev/tty` and paint over the caller's UI. The new session's process
+/// group is also the containment boundary used by cancellation.
+///
+/// Non-Unix platforms fail closed until a race-free production primitive
+/// exists.
 #[cfg(unix)]
 pub fn configure_child_process_group(command: &mut Command) -> Result<(), ProcessHostError> {
     use std::os::unix::process::CommandExt as _;
-    command.process_group(0);
+    // SAFETY: this closure runs only in the forked child between fork and
+    // exec. It performs the async-signal-safe session operation needed to
+    // remove the parent's controlling terminal before the selected executable
+    // starts. `setsid` makes the child its own process-group leader, preserving
+    // the `-child.id()` cancellation target used by the host.
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
     Ok(())
 }
 
@@ -728,6 +746,26 @@ mod tests {
         assert!(output.stdout.bytes.is_empty());
         assert!(!output.timed_out);
         assert_eq!(output.cancellation_reason, None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_process_has_no_controlling_terminal() {
+        let request = ReadOnlyProcessRequest {
+            executable: PathBuf::from("/bin/sh"),
+            arguments: vec![
+                "-c".to_string(),
+                "if printf x >/dev/tty 2>/dev/null; then printf tty-write; else printf no-tty-write; fi"
+                    .to_string(),
+            ],
+            working_directory: PathBuf::from("/"),
+            environment: Vec::new(),
+            timeout: Duration::from_secs(2),
+            output_limit: 1_024,
+        };
+        let output = run_read_only_process(&request).expect("terminal-detached process");
+        assert!(output.status.success());
+        assert_eq!(output.stdout.bytes, b"no-tty-write");
     }
 
     #[cfg(unix)]

@@ -23,6 +23,9 @@ automatic retry occurs: `r` is an explicit refresh request.
 The shell is local and read-only until an exact provider action is reviewed,
 confirmed, executed, and freshly verified. Loading, unavailable, empty, and
 blocked are separate states; an empty result is not treated as “not loaded.”
+Provider probes run through the Rust process host in a detached Unix session so
+terminal-aware tools such as AIUP cannot reopen `/dev/tty` and overwrite the
+runtime.zero frame.
 
 ## Workspaces
 
