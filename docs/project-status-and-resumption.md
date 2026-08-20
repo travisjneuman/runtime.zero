@@ -2,14 +2,14 @@
 
 ## Snapshot identity
 
-- **Reviewed:** 2026-08-17.
+- **Reviewed:** 2026-08-20.
 - **Product status:** active pre-alpha development; not production-ready and not
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed starting baseline:**
-  `84d52c46bf1cd5f57f4a59d5d15dcb3017bfc2ef`.
+  `e015b17` (`Redesign TUI and add Rust toolchain surface`).
 - **Current behavior implementation:**
-  `3f125c5c3d031a67e3f229c2026f066abd8b70dd`.
+  `e015b17` plus documentation-only follow-up on `main`.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
