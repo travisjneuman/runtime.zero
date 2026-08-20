@@ -45,6 +45,8 @@ rz0 apps
 rz0 apps --format json
 rz0 report
 rz0 report --format json
+rz0 cache --dry-run
+rz0 cache --dry-run --format json
 rz0 uninstall plan <installed-software-id>
 rz0 uninstall plan <installed-software-id> --executable /opt/homebrew/bin/brew --format json
 rz0 completions bash|zsh|fish|powershell
@@ -217,8 +219,9 @@ Updater, uninstall, leftovers, cache, and security/integrity have separate
 source-level domain packages under `modules/`. Updater consumes captured or
 explicit live manager evidence. Uninstall accepts selected live installed-
 software evidence to produce a non-authorizing finding and optional sealed dry-
-run manager action plan. Leftovers, cache, and integrity remain synthetic. They
-do not provide uninstall/cleanup execution, elevation, signed lifecycle
+run manager action plan. Cache now has a bounded read-only adapter over known
+manager/runtime roots; leftovers and integrity remain synthetic. None of these
+surfaces provides uninstall/cleanup execution, elevation, signed lifecycle
 activation, or production support. See
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).
 
@@ -385,6 +388,7 @@ cargo run -- store init --dry-run --format json
 cargo run -- scan --dry-run
 cargo run -- scan --dry-run --format json
 cargo run -- report --format json
+cargo run -- cache --dry-run --format json
 cargo run -- completions bash
 cargo run -p rz0-module-inventory -- --fixture modules/inventory/tests/fixtures/valid.json --format json
 cargo run -p rz0-module-inventory -- --format json

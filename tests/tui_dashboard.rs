@@ -22,6 +22,19 @@ fn dashboard_does_not_claim_active_feature_modules() {
     assert!(dashboard.planned_module_family_count > 0);
     assert_eq!(dashboard.update_check_status, "not checked");
     assert_eq!(dashboard.update_candidate_count, 0);
+    assert!(dashboard.cache_status.starts_with("live") || dashboard.cache_status == "unavailable");
+    let diagnostics = dashboard
+        .sections
+        .iter()
+        .find(|section| section.title == "diagnostics")
+        .expect("diagnostics section");
+    assert!(
+        diagnostics
+            .rows
+            .iter()
+            .any(|row| row.value.contains("cache observations")
+                || row.value.contains("cache evidence unavailable"))
+    );
     let monitor = dashboard
         .sections
         .iter()

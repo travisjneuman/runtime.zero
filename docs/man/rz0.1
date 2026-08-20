@@ -46,6 +46,11 @@ Print privacy-safe configuration-bound diagnostics.
 .B apps [--format text|json]
 List bounded path-free installed-software evidence and source identifiers.
 .TP
+.B cache --dry-run [--fixture PATH] [--format text|json]
+Review bounded ownership-aware cache evidence from known runtime/manager roots
+or one local fixture. This is read-only and never authorizes cleanup,
+quarantine, restore, or deletion.
+.TP
 .B uninstall plan ID [--executable PATH] [--format text|json]
 Build a live shared finding report and non-authorizing uninstall action plan.
 An exact manager executable can make a manager action representable; no

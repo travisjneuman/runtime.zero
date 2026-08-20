@@ -214,6 +214,8 @@ full platform/lifecycle acceptance cells.
 
 ### Cache management
 
+- [x] Add a bounded, path-free, read-only known-root evidence adapter and expose
+  its shared finding contract through the CLI and TUI.
 - [ ] Define manager/runtime cache ownership, safe size/age budgets, active-use
   detection, and explicit exclusions.
 - [ ] Implement bounded live discovery and quarantine/restore without broad

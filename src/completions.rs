@@ -46,6 +46,7 @@ mod tests {
             for command in [
                 "doctor",
                 "apps",
+                "cache",
                 "uninstall",
                 "modules",
                 "store",

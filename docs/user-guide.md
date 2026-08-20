@@ -116,6 +116,22 @@ gate.
 The inventory records source status independently. `unavailable` or `partial`
 means the source did not silently disappear from the result.
 
+### Cache evidence
+
+```bash
+rz0 cache --dry-run
+rz0 cache --dry-run --format json
+rz0 cache --dry-run --fixture tests/fixtures/cache/valid.json --format json
+```
+
+Cache review is bounded and read-only. Live mode inspects only known
+runtime.zero, Homebrew, npm, pip, and Cargo cache roots; it skips symlinks and
+special files and stops at explicit entry/byte ceilings. Findings are
+ownership-aware but never authorize cleanup, quarantine, restore, or deletion.
+The JSON result contains a `cache_review` envelope and the shared
+`classified_finding_report`. User/shared/unknown cache data remains report-only
+or blocked. The TUI Diagnostics workspace shows the same observation status.
+
 ### System monitor
 
 ```bash

@@ -138,9 +138,10 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [x] Fixture-only uninstall/quarantine/blocked-data plan schemas and policy tests.
 - [x] Test-only temporary-root transaction/quarantine/restore simulation with
   verified-copy-before-remove, conflict refusal, failure injection, and receipts.
-- [x] Separate synthetic uninstall, leftovers, and cache classifiers requiring
-  manager ownership or exact runtime-owned evidence and preserving protected/
-  unknown blocking; live mutation adapters remain gated.
+- [x] Separate uninstall, leftovers, and cache classifiers requiring manager
+  ownership or exact runtime-owned evidence and preserving protected/unknown
+  blocking; cache now has bounded read-only discovery while live mutation
+  adapters remain gated.
 - [x] Live path-free installed-software evidence is converted into the shared
   uninstall finding contract; manager-owned records can produce exact sealed
   dry-run action plans while protected/unknown/local bundles remain blocked.

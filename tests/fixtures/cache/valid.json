@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "contract": "cache_finding_input",
+  "platform": "fixture",
+  "input_evidence_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_id": "cache.fixture",
+  "source_evidence_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "records": [
+    {
+      "finding_id": "cache.fixture",
+      "subject_reference": "cache:fixture",
+      "ownership": "manager_owned",
+      "exact_evidence": null
+    }
+  ]
+}

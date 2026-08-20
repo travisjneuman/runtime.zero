@@ -129,7 +129,7 @@ Every module must reach the same lifecycle bar on every supported platform:
 | Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, macOS path-revalidated and Linux native-ELF manager execution, SIGINT cancellation, isolated npm environments, exact journal evidence, canonical external-effect receipts, and fresh post-action verification; Windows containment, OS capability/network enforcement, rollback/recovery completion, manager proof, and full runtime matrix incomplete |
 | Uninstall | Required | Required | Required | Live catalog records become shared findings and optional sealed dry-run manager plans; no uninstall/elevation/quarantine execution |
 | Leftovers | Required | Required | Required | Synthetic protected-data/exact-runtime classifier + quarantine fixtures only |
-| Cache management | Required | Required | Required | Synthetic ownership/exact-evidence classifier only |
+| Cache management | Required | Required | Required | Bounded known-root read-only evidence and synthetic classifier; no cleanup/quarantine or platform parity proof |
 | Security/integrity | Required | Required | Required | Synthetic exact-digest report-only classifier only |
 | Report/export | Required | Required | Required | Integrated summary-only `rz0 report`, shared strict contract, and stdin/stdout source module; signed lifecycle/final-artifact runtime proof open |
 

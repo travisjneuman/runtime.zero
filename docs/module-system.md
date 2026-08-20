@@ -207,8 +207,9 @@ behavior. It is not installed or executed by core, while the foundation's
 The remaining five family directories consume `crates/finding-contract/` at
 different maturity levels. Updater owns parser/planning behavior used by the
 core's separate coordinator; uninstall accepts selected live catalog evidence
-and can build a sealed non-authorizing manager plan. Leftovers, cache, and
-security/integrity remain synthetic-only. None is a signed/active lifecycle
+and can build a sealed non-authorizing manager plan. Cache now has a bounded
+known-root read-only adapter exposed through `rz0 cache --dry-run`; leftovers
+and security/integrity remain synthetic-only. None is a signed/active lifecycle
 package, and no uninstall/cleanup/integrity execution exists. See
 [`domain-classifier-modules.md`](domain-classifier-modules.md).
 

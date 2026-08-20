@@ -6,6 +6,7 @@ use crate::apps::{
     collect_app_catalog,
 };
 use crate::brand;
+use crate::cache::{self, CacheReviewReport};
 use crate::install_receipt::ReceiptInventoryState;
 use crate::installed_registry::InstalledRegistryState;
 use crate::module_registry::ModuleRegistryReport;
@@ -42,6 +43,9 @@ pub struct TuiDashboard {
     pub installed_software_count: usize,
     pub service_and_persistence_count: usize,
     pub inventory_status: String,
+    pub cache_status: String,
+    pub cache_finding_count: usize,
+    pub cache_warning_count: usize,
     pub update_check_status: String,
     pub update_action_status: String,
     pub update_source_count: usize,
@@ -60,6 +64,8 @@ pub struct TuiDashboard {
     pending_update: Option<TuiUpdateChallenge>,
     #[serde(skip)]
     monitor_snapshot: Option<SystemSnapshot>,
+    #[serde(skip)]
+    cache_report: Option<CacheReviewReport>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -139,7 +145,8 @@ fn dashboard_with_inventory(include_software_names: bool) -> TuiDashboard {
     let modules = ModuleRegistryReport::empty_installed();
     let inventory = include_software_names.then(collect_app_catalog);
     let monitor = include_software_names.then(|| system_monitor::collect_snapshot(None));
-    build_dashboard(&store, init.status, &modules, inventory, monitor)
+    let cache = include_software_names.then(cache::live_report);
+    build_dashboard(&store, init.status, &modules, inventory, monitor, cache)
 }
 
 fn build_dashboard(
@@ -148,6 +155,7 @@ fn build_dashboard(
     modules: &ModuleRegistryReport,
     inventory: Option<Result<AppCatalog, String>>,
     monitor: Option<SystemSnapshot>,
+    cache: Option<Result<CacheReviewReport, String>>,
 ) -> TuiDashboard {
     let catalog = inventory
         .as_ref()
@@ -161,6 +169,24 @@ fn build_dashboard(
     let inventory_error = inventory
         .as_ref()
         .and_then(|result| result.as_ref().err().cloned());
+    let cache_value = cache
+        .as_ref()
+        .and_then(|result| result.as_ref().ok())
+        .cloned();
+    let cache_status = match &cache {
+        Some(Ok(report)) => format!(
+            "live · {} bounded observations",
+            report.finding_report.summary.finding_count
+        ),
+        Some(Err(_)) => "unavailable".to_string(),
+        None => "private summary".to_string(),
+    };
+    let cache_finding_count = cache_value
+        .as_ref()
+        .map_or(0, |report| report.finding_report.summary.finding_count);
+    let cache_warning_count = cache_value
+        .as_ref()
+        .map_or(0, |report| report.warnings.len());
     let default_view = SoftwareView::default();
     TuiDashboard {
         schema_version: 1,
@@ -181,6 +207,9 @@ fn build_dashboard(
         installed_software_count: catalog.as_ref().map_or(0, |catalog| catalog.app_count),
         service_and_persistence_count: catalog.as_ref().map_or(0, |catalog| catalog.service_count),
         inventory_status,
+        cache_status,
+        cache_finding_count,
+        cache_warning_count,
         update_check_status: "not checked".to_string(),
         update_action_status: "idle · u scans providers · review action requires confirmation"
             .to_string(),
@@ -192,6 +221,7 @@ fn build_dashboard(
             modules,
             catalog: catalog.as_ref(),
             inventory_error: inventory_error.as_deref(),
+            cache: cache_value.as_ref(),
             view: &default_view,
             updates: None,
             update_plan: None,
@@ -207,6 +237,7 @@ fn build_dashboard(
         update_plan: None,
         pending_update: None,
         monitor_snapshot: monitor,
+        cache_report: cache_value,
     }
 }
 
@@ -216,6 +247,7 @@ struct SectionContext<'a> {
     modules: &'a ModuleRegistryReport,
     catalog: Option<&'a AppCatalog>,
     inventory_error: Option<&'a str>,
+    cache: Option<&'a CacheReviewReport>,
     view: &'a SoftwareView,
     updates: Option<&'a LiveUpdateCatalog>,
     update_plan: Option<&'a ActionPlan>,
@@ -232,6 +264,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
         modules,
         catalog,
         inventory_error,
+        cache,
         view,
         updates,
         update_plan,
@@ -273,6 +306,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
             modules,
             inventory_error,
             update_action_status,
+            cache,
         ),
     ];
     sections.insert(3, system_monitor_section(monitor));
@@ -285,6 +319,7 @@ fn diagnostics_section(
     modules: &ModuleRegistryReport,
     inventory_error: Option<&str>,
     update_action_status: &str,
+    cache: Option<&CacheReviewReport>,
 ) -> TuiSection {
     let mut rows = vec![
         row(
@@ -329,6 +364,23 @@ fn diagnostics_section(
             "module package checks and store status are available from the CLI",
             "info",
         ),
+        match cache {
+            Some(report) => row_count(
+                if report.warnings.is_empty() {
+                    tui_theme::LABEL_INFO
+                } else {
+                    tui_theme::LABEL_WARN
+                },
+                report.finding_report.summary.finding_count,
+                "bounded cache observations",
+                if report.warnings.is_empty() {
+                    "info"
+                } else {
+                    "warn"
+                },
+            ),
+            None => row(tui_theme::LABEL_WARN, "cache evidence unavailable", "warn"),
+        },
         row(tui_theme::LABEL_INFO, update_action_status, "info"),
     ];
     if let Some(error) = inventory_error {

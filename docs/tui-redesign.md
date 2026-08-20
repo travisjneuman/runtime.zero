@@ -53,6 +53,9 @@ Rules:
   list and never claims that a plan executed.
 - Toolchain, Software, System, and Diagnostics use the same shell and replace
   only the content, so navigation remains predictable.
+- Diagnostics includes the bounded cache observation count and warning state
+  from the same `cache_review` contract as `rz0 cache --dry-run`; it never
+  exposes a second cleanup or quarantine action path.
 - Help is a modal overlay, not a permanent panel. Search and confirmation use
   the same modal treatment.
 - The footer is one status line plus one short key line. Long prose belongs in

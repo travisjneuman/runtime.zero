@@ -1,5 +1,6 @@
 pub mod apps;
 pub mod brand;
+pub mod cache;
 pub mod color_mode;
 pub mod completions;
 pub mod dashboard_cli;
@@ -71,6 +72,7 @@ where
         Some("--version" | "-V" | "version") => (ExitCode::Ok, version_text(), String::new()),
         Some("doctor") => doctor_command(&args[1..]),
         Some("apps") => apps::apps_command(&args[1..]),
+        Some("cache") => cache::cache_command(&args[1..]),
         Some("uninstall") => apps::uninstall_command(&args[1..]),
         Some("completions") => completions::completions_command(&args[1..]),
         Some("modules") => module_cli::modules_command(&args[1..]),
@@ -106,6 +108,13 @@ pub fn help_text() -> String {
     let toolchain_usage = format!("  {} toolchain [--format text|json]\n", brand::COMMAND);
     if let Some(index) = help.find(&format!("  {} report", brand::COMMAND)) {
         help.insert_str(index, &toolchain_usage);
+    }
+    let cache_usage = format!(
+        "  {} cache --dry-run [--format text|json] [--fixture <cache-input.json>]\n",
+        brand::COMMAND
+    );
+    if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {
+        help.insert_str(index, &cache_usage);
     }
     let lifecycle_usage = format!(
         "  {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n",
