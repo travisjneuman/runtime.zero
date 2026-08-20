@@ -7,11 +7,12 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed starting baseline:**
-  `bf73fb2` (`Show toolchain provider ownership in TUI`).
+  `7014dcb` (`Clarify unavailable TUI launch reason`).
 - **Current behavior implementation:**
-  `bf73fb2` on `main`, including the redesigned TUI, Rust toolchain contract,
-  digest-bound lifecycle planning, and explicit provider ownership in Toolchain
-  rows.
+  `7014dcb` on `main`, including the redesigned TUI, Rust toolchain contract,
+  AIUP updater-provider adapter, digest-bound lifecycle planning, explicit
+  provider ownership in Toolchain rows, and guarded Windows store
+  initialization.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -19,6 +20,25 @@
   macOS/Linux manager-update executor exist. Uninstall, cleanup,
   quarantine/restore, module lifecycle execution, Windows execution, and
   third-party execution remain unavailable.
+
+The exact pushed head is `7014dcb99920d68dc5990455aad469b9f94391e6`; local
+`main` and `origin/main` match. The current-head validation baseline passes
+`cargo fmt --all -- --check`, `cargo test --workspace --locked`, strict
+workspace Clippy, Linux/Windows cross-target `cargo check`, and
+`git diff --check`. The macOS arm64 release artifact passes the four-case PTY
+smoke and 10-sample performance checks, but remains unsigned and unnotarized.
+The portable package and exact hashes are recorded in the private runtime.zero
+handoff note.
+
+The current release decision remains blocked. Fresh `doctor --format json`
+reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
+with no writes; and the bounded provider review reports 20 sources, 13 source
+successes, 59 serial queue items, and one AIUP-managed candidate without
+execution authorization. Linux release linking was re-attempted with the
+installed Rust LLD and still fails because this macOS host lacks the target
+Linux C-runtime libraries. Windows `link.exe` is likewise unavailable. These
+checks do not substitute for target-native runtime, signing, accessibility,
+recovery, or owner-acceptance evidence.
 
 For the product end state, module contract, enable/disable semantics, delivery
 waves, and next-shift checklist, see
