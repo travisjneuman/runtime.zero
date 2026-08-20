@@ -71,6 +71,27 @@ fn apply_uses_private_unix_permissions() {
 
 #[cfg(unix)]
 #[test]
+fn existing_non_private_store_root_blocks_initialization() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = unique_temp_root();
+    fs::create_dir(&root).expect("store root");
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o755))
+        .expect("make store root non-private");
+    let report = store_init_report(
+        &["init".to_string(), "--dry-run".to_string()],
+        StoreInitOptions::with_store_root(StoreInitMode::DryRun, root.clone()),
+    );
+    assert_eq!(report.status, StoreInitStatus::Blocked);
+    assert!(!report.writes_attempted);
+    assert!(report.steps.iter().any(|step| {
+        step.state == StoreInitStepState::Blocked && step.path == root.display().to_string()
+    }));
+    cleanup(root);
+}
+
+#[cfg(unix)]
+#[test]
 fn symlinked_intermediate_directory_blocks_all_writes() {
     use std::os::unix::fs::symlink;
 
@@ -109,7 +130,7 @@ fn apply_is_idempotent_after_valid_initialization() {
     cleanup(root);
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 #[test]
 fn unsupported_platform_blocks_store_creation_without_writes() {
     let root = unique_temp_root();

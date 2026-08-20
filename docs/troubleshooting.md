@@ -151,7 +151,11 @@ rz0 store init --dry-run
 The initializer refuses symlinks, wrong-type entries, unsafe ownership/mode, and
 invalid registry/marker content. It will not repair or overwrite them. Do not
 remove existing paths unless ownership and purpose are independently proven.
-Windows store creation is intentionally unsupported.
+Windows store creation uses the guarded `secure-fs` owner/DACL path. If it is
+blocked, preserve the exact report: the inherited ACL, reparse state, wrong
+filesystem type, or runtime environment is not proven private enough. Do not
+override the block or manually widen permissions; public Windows support still
+requires runtime acceptance evidence.
 
 ## Module command does not install or run anything
 

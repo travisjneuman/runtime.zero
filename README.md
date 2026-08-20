@@ -268,8 +268,10 @@ silently expand them. `crates/validation-contract/` owns allocation-free bounded
 ID/version/hash/path grammar so parsers cannot silently diverge.
 `crates/secure-fs/` owns held-directory-relative state operations, locks, privacy
 checks, and atomic publication; Windows NT operations and strict owner/DACL
-inspection are compile-checked, while Windows store mutation remains blocked
-pending safe initial ACL creation and runtime proof. `crates/registry-contract/` owns the
+inspection are compile-checked, and store initialization now uses that guarded
+path while failing closed on unsuitable inherited ACLs. Public Windows store
+support remains blocked pending safe initial ACL creation behavior and runtime
+proof. `crates/registry-contract/` owns the
 canonical installed-state shape and digest. `crates/release-contract/` generates the exact bounded target × seven-module ×
 12-stage evidence ledger while remaining unable to authorize release. See
 [`docs/artifact-identity.md`](docs/artifact-identity.md),

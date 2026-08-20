@@ -187,10 +187,45 @@ fn valid_marker(value: &serde_json::Value) -> bool {
             == Some(u64::from(STORE_SCHEMA_VERSION))
 }
 
-#[cfg(unix)]
-fn apply_platform_write_support(_steps: &mut [StoreInitStep]) {}
+#[cfg(any(unix, windows))]
+fn apply_platform_write_support(steps: &mut [StoreInitStep]) {
+    for step in steps
+        .iter_mut()
+        .filter(|step| step.state == StoreInitStepState::Exists)
+    {
+        if let Err(error) = verify_private_step(step) {
+            step.state = StoreInitStepState::Blocked;
+            step.detail = format!("existing path privacy verification failed: {error}");
+        }
+    }
+}
 
-#[cfg(not(unix))]
+#[cfg(any(unix, windows))]
+fn verify_private_step(step: &StoreInitStep) -> std::io::Result<()> {
+    let path = Path::new(&step.path);
+    match step.expected_kind {
+        StoreInitKind::Directory => rz0_secure_fs::SecureDirectory::open(path)
+            .and_then(|directory| directory.verify_private())
+            .map_err(|error| std::io::Error::other(error.to_string())),
+        StoreInitKind::File => {
+            let parent = path
+                .parent()
+                .ok_or_else(|| std::io::Error::other("private file has no parent"))?;
+            let name = path
+                .file_name()
+                .ok_or_else(|| std::io::Error::other("private file has no child name"))?;
+            let directory = rz0_secure_fs::SecureDirectory::open(parent)
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
+            let file = directory
+                .open_child_file(name)
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
+            file.verify_private()
+                .map_err(|error| std::io::Error::other(error.to_string()))
+        }
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
 fn apply_platform_write_support(steps: &mut [StoreInitStep]) {
     for step in steps.iter_mut().filter(|step| {
         matches!(
@@ -267,7 +302,7 @@ fn write_file_step(store: &ModuleStorePlan, marker: &Path, step: &mut StoreInitS
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn create_private_directory(path: &Path) -> std::io::Result<()> {
     let parent = path
         .parent()
@@ -277,13 +312,15 @@ fn create_private_directory(path: &Path) -> std::io::Result<()> {
         .ok_or_else(|| std::io::Error::other("created path has no child name"))?;
     let directory = rz0_secure_fs::SecureDirectory::open(parent)
         .map_err(|error| std::io::Error::other(error.to_string()))?;
-    directory
+    let child = directory
         .create_child_directory(name)
-        .map(|_| ())
+        .map_err(|error| std::io::Error::other(error.to_string()))?;
+    child
+        .verify_private()
         .map_err(|error| std::io::Error::other(error.to_string()))
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 fn create_private_directory(_path: &Path) -> std::io::Result<()> {
     Err(std::io::Error::new(
         std::io::ErrorKind::Unsupported,
@@ -291,7 +328,7 @@ fn create_private_directory(_path: &Path) -> std::io::Result<()> {
     ))
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn write_new_private_file(path: &Path, content: &[u8]) -> std::io::Result<()> {
     let parent = path
         .parent()
@@ -301,17 +338,19 @@ fn write_new_private_file(path: &Path, content: &[u8]) -> std::io::Result<()> {
         .ok_or_else(|| std::io::Error::other("created path has no child name"))?;
     let directory = rz0_secure_fs::SecureDirectory::open(parent)
         .map_err(|error| std::io::Error::other(error.to_string()))?;
-    directory
+    let opened = directory
         .write_new_child(
             name,
             content,
             rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
         )
-        .map(|_| ())
+        .map_err(|error| std::io::Error::other(error.to_string()))?;
+    opened
+        .verify_private()
         .map_err(|error| std::io::Error::other(error.to_string()))
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 fn write_new_private_file(_path: &Path, _content: &[u8]) -> std::io::Result<()> {
     Err(std::io::Error::new(
         std::io::ErrorKind::Unsupported,

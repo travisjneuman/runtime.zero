@@ -2,7 +2,8 @@
 
 `crates/secure-fs/` centralizes filesystem operations that must be relative to an
 already opened directory instead of repeatedly resolving mutable absolute paths.
-It is used by Unix store initialization and transaction journal persistence.
+It is used by Unix and Windows store initialization and transaction journal
+persistence.
 
 ## Unix implementation
 
@@ -48,12 +49,13 @@ Builtin Administrators. At least one user allow ACE is required; unsupported ACE
 types and grants to any other principal fail closed. Inherited ACEs receive the
 same principal policy rather than being trusted because they were inherited.
 
-This remains build evidence, not runtime proof. `store init --yes` stays
-structurally blocked on Windows because safe initial ACL creation and the full
-runtime filesystem matrix are not proven. Release support still requires real
-owner/DACL and inherited-ACL tests, token/elevation cases, reparse/File-ID
-adversarial tests, atomicity and directory-flush evidence, and final-artifact
-runtime proof from Windows 7 through current client/server targets.
+This remains build evidence, not runtime proof. `store init --yes` now uses the
+Windows held-handle and owner/DACL path and blocks if an existing or newly
+created entry does not satisfy the private policy. Release support still
+requires safe initial ACL creation, real owner/DACL and inherited-ACL tests,
+token/elevation cases, reparse/File-ID adversarial tests, atomicity and
+directory-flush evidence, and final-artifact runtime proof from Windows 7
+through current client/server targets.
 
 ## Authority boundary
 

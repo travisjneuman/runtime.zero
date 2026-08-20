@@ -87,8 +87,10 @@ publishes and recovers exact immutable snapshots under an exclusive cross-proces
 writer lock, and emits conservative recovery decisions. Unix journal/store
 creation and publication use foundation-owned held-directory-relative no-follow
 operations. Compile-checked Windows NT root-relative operations and strict
-owner/DACL inspection exist, but Windows store initialization remains blocked
-until safe initial ACL creation and runtime filesystem evidence are complete. Snapshot publication writes only caller-selected transaction roots
+owner/DACL inspection exist. Windows store initialization now routes through
+those guarded primitives and fails closed when inherited owner/DACL policy is
+not private enough; production Windows support still requires safe initial ACL
+creation and runtime filesystem evidence. Snapshot publication writes only caller-selected transaction roots
 and does not authorize action-plan writes or automatic recovery. The commit-
 receipt contract binds exact plan, write-set, confirmation-consumption, committed
 journal-head, and registry evidence. The foundation commit coordinator verifies
@@ -184,8 +186,9 @@ idempotent, must refuse to repair or overwrite invalid existing state, and must
 not install modules, copy packages, execute code, fetch remote content, edit
 PATH, create services/tasks/persistence, or touch credentials, browser profiles,
 OAuth sessions, backups, project workspaces, or unknown user data. Windows
-initialization remains blocked until private ACL creation and runtime proof are
-complete.
+initialization is guarded by the same owner/DACL checks, but public Windows
+support remains blocked until private ACL creation behavior and runtime proof
+are complete.
 
 Bare `rz0` may open the local software TUI in an interactive terminal. That
 dashboard performs bounded read-only inventory and may display application and
