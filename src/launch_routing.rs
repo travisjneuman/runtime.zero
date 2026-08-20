@@ -95,7 +95,7 @@ pub fn resolve_launch_mode(args: &[String], env: LaunchEnvironment) -> LaunchRou
     } else {
         (
             LaunchMode::CliDashboardText,
-            "TUI not implemented or unavailable",
+            "interactive TUI is unavailable in this launch environment",
         )
     };
 
