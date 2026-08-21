@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `7ce8932` (`feat: expose manager context in confirmation challenges`).
+  `1186c3d3c633fc9e3852bfd3131221d282e343b1` (`feat: persist inactive module lifecycle state`).
 - **Current behavior implementation:**
-  `7ce8932` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `1186c3d` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -98,6 +98,9 @@
   executable digest/size, capabilities, plan identity, expiry, rollback posture,
   and exact phrase before confirmation. Paths remain intentionally undisclosed;
   the executor still revalidates every bound input.
+  Installed registry records now persist the foundation-owned
+  `lifecycle_state: "installed_inactive"`; schema 1 rejects any other explicit
+  state, and status consumes the persisted value without exposing activation.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -141,7 +144,8 @@ The developer-only first-party inventory process invocation slice is
 `8f9f3c7`.
 The effective configuration review slice is `c6118ad`.
 The exact manager-native uninstall execution slice is `1faffa4`.
-The exact-head release evidence refresh is `4266ae5`.
+The persisted inactive lifecycle-state slice is `1186c3d`.
+The current exact-head release evidence refresh is bound to `1186c3d`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -149,15 +153,15 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The local aarch64 Apple Silicon package from
-`4266ae568827db90cfbdcfc86fdbcab9184dc4f8` has binary SHA-256
-`453b6630f5574b63a78114bf44c2c95e9f2ff0858ea8f13c2ed4273295c7c746`, ZIP
+`1186c3d3c633fc9e3852bfd3131221d282e343b1` has binary SHA-256
+`0546be54266086d797703c34aa02a00df2fc29243de763de662593b99cb7c09b`, ZIP
 SHA-256
-`c18b75997d8d07066358e5a0811051ef80b6cabf0a6be22c5bf90c07b8e1ffdb`, and
-1,901,154 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`37f7d518fb17449694194eb29c6949146960493f6ea788987798603bcf42aa4f`, and
+1,905,514 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`66f437e2e3b44559012713ffb25944adc25245ddb91b55c8639f73d29271569e`,
-`a18289fcbc4f3a40f566c3eb381dca006f997bbc7d02708194d1d4a2d40ccf8f`, and
-`5c3e355d92954913177fdab25a32ace6c4f15fd217304de36886df4e6ff5caee`; their
+`61871a71e78d5d2f517306c729b49bcf9374f3473ca8eb664002884ba4399270`,
+`e98d33a1678e35241b7e48ab475064ff3dd6a73ee8e2ebdf895efcf9c85a8c4b`, and
+`f4451a051ec07a735d447760486521a8b8776c6bb7c215c1e1063ab6d59afe44`; their
 embedded sizes are 160,426, 290,906, and 977 bytes respectively. Independent
 ZIP verification, four PTY terminal smoke cases, and ten-sample final-artifact
 performance evidence passed against this exact source head. The artifact remains
@@ -165,8 +169,8 @@ unsigned and unnotarized until an owner-led signing/notarization lane exists.
 It is a local Apple Silicon artifact, not a public release or cross-platform
 runtime claim. The developer invocation process path is separately bounded and
 does not change this release posture.
-The terminal evidence ID is `terminal:aarch64-apple-darwin-453b6630f557` and
-the performance evidence ID is `perf:aarch64-apple-darwin-453b6630f557`. The
+The terminal evidence ID is `terminal:aarch64-apple-darwin-0546be542660` and
+the performance evidence ID is `perf:aarch64-apple-darwin-0546be542660`. The
 packaged `config --format json` review also passed with configuration digest
 `b4d57157ae30be77f81a293bd49ddc2f939168377b20b9d9bb16a4ea1e40258f`.
 
@@ -555,8 +559,9 @@ installed, disabled, enabled/active, degraded/blocked, and action-authorized
 are distinct states. Disable stops module-owned collection, scheduling, network
 work, UI actions, and mutation while preserving state; uninstall is a separate
 explicit data-retention and rollback decision. The target CLI/TUI controls are
-not current commands and must wait for foundation-owned registry publication,
-trust, configuration, receipts, recovery, and module-host execution.
+not current commands and must wait for production lifecycle execution,
+foundation-owned registry authority, trust, configuration, receipts, recovery,
+and module-host execution.
 
 ## Foundation ownership map
 
@@ -588,7 +593,7 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current source validation for `1faffa42c895936d7faaf13cb4bf6b3815d582f3` and
+Current source validation for `1186c3d3c633fc9e3852bfd3131221d282e343b1` and
 the previously recorded packaged artifact on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;

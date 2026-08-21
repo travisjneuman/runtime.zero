@@ -69,8 +69,9 @@ runtime must expose the same foundation-owned transitions through both the TUI
 and CLI: inspect, install, enable, configure, invoke, disable, upgrade, repair,
 migrate, and uninstall. The target command names and state semantics are
 documented in [`engineering-handoff.md`](engineering-handoff.md); they must not
-be advertised as current commands until registry publication, trust,
-configuration, receipts, recovery, and the TUI path are implemented together.
+be advertised as current commands until production lifecycle execution,
+production registry authority, trust, configuration, receipts, recovery, and
+the shared TUI path are implemented together.
 
 ## Current registry surface
 

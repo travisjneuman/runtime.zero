@@ -262,9 +262,9 @@ rz0 modules repair <module-id> --dry-run
 rz0 modules uninstall <module-id> --dry-run
 ~~~
 
-These commands must not be added as cosmetic aliases before the lifecycle
-runtime, registry publication, trust, configuration, receipts, recovery, and
-TUI flows can support them. The current repository exposes listing, validation,
+These commands must not be added as cosmetic aliases before the production
+lifecycle runtime, registry authority, trust, configuration, receipts,
+recovery, and TUI flows can support them. The current repository exposes listing, validation,
 read-only lifecycle status, store inspection, installation planning, and this
 one explicitly bounded developer-trial inventory invocation. It does not yet
 expose these mutating module lifecycle commands. The invocation lane revalidates

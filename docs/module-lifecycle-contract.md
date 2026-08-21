@@ -46,9 +46,9 @@ integrity, trust/revocation, dependencies, conflicts, platform support,
 effective capabilities, configuration, and pending recovery. Startup must not
 implicitly enable, migrate, repair, upgrade, or uninstall a module.
 
-The current implementation only plans these transitions. The executable
-lifecycle, registry publication, TUI/CLI controls, and disabled-work guarantee
-are P0 work for the end-state platform. See
+The current implementation only plans these transitions. The production
+executable lifecycle, registry authority, TUI/CLI controls, and disabled-work
+guarantee are P0 work for the end-state platform. See
 [`engineering-handoff.md`](engineering-handoff.md) for the target command shape
 and the shift sequence.
 

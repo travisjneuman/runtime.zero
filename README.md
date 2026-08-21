@@ -216,8 +216,9 @@ transaction then publishes one `installed_inactive` registry record plus a
 separate install receipt. Promotion still never activates, invokes, or grants
 production trust to module code. Target commands such as
 `rz0 modules enable`, `disable`, `configure`, `repair`, and `uninstall` are not
-current commands until the foundation-owned lifecycle, registry publication,
-receipts, recovery, and TUI path are implemented together.
+current commands until production lifecycle execution, trust, receipts,
+recovery, capability enforcement, and the shared TUI path are implemented
+together.
 
 `rz0 modules status` is the path-redacted read-only lifecycle surface. It
 reports installed records as `installed_inactive` only when registry, receipt,
