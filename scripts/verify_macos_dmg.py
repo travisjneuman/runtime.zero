@@ -103,14 +103,14 @@ def verify(args: argparse.Namespace) -> dict[str, object]:
         character not in "0123456789abcdef" for character in args.source_commit
     ):
         raise ValueError("source commit must be a full lowercase Git SHA-1")
-    dmg = args.dmg.resolve(strict=True)
+    dmg = args.dmg
     dmg_bytes = read_regular(dmg, MAX_DMG_BYTES)
     dmg_sha256 = digest(dmg_bytes)
     if args.expected_dmg_sha256 and args.expected_dmg_sha256 != dmg_sha256:
         raise ValueError("DMG SHA-256 does not match the expected digest")
-    validate_sha256_file(args.checksum.resolve(strict=True), dmg.name, dmg_sha256)
+    validate_sha256_file(args.checksum, dmg.name, dmg_sha256)
 
-    mountpoint = args.mountpoint.resolve()
+    mountpoint = args.mountpoint
     metadata = mountpoint.lstat()
     if mountpoint.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
         raise ValueError("mountpoint must be an existing direct directory")
@@ -167,7 +167,7 @@ def verify(args: argparse.Namespace) -> dict[str, object]:
         ):
             raise ValueError("DMG manifest is inconsistent with mounted content")
         if args.source_zip:
-            source_zip = read_regular(args.source_zip.resolve(strict=True), MAX_DMG_BYTES)
+            source_zip = read_regular(args.source_zip, MAX_DMG_BYTES)
             if digest(source_zip) != dmg_manifest["source_portable_zip_sha256"]:
                 raise ValueError("DMG manifest does not bind the supplied source ZIP")
 
