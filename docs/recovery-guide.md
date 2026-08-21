@@ -78,10 +78,24 @@ from a missing runtime.zero receipt and do not invoke update again.
 ### `complete_journal_commit_with_explicit_approval`
 
 A valid receipt binds the exact commit-pending prefix, but final journal state is
-incomplete. The current product deliberately has no command that completes this
-state. A future completion lane must issue a new short-lived assessment/receipt-
-bound phrase and append only the previously authorized final journal event. It
-must never rerun the manager.
+incomplete. The product provides a narrow command that can complete only this
+local state after fresh explicit approval. Request a challenge with:
+
+```bash
+rz0 updates --recovery-complete --transaction <exact-id> --format text
+```
+
+Then repeat with the exact issued timestamp and phrase from that challenge:
+
+```bash
+rz0 updates --recovery-complete --transaction <exact-id> \
+  --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
+```
+
+The
+completion records a durable receipt-bound approval and appends only the
+previously authorized final local journal event. It never reruns the manager,
+edits a receipt, rolls back, or grants automatic mutation authority.
 
 ### `no_action`
 
@@ -147,7 +161,7 @@ real store.
 
 ## Still required for production recovery
 
-- exact recovery completion for verified external effects;
+- manager-specific recovery completion beyond the verified local journal event;
 - manager-native rollback or reviewed manual recovery per manager/version;
 - post-reboot and power-loss proof on disposable hosts;
 - Windows owner/DACL/directory-flush and process-tree proof;

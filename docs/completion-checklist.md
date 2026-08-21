@@ -51,6 +51,8 @@ full platform/lifecycle acceptance cells.
 - [x] Make updater receipt publication interruption-safe after a successful
   manager command and provide deterministic reconciliation for missing,
   duplicate, partial, or conflicting evidence.
+- [x] Add a fresh receipt-bound recovery challenge and idempotent local journal
+  completion path that cannot rerun a manager or authorize automatic mutation.
 - [ ] Propagate cancellation through live discovery, process polling/teardown,
   journal, receipt, verification, and every write boundary.
 - [ ] Implement manager-native rollback where supported and an explicit tested

@@ -185,7 +185,7 @@ The current exceptions and blocks are:
   after exact confirmation and local transaction evidence, but remains pre-alpha;
   Linux native-ELF identity binding, SIGINT cancellation, external-effect
   receipts, and recovery status exist, while macOS/Windows binding, OS isolation,
-  full cancellation, rollback/recovery completion, and platform proof remain;
+  full cancellation, rollback, manager-specific recovery, and platform proof remain;
 - no uninstall, cleanup, permanent deletion, module install/activation, repair,
   quarantine/restore, or arbitrary module execution;
 - no malware-removal or unsupported security assurance claims;
@@ -221,9 +221,9 @@ fresh manager probe -> updater finding report -> dry-run action plan
 This is the only current system-manager write flow. Linux direct native ELF
 execution consumes the opened lease; macOS uses path identity/digest
 revalidation; Windows fails closed. Read-only
-recovery status reconciles receipt/journal state, but exact recovery completion,
-native rollback, OS capability isolation, and disposable-host proof remain
-production blockers.
+recovery status reconciles receipt/journal state, and receipt-bound completion can
+append the final local journal event. Manager-specific recovery, native rollback,
+OS capability isolation, and disposable-host proof remain production blockers.
 
 ### Future module flow
 

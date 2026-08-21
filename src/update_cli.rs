@@ -46,6 +46,9 @@ pub fn updates_command(args: &[String]) -> (ExitCode, String, String) {
     if command.recovery_status {
         return recovery_status_command(&command);
     }
+    if command.recovery_complete {
+        return recovery_completion_command(&command);
+    }
     let built_input = match build_input(&command) {
         Ok(input) => input,
         Err(error) => return (ExitCode::Usage, String::new(), format!("{error}\n")),
@@ -113,6 +116,7 @@ struct ParsedArgs {
     accept_no_rollback: bool,
     allow_network_write: bool,
     recovery_status: bool,
+    recovery_complete: bool,
     transaction: Option<String>,
     format: OutputFormat,
 }
@@ -137,6 +141,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         accept_no_rollback: false,
         allow_network_write: false,
         recovery_status: false,
+        recovery_complete: false,
         transaction: None,
         format: OutputFormat::Text,
     };
@@ -217,6 +222,10 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             "--recovery-status" => {
                 return Err("updates accepts --recovery-status only once".to_string());
             }
+            "--recovery-complete" if !parsed.recovery_complete => parsed.recovery_complete = true,
+            "--recovery-complete" => {
+                return Err("updates accepts --recovery-complete only once".to_string());
+            }
             "--transaction" => {
                 index += 1;
                 if parsed.transaction.is_some() {
@@ -278,9 +287,48 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             || parsed.challenge_issued_unix_seconds.is_some()
             || parsed.accept_no_rollback
             || parsed.allow_network_write
+            || parsed.recovery_complete
         {
             return Err(
                 "--recovery-status can be combined only with --transaction and output format"
+                    .to_string(),
+            );
+        }
+        return Ok(parsed);
+    }
+    if parsed.recovery_complete {
+        if parsed
+            .transaction
+            .as_deref()
+            .is_none_or(|transaction| !rz0_validation_contract::valid_ledger_id(transaction, 96))
+        {
+            return Err("--recovery-complete requires a valid exact --transaction ID".to_string());
+        }
+        if parsed.dry_run
+            || parsed.apply
+            || parsed.fixture.is_some()
+            || parsed.manager_output.is_some()
+            || parsed.manager.is_some()
+            || parsed.executable.is_some()
+            || parsed.probe
+            || parsed.allow_network_read
+            || parsed.plan
+            || parsed.queue
+            || parsed.action.is_some()
+            || parsed.all
+            || parsed.all_providers
+            || parsed.recovery_status
+            || parsed.accept_no_rollback
+            || parsed.allow_network_write
+        {
+            return Err(
+                "--recovery-complete can be combined only with --transaction, optional confirmation, challenge timestamp, and output format"
+                    .to_string(),
+            );
+        }
+        if parsed.confirm.is_some() && parsed.challenge_issued_unix_seconds.is_none() {
+            return Err(
+                "--confirm requires --challenge-issued-unix-seconds from the recovery challenge output"
                     .to_string(),
             );
         }
@@ -448,6 +496,100 @@ fn recovery_status_command(command: &ParsedArgs) -> (ExitCode, String, String) {
     }
 }
 
+fn recovery_completion_command(command: &ParsedArgs) -> (ExitCode, String, String) {
+    let transaction = command.transaction.as_deref().unwrap_or_default();
+    let state_root = PathBuf::from(module_store_plan(None, None, "update recovery").state_root);
+    if !state_root.is_dir() {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "runtime.zero update state store is not initialized; run `rz0 store status` for local details\n"
+                .to_string(),
+        );
+    }
+    let issued = command
+        .challenge_issued_unix_seconds
+        .unwrap_or_else(unix_seconds);
+    let challenge = match rz0_transaction_contract::build_external_effect_recovery_challenge(
+        &state_root,
+        transaction,
+        issued,
+    ) {
+        Ok(challenge) => challenge,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("update recovery challenge failed closed: {error}\n"),
+            );
+        }
+    };
+    let Some(phrase) = command.confirm.as_deref() else {
+        let output = match command.format {
+            OutputFormat::Json => serde_json::to_string_pretty(&challenge)
+                .map(|json| format!("{json}\n"))
+                .map_err(|error| format!("render update recovery challenge: {error}")),
+            OutputFormat::Text => Ok(format!(
+                "runtime.zero update recovery approval\n\ncontract: {}\ntransaction_id: {}\nreceipt_binding_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\nexpected_phrase: {}\nmanager_rerun: no\n\nType the exact phrase in a new command invocation with --challenge-issued-unix-seconds {} and --confirm. Only the local runtime.zero journal commit may be completed.\n",
+                challenge.contract,
+                challenge.transaction_id,
+                challenge.receipt_binding_sha256,
+                challenge.issued_unix_seconds,
+                challenge.expires_unix_seconds,
+                challenge.expected_phrase,
+                challenge.issued_unix_seconds,
+            )),
+        };
+        return match output {
+            Ok(output) => (ExitCode::Ok, output, String::new()),
+            Err(error) => (ExitCode::Usage, String::new(), format!("{error}\n")),
+        };
+    };
+    let now_unix_seconds = unix_seconds();
+    let response = rz0_transaction_contract::ExternalEffectRecoveryResponse {
+        schema_version: rz0_transaction_contract::EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION,
+        contract: rz0_transaction_contract::EXTERNAL_EFFECT_RECOVERY_RESPONSE_CONTRACT.to_string(),
+        challenge_id: challenge.challenge_id.clone(),
+        challenge_sha256: challenge.challenge_sha256.clone(),
+        confirmed_unix_seconds: now_unix_seconds,
+        phrase: phrase.to_string(),
+        interactive: true,
+        single_use: true,
+        execution_authorized: false,
+    };
+    let completion = match rz0_transaction_contract::complete_external_effect_journal_commit(
+        &state_root,
+        &challenge,
+        &response,
+        now_unix_seconds,
+    ) {
+        Ok(completion) => completion,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("update recovery completion failed closed: {error}\n"),
+            );
+        }
+    };
+    let output = match command.format {
+        OutputFormat::Json => serde_json::to_string_pretty(&completion)
+            .map(|json| format!("{json}\n"))
+            .map_err(|error| format!("render update recovery completion: {error}")),
+        OutputFormat::Text => Ok(format!(
+            "runtime.zero update recovery completion\n\ncontract: {}\ntransaction_id: {}\nstatus: {:?}\nread_only: no\nwrites_attempted: {}\nmanager_rerun: no\nautomatic_mutation_authorized: no\n",
+            completion.contract,
+            completion.transaction_id,
+            completion.status,
+            completion.writes_attempted,
+        )),
+    };
+    match output {
+        Ok(output) => (ExitCode::Ok, output, String::new()),
+        Err(error) => (ExitCode::Usage, String::new(), format!("{error}\n")),
+    }
+}
+
 fn recovery_guidance(
     decision: rz0_transaction_contract::ExternalEffectRecoveryDecision,
 ) -> &'static str {
@@ -520,6 +662,7 @@ fn universal_provider_command(allow_network_read: bool) -> ParsedArgs {
         accept_no_rollback: false,
         allow_network_write: false,
         recovery_status: false,
+        recovery_complete: false,
         transaction: None,
         format: OutputFormat::Text,
     }
@@ -3478,8 +3621,9 @@ fn usage() -> String {
         "       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
         "       rz0 updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
         "       rz0 updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback] [--format text]\n",
-        "       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n\n",
-        "--all-providers performs a provider-driven live review of installed system managers, language/package environments, known self-updaters, and declared application update metadata. On macOS this includes Homebrew formulae/casks, Apple Software Update, npm global prefixes, pip, RubyGems, rustup, uv, Grok, Hermes, oh-my-pi, AIUP-managed tools, crates.io Cargo installs, Warp's standalone signed CLI store, Electron/Squirrel GitHub metadata, and observed Sparkle channels when present; missing, delegated, observed-only, and unsupported providers remain explicit. --apply performs a fresh availability probe, requires explicit network-write approval and exact interactive confirmation, runs the native manager command, and verifies the result. Elevated managers use non-interactive /usr/bin/sudo; authenticate with sudo before invoking rz0. Known self-updaters may replace their launcher during a successful update. --recovery-status never completes or retries an interrupted manager effect."
+        "       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n",
+        "       rz0 updates --recovery-complete --transaction <transaction-id> [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n\n",
+        "--all-providers performs a provider-driven live review of installed system managers, language/package environments, known self-updaters, and declared application update metadata. On macOS this includes Homebrew formulae/casks, Apple Software Update, npm global prefixes, pip, RubyGems, rustup, uv, Grok, Hermes, oh-my-pi, AIUP-managed tools, crates.io Cargo installs, Warp's standalone signed CLI store, Electron/Squirrel GitHub metadata, and observed Sparkle channels when present; missing, delegated, observed-only, and unsupported providers remain explicit. --apply performs a fresh availability probe, requires explicit network-write approval and exact interactive confirmation, runs the native manager command, and verifies the result. Elevated managers use non-interactive /usr/bin/sudo; authenticate with sudo before invoking rz0. Known self-updaters may replace their launcher during a successful update. --recovery-status is read-only; --recovery-complete may append only the exact final local journal commit for a verified receipt and never reruns a manager."
     )
     .to_string()
 }
@@ -3616,6 +3760,16 @@ mod tests {
             recovery.transaction.as_deref(),
             Some("tx.update.example.1700000000")
         );
+        let recovery_completion = parse_args(&[
+            "--recovery-complete".to_string(),
+            "--transaction".to_string(),
+            "tx.update.example.1700000000".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ])
+        .expect("recovery completion args");
+        assert!(recovery_completion.recovery_complete);
+        assert!(!recovery_completion.recovery_status);
         assert!(
             parse_args(&[
                 "--recovery-status".to_string(),

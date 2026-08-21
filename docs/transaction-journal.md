@@ -122,10 +122,20 @@ approval for final journal completion, no action for consistent committed
 state, or refuse inconsistent evidence.
 
 The core exposes this assessment through
-`rz0 updates --recovery-status --transaction <id>`. It does not rerun a manager,
-edit evidence, finish a journal, or roll back. A production final-completion lane
-must issue a fresh receipt-bound phrase and append only the already authorized
-commit event; that lane is not implemented.
+`rz0 updates --recovery-status --transaction <id>`. A verified
+`complete_journal_commit_with_explicit_approval` assessment can be completed
+with:
+
+```bash
+rz0 updates --recovery-complete --transaction <id>
+rz0 updates --recovery-complete --transaction <id> \
+  --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
+```
+
+The completion lane revalidates the exact receipt and commit-pending journal,
+records a durable receipt-bound approval, and appends only the already
+authorized final local journal event. It never reruns a manager, edits a
+receipt, rolls back, or grants automatic mutation authority.
 
 ## Commit coordinator
 

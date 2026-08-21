@@ -135,8 +135,11 @@ Do not rerun the manager. Use the exact transaction ID:
 rz0 updates --recovery-status --transaction <id>
 ```
 
-Then follow [`recovery-guide.md`](recovery-guide.md). Preserve receipt/journal
-state and inspect manager-native read-only installed/availability state.
+If the result is `complete_journal_commit_with_explicit_approval`, obtain and
+complete the fresh receipt-bound challenge with
+`rz0 updates --recovery-complete --transaction <id>`. Otherwise follow
+[`recovery-guide.md`](recovery-guide.md). Preserve receipt/journal state and
+inspect manager-native read-only installed/availability state.
 
 ## Store initialization refuses existing state
 

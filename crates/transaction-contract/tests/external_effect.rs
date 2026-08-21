@@ -22,12 +22,15 @@ use rz0_transaction_contract::{
     DurabilityRequirements, EXTERNAL_EFFECT_RECEIPT_CONTRACT,
     EXTERNAL_EFFECT_RECEIPT_SCHEMA_VERSION, ExternalEffectErrorCode,
     ExternalEffectPublicationInput, ExternalEffectPublicationStatus, ExternalEffectReceipt,
-    ExternalEffectRecoveryDecision, ExternalEffectStatus, TRANSACTION_CONTRACT,
+    ExternalEffectRecoveryCompletionStatus, ExternalEffectRecoveryDecision,
+    ExternalEffectRecoveryResponse, ExternalEffectStatus, TRANSACTION_CONTRACT,
     TRANSACTION_SCHEMA_VERSION, TransactionEvent, TransactionEventKind, TransactionJournal,
     TransactionOperation, TransactionState, arguments_sha256, assess_external_effect_recovery,
+    build_external_effect_recovery_challenge, complete_external_effect_journal_commit,
     publish_confirmation_consumption, publish_external_effect_receipt,
     publish_external_effect_receipt_cancellable, publish_journal_snapshot,
     seal_external_effect_receipt, seal_transaction_journal, validate_external_effect_receipt,
+    validate_external_effect_recovery_response,
 };
 use sha2::{Digest, Sha256};
 
@@ -158,6 +161,113 @@ fn cancellation_and_tampering_fail_closed_without_fabricating_outcome_evidence()
             .next()
             .is_none()
     );
+}
+
+#[test]
+fn explicit_recovery_completion_commits_only_the_local_journal_once() {
+    let root = TestRoot::new();
+    let evidence = Evidence::new(root.path());
+    let receipt = evidence.receipt();
+    publish_external_effect_receipt(
+        root.path(),
+        ExternalEffectPublicationInput {
+            commit_pending_journal: &evidence.journal,
+            action_plan: &evidence.plan,
+            challenge: &evidence.challenge,
+            response: &evidence.response,
+            consumption: &evidence.consumption,
+            receipt: &receipt,
+        },
+    )
+    .expect("publish recovery receipt");
+
+    let challenge = build_external_effect_recovery_challenge(
+        root.path(),
+        &evidence.journal.transaction_id,
+        1_300,
+    )
+    .expect("build recovery challenge");
+    let response = ExternalEffectRecoveryResponse {
+        schema_version: rz0_transaction_contract::EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION,
+        contract: rz0_transaction_contract::EXTERNAL_EFFECT_RECOVERY_RESPONSE_CONTRACT.to_string(),
+        challenge_id: challenge.challenge_id.clone(),
+        challenge_sha256: challenge.challenge_sha256.clone(),
+        confirmed_unix_seconds: 1_301,
+        phrase: challenge.expected_phrase.clone(),
+        interactive: true,
+        single_use: true,
+        execution_authorized: false,
+    };
+    let completion =
+        complete_external_effect_journal_commit(root.path(), &challenge, &response, 1_302)
+            .expect("complete local recovery journal");
+    assert_eq!(
+        completion.status,
+        ExternalEffectRecoveryCompletionStatus::Committed
+    );
+    assert!(!completion.read_only);
+    assert!(completion.writes_attempted);
+    assert!(!completion.manager_rerun);
+    assert!(!completion.automatic_mutation_authorized);
+    assert!(
+        root.path()
+            .join("transactions")
+            .join(&evidence.journal.transaction_id)
+            .join("external-effect-recovery-approval.json")
+            .is_file()
+    );
+
+    let duplicate =
+        complete_external_effect_journal_commit(root.path(), &challenge, &response, 1_303)
+            .expect("recovery completion is idempotent");
+    assert_eq!(
+        duplicate.status,
+        ExternalEffectRecoveryCompletionStatus::AlreadyCommitted
+    );
+    let assessment = assess_external_effect_recovery(root.path(), &evidence.journal.transaction_id)
+        .expect("assess completed recovery");
+    assert_eq!(
+        assessment.decision,
+        ExternalEffectRecoveryDecision::NoAction
+    );
+}
+
+#[test]
+fn malformed_recovery_challenge_is_rejected_without_panicking() {
+    let root = TestRoot::new();
+    let evidence = Evidence::new(root.path());
+    let receipt = evidence.receipt();
+    publish_external_effect_receipt(
+        root.path(),
+        ExternalEffectPublicationInput {
+            commit_pending_journal: &evidence.journal,
+            action_plan: &evidence.plan,
+            challenge: &evidence.challenge,
+            response: &evidence.response,
+            consumption: &evidence.consumption,
+            receipt: &receipt,
+        },
+    )
+    .expect("publish recovery receipt");
+    let mut challenge = build_external_effect_recovery_challenge(
+        root.path(),
+        &evidence.journal.transaction_id,
+        1_300,
+    )
+    .expect("build recovery challenge");
+    challenge.receipt_binding_sha256 = "bad".to_string();
+    let response = ExternalEffectRecoveryResponse {
+        schema_version: rz0_transaction_contract::EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION,
+        contract: rz0_transaction_contract::EXTERNAL_EFFECT_RECOVERY_RESPONSE_CONTRACT.to_string(),
+        challenge_id: challenge.challenge_id.clone(),
+        challenge_sha256: challenge.challenge_sha256.clone(),
+        confirmed_unix_seconds: 1_301,
+        phrase: "bad".to_string(),
+        interactive: true,
+        single_use: true,
+        execution_authorized: false,
+    };
+    assert!(validate_external_effect_recovery_response(&challenge, &response, 1_302).is_err());
 }
 
 #[test]

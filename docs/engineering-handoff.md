@@ -389,7 +389,7 @@ end state:
 - uninstall, cleanup, quarantine/restore, arbitrary module execution, and
   production third-party trust remain unavailable;
 - Windows runtime proof, macOS race closure, OS capability/network isolation,
-  exact recovery completion, native rollback, final-artifact platform matrices,
+  manager-specific recovery, native rollback, final-artifact platform matrices,
   and release operations remain open.
 
 Do not “fix” this documentation by changing `planned`, `observed_only`, or

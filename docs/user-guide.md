@@ -346,13 +346,16 @@ effect receipt state as one of:
 
 - no manager write started;
 - manager outcome requires fresh verification;
-- a verified receipt exists but final journal completion needs a future exact
-  recovery approval path;
+- a verified receipt exists and final journal completion requires explicit
+  receipt-bound recovery approval;
 - committed receipt/journal agree and no action is indicated;
 - evidence conflicts and all automatic action is refused.
 
 It never reruns a manager, edits a receipt, completes a journal, rolls back, or
-removes evidence. Follow [`recovery-guide.md`](recovery-guide.md).
+removes evidence. For the explicit local completion path, use
+`rz0 updates --recovery-complete --transaction <id>` to obtain a challenge, then
+repeat with its issued timestamp and exact phrase. Follow
+[`recovery-guide.md`](recovery-guide.md).
 
 ## Local store
 

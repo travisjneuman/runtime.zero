@@ -128,7 +128,8 @@ See [`inventory-schema.md`](inventory-schema.md).
   receipt, and write boundaries; confirmed Unix execution now bridges SIGINT
   through bounded process-group teardown.
 - [ ] Native rollback, Windows production containment, manager-specific locale/
-  source-agreement/offline/runtime proof, exact recovery completion, real
+  source-agreement/offline/runtime proof, manager-specific recovery beyond the
+  local journal completion lane, real
   failure/recovery evidence, and equal-platform production acceptance remain.
 
 ## Phase 5 — uninstall, leftovers, quarantine, and restore

@@ -126,6 +126,11 @@ self-updaters may replace their launcher during a successful update.
 Read and classify exact durable manager-effect evidence. It never retries,
 completes, rolls back, edits, or removes state.
 .TP
+.B updates --recovery-complete --transaction ID [--challenge-issued-unix-seconds SECONDS] [--confirm PHRASE] [--format text|json]
+Obtain or submit a fresh receipt-bound approval that appends only the final
+local journal commit for a verified manager effect. It never reruns the manager,
+rolls back, or authorizes automatic mutation.
+.TP
 .B completions SHELL
 Print static completion source for bash, zsh, fish, or PowerShell. No shell
 files are modified.

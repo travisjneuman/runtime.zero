@@ -168,8 +168,9 @@ requires the platform/disposable-host evidence applicable to the target.
 The updater execution bridge is not the final generic action executor. Linux
 identity-to-spawn binding and canonical external-effect receipt reconciliation
 now exist on macOS/Linux, but exact Windows binding, OS network/capability enforcement,
-full boundary-by-boundary cancellation, exact recovery completion, and rollback
-remain incomplete. `updates --recovery-status` assesses receipt/journal evidence
-without mutating it. A successful locally confirmed update report records one
+full boundary-by-boundary cancellation, and rollback remain incomplete.
+`updates --recovery-status` assesses receipt/journal evidence without mutating it;
+`updates --recovery-complete` can append only the exact receipt-bound local
+commit event after a fresh explicit challenge. A successful locally confirmed update report records one
 lane invocation, not platform, module, or release readiness. These remaining
 gaps must close before another domain copies the bridge.

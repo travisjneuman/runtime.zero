@@ -11,17 +11,23 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    TransactionJournal, TransactionOperation, TransactionState, recover_journal_head,
-    validate_transaction_journal,
+    TransactionEvent, TransactionEventKind, TransactionJournal, TransactionOperation,
+    TransactionState, publish_journal_snapshot, recover_journal_head, validate_transaction_journal,
 };
 
 pub const EXTERNAL_EFFECT_RECEIPT_SCHEMA_VERSION: u16 = 1;
 pub const EXTERNAL_EFFECT_RECEIPT_CONTRACT: &str = "external_effect_commit_receipt";
 pub const EXTERNAL_EFFECT_RECOVERY_CONTRACT: &str = "external_effect_recovery_assessment";
+pub const EXTERNAL_EFFECT_RECOVERY_CHALLENGE_CONTRACT: &str = "external_effect_recovery_challenge";
+pub const EXTERNAL_EFFECT_RECOVERY_RESPONSE_CONTRACT: &str = "external_effect_recovery_response";
+pub const EXTERNAL_EFFECT_RECOVERY_APPROVAL_CONTRACT: &str = "external_effect_recovery_approval";
+pub const EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION: u16 = 1;
+pub const EXTERNAL_EFFECT_RECOVERY_TTL_SECONDS: u64 = 300;
 const TRANSACTIONS_DIRECTORY: &str = "transactions";
 const RECEIPTS_DIRECTORY: &str = "receipts";
 const CONFIRMATION_NAME: &str = "confirmation.json";
 const PUBLICATION_LOCK_NAME: &str = ".external-effect.lock";
+const RECOVERY_APPROVAL_NAME: &str = "external-effect-recovery-approval.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -127,6 +133,53 @@ pub struct ExternalEffectRecoveryAssessment {
     pub receipt_valid: bool,
     pub decision: ExternalEffectRecoveryDecision,
     pub automatic_mutation_authorized: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExternalEffectRecoveryChallenge {
+    pub schema_version: u16,
+    pub contract: String,
+    pub challenge_id: String,
+    pub transaction_id: String,
+    pub receipt_binding_sha256: String,
+    pub issued_unix_seconds: u64,
+    pub expires_unix_seconds: u64,
+    pub expected_phrase: String,
+    pub challenge_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExternalEffectRecoveryResponse {
+    pub schema_version: u16,
+    pub contract: String,
+    pub challenge_id: String,
+    pub challenge_sha256: String,
+    pub confirmed_unix_seconds: u64,
+    pub phrase: String,
+    pub interactive: bool,
+    pub single_use: bool,
+    pub execution_authorized: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ExternalEffectRecoveryCompletion {
+    pub schema_version: u16,
+    pub contract: String,
+    pub transaction_id: String,
+    pub status: ExternalEffectRecoveryCompletionStatus,
+    pub read_only: bool,
+    pub writes_attempted: bool,
+    pub manager_rerun: bool,
+    pub automatic_mutation_authorized: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExternalEffectRecoveryCompletionStatus {
+    Committed,
+    AlreadyCommitted,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -528,6 +581,320 @@ pub fn assess_external_effect_recovery(
         decision,
         automatic_mutation_authorized: false,
     })
+}
+
+/// Builds a short-lived challenge for completing only the local journal commit
+/// after a verified manager effect has already been published. This never
+/// reruns the manager, changes manager state, or authorizes automatic mutation.
+pub fn build_external_effect_recovery_challenge(
+    state_root: &Path,
+    transaction_id: &str,
+    issued_unix_seconds: u64,
+) -> Result<ExternalEffectRecoveryChallenge, ExternalEffectError> {
+    let recovered = recover_journal_head(&state_root.join(TRANSACTIONS_DIRECTORY), transaction_id)
+        .map_err(|journal_error| {
+            error(
+                ExternalEffectErrorCode::InvalidEvidence,
+                format!("recover external effect journal for approval: {journal_error}"),
+            )
+        })?;
+    let receipt = read_external_effect_receipt(state_root, transaction_id)?;
+    let Some(commit_pending) = commit_pending_prefix(&recovered.journal) else {
+        return Err(error(
+            ExternalEffectErrorCode::RecoveryRequired,
+            "external effect recovery requires a commit-pending journal",
+        ));
+    };
+    let validation = validate_external_effect_receipt(&receipt, &commit_pending);
+    if !validation.valid {
+        return Err(error(
+            ExternalEffectErrorCode::InvalidEvidence,
+            format!(
+                "external effect receipt is not valid recovery evidence: {:?}",
+                validation.errors
+            ),
+        ));
+    }
+    if recovered.journal.state != TransactionState::CommitPending {
+        return Err(error(
+            ExternalEffectErrorCode::Conflict,
+            "external effect journal is no longer awaiting final commit completion",
+        ));
+    }
+    let challenge_id = format!("recovery.{}", &receipt.binding_sha256[..24]);
+    let expires_unix_seconds =
+        issued_unix_seconds.saturating_add(EXTERNAL_EFFECT_RECOVERY_TTL_SECONDS);
+    let expected_phrase = format!(
+        "recover {} {}",
+        transaction_id,
+        &receipt.binding_sha256[..12]
+    );
+    let mut challenge = ExternalEffectRecoveryChallenge {
+        schema_version: EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION,
+        contract: EXTERNAL_EFFECT_RECOVERY_CHALLENGE_CONTRACT.to_string(),
+        challenge_id,
+        transaction_id: transaction_id.to_string(),
+        receipt_binding_sha256: receipt.binding_sha256,
+        issued_unix_seconds,
+        expires_unix_seconds,
+        expected_phrase,
+        challenge_sha256: String::new(),
+    };
+    challenge.challenge_sha256 = recovery_challenge_sha256(&challenge);
+    Ok(challenge)
+}
+
+/// Appends the already-authorized `committed` event for one exact external
+/// effect receipt. The durable approval record makes retries idempotent while
+/// conflicting approvals fail closed.
+pub fn complete_external_effect_journal_commit(
+    state_root: &Path,
+    challenge: &ExternalEffectRecoveryChallenge,
+    response: &ExternalEffectRecoveryResponse,
+    now_unix_seconds: u64,
+) -> Result<ExternalEffectRecoveryCompletion, ExternalEffectError> {
+    validate_external_effect_recovery_response(challenge, response, now_unix_seconds)?;
+    if !rz0_validation_contract::valid_ledger_id(&challenge.transaction_id, 96) {
+        return Err(error(
+            ExternalEffectErrorCode::InvalidEvidence,
+            "external effect recovery transaction ID is invalid",
+        ));
+    }
+    let state = SecureDirectory::open(state_root).map_err(secure("open recovery state root"))?;
+    state
+        .verify_private()
+        .map_err(secure("verify private recovery state root"))?;
+    let transactions = state
+        .open_child_directory(OsStr::new(TRANSACTIONS_DIRECTORY))
+        .map_err(secure("open recovery transactions directory"))?;
+    let transaction = transactions
+        .open_child_directory(OsStr::new(&challenge.transaction_id))
+        .map_err(secure("open recovery transaction directory"))?;
+    let lock_file = transaction
+        .open_or_create_lock_file(OsStr::new(PUBLICATION_LOCK_NAME))
+        .map_err(secure("open recovery publication lock"))?;
+    let _lock = SecureFileLock::try_exclusive(lock_file)
+        .map_err(secure("acquire recovery publication lock"))?;
+
+    let recovered = recover_journal_head(
+        &state_root.join(TRANSACTIONS_DIRECTORY),
+        &challenge.transaction_id,
+    )
+    .map_err(|journal_error| {
+        error(
+            ExternalEffectErrorCode::InvalidEvidence,
+            format!("recover exact journal after recovery approval: {journal_error}"),
+        )
+    })?;
+    let receipt = read_external_effect_receipt(state_root, &challenge.transaction_id)?;
+    if receipt.binding_sha256 != challenge.receipt_binding_sha256 {
+        return Err(error(
+            ExternalEffectErrorCode::Conflict,
+            "external effect receipt changed after recovery approval",
+        ));
+    }
+    if recovered.journal.state == TransactionState::Committed {
+        return Ok(ExternalEffectRecoveryCompletion {
+            schema_version: EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION,
+            contract: EXTERNAL_EFFECT_RECOVERY_CONTRACT.to_string(),
+            transaction_id: challenge.transaction_id.clone(),
+            status: ExternalEffectRecoveryCompletionStatus::AlreadyCommitted,
+            read_only: false,
+            writes_attempted: false,
+            manager_rerun: false,
+            automatic_mutation_authorized: false,
+        });
+    }
+    if recovered.journal.state != TransactionState::CommitPending {
+        return Err(error(
+            ExternalEffectErrorCode::Conflict,
+            "external effect journal is no longer commit-pending",
+        ));
+    }
+    let validation = validate_external_effect_receipt(&receipt, &recovered.journal);
+    if !validation.valid {
+        return Err(error(
+            ExternalEffectErrorCode::InvalidEvidence,
+            format!(
+                "external effect receipt no longer validates: {:?}",
+                validation.errors
+            ),
+        ));
+    }
+    let approval = ExternalEffectRecoveryApproval {
+        schema_version: EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION,
+        contract: EXTERNAL_EFFECT_RECOVERY_APPROVAL_CONTRACT.to_string(),
+        transaction_id: challenge.transaction_id.clone(),
+        receipt_binding_sha256: receipt.binding_sha256.clone(),
+        challenge_sha256: challenge.challenge_sha256.clone(),
+        response_sha256: recovery_response_sha256(response),
+        approved_unix_seconds: response.confirmed_unix_seconds,
+        automatic_mutation_authorized: false,
+    };
+    let approval_bytes = canonical_line(&approval)?;
+    match transaction.read_child(
+        OsStr::new(RECOVERY_APPROVAL_NAME),
+        rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
+    ) {
+        Ok(existing) if existing == approval_bytes => {}
+        Ok(_) => {
+            return Err(error(
+                ExternalEffectErrorCode::Conflict,
+                "conflicting external effect recovery approval already exists",
+            ));
+        }
+        Err(read_error) if read_error.code == SecureFsErrorCode::NotFound => {
+            transaction
+                .write_new_child(
+                    OsStr::new(RECOVERY_APPROVAL_NAME),
+                    &approval_bytes,
+                    rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
+                )
+                .map_err(publication_error(
+                    "publish external effect recovery approval",
+                ))?;
+        }
+        Err(read_error) => {
+            return Err(secure("read external effect recovery approval")(read_error));
+        }
+    }
+
+    let mut committed = recovered.journal;
+    committed.events.push(TransactionEvent {
+        sequence: 0,
+        kind: TransactionEventKind::Committed,
+        action_id: None,
+        path: None,
+        before_sha256: None,
+        after_sha256: None,
+        previous_event_sha256: String::new(),
+        event_sha256: String::new(),
+    });
+    committed.state = TransactionState::Committed;
+    crate::seal_transaction_journal(&mut committed);
+    publish_journal_snapshot(&state_root.join(TRANSACTIONS_DIRECTORY), &committed).map_err(
+        |journal_error| {
+            error(
+                ExternalEffectErrorCode::RecoveryRequired,
+                format!("publish recovered committed journal: {journal_error}"),
+            )
+        },
+    )?;
+    Ok(ExternalEffectRecoveryCompletion {
+        schema_version: EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION,
+        contract: EXTERNAL_EFFECT_RECOVERY_CONTRACT.to_string(),
+        transaction_id: challenge.transaction_id.clone(),
+        status: ExternalEffectRecoveryCompletionStatus::Committed,
+        read_only: false,
+        writes_attempted: true,
+        manager_rerun: false,
+        automatic_mutation_authorized: false,
+    })
+}
+
+pub fn validate_external_effect_recovery_response(
+    challenge: &ExternalEffectRecoveryChallenge,
+    response: &ExternalEffectRecoveryResponse,
+    now_unix_seconds: u64,
+) -> Result<(), ExternalEffectError> {
+    let Some(receipt_prefix) = challenge.receipt_binding_sha256.get(..12) else {
+        return Err(error(
+            ExternalEffectErrorCode::InvalidEvidence,
+            "external effect recovery receipt binding is not a canonical digest",
+        ));
+    };
+    let expected_phrase = format!("recover {} {}", challenge.transaction_id, receipt_prefix);
+    let valid = challenge.schema_version == EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION
+        && challenge.contract == EXTERNAL_EFFECT_RECOVERY_CHALLENGE_CONTRACT
+        && rz0_validation_contract::valid_ledger_id(&challenge.challenge_id, 96)
+        && rz0_validation_contract::valid_ledger_id(&challenge.transaction_id, 96)
+        && rz0_validation_contract::valid_sha256(&challenge.receipt_binding_sha256)
+        && challenge.expires_unix_seconds > challenge.issued_unix_seconds
+        && challenge.expires_unix_seconds - challenge.issued_unix_seconds
+            <= EXTERNAL_EFFECT_RECOVERY_TTL_SECONDS
+        && challenge.challenge_sha256 == recovery_challenge_sha256(challenge)
+        && challenge.expected_phrase == expected_phrase
+        && response.schema_version == EXTERNAL_EFFECT_RECOVERY_SCHEMA_VERSION
+        && response.contract == EXTERNAL_EFFECT_RECOVERY_RESPONSE_CONTRACT
+        && response.challenge_id == challenge.challenge_id
+        && response.challenge_sha256 == challenge.challenge_sha256
+        && response.confirmed_unix_seconds >= challenge.issued_unix_seconds
+        && response.confirmed_unix_seconds <= challenge.expires_unix_seconds
+        && response.confirmed_unix_seconds <= now_unix_seconds
+        && response.phrase == challenge.expected_phrase
+        && response.interactive
+        && response.single_use
+        && !response.execution_authorized;
+    if valid {
+        Ok(())
+    } else {
+        Err(error(
+            ExternalEffectErrorCode::InvalidEvidence,
+            "external effect recovery approval is invalid, expired, or mismatched",
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct ExternalEffectRecoveryApproval {
+    schema_version: u16,
+    contract: String,
+    transaction_id: String,
+    receipt_binding_sha256: String,
+    challenge_sha256: String,
+    response_sha256: String,
+    approved_unix_seconds: u64,
+    automatic_mutation_authorized: bool,
+}
+
+fn read_external_effect_receipt(
+    state_root: &Path,
+    transaction_id: &str,
+) -> Result<ExternalEffectReceipt, ExternalEffectError> {
+    let state = SecureDirectory::open(state_root).map_err(secure("open receipt state root"))?;
+    state
+        .verify_private()
+        .map_err(secure("verify private receipt state root"))?;
+    let receipts = state
+        .open_child_directory(OsStr::new(RECEIPTS_DIRECTORY))
+        .map_err(secure("open receipt directory"))?;
+    receipts
+        .verify_private()
+        .map_err(secure("verify private receipt directory"))?;
+    let bytes = receipts
+        .read_child(
+            OsStr::new(&external_effect_receipt_name(transaction_id)),
+            rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
+        )
+        .map_err(secure("read external effect receipt"))?;
+    serde_json::from_slice(&bytes).map_err(|error| ExternalEffectError {
+        code: ExternalEffectErrorCode::InvalidEvidence,
+        detail: format!("decode external effect receipt: {error}"),
+    })
+}
+
+fn recovery_challenge_sha256(challenge: &ExternalEffectRecoveryChallenge) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"runtime.zero.external-effect-recovery-challenge.v1\0");
+    put(&mut digest, &challenge.challenge_id);
+    put(&mut digest, &challenge.transaction_id);
+    put(&mut digest, &challenge.receipt_binding_sha256);
+    digest.update(challenge.issued_unix_seconds.to_be_bytes());
+    digest.update(challenge.expires_unix_seconds.to_be_bytes());
+    format!("{:x}", digest.finalize())
+}
+
+fn recovery_response_sha256(response: &ExternalEffectRecoveryResponse) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"runtime.zero.external-effect-recovery-response.v1\0");
+    put(&mut digest, &response.challenge_id);
+    put(&mut digest, &response.challenge_sha256);
+    digest.update(response.confirmed_unix_seconds.to_be_bytes());
+    put(&mut digest, &response.phrase);
+    digest.update([u8::from(response.interactive)]);
+    digest.update([u8::from(response.single_use)]);
+    digest.update([u8::from(response.execution_authorized)]);
+    format!("{:x}", digest.finalize())
 }
 
 fn validate_publication_evidence(

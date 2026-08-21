@@ -34,7 +34,7 @@ locale-safe. Manager probes and action plans do not independently authorize a
 write. The core's explicitly confirmed manager-update lane remains a narrow
 pre-alpha exception with Linux native-ELF identity-bound spawn and canonical
 external-effect receipts, but open macOS/Windows identity, OS isolation, full
-cancellation, rollback/recovery completion, and platform-proof gates. See
+cancellation, rollback, manager-specific recovery, and platform-proof gates. See
 [`action-planning.md`](action-planning.md) and
 [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
