@@ -59,6 +59,7 @@ pub fn validate_manifest(path: &Path, manifest: ModuleManifest) -> ManifestValid
     validate_text(&manifest, &mut errors);
     validate_lists(&manifest, &mut errors, &mut warnings);
     validate_trust(&manifest, &mut errors, &mut warnings);
+    validate_provenance(&manifest, &mut errors);
     validate_safety(&manifest, &mut errors);
     validate_permissions(&manifest, &mut errors, &mut warnings);
     let integrity = verify_package_integrity(path, &manifest);
@@ -161,6 +162,27 @@ fn validate_permissions(
         &permissions.explicit_grants,
     );
     errors.extend(validation.errors.into_iter().map(str::to_string));
+}
+
+fn validate_provenance(manifest: &ModuleManifest, errors: &mut Vec<String>) {
+    let Some(provenance) = manifest
+        .integrity
+        .as_ref()
+        .and_then(|integrity| integrity.provenance.as_ref())
+    else {
+        return;
+    };
+    validate_field(&provenance.source, "provenance.source", 240, errors);
+    validate_field(&provenance.publisher, "provenance.publisher", 80, errors);
+    if provenance.publisher != manifest.publisher {
+        errors.push("provenance.publisher must match manifest publisher".to_string());
+    }
+    if let Some(release_id) = &provenance.release_id {
+        validate_field(release_id, "provenance.release_id", 120, errors);
+    }
+    if let Some(repository) = &provenance.repository {
+        validate_field(repository, "provenance.repository", 240, errors);
+    }
 }
 
 fn validate_safety(manifest: &ModuleManifest, errors: &mut Vec<String>) {
@@ -314,6 +336,60 @@ mod tests {
                 .errors
                 .iter()
                 .any(|error| error.contains("third-party"))
+        );
+    }
+
+    #[test]
+    fn rejects_provenance_publisher_drift() {
+        let mut manifest = valid_manifest();
+        manifest.integrity = Some(crate::module_manifest::PackageIntegrity {
+            package_format: crate::module_manifest::PackageFormat::Directory,
+            root_policy: crate::module_manifest::IntegrityRootPolicy::ManifestDirectory,
+            hash_algorithm: crate::module_manifest::HashAlgorithm::Sha256,
+            complete_file_set: false,
+            files: Vec::new(),
+            signature: None,
+            provenance: Some(crate::module_manifest::ProvenanceMetadata {
+                source: "local_fixture".to_string(),
+                publisher: "other.publisher".to_string(),
+                release_id: Some("fixture".to_string()),
+                repository: None,
+            }),
+        });
+        let report = validate_manifest(Path::new("module.json"), manifest);
+        assert!(!report.valid);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.contains("provenance.publisher"))
+        );
+    }
+
+    #[test]
+    fn rejects_empty_provenance_source() {
+        let mut manifest = valid_manifest();
+        manifest.integrity = Some(crate::module_manifest::PackageIntegrity {
+            package_format: crate::module_manifest::PackageFormat::Directory,
+            root_policy: crate::module_manifest::IntegrityRootPolicy::ManifestDirectory,
+            hash_algorithm: crate::module_manifest::HashAlgorithm::Sha256,
+            complete_file_set: false,
+            files: Vec::new(),
+            signature: None,
+            provenance: Some(crate::module_manifest::ProvenanceMetadata {
+                source: String::new(),
+                publisher: "runtime.zero".to_string(),
+                release_id: None,
+                repository: None,
+            }),
+        });
+        let report = validate_manifest(Path::new("module.json"), manifest);
+        assert!(!report.valid);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.contains("provenance.source"))
         );
     }
 }

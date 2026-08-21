@@ -136,6 +136,11 @@ payload list because hashing its own integrity field would be circular; the
 read-only trust command separately binds its exact manifest bytes to the
 detached signature envelope.
 
+Provenance metadata is consistency-checked, not trusted: source, publisher,
+release ID, and repository fields are bounded, and provenance publisher must
+match the manifest publisher. This does not establish release origin,
+reproducibility, freshness, revocation, or production signer authority.
+
 ## Current validation rules
 
 - Manifest files must be regular files and at most 64 KiB.
