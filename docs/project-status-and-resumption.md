@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `c6118ada328da0bc6e410e09a979752a06b96dde` (`feat: expose effective configuration review`).
+  `1faffa42c895936d7faaf13cb4bf6b3815d582f3` (`feat: add exact manager uninstall execution boundary`).
 - **Current behavior implementation:**
-  `c6118ad` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `1faffa4` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -85,17 +85,25 @@
   plan/confirmation path. The Rust AIUP dry-run adapter now rejects output with
   no recognized tool or detected-version catalog section, so arbitrary success
   text and malformed tool labels cannot silently become an empty successful
-  provider review.
+  provider review. The foundation now also exposes a narrow exact-manager
+  uninstall apply lane: it derives a fresh manager-owned action plan, binds an
+  allowlisted executable by digest and size, requires destructive confirmation
+  plus explicit no-rollback acknowledgement, records the external effect in
+  the shared transaction/receipt path, and requires fresh installed-software
+  evidence after the manager returns. It does not provide dependent-package
+  review, recursive cleanup, user-bundle handling, rollback, or production
+  lifecycle authority.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
-- **Current writes:** explicit user-local Unix/Windows-guarded store scaffolding
-  and a working macOS/Linux/Windows-pre-alpha manager-update executor exist,
-  with Windows runtime evidence still absent. Uninstall, recursive cleanup,
-  broad quarantine/restore, production module lifecycle execution, and
-  third-party execution remain unavailable; the narrow exact-file leftovers and
-  runtime-cache quarantine lanes, exact-record restore, and developer-only
-  signed module staging are the only module-adjacent write paths.
+- **Current writes:** explicit user-local Unix/Windows-guarded store scaffolding,
+  a working macOS/Linux/Windows-pre-alpha manager-update executor, and one
+  narrow exact-manager uninstall apply boundary exist, with Windows runtime
+  evidence still absent. Broad uninstall, recursive cleanup, broad
+  quarantine/restore, production module lifecycle execution, and third-party
+  execution remain unavailable; the exact-file leftovers and runtime-cache
+  quarantine lanes, exact-record restore, developer-only signed module staging,
+  and exact-manager uninstall are bounded, pre-alpha write paths.
 
 The exact cache quarantine slice is pushed at `77d389a`, the leftovers slice at
 `87aef29`, the
@@ -126,13 +134,14 @@ The developer-only installed-inactive promotion slice is `0fe633f`.
 The developer-only first-party inventory process invocation slice is
 `8f9f3c7`.
 The effective configuration review slice is `c6118ad`.
+The exact manager-native uninstall execution slice is `1faffa4`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, the full
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
-`git diff --check`. The current local aarch64 Apple Silicon package from
+`git diff --check`. The previously recorded local aarch64 Apple Silicon package from
 `c6118ada328da0bc6e410e09a979752a06b96dde` has binary SHA-256
 `ceae92e5a9d0a1ccf44badec8350291106fc0c838f90f02d3fd90bd34244be6c`, ZIP
 SHA-256
@@ -144,7 +153,7 @@ and artifact-manifest SHA-256 values are
 `9171307c5431c5800852e1b68c6e3646cf329460451a0543e1395b67e77e6bf7`; their
 embedded sizes are 160,426, 290,906, and 977 bytes respectively. Independent
 verification, four PTY terminal smoke cases, and ten-sample final-artifact
-performance evidence passed against this source head. The artifact remains
+performance evidence passed for that earlier source head. The artifact remains
 unsigned and unnotarized until an owner-led signing/notarization lane exists.
 It is a local Apple Silicon artifact, not a public release or cross-platform
 runtime claim. The developer invocation process path is separately bounded and
@@ -179,7 +188,8 @@ the full topic map, see [`documentation-index.md`](documentation-index.md). The
 `runtime.zero` now has a broad provider-driven product surface and a working
 pre-alpha updater executor. It remains far from a defensible 1.0 release because
 full platform source parity, OS capability isolation, rollback, manager-specific
-recovery beyond local journal finalization, module trust/lifecycle, uninstall/cleanup execution, accessibility,
+recovery beyond local journal finalization, module trust/lifecycle, broad
+uninstall/cleanup execution, accessibility,
 compatibility labs, packaging channels, and release operations are incomplete.
 
 The product direction beyond the initial seven release-gated families is a full
@@ -203,7 +213,8 @@ The strongest implemented areas are:
 - shared validation, resource, privacy, capability, error, finding/action,
   confirmation, cancellation, filesystem, artifact-identity, transaction,
   registry, lifecycle, performance, and release-ledger contracts;
-- dry-run uninstall findings and sealed manager action plans without execution;
+- dry-run uninstall findings, sealed manager action plans, and one narrow
+  exact-manager apply lane with shared receipts and fresh verification;
 - Linux opened-executable identity-to-spawn binding, bounded process-group
   teardown, caller cancellation, exact updater write evidence, canonical
   external-effect receipts, and read-only recovery assessment;
@@ -280,6 +291,7 @@ rz0 integrity --dry-run --fixture <integrity-input.json> [--format text|json]
 rz0 integrity --dry-run --path <absolute-file> --sha256 <digest> [--format text|json]
 rz0 report [--format text|json]
 rz0 uninstall plan <installed-software-id> [--executable <absolute-path>] [--format text|json]
+rz0 uninstall apply <installed-software-id> --executable <absolute-path> --accept-no-rollback [--challenge-issued-unix-seconds <seconds>] [--confirm <phrase>] [--format text|json]
 rz0 scan --dry-run [--include-raw-paths] [--format text|json]
 rz0 monitor [--format text|json]
 rz0 toolchain [--format text|json]
@@ -343,7 +355,8 @@ completion source has parser-coverage tests but is not generated by the parser;
 | `updates --recovery-status` | No | No | Implemented deterministic evidence assessment only |
 | `updates --recovery-complete` | Runtime.zero private journal only | No manager rerun | Implemented fresh receipt-bound local finalization; no rollback or automatic mutation |
 | `updates --apply` | Explicit read/write acknowledgement; not OS-isolated | Manager plus private journal/receipt writes | Working macOS/Linux/Windows pre-alpha lane with receipts; Windows runtime/ACL/reparse proof remains open |
-| uninstall plan | No | No | Shared finding and optional sealed action plan; no execution |
+| uninstall plan | No | No | Shared finding and optional sealed action plan; no execution from the plan form |
+| uninstall apply | Manager command may alter package state; network intent is not requested by this boundary | Manager plus private journal/receipt writes | One exact manager-owned, destructive-confirmation lane with executable identity binding, explicit no-rollback acknowledgement, cancellation, and fresh inventory verification; broad/dependent/rollback support remains open |
 | module validation/install planning | No | No | Implemented planning only; optional complete-file-set review rejects undeclared files |
 | `modules install --developer-trial` | Local package read plus explicit runtime.zero-owned write | Staged bytes and transaction/stage receipts; optional test-key-only installed-inactive registry/receipt with `--developer-promote` | Implemented developer-only staging/promotion; no activation, production trust, or public distribution |
 | `modules invoke --developer-trial` | Local promoted package read plus bounded Rust child process | No registry/lifecycle write; path-redacted inventory response and executable binding evidence | Implemented only for promoted first-party.inventory; no activation, lifecycle receipt, sandbox, third-party execution, or production authority |
@@ -351,7 +364,7 @@ completion source has parser-coverage tests but is not generated by the parser;
 | `modules status` | No | No | Path-redacted registry/receipt plus developer-staging view; reports staged, installed-inactive, or degraded, never active |
 | store plan/status | No | No | Implemented read-only inspection |
 | `store init --yes` | No | Runtime.zero-owned user-local scaffold | Unix and guarded Windows owner/DACL path; runtime acceptance remains open |
-| uninstall/cleanup/module lifecycle execution | — | — | Not implemented |
+| broad uninstall/cleanup/module lifecycle execution | — | — | Not implemented; only the narrow exact-manager uninstall apply boundary exists |
 
 Network flags express intent; they do not create an OS network sandbox. No
 command uploads a report or installs an elevation helper.
@@ -498,12 +511,17 @@ Without that identity the action remains blocked. Protected software remains
 blocked; user/local bundles remain quarantine-first report-only; unknown and
 receipt-only ownership cannot execute.
 
-No uninstall process, recursive cleanup, deletion, elevation, dependent-package
-review, or uninstall verification/rollback/recovery occurs. The exact
-leftovers lane is a separate single-file quarantine path: it requires a
-freshly recomputed digest-bound plan and short-lived confirmation, and it uses
-the foundation transaction/receipt executor. A `planned` action still has
-`execution_authorized: false`; no uninstall executor exists.
+`rz0 uninstall apply <id> --executable <path>` is the first narrow execution
+boundary. It re-derives the finding and single-action plan, requires a fresh
+short-lived destructive challenge plus `--accept-no-rollback`, binds the exact
+manager executable, uses the shared cancellation/transaction/external-effect
+receipt path, and requires fresh installed-software verification. The manager
+may use fixed non-interactive elevation when the action contract requires it;
+runtime.zero never collects credentials or opens an interactive helper. The
+plan form remains non-authorizing, and the apply form does not provide
+dependent-package review, recursive cleanup, user-bundle handling, rollback,
+or recovery automation. The exact leftovers lane remains a separate
+single-file quarantine path.
 
 ## Module catalog and lifecycle
 
@@ -513,7 +531,7 @@ All seven first-party manifests remain `planned`:
 | --- | --- | --- |
 | Inventory/environment | Embedded read-only collector plus development binary | Full source/platform parity and signed lifecycle |
 | Updater | Provider-driven plans plus working macOS/Linux core executor | Windows isolation, rollback/recovery, manager/runtime matrix, release proof |
-| Uninstall | Shared synthetic/live findings and dry-run manager plans | Every execution/elevation/quarantine/rollback path |
+| Uninstall | Shared synthetic/live findings, dry-run manager plans, and one narrow exact-manager apply boundary | Dependent/shared-component review, complete manager/platform adapters, rollback/quarantine/recovery, and broad cleanup |
 | Leftovers | Synthetic exact-runtime-owned classifier plus one exact module-file plan/apply lane | Post-uninstall ownership discovery, broad cleanup, platform parity, retention, and full quarantine/restore |
 | Cache | Synthetic ownership-aware classifier plus bounded live review, explicit age/size/lock-marker policy evidence, and one exact-file quarantine/restore path | Platform-native active-use/ownership proof, retention/conflict policy, multi-file lifecycle, platform parity, and full acceptance |
 | Security/integrity | Fixture and bounded exact-file digest classifier | Trusted baselines, incident review, and remediation policy |
@@ -564,8 +582,8 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current source validation for `c6118ada328da0bc6e410e09a979752a06b96dde` and
-the packaged artifact on `aarch64-apple-darwin`:
+Current source validation for `1faffa42c895936d7faaf13cb4bf6b3815d582f3` and
+the previously recorded packaged artifact on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` and the full
@@ -602,9 +620,9 @@ parser run.
 Locked metadata still resolved 150 packages (31 workspace and 119 external), and
 native target-filtered release metadata covered 119 reachable packages (96
 external). Older continuation records also cover `cargo check --workspace`,
-doctor, scan, and development-Mac updater smoke evidence. No uninstall,
-Cloudflare/site mutation, release publication, or production release action
-was run in those lanes.
+doctor, scan, and development-Mac updater smoke evidence. No live uninstall
+mutation, Cloudflare/site mutation, release publication, or production release
+action was run in those lanes.
 
 ## Known limitations
 
@@ -612,8 +630,9 @@ was run in those lanes.
 
 - No stable 1.0 CLI/JSON/API compatibility guarantee exists.
 - TUI update actions now enter the shared direct confirmation/execution flow;
-  uninstall and cleanup actions remain reviews rather than execution flows.
-- No uninstall, cleanup, broad restore, integrity remediation, or module
+  uninstall in the TUI and cleanup actions remain reviews rather than execution
+  flows because the narrow apply boundary is currently CLI-only.
+- No broad uninstall, cleanup, integrity remediation, or module
   lifecycle execution exists; exact-record restore is limited to the narrow
   receipt-bound cache/module lane described above, and recovery inventory is
   read-only.
@@ -652,9 +671,9 @@ was run in those lanes.
    mount/filesystem matrices.
 4. Finish in-scope package/service/persistence sources and adversarial identity
    reconciliation/runtime privacy tests.
-5. Build uninstall execution through manager-native or quarantine-first exact
-   plans, with dependency review, confirmation, durable receipts, rollback, and
-   recovery.
+5. Expand and prove the narrow manager-native uninstall boundary through
+   manager/platform adapters, dependency review, confirmation, durable receipts,
+   rollback or quarantine-first recovery, and fault testing.
 6. Advance all module families through trust, signed immutable lifecycle,
    least-privilege process hosting, CLI/JSON/TUI, and equal-platform proof.
 7. Populate every frozen release-ledger cell with final-artifact evidence or a
