@@ -5,7 +5,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::{Frame, Terminal};
 
-use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection};
+use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection, WORKSPACE_LABELS, workspace_heading};
 use crate::tui_layout::TuiLayoutTier;
 use crate::tui_ratatui_support::{
     selected_index, selected_row_index, selected_section, selected_style, strong_style, tone_style,
@@ -76,7 +76,7 @@ fn render_small_notice(frame: &mut Frame<'_>, area: Rect, color: bool) {
     frame.render_widget(
         Paragraph::new(lines)
             .alignment(Alignment::Center)
-            .block(panel_block("TERMINAL TOO SMALL", "info", color))
+            .block(panel_block("Terminal too small", "info", color))
             .wrap(Wrap { trim: true }),
         area,
     );
@@ -98,14 +98,14 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, dashboard: &TuiDashboard, co
                 "runtime.zero",
                 tone_style("accent", color).add_modifier(Modifier::BOLD),
             ),
-            Span::styled("  ·  LOCAL SNAPSHOT", tone_style("muted", color)),
+            Span::styled("  ·  local snapshot", tone_style("muted", color)),
             Span::raw("  "),
             Span::styled(readiness.0, tone_style(readiness.1, color)),
         ]),
         Line::styled(
             ellipsize(
                 &format!(
-                    "{} software  ·  {} modules  ·  review before action",
+                    "{} software  ·  {} modules  ·  review first",
                     dashboard.installed_software_count, dashboard.installed_module_count
                 ),
                 area.width,
@@ -124,13 +124,13 @@ fn render_workspace_tabs(
     color: bool,
 ) {
     let current = selected_index(dashboard, state);
-    let names = ["HOME", "TOOLCHAIN", "SOFTWARE", "SYSTEM", "DIAGNOSTICS"];
+    let names = WORKSPACE_LABELS;
     let content = if area.width < 72 {
         format!(
             "workspace {}/{}  ·  {}  ·  Tab changes focus",
             current + 1,
             dashboard.sections.len(),
-            names.get(current).copied().unwrap_or("HOME")
+            names.get(current).copied().unwrap_or("Home")
         )
     } else {
         names
@@ -138,13 +138,13 @@ fn render_workspace_tabs(
             .enumerate()
             .map(|(index, name)| {
                 if index == current {
-                    format!("[ {name} ]")
+                    format!("• {name} •")
                 } else {
                     format!("  {name}  ")
                 }
             })
             .collect::<Vec<_>>()
-            .join("")
+            .join(" · ")
     };
     let style = if state.focus_region == TuiFocusRegion::LeftNavigation {
         selected_style(color)
@@ -265,7 +265,7 @@ fn render_selected_panel(
     color: bool,
 ) {
     let focused = state.focus_region == TuiFocusRegion::ContextPane;
-    let title = if focused { "NEXT ACTION" } else { "SELECTED" };
+    let title = if focused { "Next action" } else { "Selected" };
     let tone = if focused { "info" } else { "accent" };
     let panel = panel_block(title, tone, color);
     let inner = panel.inner(area);
@@ -286,10 +286,9 @@ fn render_selected_panel(
             .clone()
             .unwrap_or_else(|| format!("{}: {}", row.label, row.value))
     } else if focused {
-        "Review the selected item before choosing any provider-specific action. No command has run."
-            .to_string()
+        "No command has run. Review before action [U].".to_string()
     } else {
-        "Press Enter to open the selected explanation. The selected pane shows source, state, and the exact next step without claiming that anything ran.".to_string()
+        "Press Enter for source, state, and the exact next step. Nothing has run.".to_string()
     };
     let lines = vec![
         Line::styled(
@@ -375,7 +374,7 @@ fn render_help_modal(frame: &mut Frame<'_>, area: Rect, color: bool) {
             Line::raw("/                search software"),
             Line::raw("Esc              close this view; q quits"),
         ])
-        .block(panel_block("HELP", "info", color))
+        .block(panel_block("Help", "info", color))
         .wrap(Wrap { trim: true }),
         modal,
     );
@@ -410,7 +409,7 @@ fn render_confirmation_modal(
     ];
     frame.render_widget(
         Paragraph::new(lines)
-            .block(panel_block("CONFIRM ONE ACTION", "warn", color))
+            .block(panel_block("Confirm one action", "warn", color))
             .wrap(Wrap { trim: true }),
         modal,
     );
@@ -432,7 +431,7 @@ fn render_search_modal(frame: &mut Frame<'_>, area: Rect, state: &TuiState, colo
             Line::raw(format!("query: {}", state.search_query())),
             Line::raw("type · Backspace edit · Enter accepts · Esc cancels"),
         ])
-        .block(panel_block("SEARCH", "info", color))
+        .block(panel_block("Search", "info", color))
         .wrap(Wrap { trim: true }),
         modal,
     );
@@ -474,10 +473,7 @@ fn workspace_row(
 }
 
 fn workspace_title(section: &TuiSection) -> String {
-    match section.title {
-        "overview" => "HOME / NEXT STEP".to_string(),
-        title => title.to_uppercase(),
-    }
+    workspace_heading(section.title)
 }
 
 fn panel_block(title: impl Into<String>, tone: &'static str, color: bool) -> Block<'static> {

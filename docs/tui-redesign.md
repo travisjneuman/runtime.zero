@@ -29,12 +29,12 @@ They are navigation destinations, not simultaneous panels on the home screen.
 Every frame has four regions, with no more than two bordered content panels:
 
 ```text
-runtime.zero · LOCAL SNAPSHOT                         [ready]
-273 software · 0 modules · review before action
+runtime.zero · local snapshot                          ready
+273 software · 0 modules · review first
 
-HOME   TOOLCHAIN   SOFTWARE   SYSTEM   DIAGNOSTICS
+• Home • · Toolchain · Software · System · Diagnostics
 
-┌ HOME / NEXT STEP ───────────────────────┐ ┌ SELECTED ──────────────────┐
+┌ Home / next step ───────────────────────┐ ┌ Selected ──────────────────┐
 │ one focused list or task summary         │ │ one useful explanation     │
 │ selection is obvious without color       │ │ source, status, and action │
 └──────────────────────────────────────────┘ └────────────────────────────┘
@@ -47,6 +47,10 @@ Rules:
 
 - Home shows the next useful action and a small readiness summary; it does not
   repeat the entire architecture or all provider counts.
+- Home keeps that summary to a local snapshot row, the next provider-review
+  decision, toolchain/software counts, and only the reviews that need
+  attention. Identity, service, cache, recovery, and policy detail opens from
+  the selected pane instead of becoming permanent dashboard chrome.
 - Primary rows use a short status summary. Dense evidence (load averages,
   journal counts, active-use uncertainty, and integrity posture) moves into
   the selected explanation instead of competing with the task list.
@@ -136,6 +140,8 @@ promotes an unsupported provider into a planned action.
   and 160x50 without overflow.
 - [x] Home, Toolchain, Software, System, and Diagnostics have distinct useful content and selected
   explanations.
+- [x] Shared navigation uses quiet title-case labels and removes bracketed
+  all-caps chrome from the primary path.
 - [ ] Help, search, confirmation, blocked, unavailable, loading, and empty
   states are modal or contextual rather than appended into a crowded footer.
 - [ ] Plain and colorized frames have identical text semantics.

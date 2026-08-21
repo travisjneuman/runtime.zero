@@ -60,11 +60,12 @@ The same two-panel shell is reused in every workspace. Home and the other
 workspaces do not expose a persistent command rail, duplicate status-card
 dashboard, or standalone Actions destination.
 
-The primary list is intentionally concise: status rows show the one-line
-summary needed for scanning, while selected details carry dense evidence such
-as load averages, journal counts, active-use uncertainty, and integrity
-posture. This keeps the interface calm without hiding information from the
-keyboard-accessible selected pane or the scriptable CLI/JSON surfaces.
+The primary list is intentionally concise: Home shows the next provider-review
+decision and small toolchain/software counts, while selected details carry
+dense evidence such as identity groups, load averages, journal counts,
+active-use uncertainty, and integrity posture. This keeps the interface calm
+without hiding information from the keyboard-accessible selected pane or the
+scriptable CLI/JSON surfaces.
 
 ## Layout and terminal behavior
 
@@ -73,12 +74,12 @@ interactive layout. The scriptable text renderer uses the same dashboard model
 without raw mode. There are never more than two bordered content panels:
 
 ```text
-runtime.zero · LOCAL SNAPSHOT                         [ready]
-273 software · 0 modules · review before action
+runtime.zero · local snapshot                          ready
+273 software · 0 modules · review first
 
-HOME   TOOLCHAIN   SOFTWARE   SYSTEM   DIAGNOSTICS
+• Home • · Toolchain · Software · System · Diagnostics
 
-┌ HOME / NEXT STEP ───────────────────────┐ ┌ SELECTED ────────────────┐
+┌ Home / next step ───────────────────────┐ ┌ Selected ────────────────┐
 │ one focused list or task summary         │ │ source, state, next step │
 └──────────────────────────────────────────┘ └──────────────────────────┘
 

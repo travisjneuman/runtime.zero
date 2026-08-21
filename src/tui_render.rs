@@ -1,5 +1,5 @@
 use crate::tui_canvas::{border_bottom, border_top, line, line_plain, separator, truncate};
-use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection};
+use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection, WORKSPACE_LABELS, workspace_heading};
 use crate::tui_render_support::{selected_index, selected_section};
 use crate::tui_state::{TuiFocusRegion, TuiState};
 use crate::tui_theme;
@@ -49,7 +49,7 @@ fn render_dashboard_frame(
     ));
     lines.push(line(
         &format!(
-            "{} · {} software · {} modules · review before action",
+            "{} · {} software · {} modules · review first",
             if dashboard.inventory_status == "loading" {
                 "loading local snapshot"
             } else {
@@ -72,7 +72,7 @@ fn render_dashboard_frame(
     lines.push(separator(width));
 
     if state.show_help && height < 24 {
-        lines.push(line("HELP", width, color, Some(tui_theme::TuiTone::Info)));
+        lines.push(line("Help", width, color, Some(tui_theme::TuiTone::Info)));
         lines.push(line_plain(
             "Tab / Shift+Tab focus · arrows/j/k move · Enter details",
             width,
@@ -98,7 +98,7 @@ fn render_dashboard_frame(
     ];
     if state.show_help {
         tail.push(separator(width));
-        tail.push(line_plain("HELP", width));
+        tail.push(line_plain("Help", width));
         tail.push(line_plain(
             "Tab / Shift+Tab focus · arrows/j/k move · Enter details · Esc closes · q quits",
             width,
@@ -110,7 +110,7 @@ fn render_dashboard_frame(
     } else if state.search_active() {
         tail.push(line_plain(
             &format!(
-                "SEARCH · query: {} · type · Backspace edit · Enter accepts · Esc cancels",
+                "Search · query: {} · type · Backspace edit · Enter accepts · Esc cancels",
                 state.search_query()
             ),
             width,
@@ -118,7 +118,7 @@ fn render_dashboard_frame(
     } else if state.update_confirmation_active() {
         tail.push(line_plain(
             &format!(
-                "CONFIRM ONE ACTION · entered: {} · Enter applies · Esc cancels",
+                "Confirm one action · entered: {} · Enter applies · Esc cancels",
                 state.update_confirmation_phrase()
             ),
             width,
@@ -133,29 +133,25 @@ fn render_dashboard_frame(
 }
 
 fn workspace_tabs(dashboard: &TuiDashboard, state: &TuiState) -> String {
-    let names = ["HOME", "TOOLCHAIN", "SOFTWARE", "SYSTEM", "DIAGNOSTICS"];
+    let names = WORKSPACE_LABELS;
     let current = selected_index(dashboard, state);
     names
         .iter()
         .enumerate()
         .map(|(index, name)| {
             if index == current {
-                format!("[ {name} ]")
+                format!("• {name} •")
             } else {
                 format!("  {name}  ")
             }
         })
         .collect::<Vec<_>>()
-        .join("")
+        .join(" · ")
 }
 
 fn primary_lines(section: &TuiSection, state: &TuiState, width: usize, color: bool) -> Vec<String> {
-    let title = if section.title == "overview" {
-        "HOME / NEXT STEP"
-    } else {
-        &section.title.to_uppercase()
-    };
-    let mut lines = vec![line(title, width, color, Some(tui_theme::TuiTone::Accent))];
+    let title = workspace_heading(section.title);
+    let mut lines = vec![line(&title, width, color, Some(tui_theme::TuiTone::Accent))];
     lines.push(line(
         &format!("{} · {} items", section.summary, section.rows.len()),
         width,
@@ -201,9 +197,9 @@ fn selected_lines(
     let Some(row) = section.rows.get(selected) else {
         return vec![line(
             if context_focus {
-                "NEXT ACTION"
+                "Next action"
             } else {
-                "SELECTED"
+                "Selected"
             },
             width,
             color,
@@ -222,15 +218,14 @@ fn selected_lines(
         "Review action [U]: inspect provider evidence before confirmation. No command has run."
             .to_string()
     } else {
-        "Press Enter to open the selected explanation; plans never claim that an action ran."
-            .to_string()
+        "Press Enter for source, state, and the exact next step. Nothing has run.".to_string()
     };
     vec![
         line(
             if context_focus {
-                "NEXT ACTION"
+                "Next action"
             } else {
-                "SELECTED"
+                "Selected"
             },
             width,
             color,

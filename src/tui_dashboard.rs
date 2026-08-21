@@ -116,6 +116,28 @@ pub struct TuiPalette {
     pub text_muted: &'static str,
 }
 
+/// Shared navigation copy for the Ratatui and scriptable renderers.
+pub const WORKSPACE_LABELS: [&str; 5] = ["Home", "Toolchain", "Software", "System", "Diagnostics"];
+
+pub fn workspace_label(title: &str) -> String {
+    match title {
+        "overview" => WORKSPACE_LABELS[0].to_string(),
+        "toolchain" => WORKSPACE_LABELS[1].to_string(),
+        "software" => WORKSPACE_LABELS[2].to_string(),
+        "system" => WORKSPACE_LABELS[3].to_string(),
+        "diagnostics" => WORKSPACE_LABELS[4].to_string(),
+        other => other.to_string(),
+    }
+}
+
+pub fn workspace_heading(title: &str) -> String {
+    if title == "overview" {
+        "Home / next step".to_string()
+    } else {
+        workspace_label(title)
+    }
+}
+
 pub fn dashboard() -> TuiDashboard {
     dashboard_with_inventory(true)
 }
@@ -824,10 +846,11 @@ fn overview_section(
     update_status: &str,
     update_action_status: &str,
 ) -> TuiSection {
-    let mut rows = vec![row(
+    let mut rows = vec![row_with_preview(
         tui_theme::LABEL_OK,
-        "local control surface loaded",
+        "local snapshot ready",
         "safe",
+        "The local snapshot is read-only. Nothing has been installed, changed, or started.",
     )];
     match catalog {
         Some(catalog) => {
@@ -842,26 +865,39 @@ fn overview_section(
                 })
                 .count();
             let visible_count = catalog.apps.iter().filter(|app| view.matches(app)).count();
-            match updates {
-                Some(updates) => rows.push(TuiRow {
-                    label: tui_theme::LABEL_PLAN,
-                    value: format!("{update_status} · {update_action_status}"),
-                    tone: if update_action_status.contains("failed") || !updates.warnings.is_empty()
-                    {
+            let tool_count = catalog
+                .apps
+                .iter()
+                .filter(|app| is_toolchain_software(app))
+                .count();
+            let (update_value, update_tone, update_preview) = match updates {
+                Some(updates) => (
+                    format!(
+                        "{} candidates · {}/{} sources ready",
+                        updates.candidate_count,
+                        updates.source_ok_count,
+                        updates.source_count
+                    ),
+                    if update_action_status.contains("failed") || !updates.warnings.is_empty() {
                         "warn"
                     } else {
                         "accent"
                     },
-                    preview: None,
-                }),
-                None => rows.push(TuiRow {
-                    label: tui_theme::LABEL_PLAN,
-                    value: if update_status == "not checked" {
-                        format!("updates not checked · {update_action_status}")
+                    format!(
+                        "Provider review is complete: {} candidates from {} sources. {} warnings. {}",
+                        updates.candidate_count,
+                        updates.source_count,
+                        updates.warnings.len(),
+                        update_action_status
+                    ),
+                ),
+                None => (
+                    if update_status == "not checked" {
+                        "updates not reviewed · press u to review".to_string()
                     } else {
                         format!("{update_status} · {update_action_status}")
                     },
-                    tone: if update_status == "checking provider availability"
+                    if update_status == "checking provider availability"
                         || update_action_status.contains("preparing")
                         || update_action_status.contains("executing")
                         || update_action_status.contains("confirm")
@@ -870,58 +906,40 @@ fn overview_section(
                     } else {
                         "info"
                     },
-                    preview: None,
-                }),
-            }
-            rows.push(row_count(
-                tui_theme::LABEL_OK,
-                visible_count,
-                "software records shown",
-                "safe",
+                    "Press u to perform a read-only provider review. Review action [U] never skips confirmation or fresh verification.".to_string(),
+                ),
+            };
+            rows.push(row_with_preview(
+                tui_theme::LABEL_PLAN,
+                &update_value,
+                update_tone,
+                &update_preview,
+            ));
+            rows.push(row_with_preview(
+                tui_theme::LABEL_INFO,
+                &format!("{visible_count} software · {tool_count} toolchain records"),
+                "info",
+                &format!(
+                    "{} software records match the current view; {} identity groups and {} service/persistence records are available in Software and Diagnostics.",
+                    visible_count, catalog.identity_group_count, catalog.service_count
+                ),
             ));
             if visible_count != catalog.app_count || !view.query().is_empty() {
-                rows.push(TuiRow {
-                    label: tui_theme::LABEL_INFO,
-                    value: view_description(view),
-                    tone: "info",
-                    preview: None,
-                });
+                rows.push(row_with_preview(
+                    tui_theme::LABEL_INFO,
+                    &view_description(view),
+                    "info",
+                    "The list is filtered locally. No provider query or write is implied.",
+                ));
             }
-            rows.push(row_count(
-                tui_theme::LABEL_INFO,
-                catalog.identity_group_count,
-                "identity groups",
-                "info",
-            ));
-            rows.push(row_count(
-                tui_theme::LABEL_INFO,
-                catalog.service_count,
-                "service/persistence records",
-                "info",
-            ));
-            if let Some(updates) = updates {
-                rows.push(TuiRow {
-                    label: tui_theme::LABEL_INFO,
-                    value: format!(
-                        "update sources: {}/{} ready · warnings: {}",
-                        updates.source_ok_count,
-                        updates.source_count,
-                        updates.warnings.len()
-                    ),
-                    tone: if updates.warnings.is_empty() {
-                        "info"
-                    } else {
-                        "warn"
-                    },
-                    preview: None,
-                });
+            if uninstall_reviews > 0 {
+                rows.push(row_with_preview(
+                    tui_theme::LABEL_PLAN,
+                    &format!("{uninstall_reviews} uninstall reviews available"),
+                    "accent",
+                    "Software details may offer a manager-owned uninstall review. It is separate from update review and requires its own confirmation.",
+                ));
             }
-            rows.push(row_count(
-                tui_theme::LABEL_PLAN,
-                uninstall_reviews,
-                "uninstall reviews available",
-                "accent",
-            ));
         }
         None if inventory_error.is_some() => rows.push(row(
             tui_theme::LABEL_WARN,
@@ -934,15 +952,10 @@ fn overview_section(
             "info",
         )),
     }
-    rows.push(row(
-        tui_theme::LABEL_INFO,
-        "Tab focus · Enter details · u scan providers · review action · r refresh",
-        "info",
-    ));
     TuiSection {
         code: "01",
         title: "overview",
-        summary: "live local inventory and provider-backed update actions",
+        summary: "the next safe step from one local snapshot",
         rows,
     }
 }

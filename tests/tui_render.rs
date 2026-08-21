@@ -44,7 +44,7 @@ fn render_plain_dashboard_without_ansi() {
     let rendered = render_dashboard(&tui_dashboard::dashboard(), false);
     assert!(rendered.contains("runtime.zero"));
     assert!(rendered.contains("local snapshot"));
-    assert!(rendered.contains("HOME / NEXT STEP"));
+    assert!(rendered.contains("Home / next step"));
     assert!(rendered.contains("status"));
     assert!(!rendered.contains("\x1b["));
 }
@@ -54,10 +54,10 @@ fn render_wide_dashboard_has_navigation_and_selected_section() {
     let mut state = TuiState::new(4);
     state.selected_section = 1;
     let rendered = render_dashboard_with_state(&tui_dashboard::dashboard(), false, 118, 30, &state);
-    assert!(rendered.contains("TOOLCHAIN"));
-    assert!(rendered.contains("TOOLCHAIN"));
+    assert!(rendered.contains("Toolchain"));
+    assert!(rendered.contains("Toolchain"));
     assert!(rendered.contains("Rust-first AI and developer toolchain records"));
-    assert!(rendered.contains("SELECTED"));
+    assert!(rendered.contains("Selected"));
 }
 
 #[test]
@@ -71,7 +71,7 @@ fn interactive_color_render_styles_body_without_breaking_text() {
     );
     assert!(rendered.contains("\x1b["));
     assert!(rendered.contains("[INFO]"));
-    assert!(rendered.contains("HOME / NEXT STEP"));
+    assert!(rendered.contains("Home / next step"));
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn render_handles_narrow_terminal_and_help() {
     state.show_help = true;
     let rendered = render_dashboard_with_state(&tui_dashboard::dashboard(), false, 40, 16, &state);
     assert!(rendered.contains("Esc"));
-    assert!(rendered.contains("HELP"));
+    assert!(rendered.contains("Help"));
     assert!(!rendered.contains("\x1b["));
 }
 
@@ -114,7 +114,7 @@ fn update_check_status_is_visible_in_compact_interactive_frames() {
     });
     dashboard.apply_software_view(state.software_view());
     let checked = render_dashboard_with_state(&dashboard, false, 80, 24, &state);
-    assert!(checked.contains("checked · 2 candidates · 3/5 sources"));
+    assert!(checked.contains("2 candidates · 3/5 sources ready"));
     assert!(
         dashboard
             .update_action_status
@@ -205,13 +205,11 @@ fn all_sections_render_with_accessible_labels_across_terminal_sizes() {
                     assert!(plain.contains("runtime.zero"));
                     assert!(plain.contains("runtime.zero"));
                     if !show_help || requested_height >= 24 {
-                        let expected_section_title = if section.title == "overview" {
-                            "HOME / NEXT STEP"
-                        } else {
-                            &section.title.to_uppercase()
-                        };
+                        let expected_section_title =
+                            runtime_zero::tui_dashboard::workspace_heading(section.title);
                         assert!(
-                            plain.contains(expected_section_title) || plain.contains(section.title)
+                            plain.contains(&expected_section_title)
+                                || plain.contains(section.title)
                         );
                     }
                     if show_help {
