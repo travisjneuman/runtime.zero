@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `396120014b20c8e56ebea8e10875a4d358d2ed30` (`feat: align toolchain views with executable evidence`).
+  `4a8960d3637b3e7411d424d07b1af8c3e12bdb6d` (`fix: unify home toolchain counts`).
 - **Current behavior implementation:**
-  `3961200` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `4a8960d` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -124,7 +124,10 @@
   inventory as Scan, label executable-only records `observed-only`, and keep
   wrapper-like PATH names out of the toolchain surface. The renderer reserves
   the selected-context pane before truncating dense primary rows, so expanded
-  evidence cannot push the key explanation panel off-screen.
+  evidence cannot push the key explanation panel off-screen. Home now derives
+  its toolchain total from that same de-duplicated app-plus-executable merge,
+  so the summary cannot disagree with the Toolchain workspace or scriptable
+  report.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -181,8 +184,9 @@ The TUI AIUP posture-parity slice is `80f10ac`.
 The strict AIUP provider-evidence slice is `e3f4bd4`.
 The AIUP executable-inventory binding and wrapper-filter slice is `8b035bd`.
 The shared Toolchain/TUI executable-evidence slice is `3961200`.
+The Home/Toolchain parity slice is `4a8960d`.
 The current exact-head release evidence refresh is bound to
-`396120014b20c8e56ebea8e10875a4d358d2ed30`.
+`4a8960d3637b3e7411d424d07b1af8c3e12bdb6d`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -190,24 +194,24 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current universal2 package is
-`target/release-package-universal2-3961200/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+`target/release-package-universal2-4a8960d/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
 It has binary SHA-256
-`019786bf89a9114a0f0608e59896f34ed9366814fa7916791975210d807cfdc0`, ZIP
+`9a505bbc461d639bda515595feb87a9be49391a64dca7ca548591e3b5aba4e5a`, ZIP
 SHA-256
-`f8d5623b273c181669afa2b28756550bc18d6738b68171336683674a5fe25313`, and
-3,994,208 bytes across 8 verified members. The embedded artifact manifest,
+`3fc2e48c0a2007a9c6c254d8bfebd06bf3d691d08bbd1eab7628f1d06bc0e2c0`, and
+3,993,851 bytes across 8 verified members. The embedded artifact manifest,
 SBOM, and third-party notices have SHA-256 values
-`77ea2afe3ef38cc88ce3172c31622b859cd2eed16d14798e9f05bbe9beda910f`,
-`cdde456f088b0f9895b8633f44d9e42daaf3ef05e8c5490c458b7535e86e9db0`, and
-`7a328c76ada2ebcb1b169db67662b27701f06b0f19b99cfc16962f3a89845d07`; their
+`82e0722231368339d47ff475d517c83415dd61a54c1f78d7b8eda492ee3f9791`,
+`28ff5f21a20ae001f89bb855af6533624a0ad28475192f67b9b9796b28003685`, and
+`37e8e4cf747d52bfc70d98fd10aa48d34acff9bdca1fe079590ac215842fc026`; their
 embedded sizes are 980, 162,322, and 291,176 bytes respectively. The package
 verifier passed, and `file`/`lipo` confirmed arm64 plus x86_64 Mach-O slices.
 Both slices passed four PTY terminal smoke cases and ten-sample final-artifact
 performance evidence. The terminal evidence IDs are
-`terminal:universal2-apple-darwin-arm64-019786bf89a9` and
-`terminal:universal2-apple-darwin-x86_64-019786bf89a9`; the performance IDs are
-`perf:universal2-apple-darwin-arm64-019786bf89a9` and
-`perf:universal2-apple-darwin-x86_64-019786bf89a9`. Both slices passed
+`terminal:universal2-apple-darwin-arm64-9a505bbc461d` and
+`terminal:universal2-apple-darwin-x86_64-9a505bbc461d`; the performance IDs are
+`perf:universal2-apple-darwin-arm64-9a505bbc461d` and
+`perf:universal2-apple-darwin-x86_64-9a505bbc461d`. Both slices passed
 read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
 doctor reported 6 passing and 4 blocked policy checks, while scan reported 9
 sources, 325 tools, 273 apps, 895 services, and 22 warnings. AIUP reported the
