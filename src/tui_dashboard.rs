@@ -203,10 +203,26 @@ fn build_dashboard(
         .and_then(|result| result.as_ref().ok())
         .cloned();
     let cache_status = match &cache {
-        Some(Ok(report)) => format!(
-            "live · {} bounded observations",
-            report.finding_report.summary.finding_count
-        ),
+        Some(Ok(report)) => {
+            let aged_file_count = report
+                .observations
+                .iter()
+                .map(|observation| observation.files_older_than_review_threshold)
+                .sum::<usize>();
+            let active_use_state = if report
+                .observations
+                .iter()
+                .any(|observation| observation.active_use_state != "unknown")
+            {
+                "possible lock marker"
+            } else {
+                "active use unknown"
+            };
+            format!(
+                "live · {} bounded observations · {} over age threshold · {}",
+                report.finding_report.summary.finding_count, aged_file_count, active_use_state
+            )
+        }
         Some(Err(_)) => "unavailable".to_string(),
         None => "private summary".to_string(),
     };
@@ -476,8 +492,13 @@ fn diagnostics_section(
                     tui_theme::LABEL_WARN
                 },
                 &format!(
-                    "bounded evidence · cache {} · leftovers {} · integrity {}",
+                    "bounded evidence · cache {} · age {} · leftovers {} · integrity {}",
                     cache.finding_report.summary.finding_count,
+                    cache
+                        .observations
+                        .iter()
+                        .map(|observation| observation.files_older_than_review_threshold)
+                        .sum::<usize>(),
                     leftovers.finding_report.summary.finding_count,
                     integrity_status
                 ),

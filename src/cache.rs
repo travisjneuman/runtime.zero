@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
 use rz0_action_plan::ActionPlan;
 use rz0_finding_contract::FindingReport;
@@ -22,10 +23,13 @@ use crate::{
 };
 
 pub const CACHE_REVIEW_CONTRACT: &str = "cache_review";
+pub const CACHE_POLICY_CONTRACT: &str = "cache_safety_policy";
 const MAX_INPUT_BYTES: u64 = rz0_resource_contract::MAX_FINDING_REPORT_BYTES;
 const MAX_SCAN_NODES: usize = 2_048;
 const MAX_SCAN_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_WARNINGS: usize = 64;
+const RUNTIME_REVIEW_AGE_THRESHOLD_SECONDS: u64 = 30 * 24 * 60 * 60;
+const RUNTIME_REVIEW_SIZE_BUDGET_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CacheReviewReport {
@@ -35,10 +39,40 @@ pub struct CacheReviewReport {
     pub writes_attempted: bool,
     pub raw_paths_included: bool,
     pub platform: &'static str,
+    pub policy: CachePolicySummary,
+    pub observations: Vec<CacheObservationSummary>,
     pub finding_report: FindingReport,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action_plan: Option<ActionPlan>,
     pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CachePolicySummary {
+    pub contract: &'static str,
+    pub runtime_review_age_threshold_seconds: u64,
+    pub runtime_review_size_budget_bytes: u64,
+    pub runtime_action_policy: &'static str,
+    pub manager_action_policy: &'static str,
+    pub active_use_detection: &'static str,
+    pub exclusions: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CacheObservationSummary {
+    pub id: &'static str,
+    pub ownership: rz0_finding_contract::FindingOwnership,
+    pub file_count: usize,
+    pub total_bytes: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oldest_modified_unix_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub newest_modified_unix_seconds: Option<u64>,
+    pub files_older_than_review_threshold: usize,
+    pub bytes_older_than_review_threshold: u64,
+    pub lock_marker_count: usize,
+    pub active_use_state: &'static str,
+    pub scan_complete: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +89,34 @@ struct CacheObservation {
     file_count: usize,
     total_bytes: u64,
     evidence_sha256: String,
+    oldest_modified_unix_seconds: Option<u64>,
+    newest_modified_unix_seconds: Option<u64>,
+    files_older_than_review_threshold: usize,
+    bytes_older_than_review_threshold: u64,
+    lock_marker_count: usize,
+    scan_complete: bool,
+}
+
+impl CacheObservation {
+    fn summary(&self) -> CacheObservationSummary {
+        CacheObservationSummary {
+            id: self.id,
+            ownership: self.ownership,
+            file_count: self.file_count,
+            total_bytes: self.total_bytes,
+            oldest_modified_unix_seconds: self.oldest_modified_unix_seconds,
+            newest_modified_unix_seconds: self.newest_modified_unix_seconds,
+            files_older_than_review_threshold: self.files_older_than_review_threshold,
+            bytes_older_than_review_threshold: self.bytes_older_than_review_threshold,
+            lock_marker_count: self.lock_marker_count,
+            active_use_state: if self.lock_marker_count == 0 {
+                "unknown"
+            } else {
+                "possible_lock_marker"
+            },
+            scan_complete: self.scan_complete,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -168,6 +230,7 @@ pub fn cache_command(args: &[String]) -> (ExitCode, String, String) {
                         "exact path evidence was supplied explicitly; no broad live scan was used"
                             .to_string(),
                     ],
+                    Vec::new(),
                 );
                 report.action_plan = Some(action_plan);
                 Ok(report)
@@ -339,14 +402,16 @@ fn fixture_report(path: &Path) -> Result<CacheReviewReport, String> {
     Ok(wrap_report(
         finding_report,
         vec!["fixture evidence was supplied; no live cache paths were inspected".to_string()],
+        Vec::new(),
     ))
 }
 
 pub fn live_report() -> Result<CacheReviewReport, String> {
     let mut warnings = Vec::new();
     let mut observations = Vec::new();
+    let now = unix_seconds();
     for root in cache_roots() {
-        if let Some(observation) = inspect_root(&root, &mut warnings)? {
+        if let Some(observation) = inspect_root(&root, &mut warnings, now)? {
             observations.push(observation);
         }
     }
@@ -373,10 +438,18 @@ pub fn live_report() -> Result<CacheReviewReport, String> {
         records,
     };
     let finding_report = classify_caches(&input)?;
-    Ok(wrap_report(finding_report, warnings))
+    Ok(wrap_report(
+        finding_report,
+        warnings,
+        observations.iter().map(CacheObservation::summary).collect(),
+    ))
 }
 
-fn wrap_report(finding_report: FindingReport, warnings: Vec<String>) -> CacheReviewReport {
+fn wrap_report(
+    finding_report: FindingReport,
+    warnings: Vec<String>,
+    observations: Vec<CacheObservationSummary>,
+) -> CacheReviewReport {
     CacheReviewReport {
         schema_version: 1,
         contract: CACHE_REVIEW_CONTRACT,
@@ -384,9 +457,28 @@ fn wrap_report(finding_report: FindingReport, warnings: Vec<String>) -> CacheRev
         writes_attempted: false,
         raw_paths_included: false,
         platform: std::env::consts::OS,
+        policy: cache_policy_summary(),
+        observations,
         finding_report,
         action_plan: None,
         warnings,
+    }
+}
+
+fn cache_policy_summary() -> CachePolicySummary {
+    CachePolicySummary {
+        contract: CACHE_POLICY_CONTRACT,
+        runtime_review_age_threshold_seconds: RUNTIME_REVIEW_AGE_THRESHOLD_SECONDS,
+        runtime_review_size_budget_bytes: RUNTIME_REVIEW_SIZE_BUDGET_BYTES,
+        runtime_action_policy: "exact runtime-owned file only; fresh digest/size evidence and explicit confirmation required",
+        manager_action_policy: "report_only",
+        active_use_detection: "bounded lock-marker signal only; process/native lock proof is unavailable, so live observations never prove inactivity",
+        exclusions: vec![
+            "user-owned, shared, manager-owned, system-owned, and unknown data",
+            "symlinks, reparse-like links, special files, directories, and paths outside known roots",
+            "incomplete scans, unreadable metadata, possible lock markers, and active-use uncertainty",
+            "recursive cleanup, deletion, elevation, network access, and manager invocation",
+        ],
     }
 }
 
@@ -612,6 +704,7 @@ fn cache_roots() -> Vec<CacheRoot> {
 fn inspect_root(
     root: &CacheRoot,
     warnings: &mut Vec<String>,
+    now_unix_seconds: u64,
 ) -> Result<Option<CacheObservation>, String> {
     let metadata = match fs::symlink_metadata(&root.path) {
         Ok(metadata) => metadata,
@@ -636,11 +729,19 @@ fn inspect_root(
     let mut node_count = 0usize;
     let mut file_count = 0usize;
     let mut total_bytes = 0u64;
+    let mut oldest_modified_unix_seconds = None;
+    let mut newest_modified_unix_seconds = None;
+    let mut files_older_than_review_threshold = 0usize;
+    let mut bytes_older_than_review_threshold = 0u64;
+    let mut lock_marker_count = 0usize;
+    let mut metadata_missing_count = 0usize;
+    let mut scan_complete = true;
     let mut digest = Sha256::new();
     while let Some(directory) = queue.pop_front() {
         let entries = match fs::read_dir(&directory) {
             Ok(entries) => entries,
             Err(_) => {
+                scan_complete = false;
                 add_warning(
                     warnings,
                     format!("{} cache source has an unreadable directory", root.id),
@@ -651,6 +752,7 @@ fn inspect_root(
         for entry in entries {
             node_count = node_count.saturating_add(1);
             if node_count > MAX_SCAN_NODES {
+                scan_complete = false;
                 add_warning(
                     warnings,
                     format!("{} cache source reached its scan ceiling", root.id),
@@ -661,6 +763,7 @@ fn inspect_root(
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(_) => {
+                    scan_complete = false;
                     add_warning(
                         warnings,
                         format!("{} cache source contains an unreadable entry", root.id),
@@ -672,6 +775,7 @@ fn inspect_root(
             let metadata = match fs::symlink_metadata(&path) {
                 Ok(metadata) => metadata,
                 Err(_) => {
+                    scan_complete = false;
                     add_warning(
                         warnings,
                         format!("{} cache source changed during inspection", root.id),
@@ -705,7 +809,41 @@ fn inspect_root(
             total_bytes = total_bytes.saturating_add(metadata.len());
             digest.update(b"file\0");
             digest.update(metadata.len().to_be_bytes());
+            if is_lock_marker(&path) {
+                lock_marker_count = lock_marker_count.saturating_add(1);
+            }
+            let modified_unix_seconds = metadata
+                .modified()
+                .ok()
+                .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| duration.as_secs());
+            match modified_unix_seconds {
+                Some(modified) => {
+                    oldest_modified_unix_seconds = Some(
+                        oldest_modified_unix_seconds
+                            .map_or(modified, |oldest: u64| oldest.min(modified)),
+                    );
+                    newest_modified_unix_seconds = Some(
+                        newest_modified_unix_seconds
+                            .map_or(modified, |newest: u64| newest.max(modified)),
+                    );
+                    if now_unix_seconds.saturating_sub(modified)
+                        >= RUNTIME_REVIEW_AGE_THRESHOLD_SECONDS
+                    {
+                        files_older_than_review_threshold =
+                            files_older_than_review_threshold.saturating_add(1);
+                        bytes_older_than_review_threshold =
+                            bytes_older_than_review_threshold.saturating_add(metadata.len());
+                    }
+                    digest.update(modified.to_be_bytes());
+                }
+                None => {
+                    metadata_missing_count = metadata_missing_count.saturating_add(1);
+                    digest.update(b"mtime-unavailable\0");
+                }
+            }
             if total_bytes > MAX_SCAN_BYTES {
+                scan_complete = false;
                 add_warning(
                     warnings,
                     format!("{} cache source reached its byte ceiling", root.id),
@@ -714,6 +852,25 @@ fn inspect_root(
                 break;
             }
         }
+    }
+    if metadata_missing_count > 0 {
+        add_warning(
+            warnings,
+            format!(
+                "{} cache source has {} file(s) without usable modification metadata",
+                root.id, metadata_missing_count
+            ),
+        );
+        scan_complete = false;
+    }
+    if lock_marker_count > 0 {
+        add_warning(
+            warnings,
+            format!(
+                "{} cache source contains {} possible lock marker(s); active use is not disproved",
+                root.id, lock_marker_count
+            ),
+        );
     }
     if file_count == 0 {
         return Ok(None);
@@ -724,7 +881,20 @@ fn inspect_root(
         file_count,
         total_bytes,
         evidence_sha256: format!("{:x}", digest.finalize()),
+        oldest_modified_unix_seconds,
+        newest_modified_unix_seconds,
+        files_older_than_review_threshold,
+        bytes_older_than_review_threshold,
+        lock_marker_count,
+        scan_complete,
     }))
+}
+
+fn is_lock_marker(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    name == "lock" || name == ".lock" || name.ends_with(".lock") || name.ends_with(".lck")
 }
 
 fn observation_digest(observations: &[CacheObservation]) -> String {
@@ -735,6 +905,22 @@ fn observation_digest(observations: &[CacheObservation]) -> String {
         digest.update(observation.file_count.to_be_bytes());
         digest.update(observation.total_bytes.to_be_bytes());
         digest.update(observation.evidence_sha256.as_bytes());
+        digest.update(
+            observation
+                .oldest_modified_unix_seconds
+                .unwrap_or_default()
+                .to_be_bytes(),
+        );
+        digest.update(
+            observation
+                .newest_modified_unix_seconds
+                .unwrap_or_default()
+                .to_be_bytes(),
+        );
+        digest.update(observation.files_older_than_review_threshold.to_be_bytes());
+        digest.update(observation.bytes_older_than_review_threshold.to_be_bytes());
+        digest.update(observation.lock_marker_count.to_be_bytes());
+        digest.update([u8::from(observation.scan_complete)]);
         digest.update([0xff]);
     }
     format!("{:x}", digest.finalize())
@@ -768,6 +954,37 @@ fn render_text(report: &CacheReviewReport) -> String {
     let _ = writeln!(out, "blocked: {}", finding_report.summary.blocked_count);
     let _ = writeln!(out, "writes_attempted: no");
     let _ = writeln!(out, "raw_paths_included: no");
+    let _ = writeln!(
+        out,
+        "runtime_review_age_threshold_seconds: {}",
+        report.policy.runtime_review_age_threshold_seconds
+    );
+    let _ = writeln!(
+        out,
+        "runtime_review_size_budget_bytes: {}",
+        report.policy.runtime_review_size_budget_bytes
+    );
+    let _ = writeln!(
+        out,
+        "active_use_detection: {}",
+        report.policy.active_use_detection
+    );
+    if !report.observations.is_empty() {
+        out.push_str("bounded_observations:\n");
+        for observation in &report.observations {
+            let _ = writeln!(
+                out,
+                "  - {} [{} files, {} bytes] older_than_threshold={} files/{} bytes · active_use={} · scan_complete={}",
+                observation.id,
+                observation.file_count,
+                observation.total_bytes,
+                observation.files_older_than_review_threshold,
+                observation.bytes_older_than_review_threshold,
+                observation.active_use_state,
+                observation.scan_complete,
+            );
+        }
+    }
     if !finding_report.findings.is_empty() {
         out.push_str("observations:\n");
         for finding in &finding_report.findings {
@@ -858,6 +1075,7 @@ mod tests {
         let report = wrap_report(
             classify_caches(&fixture_input()).expect("cache report"),
             vec![],
+            Vec::new(),
         );
         assert!(report.read_only);
         assert!(!report.writes_attempted);
@@ -870,6 +1088,66 @@ mod tests {
         let (code, _, error) = cache_command(&[]);
         assert_eq!(code, ExitCode::Usage);
         assert!(error.contains("dry-run only"));
+    }
+
+    #[test]
+    fn cache_policy_is_conservative_and_explicit() {
+        let policy = cache_policy_summary();
+        assert_eq!(policy.contract, CACHE_POLICY_CONTRACT);
+        assert_eq!(
+            policy.runtime_review_age_threshold_seconds,
+            30 * 24 * 60 * 60
+        );
+        assert_eq!(policy.runtime_review_size_budget_bytes, 16 * 1024 * 1024);
+        assert_eq!(policy.manager_action_policy, "report_only");
+        assert!(policy.active_use_detection.contains("unavailable"));
+        assert!(
+            policy
+                .exclusions
+                .iter()
+                .any(|item| item.contains("unknown"))
+        );
+    }
+
+    #[test]
+    fn bounded_observation_reports_age_and_lock_signals_without_paths() {
+        static SEQUENCE: AtomicU64 = AtomicU64::new(2_000);
+        let root = std::env::temp_dir().join(format!(
+            "runtime-zero-cache-observation-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).expect("observation root");
+        fs::write(root.join("entry.bin"), b"cache").expect("cache entry");
+        fs::write(root.join("index.lock"), b"lock").expect("lock marker");
+        let mut warnings = Vec::new();
+        let observation = inspect_root(
+            &CacheRoot {
+                id: "test-cache",
+                path: root.clone(),
+                ownership: FindingOwnership::RuntimeOwned,
+            },
+            &mut warnings,
+            unix_seconds(),
+        )
+        .expect("inspect root")
+        .expect("observation");
+        let summary = observation.summary();
+        assert_eq!(summary.file_count, 2);
+        assert_eq!(summary.lock_marker_count, 1);
+        assert_eq!(summary.active_use_state, "possible_lock_marker");
+        assert!(summary.oldest_modified_unix_seconds.is_some());
+        assert!(
+            warnings
+                .iter()
+                .any(|warning| warning.contains("lock marker"))
+        );
+        assert!(
+            !serde_json::to_string(&summary)
+                .expect("summary JSON")
+                .contains(root.to_str().expect("root UTF-8"))
+        );
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

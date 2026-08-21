@@ -240,8 +240,9 @@ full platform/lifecycle acceptance cells.
 - [x] Add one exact runtime.zero cache-file plan and confirmation-bound
   foundation quarantine lane; manager, user, shared, and unknown cache roots
   remain report-only.
-- [ ] Define manager/runtime cache ownership, safe size/age budgets, active-use
-  detection, and explicit exclusions.
+- [x] Define manager/runtime cache ownership, a 30-day review-age threshold, a
+  16 MiB runtime review-size budget, bounded lock-marker active-use signals,
+  and explicit exclusions; absence of a marker is not proof of inactivity.
 - [ ] Implement bounded live discovery and quarantine/restore without broad
   home/profile/drive scans.
 - [ ] Prove low-space, locked, concurrent-writer, permission, and restore

@@ -232,7 +232,8 @@ source-level domain packages under `modules/`. Updater consumes captured or
 explicit live manager evidence. Uninstall accepts selected live installed-
 software evidence to produce a non-authorizing finding and optional sealed dry-
 run manager action plan. Cache now has a bounded read-only adapter over known
-manager/runtime roots; cache now has one exact runtime-cache-file plan/apply
+manager/runtime roots with explicit review age/size and active-use uncertainty;
+cache now has one exact runtime-cache-file plan/apply
 lane, while leftovers has bounded runtime.zero-owned module/log
 and unreferenced-receipt evidence plus an explicit exact-module-file dry-run
 plan and confirmation-bound exact quarantine lane. The separate `restore`

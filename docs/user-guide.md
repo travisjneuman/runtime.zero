@@ -131,7 +131,15 @@ special files and stops at explicit entry/byte ceilings. Findings are
 ownership-aware but never authorize cleanup, quarantine, restore, or deletion.
 The JSON result contains a `cache_review` envelope and the shared
 `classified_finding_report`. User/shared/unknown cache data remains report-only
-or blocked. The TUI Diagnostics workspace shows the same observation status.
+or blocked. Each live observation also reports a 30-day review-age threshold,
+the number/bytes over that threshold, modification-time bounds, scan
+completeness, and a conservative lock-marker signal. A missing lock marker is
+not proof that the cache is inactive; process/native lock proof is not
+available in this bounded adapter. The TUI Diagnostics workspace shows the
+same observation and age-threshold status.
+
+The complete ownership, budget, active-use, and exclusion contract is in
+[`docs/cache-management.md`](cache-management.md).
 
 An explicitly supplied regular file inside the runtime.zero cache root can use
 the separate exact plan/apply lane. It binds the file digest and size, prints a

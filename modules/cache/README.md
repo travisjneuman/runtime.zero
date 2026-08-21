@@ -11,6 +11,10 @@ Current policy:
   quarantine candidate;
 - manager-, system-, or user-owned cache evidence remains report-only;
 - unknown ownership or protected data is blocked;
+- live review reports files older than 30 days and a 16 MiB runtime review-size
+  budget as evidence only; these thresholds do not authorize cleanup;
+- active use is conservatively represented by possible `lock`/`.lock`/`.lck`
+  markers, while no marker still means active use is unknown;
 - output is path-free, read-only, and non-authorizing.
 
 The core live adapter inspects only bounded known roots for runtime.zero,
@@ -27,9 +31,10 @@ restore that one validated quarantine record to its original unoccupied cache
 path after a fresh exact confirmation; it is not cache discovery or retention.
 
 Before 1.0 it needs stronger platform-specific ownership and active-use proof,
-age/resource policy, retention and conflict policy, full quarantine/restore
-transactions, cancellation/recovery, platform metadata fidelity, and every
-Windows/macOS/Linux lifecycle acceptance cell. User/shared/unknown caches must
-remain report-only unless the frozen policy is explicitly changed. The TUI
-Diagnostics workspace shows the same bounded observation count and warning
-state; it does not add a second action path.
+platform-native age/resource policy, retention and conflict policy, full
+multi-file quarantine/restore transactions, cancellation/recovery, platform
+metadata fidelity, and every Windows/macOS/Linux lifecycle acceptance cell.
+User/shared/unknown caches must remain report-only unless the frozen policy is
+explicitly changed. The TUI Diagnostics workspace shows the same bounded
+observation count, age-threshold count, and warning state; it does not add a
+second action path.
