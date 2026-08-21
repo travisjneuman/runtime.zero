@@ -1658,13 +1658,7 @@ mod tests {
         assert!(validate_warp_archive_listing(b"-rwxr-xr-x 0 staff 10 ../oz-stable\n").is_err());
     }
 
-    #[test]
-    fn macos_executes_a_path_revalidated_manager_before_post_action_verification() {
-        let executable = Path::new("/opt/homebrew/bin/brew");
-        if !executable.is_file() {
-            return;
-        }
-        let hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    fn harmless_manager_test_plan(executable: &Path) -> (ActionPlan, PlanAction) {
         let action = PlanAction {
             action_id: "update.execution-test".to_string(),
             finding_id: "update.execution-test".to_string(),
@@ -1702,17 +1696,20 @@ mod tests {
             writes_attempted: false,
             evidence_contract: rz0_finding_contract::FINDING_CONTRACT.to_string(),
             evidence_report_id: "findings:execution-test".to_string(),
-            evidence_sha256: hash.to_string(),
+            evidence_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_string(),
             actions: vec![action.clone()],
             warnings: Vec::new(),
         };
         assert!(rz0_action_plan::validate_action_plan(&plan).valid);
-        let now = unix_seconds();
-        let (challenge, _) = build_update_challenge(&plan, &action, true, now).expect("challenge");
-        let response = validate_update_confirmation(&challenge, &challenge.expected_phrase, now)
-            .expect("confirmation");
-        let root =
-            std::env::temp_dir().join(format!("runtime-zero-update-test-{}", std::process::id()));
+        (plan, action)
+    }
+
+    fn private_execution_root(label: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "runtime-zero-update-{label}-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("transactions")).expect("transactions");
         std::fs::create_dir_all(root.join("receipts")).expect("receipts");
@@ -1721,6 +1718,21 @@ mod tests {
             std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
                 .expect("private test directory");
         }
+        root
+    }
+
+    #[test]
+    fn macos_executes_a_path_revalidated_manager_before_post_action_verification() {
+        let executable = Path::new("/opt/homebrew/bin/brew");
+        if !executable.is_file() {
+            return;
+        }
+        let (plan, action) = harmless_manager_test_plan(executable);
+        let now = unix_seconds();
+        let (challenge, _) = build_update_challenge(&plan, &action, true, now).expect("challenge");
+        let response = validate_update_confirmation(&challenge, &challenge.expected_phrase, now)
+            .expect("confirmation");
+        let root = private_execution_root("verification-failure");
         let (_, cancellation) = rz0_cancellation_contract::cancellation_pair();
         let error = execute_update_action(UpdateExecutionRequest {
             state_root: &root,
@@ -1757,6 +1769,52 @@ mod tests {
                 .next()
                 .is_none()
         );
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn macos_commits_a_verified_receipt_for_a_harmless_manager_invocation() {
+        let executable = Path::new("/opt/homebrew/bin/brew");
+        if !executable.is_file() {
+            return;
+        }
+        let (plan, action) = harmless_manager_test_plan(executable);
+        let now = unix_seconds();
+        let (challenge, _) = build_update_challenge(&plan, &action, true, now).expect("challenge");
+        let response = validate_update_confirmation(&challenge, &challenge.expected_phrase, now)
+            .expect("confirmation");
+        let root = private_execution_root("verified");
+        let (_, cancellation) = rz0_cancellation_contract::cancellation_pair();
+        let report = execute_update_action(UpdateExecutionRequest {
+            state_root: &root,
+            plan: &plan,
+            action: &action,
+            challenge: &challenge,
+            response: &response,
+            now_unix_seconds: now,
+            environment: vec![
+                (
+                    "PATH".to_string(),
+                    "/opt/homebrew/bin:/usr/bin:/bin".to_string(),
+                ),
+                ("HOME".to_string(), "/Users/tjn".to_string()),
+            ],
+            cancellation: &cancellation,
+            verify_after: || Ok("harmless manager invocation verified".to_string()),
+        })
+        .expect("committed receipt");
+        assert_eq!(report.status, UpdateExecutionStatus::Committed);
+        assert!(report.writes_attempted);
+        assert!(report.product_execution_authorized);
+        let receipt_path = root.join(&report.receipt_reference);
+        let receipt: ExternalEffectReceipt =
+            serde_json::from_slice(&std::fs::read(&receipt_path).expect("receipt bytes"))
+                .expect("receipt JSON");
+        assert_eq!(receipt.transaction_id, report.transaction_id);
+        assert_eq!(receipt.status, ExternalEffectStatus::Verified);
+        assert!(receipt.writes_attempted);
+        assert!(!receipt.automatic_mutation_authorized);
+        assert_eq!(receipt.exit_code, 0);
         let _ = std::fs::remove_dir_all(root);
     }
 }
