@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `22c3619` (`Add exact leftovers quarantine apply lane`).
+  `049e333` (`Refresh runtime status and artifact evidence`).
 - **Current behavior implementation:**
-  `22c3619` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `049e333` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -37,6 +37,7 @@ posture update at `8132b4e`, the exact-file integrity slice at `47c6f9f`, and
 the Windows process-host/probe slice at `39adb92`, the module trust review
 slice at `a6664d6`, the complete-file-set slice at `3012176`, provenance
 validation at `63f7d8d`, and the exact leftovers plan/apply lane at `22c3619`.
+The status refresh itself is `049e333`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -44,10 +45,10 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC cross-target `cargo check`, and
 `git diff --check`. A current aarch64 Apple Silicon artifact was independently
-verified and reproduced byte-for-byte from `22c3619`; the binary SHA-256 is
+verified and reproduced byte-for-byte from `049e333`; the binary SHA-256 is
 `fa133cfd84132c94e85a01002be69b56382279d3ddd54a7d6c3c3709486e79bb` and the
 ZIP SHA-256 is
-`704166938c9999cfff9fb31f27e511914dfa6e06219a5977537b2ce82f6550f0`.
+`a0c4e21de1570e41e88ded9125dba39e935b9f7d87c6d697439557317b80bac9`.
 It remains unsigned and unnotarized until an owner-led signing/notarization
 lane exists.
 
