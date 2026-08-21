@@ -22,7 +22,8 @@ automatic retry occurs: `r` is an explicit refresh request. `q` cancels and
 drops an in-flight startup or refresh worker before leaving the TUI. Pressing
 `r` cancels the previous load, increments a generation, and starts one new
 worker; a late result from an older generation cannot replace the newer
-snapshot.
+snapshot. The refresh frame explicitly says `refreshing local snapshot` so the
+request is visible even when the previous load has not completed yet.
 
 The shell is local and read-only until an exact provider action is reviewed,
 confirmed, executed, and freshly verified. Loading, unavailable, empty, and

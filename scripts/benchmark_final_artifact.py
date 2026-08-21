@@ -4,16 +4,22 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import math
 import os
 from pathlib import Path
 import platform
+import pty
 import resource
+import select
+import signal
 import stat
+import struct
 import subprocess
 import sys
+import termios
 import time
 
 MIN_SAMPLES = 10
@@ -35,6 +41,9 @@ OPERATIONS = (
     ("report_json", ["report", "--format", "json"]),
     ("dashboard_json", ["--json"]),
 )
+TUI_OPERATIONS = ("tui_startup", "tui_refresh")
+MAX_CAPTURE_BYTES = 1024 * 1024
+TUI_TIMEOUT_SECONDS = 5.0
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,12 +69,134 @@ def resident_bytes() -> int:
     return int(resident if platform.system() == "Darwin" else resident * 1024)
 
 
-def invoke(binary: Path, arguments: list[str], architecture: str | None) -> tuple[int, int, int]:
+def set_pty_size(descriptor: int, columns: int, rows: int) -> None:
+    dimensions = struct.pack("HHHH", rows, columns, 0, 0)
+    fcntl.ioctl(descriptor, termios.TIOCSWINSZ, dimensions)
+
+
+def command_for(binary: Path, architecture: str | None, arguments: list[str]) -> list[str]:
     command = [str(binary), *arguments]
     if architecture:
         if platform.system() != "Darwin" or architecture not in ("arm64", "x86_64"):
             raise ValueError("--arch accepts arm64 or x86_64 only on macOS")
         command = ["/usr/bin/arch", f"-{architecture}", *command]
+    return command
+
+
+def pty_read(master: int, capture: bytearray, timeout: float) -> None:
+    readable, _, _ = select.select([master], [], [], timeout)
+    if not readable:
+        return
+    try:
+        block = os.read(master, 8192)
+    except OSError:
+        return
+    remaining = MAX_CAPTURE_BYTES - len(capture)
+    capture.extend(block[:remaining])
+
+
+def stop_child(child: subprocess.Popen[bytes]) -> None:
+    if child.poll() is not None:
+        return
+    try:
+        os.killpg(child.pid, signal.SIGKILL)
+    except (OSError, PermissionError):
+        pass
+    try:
+        child.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def run_tui_measurement(binary: Path, architecture: str | None, operation: str) -> tuple[int, int, int]:
+    if operation not in TUI_OPERATIONS:
+        raise ValueError(f"unsupported TUI performance operation: {operation}")
+    master, slave = pty.openpty()
+    set_pty_size(slave, 80, 24)
+    environment = {
+        "LANG": "C.UTF-8" if platform.system() != "Darwin" else "en_US.UTF-8",
+        "LC_ALL": "C.UTF-8" if platform.system() != "Darwin" else "en_US.UTF-8",
+        "NO_COLOR": "1",
+        "TERM": "xterm-256color",
+    }
+    home = os.environ.get("HOME")
+    if home and os.path.isabs(home) and len(os.fsencode(home)) <= 4096:
+        environment["HOME"] = home
+    child: subprocess.Popen[bytes] | None = None
+    capture = bytearray()
+    try:
+        child = subprocess.Popen(
+            command_for(binary, architecture, ["--tui"]),
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            env=environment,
+            close_fds=True,
+            start_new_session=True,
+        )
+        os.close(slave)
+        slave = -1
+        started = time.perf_counter_ns()
+        first_deadline = time.monotonic() + TUI_TIMEOUT_SECONDS
+        first_frame = False
+        while time.monotonic() < first_deadline:
+            pty_read(master, capture, 0.02)
+            output = bytes(capture)
+            if b"\x1b[?1049h" in output and b"runtime.zero" in output:
+                first_frame = True
+                break
+            if child.poll() is not None:
+                break
+        if not first_frame:
+            raise ValueError(f"TUI {operation} did not render its first frame")
+
+        if operation == "tui_startup":
+            elapsed_us = (time.perf_counter_ns() - started + 999) // 1000
+        else:
+            refresh_baseline = len(capture)
+            refresh_started = time.perf_counter_ns()
+            os.write(master, b"r")
+            refresh_deadline = time.monotonic() + TUI_TIMEOUT_SECONDS
+            refreshed = False
+            while time.monotonic() < refresh_deadline:
+                pty_read(master, capture, 0.02)
+                if b"refreshing" in bytes(capture)[refresh_baseline:]:
+                    refreshed = True
+                    break
+                if child.poll() is not None:
+                    break
+            if not refreshed:
+                raise ValueError("TUI refresh did not render its explicit refreshing state")
+            elapsed_us = (time.perf_counter_ns() - refresh_started + 999) // 1000
+
+        os.write(master, b"q")
+        quit_deadline = time.monotonic() + 2.0
+        while child.poll() is None and time.monotonic() < quit_deadline:
+            pty_read(master, capture, 0.02)
+        for _ in range(5):
+            pty_read(master, capture, 0)
+        if child.poll() is None:
+            raise ValueError("TUI did not exit after bounded q input")
+        if child.returncode != 0:
+            raise ValueError(f"TUI exited with {child.returncode}")
+        output = bytes(capture)
+        if b"\x1b[?1049h" not in output or b"\x1b[?1049l" not in output:
+            raise ValueError("TUI did not enter and leave the alternate screen")
+        if b"q\r\n" in output:
+            raise ValueError("TUI quit input was echoed")
+        if len(output) >= MAX_CAPTURE_BYTES:
+            raise ValueError("TUI output exceeded its capture ceiling")
+        return elapsed_us, len(output), 0
+    finally:
+        if child is not None:
+            stop_child(child)
+        if slave >= 0:
+            os.close(slave)
+        os.close(master)
+
+
+def invoke(binary: Path, arguments: list[str], architecture: str | None) -> tuple[int, int, int]:
+    command = command_for(binary, architecture, arguments)
     environment = {
         "LANG": "C",
         "LC_ALL": "C",
@@ -94,6 +225,38 @@ def invoke(binary: Path, arguments: list[str], architecture: str | None) -> tupl
     if completed.returncode != 0:
         raise ValueError(f"final artifact command failed with exit {completed.returncode}")
     return elapsed_us, len(completed.stdout), len(completed.stderr)
+
+
+def measure_operation(operation: str, samples: int, warmups: int, runner) -> tuple[dict, bool]:
+    for _ in range(warmups):
+        runner()
+    times = []
+    maximum_stdout = 0
+    maximum_stderr = 0
+    maximum_resident = resident_bytes()
+    for _ in range(samples):
+        elapsed, stdout_bytes, stderr_bytes = runner()
+        times.append(elapsed)
+        maximum_stdout = max(maximum_stdout, stdout_bytes)
+        maximum_stderr = max(maximum_stderr, stderr_bytes)
+        maximum_resident = max(maximum_resident, resident_bytes())
+    measurement = {
+        "operation": operation,
+        "p50_wall_time_us": percentile(times, 0.50),
+        "p95_wall_time_us": percentile(times, 0.95),
+        "maximum_wall_time_us": max(times),
+        "maximum_resident_bytes": maximum_resident,
+        "maximum_stdout_bytes": maximum_stdout,
+        "maximum_stderr_bytes": maximum_stderr,
+        "successful_samples": samples,
+    }
+    within_budget = (
+        measurement["p95_wall_time_us"] <= BUDGET["p95_wall_time_us"]
+        and measurement["maximum_wall_time_us"] <= BUDGET["maximum_wall_time_us"]
+        and measurement["maximum_resident_bytes"] <= BUDGET["maximum_resident_bytes"]
+        and maximum_stdout + maximum_stderr <= BUDGET["maximum_output_bytes"]
+    )
+    return measurement, within_budget
 
 
 def write_new(path: Path, data: bytes) -> None:
@@ -130,39 +293,27 @@ def main() -> int:
     measurements = []
     within_budget = True
     for operation, arguments in OPERATIONS:
-        for _ in range(args.warmups):
-            invoke(args.binary, arguments, args.arch)
-        times = []
-        maximum_stdout = 0
-        maximum_stderr = 0
-        maximum_resident = resident_bytes()
-        for _ in range(args.samples):
-            elapsed, stdout_bytes, stderr_bytes = invoke(args.binary, arguments, args.arch)
-            times.append(elapsed)
-            maximum_stdout = max(maximum_stdout, stdout_bytes)
-            maximum_stderr = max(maximum_stderr, stderr_bytes)
-            maximum_resident = max(maximum_resident, resident_bytes())
-        measurement = {
-            "operation": operation,
-            "p50_wall_time_us": percentile(times, 0.50),
-            "p95_wall_time_us": percentile(times, 0.95),
-            "maximum_wall_time_us": max(times),
-            "maximum_resident_bytes": maximum_resident,
-            "maximum_stdout_bytes": maximum_stdout,
-            "maximum_stderr_bytes": maximum_stderr,
-            "successful_samples": args.samples,
-        }
-        within_budget &= (
-            measurement["p95_wall_time_us"] <= BUDGET["p95_wall_time_us"]
-            and measurement["maximum_wall_time_us"] <= BUDGET["maximum_wall_time_us"]
-            and measurement["maximum_resident_bytes"] <= BUDGET["maximum_resident_bytes"]
-            and maximum_stdout + maximum_stderr <= BUDGET["maximum_output_bytes"]
+        measurement, operation_within_budget = measure_operation(
+            operation,
+            args.samples,
+            args.warmups,
+            lambda: invoke(args.binary, arguments, args.arch),
         )
         measurements.append(measurement)
+        within_budget &= operation_within_budget
+    for operation in TUI_OPERATIONS:
+        measurement, operation_within_budget = measure_operation(
+            operation,
+            args.samples,
+            args.warmups,
+            lambda operation=operation: run_tui_measurement(args.binary, args.arch, operation),
+        )
+        measurements.append(measurement)
+        within_budget &= operation_within_budget
 
     architecture_suffix = f"-{args.arch}" if args.arch else ""
     evidence = {
-        "schema_version": 2,
+        "schema_version": 3,
         "contract": "final_artifact_performance",
         "evidence_id": f"perf:{args.target}{architecture_suffix}-{artifact_sha256[:12]}",
         "target": args.target,

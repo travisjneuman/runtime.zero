@@ -201,7 +201,7 @@ full platform/lifecycle acceptance cells.
 - [x] Preserve useful partial source results, deterministic ordering, redaction,
   bounded scans, and explicit unsupported/unavailable states.
 - [ ] Add real runtime privacy/redaction/source-agreement tests on every target.
-- [ ] Add explicit `apps` and interactive TUI startup/refresh operations to a
+- [x] Add explicit `apps` and interactive TUI startup/refresh operations to a
   versioned performance contract.
 
 ## 7. Complete updater on every platform

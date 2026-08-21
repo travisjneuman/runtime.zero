@@ -192,20 +192,27 @@ pub fn private_dashboard() -> TuiDashboard {
 }
 
 pub fn loading_dashboard() -> TuiDashboard {
+    loading_dashboard_with_status(
+        "loading local snapshot · no provider action is running",
+        "loading local inventory and system evidence",
+    )
+}
+
+pub fn refreshing_dashboard() -> TuiDashboard {
+    loading_dashboard_with_status(
+        "refreshing local snapshot · no provider action is running",
+        "refreshing local inventory and system evidence",
+    )
+}
+
+fn loading_dashboard_with_status(status: &str, evidence_label: &str) -> TuiDashboard {
     let mut dashboard = private_dashboard();
     dashboard.inventory_status = "loading".to_string();
     dashboard.update_check_status = "not started".to_string();
-    dashboard.update_action_status =
-        "loading local snapshot · no provider action is running".to_string();
+    dashboard.update_action_status = status.to_string();
     if let Some(home) = dashboard.sections.first_mut() {
-        home.rows.insert(
-            1,
-            row(
-                tui_theme::LABEL_PLAN,
-                "loading local inventory and system evidence",
-                "accent",
-            ),
-        );
+        home.rows
+            .insert(1, row(tui_theme::LABEL_PLAN, evidence_label, "accent"));
     }
     dashboard
 }
@@ -1764,5 +1771,23 @@ mod tests {
         let error = dashboard_cancellable(&cancellation)
             .expect_err("pre-cancelled dashboard load should stop before publishing");
         assert!(error.contains("dashboard load cancelled"));
+    }
+
+    #[test]
+    fn refresh_dashboard_exposes_an_explicit_loading_state() {
+        let dashboard = refreshing_dashboard();
+
+        assert_eq!(dashboard.inventory_status, "loading");
+        assert!(
+            dashboard
+                .update_action_status
+                .starts_with("refreshing local snapshot")
+        );
+        assert!(
+            dashboard.sections[0]
+                .rows
+                .iter()
+                .any(|row| row.value.starts_with("refreshing local inventory"))
+        );
     }
 }

@@ -3,7 +3,7 @@
 `crates/performance-contract/` owns bounded, machine-validatable command
 performance evidence. Measurements never authorize release.
 
-Schema 2 requires 10–100 successful samples for exactly nine ordered final-
+Schema 3 requires 10–100 successful samples for exactly eleven ordered final-
 artifact operations:
 
 1. version;
@@ -14,7 +14,9 @@ artifact operations:
 6. JSON installed-software catalog;
 7. JSON one-shot monitor;
 8. JSON privacy-reviewed report;
-9. JSON dashboard.
+9. JSON dashboard;
+10. interactive TUI startup to the first visible frame;
+11. interactive TUI refresh request to the explicit refreshing state.
 
 The initial cross-target baseline requires p95 wall time at or below one second,
 maximum wall time at or below two seconds, maximum resident memory at or below
@@ -32,9 +34,10 @@ binary on POSIX hosts with a minimal deterministic locale/terminal environment,
 a fixed standard PATH, and the bounded absolute HOME needed to exercise user
 inventory roots. It can select an
 ARM64 or x86-64 slice of a macOS universal binary. It performs only read-only
-commands, writes one create-new evidence document, and returns nonzero when a
-budget is exceeded. Host/OS/runtime context still belongs in the private release
-ledger; one fast machine cannot prove another target.
+commands and bounded PTY startup/refresh interactions, writes one create-new
+evidence document, and returns nonzero when a budget is exceeded. Host/OS/runtime
+context still belongs in the private release ledger; one fast machine cannot
+prove another target.
 
 ## Historical schema-1 evidence
 
@@ -52,9 +55,14 @@ exact schema-1 operation set.
 
 ## Remaining performance evidence
 
-Schema 2 adds explicit `apps`, `monitor`, and `report` timing. Interactive TUI
-first-frame and explicit inventory-refresh timing still require a versioned PTY
-measurement extension; ordinary dashboard JSON and terminal smoke do not prove
-those timings. Update discovery/planning, sustained refresh, large-inventory,
-resource-pressure, and write/recovery paths also need separate budgets and
-final-artifact target-native evidence before 1.0.
+Schema 3 adds versioned PTY measurements for the redesigned TUI. Startup ends
+when the artifact enters the alternate screen and renders the first branded
+frame. Refresh begins after the harness sends `r` and ends when the explicit
+`refreshing` state is rendered; it measures responsiveness of the refresh
+request, not completion of the potentially long local inventory scan. The PTY
+capture is counted against combined output, and the harness verifies clean
+alternate-screen teardown after each sample. Ordinary dashboard JSON and
+terminal smoke do not prove these timings. Update discovery/planning,
+sustained refresh completion, large-inventory, resource-pressure, and
+write/recovery paths still need separate budgets and final-artifact
+target-native evidence before 1.0.

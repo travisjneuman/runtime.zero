@@ -685,7 +685,7 @@ and module-host execution.
 | `module-lifecycle` | Eight planning transitions | No lifecycle execution |
 | `registry-contract` | Canonical installed state | No module install publication |
 | `transaction-contract` | Journal, external receipts, coordinator, recovery | Exact domain rollback/platform proof |
-| `performance-contract` | Nine read-only command budgets | TUI timing and target-native evidence |
+| `performance-contract` | Eleven read-only command budgets, including PTY TUI startup/refresh request timing | Target-native evidence and refresh-completion budgets |
 | `release-contract` | Target × module × stage ledger | RC freeze/evidence population |
 
 ## Validation baseline

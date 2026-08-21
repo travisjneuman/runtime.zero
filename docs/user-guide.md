@@ -314,7 +314,8 @@ and Diagnostics. It renders a loading shell before the full local inventory
 and monitor snapshot completes; an explicit `r` refresh is the only retry.
 `q` cancels an in-flight startup or refresh load, while `r` cancels the prior
 worker and rejects any late stale result before publishing the replacement
-snapshot.
+snapshot. The refresh frame explicitly says `refreshing local snapshot` while
+the replacement load is in progress.
 Important controls:
 
 - `r`: refresh local inventory;
