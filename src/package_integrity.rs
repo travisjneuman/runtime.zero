@@ -14,6 +14,9 @@ use crate::package_integrity_io::{
 
 pub const MAX_PACKAGE_FILE_BYTES: u64 = rz0_resource_contract::MAX_ARTIFACT_BYTES;
 pub const MAX_PACKAGE_FILE_COUNT: usize = 128;
+pub const MAX_PACKAGE_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_PACKAGE_DIRECTORY_DEPTH: usize = 16;
+const MODULE_MANIFEST_FILE: &str = "rz0-module.json";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PackageIntegrityReport {
@@ -111,8 +114,137 @@ pub fn verify_package_integrity(
             &mut report,
         );
     }
+    if integrity.complete_file_set {
+        verify_complete_file_set(package_root, &seen_paths, &mut report);
+    }
 
     report
+}
+
+fn verify_complete_file_set(
+    package_root: &Path,
+    declared_paths: &BTreeSet<String>,
+    report: &mut PackageIntegrityReport,
+) {
+    let mut observed_files = 0usize;
+    let mut observed_bytes = 0u64;
+    walk_package_files(
+        package_root,
+        "",
+        0,
+        declared_paths,
+        &mut observed_files,
+        &mut observed_bytes,
+        report,
+    );
+}
+
+fn walk_package_files(
+    current: &Path,
+    relative_root: &str,
+    depth: usize,
+    declared_paths: &BTreeSet<String>,
+    observed_files: &mut usize,
+    observed_bytes: &mut u64,
+    report: &mut PackageIntegrityReport,
+) {
+    if depth > MAX_PACKAGE_DIRECTORY_DEPTH {
+        report.fail(format!(
+            "package directory depth exceeds {MAX_PACKAGE_DIRECTORY_DEPTH}"
+        ));
+        return;
+    }
+    let entries = match fs::read_dir(current) {
+        Ok(entries) => entries,
+        Err(error) => {
+            report.fail(format!(
+                "failed to enumerate package directory '{}': {error}",
+                current.display()
+            ));
+            return;
+        }
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                report.fail(format!("failed to enumerate package entry: {error}"));
+                continue;
+            }
+        };
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let relative = if relative_root.is_empty() {
+            name.clone()
+        } else {
+            format!("{relative_root}/{name}")
+        };
+        if relative == MODULE_MANIFEST_FILE {
+            continue;
+        }
+        if let Err(error) = validate_relative_path(&relative) {
+            report.fail(format!(
+                "complete package entry '{relative}' is invalid: {error}"
+            ));
+            continue;
+        }
+        let metadata = match fs::symlink_metadata(entry.path()) {
+            Ok(metadata) => metadata,
+            Err(error) => {
+                report.fail(format!(
+                    "failed to inspect complete package entry '{relative}': {error}"
+                ));
+                continue;
+            }
+        };
+        if is_reparse_or_symlink(&metadata) {
+            report.fail(format!(
+                "complete package entry '{relative}' must not be a symlink or reparse point"
+            ));
+            continue;
+        }
+        if metadata.is_dir() {
+            walk_package_files(
+                &entry.path(),
+                &relative,
+                depth + 1,
+                declared_paths,
+                observed_files,
+                observed_bytes,
+                report,
+            );
+            continue;
+        }
+        if !metadata.is_file() {
+            report.fail(format!(
+                "complete package entry '{relative}' must be a regular file"
+            ));
+            continue;
+        }
+        *observed_files += 1;
+        if *observed_files > MAX_PACKAGE_FILE_COUNT {
+            report.fail(format!(
+                "complete package file count exceeds {MAX_PACKAGE_FILE_COUNT}"
+            ));
+            return;
+        }
+        let size = metadata.len();
+        *observed_bytes = match observed_bytes.checked_add(size) {
+            Some(total) => total,
+            None => {
+                report.fail("complete package byte count overflow");
+                return;
+            }
+        };
+        if *observed_bytes > MAX_PACKAGE_TOTAL_BYTES {
+            report.fail(format!(
+                "complete package bytes exceed {MAX_PACKAGE_TOTAL_BYTES}"
+            ));
+            return;
+        }
+        if !declared_paths.contains(&relative) {
+            report.fail(format!("undeclared complete package file '{relative}'"));
+        }
+    }
 }
 
 fn missing_integrity_report(manifest: &ModuleManifest) -> PackageIntegrityReport {

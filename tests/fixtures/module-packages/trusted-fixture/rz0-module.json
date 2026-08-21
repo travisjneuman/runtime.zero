@@ -21,6 +21,7 @@
     "package_format": "directory",
     "root_policy": "manifest_directory",
     "hash_algorithm": "sha256",
+    "complete_file_set": true,
     "files": [
       {
         "path": "payload.txt",

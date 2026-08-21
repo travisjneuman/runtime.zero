@@ -56,6 +56,11 @@ calls the test-key verifier. A successful result still reports
 `test_key_only: true`, `execution_authorized: false`, and
 `writes_attempted: false`.
 
+When the manifest sets `integrity.complete_file_set: true`, this review also
+rejects undeclared regular files and bounded traversal hazards before reporting
+the detached signature result. The signature envelope remains external to the
+package directory in this contract.
+
 ## Cryptographic boundary
 
 The contract uses `ed25519-dalek` 3.0 with strict Ed25519 verification and no

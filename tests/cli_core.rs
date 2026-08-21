@@ -363,8 +363,7 @@ fn modules_validate_accepts_fixture_package_integrity() {
 fn module_trust_review_binds_exact_manifest_and_test_key_signature() {
     let root = env!("CARGO_MANIFEST_DIR");
     let manifest = format!("{root}/tests/fixtures/module-packages/trusted-fixture/rz0-module.json");
-    let signature =
-        format!("{root}/tests/fixtures/module-packages/trusted-fixture/signature-envelope.json");
+    let signature = format!("{root}/tests/fixtures/module-trust/trusted-fixture-envelope.json");
     let trusted_key = format!("{root}/crates/module-trust/tests/fixtures/trusted-test-key.json");
     let (code, out, err) = run([
         "modules",

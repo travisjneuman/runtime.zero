@@ -127,6 +127,15 @@ result to manifest metadata. It never fetches remote packages, runs package
 code, loads dynamic libraries, runs scripts or hooks, repairs files, installs
 modules, updates modules, or removes modules.
 
+An optional `complete_file_set: true` integrity flag enables the stricter
+package-review mode. It recursively enumerates bounded regular files beneath
+the manifest directory, rejects symlinks/reparse points, undeclared files,
+unsupported file types, more than 128 files, more than 16 directory levels, or
+more than 512 MiB of package bytes. The root manifest is excluded from the
+payload list because hashing its own integrity field would be circular; the
+read-only trust command separately binds its exact manifest bytes to the
+detached signature envelope.
+
 ## Current validation rules
 
 - Manifest files must be regular files and at most 64 KiB.
@@ -143,6 +152,10 @@ modules, updates modules, or removes modules.
 - Planned manifests without integrity metadata remain valid with a warning.
 - Integrity metadata may list at most 128 files.
 - Each listed file must be at most 64 MiB.
+- `complete_file_set` can require all regular package files (except the root
+  manifest) to be explicitly listed.
+- Complete package review is bounded at 128 files, 16 directory levels, and
+  512 MiB total.
 - Listed paths must be relative manifest-directory paths.
 - Absolute paths, `..` traversal, URL-like paths, backslash paths, duplicate
   paths, malformed SHA-256 values, missing files, size mismatches, hash

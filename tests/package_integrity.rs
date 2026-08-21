@@ -91,6 +91,49 @@ fn rejects_traversal_path() {
     );
 }
 
+#[test]
+fn complete_file_set_rejects_undeclared_files() {
+    let root = temp_dir("complete-extra");
+    fs::write(root.join("payload.txt"), b"runtime.zero\n").expect("payload written");
+    fs::write(root.join("extra.txt"), b"undeclared\n").expect("extra written");
+    let mut package = integrity(vec![package_file(
+        "payload.txt",
+        "fb0ea974eb0ee094b6866120467df42fe274a7e500b79fec656bc26da197e4de",
+        Some(13),
+    )]);
+    package.complete_file_set = true;
+    let report = verify_package_integrity(
+        &root.join("rz0-module.json"),
+        &manifest(ModuleStatus::Installed, Some(package)),
+    );
+    cleanup(root);
+    assert!(!report.valid);
+    assert!(
+        report
+            .errors
+            .iter()
+            .any(|error| error.contains("undeclared"))
+    );
+}
+
+#[test]
+fn complete_file_set_accepts_exact_declared_files() {
+    let root = temp_dir("complete-valid");
+    fs::write(root.join("payload.txt"), b"runtime.zero\n").expect("payload written");
+    let mut package = integrity(vec![package_file(
+        "payload.txt",
+        "fb0ea974eb0ee094b6866120467df42fe274a7e500b79fec656bc26da197e4de",
+        Some(13),
+    )]);
+    package.complete_file_set = true;
+    let report = verify_package_integrity(
+        &root.join("rz0-module.json"),
+        &manifest(ModuleStatus::Installed, Some(package)),
+    );
+    cleanup(root);
+    assert!(report.valid, "{:?}", report.errors);
+}
+
 fn manifest(status: ModuleStatus, integrity: Option<PackageIntegrity>) -> ModuleManifest {
     let mut manifest = ModuleManifest::new(
         "first-party.inventory",
@@ -123,6 +166,7 @@ fn integrity(files: Vec<PackageFileIntegrity>) -> PackageIntegrity {
         package_format: PackageFormat::Directory,
         root_policy: IntegrityRootPolicy::ManifestDirectory,
         hash_algorithm: HashAlgorithm::Sha256,
+        complete_file_set: false,
         files,
         signature: None,
         provenance: None,

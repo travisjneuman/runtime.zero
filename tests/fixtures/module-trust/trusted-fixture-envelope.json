@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "scheme": "ed25519",
+  "key_id": "test.rfc8032.1",
+  "package_id": "first-party.fixture",
+  "package_version": "0.1.0",
+  "manifest_sha256": "5dae205517bc010d4f5e45a1a2a1baa9f5b034fd5926e6e92cfe68e47cdd4d66",
+  "signature_hex": "d86b1a6a6c75e10ac29470a82b7df8b66e6cc5d559bc9b812940b35d77550e7f5bd76c774066c9dd45127575cd80f5d9ffb15ad039fcc6b27429cbf6dcc9be0e"
+}

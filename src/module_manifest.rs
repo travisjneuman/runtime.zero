@@ -132,6 +132,8 @@ pub struct PackageIntegrity {
     pub package_format: PackageFormat,
     pub root_policy: IntegrityRootPolicy,
     pub hash_algorithm: HashAlgorithm,
+    #[serde(default)]
+    pub complete_file_set: bool,
     pub files: Vec<PackageFileIntegrity>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<SignatureMetadata>,

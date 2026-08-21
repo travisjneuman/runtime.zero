@@ -85,7 +85,9 @@ A future installer must verify in this order:
    downloading.
 2. Reject absolute/traversal/URL-like/backslash-ambiguous package paths,
    symlinks, reparse points, unsupported file types, oversized files, duplicate
-   paths, and undeclared files according to the approved package format.
+   paths, and undeclared files according to the approved package format. The
+   optional `integrity.complete_file_set` review mode now implements bounded
+   recursive undeclared-file rejection for local package review.
 3. Verify package digest and every declared file digest.
 4. Verify a supported detached signature against an approved key and package
    identity/version binding.
