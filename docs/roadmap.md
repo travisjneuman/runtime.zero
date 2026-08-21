@@ -138,8 +138,10 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [x] Propagate the caller-owned cancellation token through updater apply-time
   discovery, serial refresh, manager execution, post-action verification, and
   installed-software inventory/tool probes; confirmed Unix execution bridges
-  SIGINT through bounded process-group teardown, and cancellation remains
-  fail-closed before receipt publication.
+  SIGINT through bounded process-group teardown, Windows now has a native
+  console-control bridge that is compile-checked for MSVC, and cancellation
+  remains fail-closed before receipt publication. Target-native Windows
+  runtime and console-event acceptance are still open.
 - [ ] Native rollback, Windows runtime/ACL/reparse proof, manager-specific locale/
   source-agreement/offline/runtime proof, manager-specific recovery beyond the
   local journal completion lane, real

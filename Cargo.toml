@@ -86,6 +86,9 @@ sha2 = "0.10"
 signal-hook = "0.3"
 plist = { version = "1.10", default-features = false }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Console"] }
+
 [[bin]]
 name = "rz0"
 path = "src/main.rs"

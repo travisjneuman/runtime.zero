@@ -3319,14 +3319,121 @@ impl Drop for InterruptBridge {
 }
 
 #[cfg(not(unix))]
-pub(crate) struct InterruptBridge;
+pub(crate) struct InterruptBridge {
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+#[cfg(windows)]
+static WINDOWS_CONSOLE_INTERRUPTED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(windows)]
+static WINDOWS_CONSOLE_HANDLER_INSTALLED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(windows)]
+unsafe extern "system" fn windows_console_handler(ctrl_type: u32) -> windows_sys::core::BOOL {
+    use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT};
+
+    if matches!(ctrl_type, CTRL_C_EVENT | CTRL_BREAK_EVENT) {
+        WINDOWS_CONSOLE_INTERRUPTED.store(true, std::sync::atomic::Ordering::Release);
+        1
+    } else {
+        0
+    }
+}
 
 #[cfg(not(unix))]
 impl InterruptBridge {
     pub(crate) fn install(
-        _controller: rz0_cancellation_contract::CancellationController,
+        controller: rz0_cancellation_contract::CancellationController,
     ) -> Result<Self, String> {
-        Err("interactive update cancellation is not implemented on this platform".to_string())
+        #[cfg(windows)]
+        {
+            use std::sync::{
+                Arc,
+                atomic::{AtomicBool, Ordering},
+            };
+            use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
+
+            if WINDOWS_CONSOLE_HANDLER_INSTALLED
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                .is_err()
+            {
+                return Err(
+                    "interactive update cancellation bridge is already installed".to_string(),
+                );
+            }
+            WINDOWS_CONSOLE_INTERRUPTED.store(false, Ordering::Release);
+            // SAFETY: the handler has the ABI and signature required by the
+            // Windows console API and remains a static function for the
+            // lifetime of the registration.
+            let registered = unsafe { SetConsoleCtrlHandler(Some(windows_console_handler), 1) };
+            if registered == 0 {
+                WINDOWS_CONSOLE_HANDLER_INSTALLED.store(false, Ordering::Release);
+                return Err(format!(
+                    "register Windows console control handler: {}",
+                    std::io::Error::last_os_error()
+                ));
+            }
+
+            let stop = Arc::new(AtomicBool::new(false));
+            let thread_stop = Arc::clone(&stop);
+            let thread = match std::thread::Builder::new()
+                .name("rz0-update-cancellation".to_string())
+                .spawn(move || {
+                    while !thread_stop.load(Ordering::Acquire) {
+                        if WINDOWS_CONSOLE_INTERRUPTED.load(Ordering::Acquire) {
+                            controller.cancel(
+                                rz0_cancellation_contract::CancellationReason::UserRequested,
+                            );
+                            break;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                }) {
+                Ok(thread) => thread,
+                Err(error) => {
+                    // SAFETY: this unregisters the exact static handler just
+                    // registered above; no other bridge can own it because of
+                    // WINDOWS_CONSOLE_HANDLER_INSTALLED.
+                    unsafe {
+                        SetConsoleCtrlHandler(Some(windows_console_handler), 0);
+                    }
+                    WINDOWS_CONSOLE_HANDLER_INSTALLED.store(false, Ordering::Release);
+                    return Err(format!("spawn Windows cancellation bridge: {error}"));
+                }
+            };
+            return Ok(Self {
+                stop,
+                thread: Some(thread),
+            });
+        }
+
+        #[cfg(not(windows))]
+        {
+            let _ = controller;
+            Err("interactive update cancellation is not implemented on this platform".to_string())
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for InterruptBridge {
+    fn drop(&mut self) {
+        use std::sync::atomic::Ordering;
+        use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
+
+        self.stop.store(true, Ordering::Release);
+        // SAFETY: this unregisters the static handler registered by install.
+        unsafe {
+            SetConsoleCtrlHandler(Some(windows_console_handler), 0);
+        }
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+        WINDOWS_CONSOLE_HANDLER_INSTALLED.store(false, Ordering::Release);
     }
 }
 

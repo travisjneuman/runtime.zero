@@ -380,8 +380,11 @@ The largest immediate risks are:
   descriptor launch and remains pre-alpha;
 - Windows updater execution now uses the production Rust process host with
   pre-start Job Object assignment and an explicit inherited-handle list; real
-  Windows runtime, reparse/ACL, cancellation, and capability-isolation proof
-  remain incomplete;
+  Windows runtime, reparse/ACL, and capability-isolation proof remain
+  incomplete. The interactive updater now has a Rust-native Windows console
+  control bridge for Ctrl+C/Ctrl+Break, including duplicate-registration
+  protection and clean handler teardown; target-native event delivery remains
+  unverified here;
 - Unix process groups are containment aids, not syscall/filesystem/network/
   privilege sandboxes, and a hostile child may attempt session escape;
 - cancellation now covers confirmed updater discovery, serial refresh,
@@ -629,9 +632,11 @@ It then:
 8. appends final `committed` evidence only after the receipt is durable.
 
 On Unix, the first SIGINT during the confirmed lane becomes typed
-`user_requested` cancellation. The host terminates/reaps the process group and
-publishes recovery-required evidence where possible. It does not reverse an
-external effect already performed.
+`user_requested` cancellation. On Windows, Ctrl+C and Ctrl+Break are converted
+through a static console-control callback and a bounded polling bridge into the
+same typed token. The host terminates/reaps the process group and publishes
+recovery-required evidence where possible. It does not reverse an external
+effect already performed.
 
 macOS manager apply uses direct-path identity/digest revalidation immediately
 before spawn. Windows uses the pre-start Job Object/explicit handle-list host
