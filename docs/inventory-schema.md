@@ -125,11 +125,12 @@ schema 1 entirely.
 | macOS launchd metadata | On with apps | Standard plist roots; label/location/configuration evidence only, no `launchctl` |
 | Linux desktop entries | On in installed core; opt-in in development binary | Regular XDG `.desktop` files up to 64 KiB, user/hidden precedence, desktop IDs, no execution |
 | Linux dpkg/pacman metadata | On in installed core; opt-in in development binary | Direct bounded local metadata files/directories; no package-manager process/network |
+| Linux Flatpak metadata | On in installed core; opt-in in development binary | Direct bounded Flatpak installation trees and `active/metadata` files; no Flatpak process/network; records remain unsupported for action planning |
 | Linux systemd metadata | On with apps | Standard unit-file roots; label/location evidence only, no `systemctl` |
-| Other package-manager catalogs | Off | RPM/DNF, Snap, Flatpak, AppImage, Nix, language/container and other sources await scope plus parser/runtime proof |
+| Other package-manager catalogs | Off | RPM/DNF, Snap, AppImage, Nix, language/container and other sources await scope plus parser/runtime proof |
 
 Script-based executable probes remain disabled. The module detects package manager executables but does not invoke manager
-list/update/install/uninstall commands. Application collectors reject symlinked
+list/update/install/uninstall commands. Flatpak metadata traversal rejects symlinked roots and intermediate directories, accepts only bounded regular `active/metadata` files with an `[Application]` section, and identifies each app by its exact app ID, architecture, and branch. Application collectors reject symlinked
 roots and records and cap entry inspection and normalized output at 4,096 records. Linux desktop
 files use XDG data-root precedence; a higher-priority `Hidden=true` entry blocks
 the same lower-priority desktop ID. The parser does not treat the desktop-spec

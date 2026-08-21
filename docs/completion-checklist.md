@@ -192,7 +192,7 @@ full platform/lifecycle acceptance cells.
   relevant package evidence within the frozen scope.
 - [ ] Complete macOS app bundles, Homebrew, package receipts, MacPorts,
   launchd/services, persistence, and relevant package evidence.
-- [ ] Complete Linux APT/dpkg, DNF/RPM, pacman, Snap, Flatpak, AppImage,
+- [ ] Complete Linux APT/dpkg, DNF/RPM, pacman, Snap, AppImage,
   services, XDG, persistence, and frozen distro-specific sources.
 - [ ] Decide and implement Nix, language managers, containers, browser
   extensions, and other discovered sources as in-scope or explicit exclusions.

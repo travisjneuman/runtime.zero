@@ -69,12 +69,15 @@ profile exists. Disposable APFS snapshot/power-loss evidence remains required.
 - XDG desktop entries and explicit executable fields;
 - direct `/var/lib/dpkg/status` package paragraphs;
 - direct `/var/lib/pacman/local/*/desc` package metadata;
+- direct Flatpak installation-tree `active/metadata` records with app
+  ID/architecture/branch identity;
 - systemd unit-file labels under standard system/user configuration roots;
 - allowlisted manager/tool executables.
 
-Direct package metadata reads avoid invoking apt/dpkg/pacman for baseline
+Direct package metadata reads avoid invoking apt/dpkg/pacman/Flatpak for baseline
 inventory. Package status filters, parser ceilings, malformed-record handling,
-and fixtures exist, but native distro/version proof is still required.
+and fixtures exist, but native distro/version proof is still required. Flatpak
+records remain evidence-only and are not uninstall/update authority.
 Systemd unit presence is not the same as enabled or active state; `enabled` is
 therefore unknown in the current read-only record.
 

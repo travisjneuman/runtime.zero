@@ -1,0 +1,7 @@
+[Application]
+name=Fixture App
+runtime=org.gnome.Platform/x86_64/46
+command=fixture
+
+[Context]
+shared=network;ipc;

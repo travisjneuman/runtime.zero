@@ -125,7 +125,7 @@ Every module must reach the same lifecycle bar on every supported platform:
 
 | Module | Windows | macOS | Linux | Current maturity |
 | --- | --- | --- | --- | --- |
-| Inventory/environment | Required | Required | Required | Built-in catalog/scan with source IDs plus bounded macOS receipts/MacPorts/launchd, Linux dpkg/pacman/systemd, and Windows registry/service metadata; broader source depth and runtime parity incomplete |
+| Inventory/environment | Required | Required | Required | Built-in catalog/scan with source IDs plus bounded macOS receipts/MacPorts/launchd, Linux dpkg/pacman/Flatpak/systemd, and Windows registry/service metadata; broader source depth and runtime parity incomplete |
 | Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, macOS path-revalidated, Linux native-ELF, and Windows pre-start Job Object manager execution, SIGINT cancellation, isolated npm environments, exact journal evidence, canonical external-effect receipts, fresh post-action verification, and receipt-bound local recovery completion; Windows runtime/reparse/ACL proof, OS capability/network enforcement, rollback, manager proof, and full runtime matrix incomplete |
 | Uninstall | Required | Required | Required | Live catalog records become shared findings and optional sealed plans; one narrow exact-manager apply lane now reuses the foundation external-effect executor, while broad manager/platform, dependency, rollback, quarantine, and runtime proof remain incomplete |
 | Leftovers | Required | Required | Required | Bounded runtime.zero-owned module/log and unreferenced-receipt evidence plus one exact module-file plan/apply lane; post-uninstall ownership, retention, platform parity, and broad quarantine remain open |

@@ -35,7 +35,8 @@ Validated with Rust/Cargo 1.96.0:
 - `cargo run -- doctor` and `cargo run -- scan --dry-run`;
 - fixture and live-redacted inventory JSON parsing/assertions;
 - opt-in macOS application-bundle smoke with redacted paths;
-- synthetic Linux XDG desktop-entry precedence/parser tests;
+- synthetic Linux XDG desktop-entry precedence/parser and Flatpak metadata
+  identity/malformed-input tests;
 - test-key signature, immutable OS-temp staging, quarantine/restore failure,
   no-execution module-protocol fixtures, canonical blocked production-execution
   assessments, and native test-child framing/output/timeout failure cases;

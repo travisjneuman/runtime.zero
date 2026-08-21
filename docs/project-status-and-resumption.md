@@ -414,8 +414,8 @@ metadata sources include:
   service/driver registry metadata;
 - macOS application bundles and bundle IDs, Homebrew Cellar/Caskroom roots,
   MacPorts roots, Apple Installer receipt plists, and launchd plist labels;
-- Linux XDG desktop entries/desktop IDs, direct dpkg status and pacman local
-  metadata, and systemd unit-file labels;
+- Linux XDG desktop entries/desktop IDs, direct dpkg status, pacman local and
+  Flatpak `active/metadata` records, and systemd unit-file labels;
 - optional exact-path Unix version probes through the shared process host.
 
 Collectors do not invoke package managers or service controllers for baseline
@@ -430,8 +430,8 @@ name-normalized heuristic. Group confidence and version disagreement remain
 visible. IDs improve local reconciliation but are not universal product IDs and
 never authorize mutation.
 
-Coverage remains incomplete: RPM/DNF, Snap, Flatpak, AppImage, Nix, language
-managers, containers, browser extensions, live service status/dependencies,
+Coverage remains incomplete: RPM/DNF, Snap, AppImage, Nix, language managers,
+containers, browser extensions, live service status/dependencies,
 MSIX/AppX/Winget/Chocolatey/Scoop, and many persistence/driver details await an
 explicit 1.0 scope and target-native proof.
 

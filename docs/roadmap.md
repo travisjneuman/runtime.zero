@@ -82,6 +82,8 @@ The dependency order is therefore:
 - [x] Direct bounded MacPorts/Apple receipt and Linux dpkg/pacman metadata reads,
   source-specific software identifiers, and launchd/systemd/Windows service
   metadata without manager/service-controller execution.
+- [x] Direct bounded Flatpak `active/metadata` reads with app ID/architecture/
+  branch identity and explicit unsupported action posture.
 - [ ] Real Windows runtime smoke for persisted PATH, registry views, apps,
   version-probe timeout, and redaction.
 - [ ] Additional package-manager listing adapters; intentionally deferred until
@@ -187,7 +189,7 @@ See [`action-planning.md`](action-planning.md).
   mismatch posture and no remediation claim.
 - [x] Add bounded metadata-only MacPorts/Apple receipt/dpkg/pacman and
   launchd/systemd service/persistence adapters with explicit source status.
-- [ ] Complete remaining in-scope RPM/DNF/Snap/Flatpak/AppImage and richer
+- [ ] Complete remaining in-scope RPM/DNF/Snap/AppImage and richer
   service/persistence/driver/package sources after scope freeze.
 - [ ] Real Linux application runtime and Windows/full cross-platform compatibility matrix.
 - [x] Deterministic target-filtered SPDX 2.3 and deduplicated package license/

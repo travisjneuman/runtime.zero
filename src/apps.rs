@@ -367,6 +367,11 @@ fn classify_app(app: &AppRecord) -> InstalledSoftware {
             InstallScope::Manager,
             UninstallOption::ManagerReview,
         ),
+        "linux.flatpak.packages" => (
+            SoftwareKind::PlatformPackage,
+            InstallScope::Unknown,
+            UninstallOption::Unsupported,
+        ),
         "windows.installed_apps" | "linux.desktop_entries" => (
             SoftwareKind::PlatformPackage,
             InstallScope::Unknown,

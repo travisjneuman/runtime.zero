@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 #[cfg(target_os = "linux")]
 use std::env;
+use std::fs;
 #[cfg(target_os = "linux")]
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
@@ -20,6 +21,7 @@ const MAX_APP_ROOTS: usize = 32;
 #[cfg(target_os = "linux")]
 pub(super) fn collect_installed_apps() -> Vec<PlatformAppCollection> {
     let (roots, warnings) = application_roots();
+    let (flatpak_roots, flatpak_warnings) = flatpak_roots();
     vec![
         collect_roots(&roots, warnings),
         collect_dpkg_status(Path::new("/var/lib/dpkg/status")),
@@ -27,6 +29,7 @@ pub(super) fn collect_installed_apps() -> Vec<PlatformAppCollection> {
             path: PathBuf::from("/var/lib/pacman/local"),
             label: "pacman-local".to_string(),
         }),
+        collect_flatpak_packages(&flatpak_roots, flatpak_warnings),
     ]
 }
 
@@ -316,6 +319,225 @@ fn parse_pacman_desc(bytes: &[u8]) -> Option<(String, String)> {
     Some((name?, version?))
 }
 
+fn collect_flatpak_packages(
+    roots: &[RootSpec],
+    mut warnings: Vec<String>,
+) -> PlatformAppCollection {
+    let started = Instant::now();
+    let mut apps = Vec::new();
+    let mut opened_roots = 0usize;
+    let mut inspected_entries = 0usize;
+    let mut invalid = 0usize;
+    let mut limit_reached = false;
+
+    'roots: for root in roots {
+        let Some(mut app_entries) = open_root(root, &mut warnings) else {
+            continue;
+        };
+        opened_roots += 1;
+        app_entries.sort_by_key(|entry| entry.file_name());
+        for app_entry in app_entries {
+            if inspected_entries == MAX_APP_RECORDS {
+                limit_reached = true;
+                break 'roots;
+            }
+            let Ok(app_type) = app_entry.file_type() else {
+                invalid = invalid.saturating_add(1);
+                continue;
+            };
+            if app_type.is_symlink() || !app_type.is_dir() {
+                continue;
+            }
+            let Some(app_id) = app_entry
+                .file_name()
+                .to_str()
+                .and_then(|value| sanitize_exact_text(value, 200))
+            else {
+                invalid = invalid.saturating_add(1);
+                continue;
+            };
+            let app_path = app_entry.path();
+            let Some(mut arch_entries) = open_flatpak_directory(
+                &app_path,
+                "flatpak application architecture directory",
+                &mut warnings,
+            ) else {
+                invalid = invalid.saturating_add(1);
+                continue;
+            };
+            arch_entries.sort_by_key(|entry| entry.file_name());
+            for arch_entry in arch_entries {
+                if inspected_entries == MAX_APP_RECORDS {
+                    limit_reached = true;
+                    break 'roots;
+                }
+                let Ok(arch_type) = arch_entry.file_type() else {
+                    invalid = invalid.saturating_add(1);
+                    continue;
+                };
+                if arch_type.is_symlink() || !arch_type.is_dir() {
+                    continue;
+                }
+                let Some(architecture) = arch_entry
+                    .file_name()
+                    .to_str()
+                    .and_then(|value| sanitize_exact_text(value, 80))
+                else {
+                    invalid = invalid.saturating_add(1);
+                    continue;
+                };
+                let Some(mut branch_entries) = open_flatpak_directory(
+                    &arch_entry.path(),
+                    "flatpak application branch directory",
+                    &mut warnings,
+                ) else {
+                    invalid = invalid.saturating_add(1);
+                    continue;
+                };
+                branch_entries.sort_by_key(|entry| entry.file_name());
+                for branch_entry in branch_entries {
+                    if inspected_entries == MAX_APP_RECORDS {
+                        limit_reached = true;
+                        break 'roots;
+                    }
+                    let Ok(branch_type) = branch_entry.file_type() else {
+                        invalid = invalid.saturating_add(1);
+                        continue;
+                    };
+                    if branch_type.is_symlink() || !branch_type.is_dir() {
+                        continue;
+                    }
+                    let Some(branch) = branch_entry
+                        .file_name()
+                        .to_str()
+                        .and_then(|value| sanitize_exact_text(value, 120))
+                    else {
+                        invalid = invalid.saturating_add(1);
+                        continue;
+                    };
+                    inspected_entries = inspected_entries.saturating_add(1);
+                    let metadata_path = branch_entry.path().join("active").join("metadata");
+                    let bytes = match read_direct_bounded_file(
+                        &metadata_path,
+                        rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES,
+                    ) {
+                        Ok(Some(bytes)) => bytes,
+                        Ok(None) | Err(_) => {
+                            invalid = invalid.saturating_add(1);
+                            continue;
+                        }
+                    };
+                    let Some(metadata_name) = parse_flatpak_metadata(&bytes) else {
+                        invalid = invalid.saturating_add(1);
+                        continue;
+                    };
+                    let identity = format!(
+                        "linux.flatpak|{}|{}|{}",
+                        app_id.to_ascii_lowercase(),
+                        architecture.to_ascii_lowercase(),
+                        branch.to_ascii_lowercase()
+                    );
+                    apps.push(AppRecord {
+                        id: format!("linux.flatpak.{:016x}", fnv1a(identity.as_bytes())),
+                        name: metadata_name.unwrap_or_else(|| app_id.clone()),
+                        source_id: "linux.flatpak.packages".to_string(),
+                        version: None,
+                        publisher: Some("flatpak".to_string()),
+                        identifiers: vec![SoftwareIdentifier {
+                            kind: "manager_package".to_string(),
+                            value: format!("flatpak:{app_id}/{architecture}/{branch}"),
+                        }],
+                        install_location: Some(metadata_path.display().to_string()),
+                        warnings: Vec::new(),
+                    });
+                }
+            }
+        }
+    }
+    if limit_reached {
+        warnings.push(format!(
+            "flatpak package inspection limit of {MAX_APP_RECORDS} reached; remaining records were skipped"
+        ));
+    }
+    if invalid > 0 {
+        warnings.push(format!(
+            "{invalid} flatpak package records were unreadable or invalid and were skipped"
+        ));
+    }
+    finish_collection(
+        "linux.flatpak.packages",
+        "bounded_file_content",
+        started,
+        opened_roots,
+        apps,
+        warnings,
+    )
+}
+
+fn open_flatpak_directory(
+    path: &Path,
+    label: &str,
+    warnings: &mut Vec<String>,
+) -> Option<Vec<fs::DirEntry>> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(_) => {
+            warnings.push(format!("{label} was unavailable"));
+            return None;
+        }
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        warnings.push(format!(
+            "{label} was not a direct directory and was skipped"
+        ));
+        return None;
+    }
+    match fs::read_dir(path) {
+        Ok(entries) => Some(
+            entries
+                .take(MAX_APP_RECORDS.saturating_add(1))
+                .filter_map(Result::ok)
+                .collect(),
+        ),
+        Err(_) => {
+            warnings.push(format!("{label} could not be enumerated"));
+            None
+        }
+    }
+}
+
+fn parse_flatpak_metadata(bytes: &[u8]) -> Option<Option<String>> {
+    let text = std::str::from_utf8(bytes).ok()?;
+    let mut in_application = false;
+    let mut saw_application = false;
+    let mut name = None;
+    let mut duplicate_name = false;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
+            continue;
+        }
+        if let Some(section) = line
+            .strip_prefix('[')
+            .and_then(|value| value.strip_suffix(']'))
+        {
+            in_application = section == "Application";
+            saw_application |= in_application;
+            continue;
+        }
+        if !in_application {
+            continue;
+        }
+        let (key, value) = line.split_once('=')?;
+        if key.trim() == "name" {
+            duplicate_name |= name.is_some();
+            name = sanitize_exact_text(value, 200);
+        }
+    }
+    (saw_application && !duplicate_name).then_some(name)
+}
+
 #[cfg(target_os = "linux")]
 fn application_roots() -> (Vec<RootSpec>, Vec<String>) {
     let mut roots = Vec::new();
@@ -367,6 +589,40 @@ fn application_roots() -> (Vec<RootSpec>, Vec<String>) {
 }
 
 #[cfg(target_os = "linux")]
+fn flatpak_roots() -> (Vec<RootSpec>, Vec<String>) {
+    let mut candidates = Vec::new();
+    if let Some(data_home) = absolute_env_path("XDG_DATA_HOME")
+        .or_else(|| absolute_env_path("HOME").map(|home| home.join(".local").join("share")))
+    {
+        candidates.push((data_home.join("flatpak").join("app"), "flatpak-user"));
+    }
+    candidates.push((PathBuf::from("/var/lib/flatpak/app"), "flatpak-system"));
+    candidates.push((
+        PathBuf::from("/usr/share/flatpak/app"),
+        "flatpak-system-share",
+    ));
+
+    let mut roots = Vec::new();
+    let mut warnings = Vec::new();
+    let mut seen = BTreeSet::new();
+    for (path, label) in candidates {
+        if path.is_absolute() && seen.insert(path.clone()) {
+            roots.push(RootSpec {
+                path,
+                label: label.to_string(),
+            });
+        }
+    }
+    if roots.len() > MAX_APP_ROOTS {
+        roots.truncate(MAX_APP_ROOTS);
+        warnings.push(format!(
+            "flatpak root limit of {MAX_APP_ROOTS} reached; remaining roots were skipped"
+        ));
+    }
+    (roots, warnings)
+}
+
+#[cfg(target_os = "linux")]
 fn absolute_env_path(name: &str) -> Option<PathBuf> {
     env::var_os(name)
         .map(PathBuf::from)
@@ -399,6 +655,41 @@ mod tests {
         assert_eq!(pacman.apps.len(), 1);
         assert_eq!(pacman.apps[0].name, "alpha");
         assert_eq!(pacman.apps[0].version.as_deref(), Some("1.2.3-1"));
+
+        let flatpak = collect_flatpak_packages(
+            &[RootSpec {
+                path: fixture.join("flatpak"),
+                label: "fixture-flatpak".to_string(),
+            }],
+            Vec::new(),
+        );
+        assert_eq!(flatpak.source.status, "ok");
+        assert_eq!(flatpak.apps.len(), 1);
+        assert_eq!(flatpak.apps[0].name, "Fixture App");
+        assert_eq!(
+            flatpak.apps[0].identifiers[0].value,
+            "flatpak:org.example.Fixture/x86_64/stable"
+        );
+    }
+
+    #[test]
+    fn flatpak_metadata_rejects_malformed_or_duplicate_application_names() {
+        assert_eq!(
+            parse_flatpak_metadata(b"[Application]\nname=Fixture App\n"),
+            Some(Some("Fixture App".to_string()))
+        );
+        assert_eq!(
+            parse_flatpak_metadata(b"[Application]\nname=first\nname=second\n"),
+            None
+        );
+        assert_eq!(
+            parse_flatpak_metadata(b"[Runtime]\nname=not-an-app\n"),
+            None
+        );
+        assert_eq!(
+            parse_flatpak_metadata(b"[Application]\nname=bad\ninvalid"),
+            None
+        );
     }
 
     #[test]

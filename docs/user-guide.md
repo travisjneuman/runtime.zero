@@ -92,8 +92,10 @@ Current bounded sources include:
 
 - macOS application bundles, Homebrew Cellar/Caskroom metadata, MacPorts metadata
   roots, Apple Installer receipt plists, and launchd labels;
-- Linux XDG desktop entries, direct dpkg status and pacman local metadata, and
-  systemd unit-file labels;
+- Linux XDG desktop entries, direct dpkg status, pacman local metadata, bounded
+  Flatpak `active/metadata` records, and systemd unit-file labels. Flatpak
+  records preserve the app ID/architecture/branch as source evidence but remain
+  unsupported for uninstall/update action planning;
 - Windows persisted PATH, standard uninstall registry views, product codes/key digests, and
   service registry metadata;
 - process PATH and allowlisted tool discovery on all three platform families.

@@ -44,9 +44,11 @@ explicit:
 - macOS enumerates direct `.app` directories, bounded `Info.plist` metadata,
   Homebrew Cellar/Caskroom and MacPorts roots, Apple Installer receipt plists,
   and launchd plist labels without invoking a manager or `launchctl`;
-- Linux parses bounded regular XDG desktop entries, direct dpkg status and pacman
-  local metadata, and systemd unit-file labels without emitting/executing
-  desktop `Exec` values or invoking a manager/service controller.
+- Linux parses bounded regular XDG desktop entries, direct dpkg status, pacman
+  local metadata, Flatpak `active/metadata` records, and systemd unit-file labels
+  without emitting/executing desktop `Exec` values or invoking a manager/service
+  controller. Flatpak records are metadata evidence only and do not gain
+  uninstall/update authority.
 
 The collectors reject symlinked roots/records, cap output at 4,096 software plus
 4,096 service records, and do not invoke package managers, applications,

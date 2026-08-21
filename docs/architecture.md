@@ -83,8 +83,8 @@ separate private-for-export gate so the feature package does not depend on the
 CLI/TUI core or pull its terminal stack into the module binary. The module uses deterministic fixtures, bounded
 process-PATH collection on
 Windows/macOS/Linux, read-only persisted PATH and optional app registry reads on
-Windows, bounded `.app`/Homebrew/MacPorts/Apple-receipt and XDG/dpkg/pacman
-evidence on macOS/Linux, metadata-only launchd/systemd/Windows service records,
+Windows, bounded `.app`/Homebrew/MacPorts/Apple-receipt and XDG/dpkg/pacman/
+Flatpak evidence on macOS/Linux, metadata-only launchd/systemd/Windows service records,
 allowlisted direct executable discovery, opt-in probes using shared
 cleared-environment drains/deadlines and platform containment,
 report-local path redaction, and structured source events. It does not invoke
