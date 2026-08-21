@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `049e333` (`Refresh runtime status and artifact evidence`).
+  `77d389a` (`Add exact cache quarantine lane`).
 - **Current behavior implementation:**
-  `049e333` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `77d389a` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -20,8 +20,10 @@
   Bounded provenance consistency checks now reject malformed or publisher-drifted
   package metadata without treating provenance as trust authority. The leftovers
   surface now also has an explicit one-file module-store plan and a separate
-  confirmation-bound quarantine invocation; it does not provide
-  recursive cleanup, uninstall, deletion, elevation, or module authority.
+  confirmation-bound quarantine invocation. The cache surface now has the same
+  exact one-file plan/apply boundary for runtime.zero-owned cache artifacts; it
+  does not provide recursive cleanup, uninstall, deletion, elevation, or module
+  authority.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -29,28 +31,27 @@
   and a working macOS/Linux/Windows-pre-alpha manager-update executor exist,
   with Windows runtime evidence still absent. Uninstall, recursive cleanup, broad
   quarantine/restore, module lifecycle execution, and third-party execution
-  remain unavailable; only the narrow exact-file leftovers lane is present.
+  remain unavailable; only the narrow exact-file leftovers and runtime-cache
+  quarantine lanes are present.
 
-The cache slice is pushed at `f50eb5b`, the leftovers slice at `87aef29`, the
+The exact cache quarantine slice is pushed at `77d389a`, the leftovers slice at
+`87aef29`, the
 updater/receipt slices at `d5e5153`, `ee1a1eb`, and `ad999c3`, the compact TUI
 posture update at `8132b4e`, the exact-file integrity slice at `47c6f9f`, and
 the Windows process-host/probe slice at `39adb92`, the module trust review
 slice at `a6664d6`, the complete-file-set slice at `3012176`, provenance
 validation at `63f7d8d`, and the exact leftovers plan/apply lane at `22c3619`.
-The status refresh itself is `049e333`.
+The status refresh itself is being refreshed after `77d389a`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, the full
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC cross-target `cargo check`, and
-`git diff --check`. A current aarch64 Apple Silicon artifact was independently
-verified and reproduced byte-for-byte from `049e333`; the binary SHA-256 is
-`fa133cfd84132c94e85a01002be69b56382279d3ddd54a7d6c3c3709486e79bb` and the
-ZIP SHA-256 is
-`a0c4e21de1570e41e88ded9125dba39e935b9f7d87c6d697439557317b80bac9`.
-It remains unsigned and unnotarized until an owner-led signing/notarization
-lane exists.
+`git diff --check`. The prior `049e333` aarch64 package evidence is historical
+and must not be used for this newer source baseline; a fresh final package is
+required. Any resulting artifact remains unsigned and unnotarized until an
+owner-led signing/notarization lane exists.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
@@ -161,6 +162,8 @@ rz0 --version
 rz0 doctor [--format text|json]
 rz0 apps [--format text|json]
 rz0 cache --dry-run [--format text|json] [--fixture <cache-input.json>]
+rz0 cache --dry-run --plan --path <absolute-cache-file> [--format text|json]
+rz0 cache --apply --path <absolute-cache-file> [--challenge-issued-unix-seconds <seconds>] [--confirm <phrase>] [--format text|json]
 rz0 leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]
 rz0 leftovers --dry-run --plan --path <absolute-module-file> [--format text|json]
 rz0 leftovers --apply --path <absolute-module-file> [--challenge-issued-unix-seconds <seconds>] [--confirm <phrase>] [--format text|json]
