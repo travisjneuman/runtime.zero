@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `4a8960d3637b3e7411d424d07b1af8c3e12bdb6d` (`fix: unify home toolchain counts`).
+  `476954da8f9e4f0cf404a6cdfbe820bb8d22a41e` (`docs: record cancellation and winget boundary`).
 - **Current behavior implementation:**
-  `4a8960d` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `7bb5b44` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -189,10 +189,10 @@ The strict AIUP provider-evidence slice is `e3f4bd4`.
 The AIUP executable-inventory binding and wrapper-filter slice is `8b035bd`.
 The shared Toolchain/TUI executable-evidence slice is `3961200`.
 The Home/Toolchain parity slice is `4a8960d`.
-The post-action cancellation propagation slice is pending on the current
-working tree and will be recorded with its exact commit after publication.
+The post-action cancellation propagation slice is `7bb5b44`.
+The documentation and WinGet-boundary follow-up is `476954d`.
 The current exact-head release evidence refresh is bound to
-`4a8960d3637b3e7411d424d07b1af8c3e12bdb6d`.
+`476954da8f9e4f0cf404a6cdfbe820bb8d22a41e`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -200,24 +200,24 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current universal2 package is
-`target/release-package-universal2-4a8960d/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+`target/release-package-universal2-476954d/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
 It has binary SHA-256
-`9a505bbc461d639bda515595feb87a9be49391a64dca7ca548591e3b5aba4e5a`, ZIP
+`cb6531d4668442e574f7fb482dba15b3f065c5a5c1557b5110c8725749e050d6`, ZIP
 SHA-256
-`3fc2e48c0a2007a9c6c254d8bfebd06bf3d691d08bbd1eab7628f1d06bc0e2c0`, and
-3,993,851 bytes across 8 verified members. The embedded artifact manifest,
+`40db7964cdb5930ce4dc09f0e8877f705288b3acca5939e411152fea49e16104`, and
+3,994,722 bytes across 8 verified members. The embedded artifact manifest,
 SBOM, and third-party notices have SHA-256 values
-`82e0722231368339d47ff475d517c83415dd61a54c1f78d7b8eda492ee3f9791`,
-`28ff5f21a20ae001f89bb855af6533624a0ad28475192f67b9b9796b28003685`, and
-`37e8e4cf747d52bfc70d98fd10aa48d34acff9bdca1fe079590ac215842fc026`; their
+`8b419840a057b964eaea61a3739a7b31278c1ba0ae80b5293a3ebf09a5de8ecb`,
+`5d3e50b53c9d8eec0c5fe64dda2bbd09cb1cf24c0a68d22a114b0b72540d0a71`, and
+`378e8e7c8437aa16e51453354e49827e338b7398299c650d28aff6e8a67dcc6c`; their
 embedded sizes are 980, 162,322, and 291,176 bytes respectively. The package
 verifier passed, and `file`/`lipo` confirmed arm64 plus x86_64 Mach-O slices.
 Both slices passed four PTY terminal smoke cases and ten-sample final-artifact
 performance evidence. The terminal evidence IDs are
-`terminal:universal2-apple-darwin-arm64-9a505bbc461d` and
-`terminal:universal2-apple-darwin-x86_64-9a505bbc461d`; the performance IDs are
-`perf:universal2-apple-darwin-arm64-9a505bbc461d` and
-`perf:universal2-apple-darwin-x86_64-9a505bbc461d`. Both slices passed
+`terminal:universal2-apple-darwin-arm64-cb6531d46684` and
+`terminal:universal2-apple-darwin-x86_64-cb6531d46684`; the performance IDs are
+`perf:universal2-apple-darwin-arm64-cb6531d46684` and
+`perf:universal2-apple-darwin-x86_64-cb6531d46684`. Both slices passed
 read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
 doctor reported 6 passing and 4 blocked policy checks, while scan reported 9
 sources, 325 tools, 273 apps, 895 services, and 22 warnings. AIUP reported the
