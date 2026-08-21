@@ -51,6 +51,11 @@ module activation, or mutation.
 .B apps [--format text|json]
 List bounded path-free installed-software evidence and source identifiers.
 .TP
+.B aiup [--format text|json]
+Print the Rust-owned AIUP-facing AI-tool and provider-posture review. It is
+read-only and never invokes AIUP, installs or updates a tool, configures a
+provider, or writes state.
+.TP
 .B cache --dry-run [--fixture PATH] [--format text|json]
 Review bounded ownership-aware cache evidence from known runtime/manager roots
 or one local fixture. This is read-only and never authorizes cleanup,
