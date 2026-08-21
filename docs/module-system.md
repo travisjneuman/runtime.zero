@@ -219,8 +219,10 @@ known-root read-only adapter exposed through `rz0 cache --dry-run`; leftovers
 has the same bounded adapter over runtime.zero-owned module/log and unreferenced
 receipt roots, while
 security/integrity remains caller-baseline-only with a bounded exact-file read
-adapter. None is a signed/active lifecycle
-package, and no uninstall/cleanup/integrity execution exists. See
+adapter. None is a signed/active lifecycle package; there is no uninstall,
+recursive cleanup, or integrity remediation execution. The only narrow
+leftovers exception is one explicitly supplied module-store file through the
+confirmation-bound foundation quarantine lane. See
 [`domain-classifier-modules.md`](domain-classifier-modules.md).
 
 ## Planned module families

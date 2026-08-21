@@ -26,7 +26,7 @@ Register-ArgumentCompleter -Native -CommandName rz0 -ScriptBlock {
     } elseif ($tokens[1] -eq 'modules') {
         @('validate','install','lifecycle-plan','--from','--module-id','--from-state','--to-state','--from-version','--to-version','--transition-id','--dry-run','--format','--json','--help')
     } elseif ($tokens[1] -eq 'cache') {
-        @('--dry-run','--fixture','--format','--json','--help')
+        @('--dry-run','--fixture','--plan','--apply','--path','--challenge-issued-unix-seconds','--confirm','--format','--json','--help')
     } elseif ($tokens[1] -eq 'leftovers') {
         @('--dry-run','--fixture','--plan','--apply','--path','--challenge-issued-unix-seconds','--confirm','--format','--json','--help')
     } elseif ($tokens[1] -eq 'integrity') {

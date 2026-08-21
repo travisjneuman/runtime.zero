@@ -234,6 +234,9 @@ full platform/lifecycle acceptance cells.
 
 - [x] Add a bounded, path-free, read-only known-root evidence adapter and expose
   its shared finding contract through the CLI and TUI.
+- [x] Add one exact runtime.zero cache-file plan and confirmation-bound
+  foundation quarantine lane; manager, user, shared, and unknown cache roots
+  remain report-only.
 - [ ] Define manager/runtime cache ownership, safe size/age budgets, active-use
   detection, and explicit exclusions.
 - [ ] Implement bounded live discovery and quarantine/restore without broad

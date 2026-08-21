@@ -51,6 +51,18 @@ Review bounded ownership-aware cache evidence from known runtime/manager roots
 or one local fixture. This is read-only and never authorizes cleanup,
 quarantine, restore, or deletion.
 .TP
+.B cache --dry-run --plan --path ABSOLUTE_CACHE_FILE [--format text|json]
+Build one exact, path-redacted, digest- and size-bound quarantine plan for an
+explicit runtime.zero cache file. The plan is dry-run evidence and does not
+move the file.
+.TP
+.B cache --apply --path ABSOLUTE_CACHE_FILE [--challenge-issued-unix-seconds SECONDS] [--confirm PHRASE] [--format text|json]
+Without
+.B --confirm,
+print a short-lived challenge without writing. With the exact phrase, execute
+only that one confirmation-bound quarantine move. It never deletes, recurses,
+elevates, or uses network access.
+.TP
 .B leftovers --dry-run [--fixture PATH] [--format text|json]
 Review bounded runtime.zero-owned module/log and unreferenced-receipt evidence or one local fixture. This
 is read-only and never authorizes cleanup, quarantine, restore, or deletion.

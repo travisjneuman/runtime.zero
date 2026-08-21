@@ -77,12 +77,17 @@ Read-only and synthetic module work may continue when it:
 
 ## Current write-path exception
 
-The core updater is the only domain write exception. It performs a fresh live
-probe, selects one finding-bound plan action, obtains exact short-lived
-confirmation, publishes local durable evidence, invokes one allowlisted manager
-path through the bounded process host, and verifies fresh availability.
+The core updater and the narrow leftovers exact-file lane are the only domain
+write exceptions. The updater performs a fresh live probe, selects one
+finding-bound plan action, obtains exact short-lived confirmation, publishes
+local durable evidence, invokes one allowlisted manager path through the
+bounded process host, and verifies fresh availability. The leftovers lane
+accepts only one explicitly supplied regular file inside the private module
+store and invokes the receipt-bound quarantine mover after the same kind of
+exact confirmation; it does not discover candidates or recurse.
 
-Do not copy or broaden this lane. Before it is production-ready it still needs:
+Do not copy or broaden either lane. Before the updater is production-ready it
+still needs:
 
 - opened executable identity bound to the actual spawn;
 - platform capability, network, privilege, and process isolation enforcement;
@@ -94,6 +99,8 @@ Do not copy or broaden this lane. Before it is production-ready it still needs:
 
 The other current write surface, `store init --yes`, is limited to validated
 runtime.zero-owned user-local scaffolding and remains blocked on Windows.
+The leftovers lane still needs cross-filesystem, metadata-retention,
+platform-bundle, full recovery, and target-native runtime proof.
 
 ## Still-blocked product work
 

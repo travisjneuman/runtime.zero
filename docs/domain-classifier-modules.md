@@ -10,7 +10,7 @@ Five first-party packages consume the shared
 | `modules/updater/` | Classifies installed/manager-owned update evidence, parses selected manager output, builds finding-bound action plans and serial queues | Fixture, captured-output, and explicit live-probe paths exist; core owns the separate explicit apply lane |
 | `modules/uninstall/` | Classifies synthetic or live installed-software evidence and builds optional finding-bound dry-run manager plans | Core `uninstall plan` uses this shared producer; no uninstall execution |
 | `modules/leftovers/` | Classifies bounded runtime.zero-owned module/log and unreferenced-receipt evidence for conservative post-uninstall review | Core `rz0 leftovers --dry-run` live adapter, strict fixture path, exact module-file plan, and confirmation-bound exact quarantine; no recursive cleanup |
-| `modules/cache/` | Classifies bounded known-root cache evidence while preserving conservative ownership policy | Core `rz0 cache --dry-run` live adapter plus strict fixture path; no cleanup |
+| `modules/cache/` | Classifies bounded known-root cache evidence while preserving conservative ownership policy | Core `rz0 cache --dry-run` live adapter plus strict fixture path and one exact runtime-cache-file plan/apply lane; no recursive cleanup |
 | `modules/security-integrity/` | Classifies exact digest match/mismatch observations | Core `rz0 integrity --dry-run --fixture` and bounded exact-file path; report-only and no trusted baseline |
 
 The foundation owns producer/category binding, privacy, protected-data policy,

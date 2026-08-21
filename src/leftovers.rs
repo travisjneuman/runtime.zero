@@ -2,17 +2,8 @@ use std::collections::{BTreeSet, VecDeque};
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
-use rz0_action_plan::{
-    ActionCapability, ActionDisposition, ActionKind, ActionPlan, ActionRisk, ActionSource,
-    RollbackPlan, WriteKind, WriteSetEntry, action_plan_digests, validate_action_plan,
-};
-use rz0_confirmation_contract::{
-    ConfirmationChallenge, ConfirmationConsumption, ConfirmationResponse, ConfirmationRisk,
-    ConfirmationSurface, confirmation_response_sha256, seal_confirmation_challenge,
-    seal_confirmation_consumption, validate_confirmation,
-};
+use rz0_action_plan::ActionPlan;
 use rz0_finding_contract::FindingReport;
 use rz0_module_leftovers::{
     INPUT_CONTRACT as LEFTOVER_INPUT_CONTRACT, LeftoverFindingInput, LeftoverRecord,
@@ -23,12 +14,14 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     ExitCode, brand,
+    exact_quarantine::{
+        ExactQuarantineActionSpec, build_exact_quarantine_action_plan,
+        build_exact_quarantine_challenge, execute_exact_quarantine,
+        render_exact_quarantine_challenge, unix_seconds, validate_exact_quarantine_confirmation,
+    },
     installed_registry::{InstalledRegistryState, installed_registry_report},
     module_store::{ModuleStorePlan, REGISTRY_FILE, module_store_plan},
-    quarantine::{
-        FilesystemEffectReport, FilesystemEffectRequest, execute_filesystem_effect,
-        filesystem_effect_transaction_id,
-    },
+    quarantine::FilesystemEffectReport,
 };
 
 pub const LEFTOVERS_REVIEW_CONTRACT: &str = "leftovers_review";
@@ -49,20 +42,6 @@ pub struct LeftoversReviewReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action_plan: Option<ActionPlan>,
     pub warnings: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-struct LeftoversChallengeView {
-    schema_version: u16,
-    contract: &'static str,
-    plan_id: String,
-    action_id: String,
-    plan_sha256: String,
-    issued_unix_seconds: u64,
-    expires_unix_seconds: u64,
-    expected_phrase: String,
-    writes_attempted: bool,
-    execution_authorized: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -120,7 +99,7 @@ pub fn leftovers_command(args: &[String]) -> (ExitCode, String, String) {
         let now = options
             .challenge_issued_unix_seconds
             .unwrap_or_else(unix_seconds);
-        let challenge = match build_leftover_challenge(&action_plan, now) {
+        let challenge = match build_exact_quarantine_challenge(&action_plan, now) {
             Ok(challenge) => challenge,
             Err(error) => {
                 return (
@@ -133,56 +112,33 @@ pub fn leftovers_command(args: &[String]) -> (ExitCode, String, String) {
         let Some(phrase) = options.confirm.as_deref() else {
             return (
                 ExitCode::Ok,
-                render_leftover_challenge(
+                render_exact_quarantine_challenge(
                     &challenge,
                     &action_plan.actions[0].action_id,
-                    options.format,
+                    options.format == OutputFormat::Json,
                 ),
                 String::new(),
             );
         };
-        let response = match validate_leftover_confirmation(&challenge, phrase, unix_seconds()) {
-            Ok(response) => response,
-            Err(error) => {
-                return (
-                    ExitCode::Usage,
-                    String::new(),
-                    format!("leftovers confirmation rejected: {error}\n"),
-                );
-            }
-        };
+        let response =
+            match validate_exact_quarantine_confirmation(&challenge, phrase, unix_seconds()) {
+                Ok(response) => response,
+                Err(error) => {
+                    return (
+                        ExitCode::Usage,
+                        String::new(),
+                        format!("leftovers confirmation rejected: {error}\n"),
+                    );
+                }
+            };
         let store = module_store_plan(None, None, "leftovers exact plan");
-        let transaction_id = filesystem_effect_transaction_id(
-            ActionKind::Quarantine,
-            &action_plan.plan_id,
-            challenge.issued_unix_seconds,
-        );
-        let response_sha256 = confirmation_response_sha256(&response);
-        let mut consumption = ConfirmationConsumption {
-            schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
-            contract: rz0_confirmation_contract::CONFIRMATION_CONSUMPTION_CONTRACT.to_string(),
-            transaction_id,
-            plan_id: action_plan.plan_id.clone(),
-            challenge_sha256: challenge.challenge_sha256.clone(),
-            response_sha256,
-            consumed_unix_seconds: unix_seconds(),
-            single_use_consumed: true,
-            execution_authorized: false,
-            binding_sha256: String::new(),
-        };
-        seal_confirmation_consumption(&mut consumption);
-        let effect = match execute_filesystem_effect(FilesystemEffectRequest {
-            state_root: Path::new(&store.state_root),
-            source_root: Path::new(&store.data_root),
-            quarantine_root: Path::new(&store.quarantine_root),
-            plan: &action_plan,
-            action: &action_plan.actions[0],
-            challenge: &challenge,
-            response: &response,
-            consumption: &consumption,
-            cancellation: None,
-            now_unix_seconds: challenge.issued_unix_seconds,
-        }) {
+        let effect = match execute_exact_quarantine(
+            &store,
+            &action_plan,
+            &challenge,
+            &response,
+            unix_seconds(),
+        ) {
             Ok(effect) => effect,
             Err(error) => {
                 return (
@@ -530,76 +486,14 @@ fn exact_quarantine_plan_for_store(
         }],
     };
     let finding_report = classify_leftovers(&input)?;
-    let plan_id = format!("rz0plan-leftovers-{}", &source_sha256[..16]);
-    let action_id = format!("quarantine-leftover-{}", &source_sha256[..16]);
-    let quarantine_prefix = format!("quarantine/{plan_id}");
-    let action_plan = ActionPlan {
-        schema_version: rz0_action_plan::ACTION_PLAN_SCHEMA_VERSION,
-        plan_id,
-        module_id: rz0_module_leftovers::MODULE_ID.to_string(),
-        created_at: None,
-        expires_at: None,
-        dry_run: true,
-        writes_attempted: false,
-        evidence_contract: rz0_finding_contract::FINDING_CONTRACT.to_string(),
-        evidence_report_id: finding_report.report_id.clone(),
-        evidence_sha256: finding_report.input_evidence_sha256.clone(),
-        actions: vec![rz0_action_plan::PlanAction {
-            action_id,
-            finding_id,
-            kind: ActionKind::Quarantine,
-            disposition: ActionDisposition::Planned,
-            target: "runtime.zero-owned module artifact".to_string(),
-            source: Some(ActionSource {
-                path: source_path,
-                sha256: source_sha256,
-                size_bytes: metadata.len(),
-            }),
-            manager: None,
-            executable: None,
-            executable_identity: None,
-            arguments: Vec::new(),
-            would_write: false,
-            requires_confirmation: true,
-            requires_elevation: false,
-            network_required: false,
-            risk: ActionRisk::Medium,
-            capabilities: vec![ActionCapability::RuntimeStateWrite, ActionCapability::QuarantineWrite],
-            forbidden_path_classes: Vec::new(),
-            write_set: vec![
-                WriteSetEntry {
-                    path: format!("{quarantine_prefix}/payload.bin"),
-                    kind: WriteKind::QuarantinedPayload,
-                },
-                WriteSetEntry {
-                    path: format!("{quarantine_prefix}/quarantine.json"),
-                    kind: WriteKind::QuarantineRecord,
-                },
-            ],
-            rollback: RollbackPlan {
-                supported: true,
-                quarantine_required: true,
-                description:
-                    "Restore only to the exact original logical path after fresh digest verification."
-                        .to_string(),
-            },
-        }],
-        warnings: vec![
-            "exact path was supplied explicitly; this plan is dry-run only and does not move files"
-                .to_string(),
-            "the absolute source root is intentionally withheld from the report; execution requires a separate reviewed CLI/TUI binding"
-                .to_string(),
-        ],
-    };
-    let validation = validate_action_plan(&action_plan);
-    if !validation.valid {
-        return Err(format!(
-            "generated action plan is invalid: {:?}",
-            validation.errors
-        ));
-    }
-    action_plan_digests(&action_plan)
-        .map_err(|errors| format!("generated action plan digest failed: {errors:?}"))?;
+    let action_plan = build_exact_quarantine_action_plan(ExactQuarantineActionSpec {
+        module_id: rz0_module_leftovers::MODULE_ID,
+        target: "runtime.zero-owned module artifact",
+        source_path,
+        source_sha256,
+        source_size_bytes: metadata.len(),
+        finding_report: &finding_report,
+    })?;
     Ok((finding_report, action_plan))
 }
 
@@ -648,112 +542,6 @@ fn exact_evidence_digest(path: &str, sha256: &str, size_bytes: u64) -> String {
     format!("{:x}", digest.finalize())
 }
 
-fn build_leftover_challenge(
-    plan: &ActionPlan,
-    issued_unix_seconds: u64,
-) -> Result<ConfirmationChallenge, String> {
-    let digests = action_plan_digests(plan).map_err(|errors| errors.join("; "))?;
-    let action = plan
-        .actions
-        .first()
-        .ok_or_else(|| "leftovers plan contains no action".to_string())?;
-    let capabilities = action
-        .capabilities
-        .iter()
-        .copied()
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    let mut challenge = ConfirmationChallenge {
-        schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
-        contract: rz0_confirmation_contract::CONFIRMATION_CHALLENGE_CONTRACT.to_string(),
-        challenge_id: format!(
-            "challenge.quarantine.{}",
-            short_digest(plan.plan_id.as_bytes())
-        ),
-        plan_id: plan.plan_id.clone(),
-        plan_sha256: digests.plan_sha256.clone(),
-        dry_run_sha256: digests.plan_sha256,
-        write_set_sha256: digests.write_set_sha256,
-        before_state_sha256: Some(digest_text(&format!("{}\0before", action.action_id))),
-        expected_after_state_sha256: digest_text(&format!("{}\0after", action.action_id)),
-        risk: ConfirmationRisk::Mutating,
-        action_count: 1,
-        capabilities,
-        issued_unix_seconds,
-        expires_unix_seconds: issued_unix_seconds.saturating_add(300),
-        dry_run_completed: true,
-        dry_run_writes_attempted: false,
-        rollback_available: action.rollback.supported,
-        quarantine_available: true,
-        manual_recovery_acknowledged: false,
-        expected_phrase: String::new(),
-        challenge_sha256: String::new(),
-    };
-    seal_confirmation_challenge(&mut challenge);
-    Ok(challenge)
-}
-
-fn validate_leftover_confirmation(
-    challenge: &ConfirmationChallenge,
-    phrase: &str,
-    now_unix_seconds: u64,
-) -> Result<ConfirmationResponse, String> {
-    let response = ConfirmationResponse {
-        schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
-        contract: rz0_confirmation_contract::CONFIRMATION_RESPONSE_CONTRACT.to_string(),
-        challenge_id: challenge.challenge_id.clone(),
-        challenge_sha256: challenge.challenge_sha256.clone(),
-        confirmed_unix_seconds: now_unix_seconds,
-        surface: ConfirmationSurface::Cli,
-        phrase: phrase.to_string(),
-        interactive: true,
-        single_use: true,
-        execution_authorized: false,
-    };
-    let assessment = validate_confirmation(challenge, &response, now_unix_seconds);
-    if assessment.valid {
-        Ok(response)
-    } else {
-        Err(assessment.errors.join("; "))
-    }
-}
-
-fn render_leftover_challenge(
-    challenge: &ConfirmationChallenge,
-    action_id: &str,
-    format: OutputFormat,
-) -> String {
-    let view = LeftoversChallengeView {
-        schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
-        contract: rz0_confirmation_contract::CONFIRMATION_CHALLENGE_CONTRACT,
-        plan_id: challenge.plan_id.clone(),
-        action_id: action_id.to_string(),
-        plan_sha256: challenge.plan_sha256.clone(),
-        issued_unix_seconds: challenge.issued_unix_seconds,
-        expires_unix_seconds: challenge.expires_unix_seconds,
-        expected_phrase: challenge.expected_phrase.clone(),
-        writes_attempted: false,
-        execution_authorized: false,
-    };
-    match format {
-        OutputFormat::Text => format!(
-            "runtime.zero leftovers confirmation\n\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\n\nType this exact phrase in a new command invocation with --challenge-issued-unix-seconds {} and --confirm:\n{}\n\nNo file was moved.\n",
-            view.plan_id,
-            view.action_id,
-            view.plan_sha256,
-            view.issued_unix_seconds,
-            view.expires_unix_seconds,
-            view.issued_unix_seconds,
-            view.expected_phrase,
-        ),
-        OutputFormat::Json => serde_json::to_string_pretty(&view).map_or_else(
-            |error| format!("challenge serialization failed: {error}\n"),
-            |json| format!("{json}\n"),
-        ),
-    }
-}
-
 fn render_leftovers_effect(
     effect: &FilesystemEffectReport,
     format: OutputFormat,
@@ -785,21 +573,6 @@ fn render_leftovers_effect(
             ),
         },
     }
-}
-
-fn digest_text(value: &str) -> String {
-    format!("{:x}", Sha256::digest(value.as_bytes()))
-}
-
-fn short_digest(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    format!("{:x}", digest)[..16].to_string()
-}
-
-fn unix_seconds() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_secs())
 }
 
 fn inspect_root(
@@ -1134,6 +907,7 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     use super::*;
+    use rz0_action_plan::validate_action_plan;
     use rz0_finding_contract::{FindingDataClass, FindingOwnership};
 
     const A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -1208,12 +982,12 @@ mod tests {
         );
         assert!(!action_plan.writes_attempted);
         assert!(action_plan.actions[0].requires_confirmation);
-        let challenge = build_leftover_challenge(&action_plan, 1_000).expect("challenge");
+        let challenge = build_exact_quarantine_challenge(&action_plan, 1_000).expect("challenge");
         assert_eq!(challenge.action_count, 1);
         assert!(!challenge.dry_run_writes_attempted);
         assert!(!challenge.manual_recovery_acknowledged);
         let response =
-            validate_leftover_confirmation(&challenge, &challenge.expected_phrase, 1_100)
+            validate_exact_quarantine_confirmation(&challenge, &challenge.expected_phrase, 1_100)
                 .expect("confirmation");
         assert_eq!(response.challenge_sha256, challenge.challenge_sha256);
         assert!(!response.execution_authorized);
@@ -1278,40 +1052,12 @@ mod tests {
         );
         let (_, action_plan) =
             exact_quarantine_plan_for_store(&store, &module_file).expect("exact plan");
-        let challenge = build_leftover_challenge(&action_plan, 1_000).expect("challenge");
+        let challenge = build_exact_quarantine_challenge(&action_plan, 1_000).expect("challenge");
         let response =
-            validate_leftover_confirmation(&challenge, &challenge.expected_phrase, 1_100)
+            validate_exact_quarantine_confirmation(&challenge, &challenge.expected_phrase, 1_100)
                 .expect("confirmation");
-        let mut consumption = ConfirmationConsumption {
-            schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
-            contract: rz0_confirmation_contract::CONFIRMATION_CONSUMPTION_CONTRACT.to_string(),
-            transaction_id: filesystem_effect_transaction_id(
-                ActionKind::Quarantine,
-                &action_plan.plan_id,
-                challenge.issued_unix_seconds,
-            ),
-            plan_id: action_plan.plan_id.clone(),
-            challenge_sha256: challenge.challenge_sha256.clone(),
-            response_sha256: confirmation_response_sha256(&response),
-            consumed_unix_seconds: 1_100,
-            single_use_consumed: true,
-            execution_authorized: false,
-            binding_sha256: String::new(),
-        };
-        seal_confirmation_consumption(&mut consumption);
-        let effect = execute_filesystem_effect(FilesystemEffectRequest {
-            state_root: Path::new(&store.state_root),
-            source_root: Path::new(&store.data_root),
-            quarantine_root: Path::new(&store.quarantine_root),
-            plan: &action_plan,
-            action: &action_plan.actions[0],
-            challenge: &challenge,
-            response: &response,
-            consumption: &consumption,
-            cancellation: None,
-            now_unix_seconds: challenge.issued_unix_seconds,
-        })
-        .expect("exact quarantine effect");
+        let effect = execute_exact_quarantine(&store, &action_plan, &challenge, &response, 1_100)
+            .expect("exact quarantine effect");
         assert!(effect.source_removed);
         assert!(!module_file.exists());
         assert!(

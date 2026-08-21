@@ -4,6 +4,7 @@ pub mod cache;
 pub mod color_mode;
 pub mod completions;
 pub mod dashboard_cli;
+mod exact_quarantine;
 pub mod install_receipt;
 mod install_receipt_schema;
 pub mod installed_registry;
@@ -118,8 +119,10 @@ pub fn help_text() -> String {
         help.insert_str(index, &toolchain_usage);
     }
     let cache_usage = format!(
-        "  {} cache --dry-run [--format text|json] [--fixture <cache-input.json>]\n",
-        brand::COMMAND
+        "  {} cache --dry-run [--format text|json] [--fixture <cache-input.json>]\n  {} cache --dry-run --plan --path <absolute-cache-file> [--format text|json]\n  {} cache --apply --path <absolute-cache-file> [--challenge-issued-unix-seconds <seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
+        brand::COMMAND,
+        brand::COMMAND,
+        brand::COMMAND,
     );
     if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {
         help.insert_str(index, &cache_usage);

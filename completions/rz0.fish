@@ -50,6 +50,11 @@ complete -c rz0 -n '__fish_seen_subcommand_from modules' -l format -xa 'text jso
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l json
 complete -c rz0 -n '__fish_seen_subcommand_from cache' -l dry-run
 complete -c rz0 -n '__fish_seen_subcommand_from cache' -l fixture -rF
+complete -c rz0 -n '__fish_seen_subcommand_from cache' -l plan
+complete -c rz0 -n '__fish_seen_subcommand_from cache' -l apply
+complete -c rz0 -n '__fish_seen_subcommand_from cache' -l path -rF
+complete -c rz0 -n '__fish_seen_subcommand_from cache' -l challenge-issued-unix-seconds -r
+complete -c rz0 -n '__fish_seen_subcommand_from cache' -l confirm -r
 complete -c rz0 -n '__fish_seen_subcommand_from cache' -l format -xa 'text json'
 complete -c rz0 -n '__fish_seen_subcommand_from cache' -l json
 complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l dry-run

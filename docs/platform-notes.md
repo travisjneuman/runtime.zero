@@ -131,8 +131,9 @@ closed until those contracts have implementation and disposable-host proof.
 - No elevation broker exists.
 - No uninstall executor exists.
 - A narrow receipt-bound quarantine/restore executor exists in
-  crates/quarantine/, but no domain module or public cleanup command is
-  authorized to invoke it yet.
+  crates/quarantine/, and the leftovers CLI may invoke it only for one
+  explicitly supplied module-store file after exact confirmation; no broad
+  domain module or public recursive-cleanup command is authorized.
 - No production module process lifecycle exists.
 - No first-party module is active/installed by the foundation.
 - Native package signing/notarization/repository publication is incomplete.

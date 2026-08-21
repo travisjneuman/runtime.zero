@@ -18,12 +18,16 @@ Homebrew, npm, pip, and Cargo. It rejects root symlinks, skips descendant
 symlinks and special files, caps entries and aggregate bytes, deduplicates
 warnings, and emits directory-listing evidence without treating it as an
 action-ready file identity. The fixture mode accepts one strict local JSON
-document for deterministic support/testing. Neither mode writes, invokes a
-manager, contacts a network source, or authorizes cleanup.
+document for deterministic support/testing. The classifier never writes,
+invokes a manager, contacts a network source, or grants cleanup authority. The
+separate core CLI lane can plan and, after exact confirmation, quarantine one
+explicit regular file inside the runtime.zero cache root through the foundation
+receipt/journal executor; it never recurses or deletes.
 
 Before 1.0 it needs stronger platform-specific ownership and active-use proof,
-age/resource policy, finding-bound plans, quarantine/restore transactions,
-cancellation/recovery, and every Windows/macOS/Linux lifecycle acceptance cell.
-User/shared/unknown caches must remain report-only unless the frozen policy is
-explicitly changed. The TUI Diagnostics workspace shows the same bounded
-observation count and warning state; it does not add a second action path.
+age/resource policy, retention and conflict policy, full quarantine/restore
+transactions, cancellation/recovery, platform metadata fidelity, and every
+Windows/macOS/Linux lifecycle acceptance cell. User/shared/unknown caches must
+remain report-only unless the frozen policy is explicitly changed. The TUI
+Diagnostics workspace shows the same bounded observation count and warning
+state; it does not add a second action path.

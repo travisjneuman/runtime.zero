@@ -47,6 +47,8 @@ rz0 report
 rz0 report --format json
 rz0 cache --dry-run
 rz0 cache --dry-run --format json
+rz0 cache --dry-run --plan --path /absolute/path/to/runtime-zero-cache-file
+rz0 cache --apply --path /absolute/path/to/runtime-zero-cache-file
 rz0 leftovers --dry-run
 rz0 leftovers --dry-run --format json
 rz0 leftovers --dry-run --plan --path /absolute/path/to/runtime-zero-module-file
@@ -227,7 +229,8 @@ source-level domain packages under `modules/`. Updater consumes captured or
 explicit live manager evidence. Uninstall accepts selected live installed-
 software evidence to produce a non-authorizing finding and optional sealed dry-
 run manager action plan. Cache now has a bounded read-only adapter over known
-manager/runtime roots; leftovers now has bounded runtime.zero-owned module/log
+manager/runtime roots; cache now has one exact runtime-cache-file plan/apply
+lane, while leftovers has bounded runtime.zero-owned module/log
 and unreferenced-receipt evidence plus an explicit exact-module-file dry-run
 plan and confirmation-bound exact quarantine lane, while integrity has a
 bounded exact-file adapter that remains caller-baseline only. None of these

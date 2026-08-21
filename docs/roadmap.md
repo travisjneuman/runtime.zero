@@ -141,8 +141,9 @@ See [`inventory-schema.md`](inventory-schema.md).
   verified-copy-before-remove, conflict refusal, failure injection, and receipts.
 - [x] Separate uninstall, leftovers, and cache classifiers requiring manager
   ownership or exact runtime-owned evidence and preserving protected/unknown
-  blocking; cache and leftovers now have bounded read-only discovery while live
-  mutation adapters remain gated.
+  blocking; cache has bounded read-only discovery and leftovers additionally
+  has one confirmation-bound exact module-store-file quarantine lane, while
+  broad mutation adapters remain gated.
 - [x] Live path-free installed-software evidence is converted into the shared
   uninstall finding contract; manager-owned records can produce exact sealed
   dry-run action plans while protected/unknown/local bundles remain blocked.

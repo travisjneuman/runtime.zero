@@ -133,6 +133,19 @@ The JSON result contains a `cache_review` envelope and the shared
 `classified_finding_report`. User/shared/unknown cache data remains report-only
 or blocked. The TUI Diagnostics workspace shows the same observation status.
 
+An explicitly supplied regular file inside the runtime.zero cache root can use
+the separate exact plan/apply lane. It binds the file digest and size, prints a
+short-lived challenge, and quarantines only that file after the exact phrase is
+re-entered; it never performs recursive cleanup, deletion, elevation, or
+network access.
+
+```bash
+rz0 cache --dry-run --plan --path /absolute/path/to/runtime-zero-cache-file
+rz0 cache --apply --path /absolute/path/to/runtime-zero-cache-file
+rz0 cache --apply --path /absolute/path/to/runtime-zero-cache-file \
+  --challenge-issued-unix-seconds <issued> --confirm '<exact phrase>'
+```
+
 ### Leftover evidence
 
 ```bash
