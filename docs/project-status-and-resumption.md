@@ -141,37 +141,36 @@ Local
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, the full
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
-`git diff --check`. The previously recorded local aarch64 Apple Silicon package from
-`c6118ada328da0bc6e410e09a979752a06b96dde` has binary SHA-256
-`ceae92e5a9d0a1ccf44badec8350291106fc0c838f90f02d3fd90bd34244be6c`, ZIP
+`git diff --check`. The local aarch64 Apple Silicon package from
+`9835bfb296d8f2408790d330bf390f3b5f5b7f5d` has binary SHA-256
+`453b6630f5574b63a78114bf44c2c95e9f2ff0858ea8f13c2ed4273295c7c746`, ZIP
 SHA-256
-`5382ea225f9546b2e4cade3b4d823948c0e94e6d93dd8138652c00a3ba37c003`, and
-1,891,076 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`25072d38315e1b38f285d1e65d8901a74c464bf6de5b951fc470058780b83eaa`, and
+1,901,151 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`0424864a0fd6cf613f457ac3c462aa20f23080dbc010cfd19a03d01e2fdadb21`,
-`ba8e6534e7fea9d48cf575f03cdccf13125b850354ffc7ba6005af8dd6f81b7a`, and
-`9171307c5431c5800852e1b68c6e3646cf329460451a0543e1395b67e77e6bf7`; their
+`3ca687a09d62aa48179921e10eb955113af43552a15af60d65f391225fce24b4`,
+`92e02092840e4e69c00e3022a6bd5e96abaa7e7e3df983b1e8e3920cc2030465`, and
+`2464a6ca438fba8ab8e4f4ffc56563e6a512113bf13a8314c34de9228e6786d8`; their
 embedded sizes are 160,426, 290,906, and 977 bytes respectively. Independent
-verification, four PTY terminal smoke cases, and ten-sample final-artifact
-performance evidence passed for that earlier source head. The artifact remains
+ZIP verification, four PTY terminal smoke cases, and ten-sample final-artifact
+performance evidence passed against this exact source head. The artifact remains
 unsigned and unnotarized until an owner-led signing/notarization lane exists.
 It is a local Apple Silicon artifact, not a public release or cross-platform
 runtime claim. The developer invocation process path is separately bounded and
 does not change this release posture.
-The terminal evidence IDs are `terminal:aarch64-apple-darwin-arm64-ceae92e5a9d0`
-and `perf:aarch64-apple-darwin-arm64-ceae92e5a9d0`. The packaged `config
---format json` review also passed with configuration digest
+The terminal evidence ID is `terminal:aarch64-apple-darwin-453b6630f557` and
+the performance evidence ID is `perf:aarch64-apple-darwin-453b6630f557`. The
+packaged `config --format json` review also passed with configuration digest
 `b4d57157ae30be77f81a293bd49ddc2f939168377b20b9d9bb16a4ea1e40258f`.
 
-The current release decision remains blocked. Fresh `doctor --format json`
+The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
-with no writes; and the bounded provider review reports 20 sources, 13 source
-successes, 59 serial queue items, and one AIUP-managed candidate without
-execution authorization. The same local `recovery --dry-run --format json`
-review inspected 11 valid transaction journals, found 0 invalid journals, and
-classified all 11 as action-required under the conservative assessment; one
-bounded warning reported persistent writer-lock markers without claiming active
-ownership. Linux release linking was re-attempted with the
+with no writes; and the final artifact passed the bounded terminal and
+performance contracts above. Earlier recovery evidence inspected 11 valid
+transaction journals, found 0 invalid journals, and classified all 11 as
+action-required under the conservative assessment; one bounded warning reported
+persistent writer-lock markers without claiming active ownership. Linux release
+linking was re-attempted with the
 installed Rust LLD and still fails because this macOS host lacks the target
 Linux C-runtime libraries. Windows `link.exe` is likewise unavailable. These
 checks do not substitute for target-native runtime, signing, accessibility,
