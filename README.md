@@ -352,8 +352,9 @@ initializes, repairs, migrates, or writes the supplied path.
 future-ready local store needs. On Unix, `store init --yes` creates runtime.zero-
 owned user-local directories, an empty schema-1 registry, and an initialization
 marker through held-parent no-follow operations. It is idempotent and refuses to
-repair or overwrite invalid existing state. Windows store initialization remains
-blocked until reviewed owner/DACL policy and NT runtime evidence exist. It does not
+repair or overwrite invalid existing state. Windows store initialization uses
+the guarded held-handle owner/DACL path and remains pre-alpha pending runtime
+evidence. It does not
 install modules, copy packages, execute code, fetch remote content, edit PATH,
 or create services, tasks, registry entries, persistence, releases, or
 bootstrap hooks.
