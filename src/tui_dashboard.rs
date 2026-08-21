@@ -19,6 +19,7 @@ use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_rep
 use crate::system_monitor::{self, SystemSnapshot};
 use crate::toolchain::{
     is_toolchain_record, is_toolchain_software, is_toolchain_text, toolchain_provider_id,
+    toolchain_tools_from_catalog,
 };
 use crate::tui_dashboard_labels::{
     init_label, init_status_label, init_tone, receipt_label, receipt_state_label, receipt_tone,
@@ -869,11 +870,7 @@ fn overview_section(
                 })
                 .count();
             let visible_count = catalog.apps.iter().filter(|app| view.matches(app)).count();
-            let tool_count = catalog
-                .apps
-                .iter()
-                .filter(|app| is_toolchain_software(app))
-                .count();
+            let tool_count = toolchain_tools_from_catalog(catalog).len();
             let aiup = aiup_report_from_catalog(catalog);
             let (update_value, update_tone, update_preview) = match updates {
                 Some(updates) => (

@@ -116,35 +116,7 @@ pub fn collect_toolchain_report() -> Result<ToolchainReport, String> {
 }
 
 fn toolchain_report_from_catalog(catalog: &crate::apps::AppCatalog) -> ToolchainReport {
-    let mut tools = catalog
-        .apps
-        .iter()
-        .filter(|app| is_toolchain_software(app))
-        .map(tool_from_app)
-        .collect::<Vec<_>>();
-    for tool in catalog
-        .known_tools
-        .iter()
-        .filter(|tool| is_toolchain_record(tool))
-        .map(tool_from_record)
-    {
-        if !tools
-            .iter()
-            .any(|existing| existing.id == tool.id && existing.source_id == tool.source_id)
-        {
-            tools.push(tool);
-        }
-    }
-    tools.sort_by(|left, right| {
-        left.provider
-            .cmp(right.provider)
-            .then_with(|| {
-                left.name
-                    .to_ascii_lowercase()
-                    .cmp(&right.name.to_ascii_lowercase())
-            })
-            .then_with(|| left.id.cmp(&right.id))
-    });
+    let tools = toolchain_tools_from_catalog(catalog);
 
     let providers = PROVIDERS
         .iter()
@@ -177,6 +149,41 @@ fn toolchain_report_from_catalog(catalog: &crate::apps::AppCatalog) -> Toolchain
         tools,
         warnings: catalog.warnings.clone(),
     }
+}
+
+pub(crate) fn toolchain_tools_from_catalog(
+    catalog: &crate::apps::AppCatalog,
+) -> Vec<ToolchainTool> {
+    let mut tools = catalog
+        .apps
+        .iter()
+        .filter(|app| is_toolchain_software(app))
+        .map(tool_from_app)
+        .collect::<Vec<_>>();
+    for tool in catalog
+        .known_tools
+        .iter()
+        .filter(|tool| is_toolchain_record(tool))
+        .map(tool_from_record)
+    {
+        if !tools
+            .iter()
+            .any(|existing| existing.id == tool.id && existing.source_id == tool.source_id)
+        {
+            tools.push(tool);
+        }
+    }
+    tools.sort_by(|left, right| {
+        left.provider
+            .cmp(right.provider)
+            .then_with(|| {
+                left.name
+                    .to_ascii_lowercase()
+                    .cmp(&right.name.to_ascii_lowercase())
+            })
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    tools
 }
 
 fn tool_from_app(app: &InstalledSoftware) -> ToolchainTool {
@@ -448,6 +455,68 @@ mod tests {
         assert_eq!(tool.state, "observed-only");
         let json = serde_json::to_string(&tool).expect("toolchain tool JSON");
         assert!(!json.contains("/private/user/bin"));
+    }
+
+    #[test]
+    fn shared_toolchain_catalog_merge_counts_apps_and_known_tools_once() {
+        let app = InstalledSoftware {
+            id: "package:cargo:rz0".to_string(),
+            name: "rz0".to_string(),
+            version: Some("0.1.0".to_string()),
+            source_id: "cargo".to_string(),
+            identifiers: Vec::new(),
+            identity_group_id: "software.rz0".to_string(),
+            identity_confidence: IdentityConfidence::ExactEvidence,
+            kind: SoftwareKind::PlatformPackage,
+            scope: InstallScope::User,
+            uninstall_option: UninstallOption::ManagerReview,
+        };
+        let known = ToolRecord {
+            id: "codex".to_string(),
+            display_name: "Codex".to_string(),
+            category: "ai_tool".to_string(),
+            executable_path: None,
+            version: Some("1.0.0".to_string()),
+            source_ids: vec!["process.path".to_string()],
+            confidence: "exact_path_match".to_string(),
+            warnings: Vec::new(),
+        };
+        let duplicate = ToolRecord {
+            id: app.id.clone(),
+            display_name: app.name.clone(),
+            category: "package_manager".to_string(),
+            executable_path: None,
+            version: app.version.clone(),
+            source_ids: vec![app.source_id.clone()],
+            confidence: "exact_path_match".to_string(),
+            warnings: Vec::new(),
+        };
+        let catalog = crate::apps::AppCatalog {
+            schema_version: 1,
+            contract: crate::apps::APP_CATALOG_CONTRACT,
+            read_only: true,
+            writes_attempted: false,
+            platform: "test",
+            source_count: 1,
+            app_count: 1,
+            service_count: 0,
+            identity_group_count: 1,
+            identity_groups: Vec::new(),
+            apps: vec![app],
+            known_tools: vec![known, duplicate],
+            warnings: Vec::new(),
+        };
+
+        let tools = toolchain_tools_from_catalog(&catalog);
+        assert_eq!(tools.len(), 2);
+        assert_eq!(
+            tools
+                .iter()
+                .filter(|tool| tool.id == "package:cargo:rz0")
+                .count(),
+            1
+        );
+        assert!(tools.iter().any(|tool| tool.id == "codex"));
     }
 
     #[test]
