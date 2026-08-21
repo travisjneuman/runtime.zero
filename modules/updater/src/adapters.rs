@@ -865,11 +865,93 @@ pub fn parse_manager_output(
         ),
         ManagerKind::CargoInstall => Ok(Vec::new()),
         ManagerKind::Flatpak => parse_flatpak(context, text),
-        ManagerKind::Winget | ManagerKind::Zypper | ManagerKind::Snap => Err(format!(
+        ManagerKind::Snap => parse_snap(context, text),
+        ManagerKind::Winget | ManagerKind::Zypper => Err(format!(
             "{} output parser is not yet locale-safe; source remains unavailable",
             context.manager.id()
         )),
     }
+}
+
+/// Snap documents a stable five-column `refresh --list` table when the
+/// updater process runs under the foundation's forced `C` locale. The parser
+/// accepts only that exact header and one-token rows; any column drift remains
+/// unavailable instead of becoming a guessed update candidate.
+fn parse_snap(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    if text.trim() == "All snaps up to date." {
+        return Ok(Vec::new());
+    }
+    let mut lines = text
+        .lines()
+        .map(str::trim_end)
+        .filter(|line| !line.is_empty());
+    let header = lines
+        .next()
+        .ok_or_else(|| "snap refresh output is empty".to_string())?;
+    if header.split_whitespace().collect::<Vec<_>>()
+        != ["Name", "Version", "Rev", "Publisher", "Notes"]
+    {
+        return Err("snap refresh output has an unrecognized table header".to_string());
+    }
+    let mut records = Vec::new();
+    for line in lines {
+        let fields = line.split_whitespace().collect::<Vec<_>>();
+        if fields.len() != 5
+            || !valid_snap_name(fields[0])
+            || !valid_snap_version(fields[1])
+            || !valid_snap_revision(fields[2])
+            || !valid_snap_publisher(fields[3])
+            || !valid_snap_notes(fields[4])
+        {
+            return Err("snap refresh output contains an unsafe or malformed row".to_string());
+        }
+        push_record(
+            &mut records,
+            make_record(context, fields[0], None, fields[1].to_string())?,
+            context.manager,
+        )?;
+    }
+    if records.is_empty() {
+        return Err("snap refresh output contains no recognized update rows".to_string());
+    }
+    Ok(records)
+}
+
+fn valid_snap_name(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+}
+
+fn valid_snap_version(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 120
+        && value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric()
+                || matches!(byte, b'.' | b'-' | b'_' | b'+' | b':' | b'/' | b'~')
+        })
+}
+
+fn valid_snap_revision(value: &str) -> bool {
+    !value.is_empty() && value.len() <= 24 && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn valid_snap_publisher(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 160
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_' | '+' | '✓')
+        })
+}
+
+fn valid_snap_notes(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 80
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
 }
 
 #[derive(Debug, Deserialize)]
@@ -1798,6 +1880,50 @@ antigravity 1.1.12\n",
             br#"[{"application_id":"org.example.App","version":"1.2.3","branch":"stable","arch":"x86_64","origin":"flathub","commit":"not-a-commit"}]"#,
         )
         .is_err());
+    }
+
+    #[test]
+    fn parses_snap_refresh_list_table_with_exact_columns() {
+        let records = parse_manager_output(
+            &context(ManagerKind::Snap),
+            "Name           Version                    Rev   Publisher     Notes\ncore           16-2.45.1+git2022.b6b3c25  9584  canonical✓    core\n".as_bytes(),
+        )
+        .expect("snap refresh table");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].subject_reference, "package:snap:core");
+        assert_eq!(
+            records[0].available_version.as_deref(),
+            Some("16-2.45.1+git2022.b6b3c25")
+        );
+        assert_eq!(
+            records[0].arguments,
+            vec!["refresh".to_string(), "core".to_string()]
+        );
+    }
+
+    #[test]
+    fn snap_refresh_table_rejects_header_and_row_drift() {
+        assert!(
+            parse_manager_output(
+                &context(ManagerKind::Snap),
+                "Name Version Rev Publisher Notes\ncore 1.0 42 canonical✓ - extra\n".as_bytes(),
+            )
+            .is_err()
+        );
+        assert!(
+            parse_manager_output(
+                &context(ManagerKind::Snap),
+                "Name Version Rev Publisher Notes\ncore 1.0 42 publisher with-space -\n".as_bytes(),
+            )
+            .is_err()
+        );
+        assert!(
+            parse_manager_output(
+                &context(ManagerKind::Snap),
+                "All snaps up to date.".as_bytes()
+            )
+            .is_ok()
+        );
     }
 
     #[test]

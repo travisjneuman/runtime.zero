@@ -113,8 +113,9 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [x] Explicit one-item and interactive serial manager execution with exact
   confirmation, transaction journal, receipt, and post-action verification.
 - [x] Homebrew JSON and bounded APT/DNF/Pacman/MacPorts captured-output parsers;
-  Winget/Zypper/Snap specifications currently fail closed at parsing; Flatpak
-  uses a strict JSON, ref/commit-bound parser.
+  Winget/Zypper specifications currently fail closed at parsing; Snap uses a
+  strict five-column table parser; Flatpak uses a strict JSON, ref/commit-bound
+  parser.
 - [x] Provider-driven all-source review for installed system managers, language
   environments, known self-updaters, multiple npm prefixes, and declared app
   metadata, with explicit missing/observed-only/unsupported-source warnings;
