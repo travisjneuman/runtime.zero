@@ -119,6 +119,20 @@ AIUP-managed tools intentionally remain `observed-only` in this snapshot. Their
 presence does not grant runtime.zero AIUP update authority; any later provider
 action must come through the separate bounded plan and confirmation workflow.
 
+### AIUP capability review
+
+```bash
+rz0 aiup
+rz0 aiup --format json
+```
+
+This is the Rust-owned AIUP-facing capability surface. It normalizes local AI
+tool identity, separates the AIUP orchestrator from managed tools, and reports
+which provider boundary needs review. It is intentionally read-only: it does
+not invoke the standalone `aiup` command, install or update tools, configure a
+provider, or write state. Provider actions remain in the shared `rz0 updates`
+plan, confirmation, transaction, and verification path.
+
 Source identifiers, software names, versions, publishers, and service labels may
 be sensitive even when paths are omitted.
 

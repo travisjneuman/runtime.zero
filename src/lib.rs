@@ -1,3 +1,4 @@
+pub mod aiup;
 pub mod apps;
 pub mod brand;
 pub mod cache;
@@ -85,6 +86,7 @@ where
         Some("doctor") => doctor_command(&args[1..]),
         Some("config") => configuration_cli::configuration_command(&args[1..]),
         Some("apps") => apps::apps_command(&args[1..]),
+        Some("aiup") => aiup::aiup_command(&args[1..]),
         Some("cache") => cache::cache_command(&args[1..]),
         Some("leftovers") => leftovers::leftovers_command(&args[1..]),
         Some("recovery") => recovery_cli::recovery_command(&args[1..]),
@@ -123,6 +125,7 @@ pub fn help_text() -> String {
         cmd = brand::COMMAND,
         safety = brand::SAFETY_POSTURE
     );
+    let aiup_usage = format!("  {} aiup [--format text|json]\n", brand::COMMAND);
     let toolchain_usage = format!("  {} toolchain [--format text|json]\n", brand::COMMAND);
     let configuration_usage = format!("  {} config [--format text|json]\n", brand::COMMAND);
     let uninstall_apply_usage = format!(
@@ -134,6 +137,9 @@ pub fn help_text() -> String {
     }
     if let Some(index) = help.find(&format!("  {} apps", brand::COMMAND)) {
         help.insert_str(index, &configuration_usage);
+    }
+    if let Some(index) = help.find(&format!("  {} apps", brand::COMMAND)) {
+        help.insert_str(index, &aiup_usage);
     }
     if let Some(index) = help.find(&format!("  {} report", brand::COMMAND)) {
         help.insert_str(index, &toolchain_usage);

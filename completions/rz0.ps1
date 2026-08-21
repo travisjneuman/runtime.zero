@@ -3,7 +3,7 @@ Register-ArgumentCompleter -Native -CommandName rz0 -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $tokens = @($commandAst.CommandElements | ForEach-Object { $_.Extent.Text })
-    $commands = @('doctor','config','apps','cache','leftovers','recovery','restore','integrity','uninstall','modules','store','scan','monitor','toolchain','report','release','updates','completions','help','version')
+    $commands = @('doctor','config','apps','aiup','cache','leftovers','recovery','restore','integrity','uninstall','modules','store','scan','monitor','toolchain','report','release','updates','completions','help','version')
     $managers = @('homebrew-formula','homebrew-cask','macports','winget','apt','dnf','pacman','zypper','snap','flatpak')
     $candidates = if ($tokens.Count -le 2) {
         $commands + @('--tui','--no-tui','--json','--color','--version','--help')

@@ -7,7 +7,7 @@
   "kind": "first_party_module",
   "status": "planned",
   "summary": "Installed-only manager-owned update finding classification.",
-  "capabilities": ["installed-only-update-findings"],
+  "capabilities": ["installed-only-update-findings", "rust-owned-ai-toolchain-review"],
   "supported_platforms": ["windows", "macos", "linux"],
   "risk_level": "dry_run_only",
   "safety": {"mutates_system": false, "requires_confirmation": true, "dry_run_required": true, "quarantine_supported": false, "remote_execution_allowed": false},

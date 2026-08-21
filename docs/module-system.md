@@ -29,12 +29,13 @@ A module manifest declares:
 - optional local package integrity metadata;
 - test fixtures.
 
-Provider adapters are not automatically lifecycle modules. For example, AIUP
-is a provider-owned orchestrator consumed by the first-party updater domain:
-runtime.zero reads its bounded no-install dry-run evidence, applies its own
-finding/plan/confirmation boundary, and delegates AIUP's catalog and native
-tool behavior back to AIUP. This keeps one updater module contract instead of
-creating a duplicate AIUP lifecycle, trust, or UI implementation.
+Provider adapters are not automatically lifecycle modules. AIUP is a
+provider-owned orchestrator consumed by the first-party updater domain, with a
+Rust-owned `rz0 aiup` review surface layered above it: runtime.zero owns local
+identity normalization, redaction, provider posture, and the finding/plan/
+confirmation boundary, while the standalone AIUP catalog and native tool
+behavior remain provider-owned. This keeps one updater lifecycle and one
+foundation action path instead of creating a duplicate AIUP execution stack.
 
 ## Design rule
 

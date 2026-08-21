@@ -6,6 +6,7 @@ _rz0() {
     'doctor:show privacy-safe diagnostics'
     'config:show immutable effective configuration safeguards'
     'apps:list path-free installed software'
+    'aiup:show Rust-owned AIUP/provider toolchain posture'
     'cache:review bounded cache evidence without mutation'
     'leftovers:review bounded runtime.zero-owned evidence without mutation'
     'restore:restore one exact quarantine record after confirmation'
@@ -41,7 +42,7 @@ _rz0() {
   fi
   case $words[2] in
     completions) _values 'shell' bash zsh fish powershell ;;
-    doctor|config|apps|monitor|toolchain|report) _arguments '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
+    doctor|config|apps|aiup|monitor|toolchain|report) _arguments '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     release) _arguments '1:operation:(status)' '--assessment[bounded assessment JSON]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     cache) _arguments '--dry-run[required report-only mode]' '*--fixture[local cache evidence JSON]:path:_files' '--plan[seal one exact dry-run quarantine plan]' '--apply[explicit quarantine apply lane]' '--path[absolute cache file]:path:_files' '--challenge-issued-unix-seconds[challenge timestamp]:timestamp:' '--confirm[exact challenge phrase]:phrase:' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     leftovers) _arguments '--dry-run[required report-only mode]' '*--fixture[local leftover evidence JSON]:path:_files' '--plan[seal one exact dry-run quarantine plan]' '--apply[explicit quarantine apply lane]' '--path[absolute module-store file]:path:_files' '--challenge-issued-unix-seconds[challenge timestamp]:timestamp:' '--confirm[exact challenge phrase]:phrase:' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;

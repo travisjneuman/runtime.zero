@@ -47,6 +47,7 @@ mod tests {
                 "doctor",
                 "config",
                 "apps",
+                "aiup",
                 "cache",
                 "leftovers",
                 "recovery",

@@ -3,6 +3,7 @@ complete -c rz0 -f
 complete -c rz0 -n '__fish_use_subcommand' -a doctor -d 'Show privacy-safe diagnostics'
 complete -c rz0 -n '__fish_use_subcommand' -a config -d 'Show immutable effective configuration safeguards'
 complete -c rz0 -n '__fish_use_subcommand' -a apps -d 'List path-free installed software'
+complete -c rz0 -n '__fish_use_subcommand' -a aiup -d 'Show Rust-owned AIUP/provider posture'
 complete -c rz0 -n '__fish_use_subcommand' -a cache -d 'Review bounded cache evidence without mutation'
 complete -c rz0 -n '__fish_use_subcommand' -a leftovers -d 'Review bounded runtime.zero-owned evidence without mutation'
 complete -c rz0 -n '__fish_use_subcommand' -a restore -d 'Restore one exact quarantine record after confirmation'
@@ -24,7 +25,7 @@ complete -c rz0 -l color -xa 'auto always never'
 complete -c rz0 -l help -s h
 complete -c rz0 -l version -s V
 
-for command in doctor config apps monitor toolchain report
+for command in doctor config apps aiup monitor toolchain report
     complete -c rz0 -n "__fish_seen_subcommand_from $command" -l format -xa 'text json'
     complete -c rz0 -n "__fish_seen_subcommand_from $command" -l json
 end

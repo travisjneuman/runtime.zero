@@ -72,6 +72,8 @@ rz0 monitor --format text
 rz0 monitor --format json
 rz0 toolchain
 rz0 toolchain --format json
+rz0 aiup
+rz0 aiup --format json
 rz0 updates --dry-run --fixture tests/fixtures/updater/evidence.json --plan --queue --format json
 rz0 updates --dry-run --manager homebrew-formula --manager-output /tmp/out.json --executable /opt/homebrew/bin/brew --plan --queue --format json
 rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --plan --queue --format json
