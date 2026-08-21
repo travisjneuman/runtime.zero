@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `6d158b7e522a35d599a15f16ecee1b5bea12e05e` (`docs: refresh runtime status`).
+  `899b2a554953ad360d80e2296edfb0f9f1a005bf` (`feat: parse zypper xml update evidence`).
 - **Current behavior implementation:**
-  `6d158b7` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `899b2a5` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -29,10 +29,10 @@
   deletion, elevation, or module authority. Built-in Linux inventory also reads
   bounded Flatpak `active/metadata` records and preserves exact app
   ID/architecture/branch identity without granting action authority. The
-  updater also has strict Flatpak JSON/ref/commit and Snap five-column
-  `refresh --list` parsers under the forced `C` locale; they retain only
-  bounded human-readable version evidence and bind update candidates to their
-  exact provider identity. The
+  updater also has strict Zypper XML package-row, Flatpak JSON/ref/commit, and
+  Snap five-column `refresh --list` parsers under the forced `C` locale; they
+  retain only bounded human-readable version evidence and bind update
+  candidates to their exact provider identity. The
   read-only `recovery --dry-run`
   command inventories bounded quarantine records and reports restore
   eligibility without exposing absolute host paths or adding a second mutation
@@ -162,9 +162,9 @@ The bounded Flatpak updater parser slice is `6f64415`.
 The quiet task-first TUI slice is `d82c60f`.
 The bounded Snap updater parser slice is `5285173`.
 The portable provider-locale binding slice is `dabc8ec`.
-The bounded Zypper XML updater parser slice is pending publication.
+The bounded Zypper XML updater parser slice is `899b2a5`.
 The current exact-head release evidence refresh is bound to
-`6d158b7e522a35d599a15f16ecee1b5bea12e05e`.
+`899b2a554953ad360d80e2296edfb0f9f1a005bf`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -172,24 +172,24 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current universal2 package is
-`target/release-package-universal2-6d158b7/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+`target/release-package-universal2-899b2a5/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
 It has binary SHA-256
-`b5e556315259084d87b3b6b9729f4b60ae415e837a107bb5d6ea946410c769a3`, ZIP
+`314a8d39606c73da464330463e32155e77d65a66222816762e8c8ccf143e39b9`, ZIP
 SHA-256
-`b967dd3d0ee1ec80aa2df7798ac2914616e59382e2b2db5c67e80a7b3c09bd73`, and
-3,926,146 bytes across 8 verified members. The embedded artifact manifest,
+`1c8c2259188e12fa92d34fc2ffa90b215488d8d97ba1403cbd450d57d14ff3f2`, and
+3,949,855 bytes across 8 verified members. The embedded artifact manifest,
 SBOM, and third-party notices have SHA-256 values
-`37917446476e1506ea5705078bc530e89a74a6b3268d7e9efdf9a725405162af`,
-`6536c1f9888da7d38746c5d1f88ca42aa9b822761e83d14898c36b943205c376`, and
-`5eaa59be8d34e78a1832870f0c67bce772e9f6fd38c63281ecd765cc04ca388c`; their
+`47d2844fccb49419ee1e175e97b92baea147151e4c2f0ad5d0661a18787c35a5`,
+`2e8ed5c4b8528785910a39af2b7f1b926921b67dbddf02a889516d1b7109d995`, and
+`7416aff60f4881dffee7feb73630a3c693df742bb12c3440f0290d2d3c4c904d`; their
 embedded sizes are 980, 162,139, and 291,176 bytes respectively. The package
 verifier passed, and `file`/`lipo` confirmed arm64 plus x86_64 Mach-O slices.
 Both slices passed four PTY terminal smoke cases and ten-sample final-artifact
 performance evidence. The terminal evidence IDs are
-`terminal:universal2-apple-darwin-arm64-b5e556315259` and
-`terminal:universal2-apple-darwin-x86_64-b5e556315259`; the performance IDs are
-`perf:universal2-apple-darwin-arm64-b5e556315259` and
-`perf:universal2-apple-darwin-x86_64-b5e556315259`. Both slices passed
+`terminal:universal2-apple-darwin-arm64-314a8d39606c` and
+`terminal:universal2-apple-darwin-x86_64-314a8d39606c`; the performance IDs are
+`perf:universal2-apple-darwin-arm64-314a8d39606c` and
+`perf:universal2-apple-darwin-x86_64-314a8d39606c`. Both slices passed
 read-only `doctor`, `scan --dry-run`, `toolchain`, and `config` reviews; doctor
 reported 6 passing and 4 blocked policy checks, while scan reported 9 sources,
 325 tools, 273 apps, 895 services, and 22 warnings. The configuration digest is
@@ -621,7 +621,7 @@ and module-host execution.
 ## Validation baseline
 
 Current source validation for
-`6d158b7e522a35d599a15f16ecee1b5bea12e05e` and the packaged artifact on
+`899b2a554953ad360d80e2296edfb0f9f1a005bf` and the packaged artifact on
 `universal2-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
