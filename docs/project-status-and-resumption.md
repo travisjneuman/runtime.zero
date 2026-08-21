@@ -116,11 +116,11 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current local aarch64 Apple Silicon package from
-`7a120fd71dc8d5b193bf8d1530ee2e0a2ba53096` has binary SHA-256
-`3392c40fc107e5b1014f7830f77ab475fb3c6da19333c7567e7addfa66378e56`, ZIP
+`3105a52553055c1b7a2d9900db0acc3049ff6391` has binary SHA-256
+`698a7e9b7a532aa1a3ab634baf137d3b0781924c7b33178d63fed59637a609ef`, ZIP
 SHA-256
-`d3042ac88050b5641bc7146094d2c270942f0908885c666c355f122717aa766a`, and
-1,801,764 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`7494163acf869affe0f79a8c10b1f41e284d8d9538d5092e4d96b105bb68a184`, and
+1,801,902 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
 `d0b8affaa4f7993a9d102c703b0415e029e563ab177b47769f0a95856a4a1e5a`,
 `248955b5677891d1f40126ac86f29bb1291577b8796b6c605410411c3b1a4dea`, and
