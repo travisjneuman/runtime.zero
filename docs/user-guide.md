@@ -133,6 +133,11 @@ not invoke the standalone `aiup` command, install or update tools, configure a
 provider, or write state. Provider actions remain in the shared `rz0 updates`
 plan, confirmation, transaction, and verification path.
 
+The updater’s AIUP text adapter is fail-closed: it accepts only bounded UTF-8
+dry-run evidence with matching tool boundaries, unique identities, and
+commands contained within the tool that reported them. Malformed or
+unterminated provider output is unavailable rather than an update candidate.
+
 Source identifiers, software names, versions, publishers, and service labels may
 be sensitive even when paths are omitted.
 

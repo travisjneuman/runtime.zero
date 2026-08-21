@@ -36,6 +36,10 @@ identity normalization, redaction, provider posture, and the finding/plan/
 confirmation boundary, while the standalone AIUP catalog and native tool
 behavior remain provider-owned. This keeps one updater lifecycle and one
 foundation action path instead of creating a duplicate AIUP execution stack.
+When the updater consumes AIUP dry-run text, the Rust adapter accepts only
+bounded UTF-8 output with unique, matching `TOOL START`/`TOOL DONE` sections,
+one version catalog, and commands contained by their owning tool; malformed,
+unterminated, duplicated, or out-of-section evidence stays unavailable.
 
 ## Design rule
 

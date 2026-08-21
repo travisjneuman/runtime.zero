@@ -765,32 +765,75 @@ pub fn parse_aiup_dry_run(bytes: &[u8]) -> Result<AiupDryRunReport, String> {
     let mut recognized_tool_section = false;
     let mut recognized_versions_section = false;
     for line in text.lines() {
-        if let Some(value) = line.split_once("TOOL START: ").map(|(_, value)| value)
-            && let Some(tool) = value.strip_suffix(" ==========")
-            && valid_aiup_field(tool, 80)
-        {
-            current_tool = Some(tool.to_string());
-            commands.entry(tool.to_string()).or_default();
-            in_versions = false;
+        if line.contains("TOOL START:") {
+            let tool = parse_aiup_marker(line, "TOOL START:")?.ok_or_else(|| {
+                "AIUP dry-run output contains a malformed tool-start marker".to_string()
+            })?;
+            if in_versions {
+                return Err(
+                    "AIUP dry-run output starts a tool after the version catalog".to_string(),
+                );
+            }
+            if current_tool.is_some() {
+                return Err(
+                    "AIUP dry-run output starts a tool before closing the previous tool"
+                        .to_string(),
+                );
+            }
+            if commands.contains_key(&tool) {
+                return Err(format!("AIUP dry-run output repeats tool section '{tool}'"));
+            }
+            current_tool = Some(tool.clone());
+            commands.insert(tool, Vec::new());
             recognized_tool_section = true;
             continue;
         }
+        if line.contains("TOOL DONE:") {
+            let tool = parse_aiup_marker(line, "TOOL DONE:")?.ok_or_else(|| {
+                "AIUP dry-run output contains a malformed tool-done marker".to_string()
+            })?;
+            if current_tool.as_deref() != Some(tool.as_str()) {
+                return Err(format!(
+                    "AIUP dry-run output closes tool '{tool}' without a matching start"
+                ));
+            }
+            current_tool = None;
+            continue;
+        }
         if line.contains("=== Detected tool versions ===") {
+            if current_tool.is_some() {
+                return Err(
+                    "AIUP dry-run output enters the version catalog before closing a tool"
+                        .to_string(),
+                );
+            }
+            if recognized_versions_section {
+                return Err("AIUP dry-run output repeats the version catalog".to_string());
+            }
             current_tool = None;
             in_versions = true;
             recognized_versions_section = true;
             continue;
         }
-        if let Some(command) = line.split_once("DRY-RUN: ").map(|(_, value)| value.trim())
-            && let Some(tool) = current_tool.as_ref()
-            && !command.is_empty()
-            && command.len() <= 512
-            && !command.chars().any(char::is_control)
-        {
-            commands
-                .entry(tool.clone())
-                .or_default()
-                .push(command.to_string());
+        if line.contains("DRY-RUN:") {
+            let command = line
+                .split_once("DRY-RUN:")
+                .map(|(_, value)| value.trim())
+                .unwrap_or_default();
+            let Some(tool) = current_tool.as_ref() else {
+                return Err(
+                    "AIUP dry-run output contains a command outside a tool section".to_string(),
+                );
+            };
+            if command.is_empty() || command.len() > 512 || command.chars().any(char::is_control) {
+                return Err(format!(
+                    "AIUP dry-run output contains an invalid command for tool '{tool}'"
+                ));
+            }
+            let Some(commands_for_tool) = commands.get_mut(tool) else {
+                return Err(format!("AIUP dry-run output lost tool identity '{tool}'"));
+            };
+            commands_for_tool.push(command.to_string());
             continue;
         }
         if in_versions {
@@ -802,15 +845,46 @@ pub fn parse_aiup_dry_run(bytes: &[u8]) -> Result<AiupDryRunReport, String> {
             if version.is_empty() {
                 continue;
             }
-            if valid_aiup_field(tool, 80) && valid_aiup_version(&version) {
-                versions.insert(tool.to_string(), version);
+            if valid_aiup_field(tool, 80)
+                && valid_aiup_version(&version)
+                && versions.insert(tool.to_string(), version).is_some()
+            {
+                return Err(format!(
+                    "AIUP dry-run output repeats version identity '{tool}'"
+                ));
             }
         }
+    }
+    if let Some(tool) = current_tool {
+        return Err(format!(
+            "AIUP dry-run output leaves tool '{tool}' unterminated"
+        ));
     }
     if !recognized_tool_section && !recognized_versions_section {
         return Err("AIUP dry-run output contained no recognized catalog sections".to_string());
     }
     Ok(AiupDryRunReport { commands, versions })
+}
+
+fn parse_aiup_marker(line: &str, marker: &str) -> Result<Option<String>, String> {
+    let Some((_, value)) = line.split_once(marker) else {
+        return Ok(None);
+    };
+    if line.matches(marker).count() != 1 {
+        return Err(format!("AIUP dry-run output repeats marker '{marker}'"));
+    }
+    let value = value.trim_start();
+    let Some(tool) = value.strip_suffix(" ==========") else {
+        return Err(format!(
+            "AIUP dry-run output has an invalid '{marker}' marker"
+        ));
+    };
+    if !valid_aiup_field(tool, 80) {
+        return Err(format!(
+            "AIUP dry-run output has an invalid tool identity '{tool}'"
+        ));
+    }
+    Ok(Some(tool.to_string()))
 }
 
 pub fn aiup_command_is_delegated(command: &str) -> bool {
@@ -1935,6 +2009,7 @@ mod tests {
         let report = parse_aiup_dry_run(
             b"[INFO] ========== TOOL START: antigravity ==========\n\
 [INFO] DRY-RUN: curl -fsSL https://example.invalid/install.sh | bash\n\
+[INFO] ========== TOOL DONE: antigravity ==========\n\
 === Detected tool versions ===\n\
 antigravity 1.1.12\n",
         )
@@ -2077,6 +2152,24 @@ antigravity 1.1.12\n",
         assert!(parse_aiup_dry_run(b"aiup completed successfully\n").is_err());
         assert!(parse_aiup_dry_run(b"TOOL START: invalid tool ==========").is_err());
         assert!(parse_aiup_dry_run(b"=== Detected tool versions ===\n").is_ok());
+    }
+
+    #[test]
+    fn aiup_dry_run_requires_closed_unique_tool_sections_and_version_catalog() {
+        let unterminated = b"TOOL START: codex ==========\nDRY-RUN: npm update\n=== Detected tool versions ===\ncodex 1.0.0\n";
+        assert!(parse_aiup_dry_run(unterminated).is_err());
+
+        let mismatched = b"TOOL START: codex ==========\nTOOL DONE: hermes ==========\n";
+        assert!(parse_aiup_dry_run(mismatched).is_err());
+
+        let outside_section = b"DRY-RUN: npm update\n=== Detected tool versions ===\n";
+        assert!(parse_aiup_dry_run(outside_section).is_err());
+
+        let duplicate_tool = b"TOOL START: codex ==========\nTOOL DONE: codex ==========\nTOOL START: codex ==========\nTOOL DONE: codex ==========\n";
+        assert!(parse_aiup_dry_run(duplicate_tool).is_err());
+
+        let duplicate_version = b"=== Detected tool versions ===\ncodex 1.0.0\ncodex 1.0.1\n";
+        assert!(parse_aiup_dry_run(duplicate_version).is_err());
     }
 
     #[test]

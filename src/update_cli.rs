@@ -3882,7 +3882,7 @@ codex codex-cli 0.147.0
         );
 
         let delegated_only = parse_aiup_dry_run(
-            b"TOOL START: codex ==========\nDRY-RUN: npm install -g @openai/codex\n=== Detected tool versions ===\ncodex 0.147.0\n",
+            b"TOOL START: codex ==========\nDRY-RUN: npm install -g @openai/codex\nTOOL DONE: codex ==========\n=== Detected tool versions ===\ncodex 0.147.0\n",
         )
         .expect("delegated-only AIUP evidence");
         assert!(
