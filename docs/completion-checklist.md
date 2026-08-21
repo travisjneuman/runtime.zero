@@ -157,8 +157,12 @@ full platform/lifecycle acceptance cells.
 - [ ] Implement production immutable staging without reopening mutable source,
   with production trust roots, revocation, provenance, and platform proof
   paths after verification.
-- [ ] Implement foundation-owned install, activate, invoke, deactivate, repair,
-  migrate, upgrade, and uninstall execution.
+- [x] Implement one narrow foundation-owned manager-native uninstall apply lane
+  with exact executable identity, destructive confirmation, explicit
+  no-rollback acknowledgement, shared receipts, cancellation, and fresh
+  inventory verification.
+- [ ] Complete foundation-owned install, activate, invoke, deactivate, repair,
+  migrate, upgrade, and broad uninstall execution across the supported matrix.
 - [ ] Prove every lifecycle transition, interruption, rollback, compatibility,
   downgrade, schema migration, and stale-version behavior.
 - [ ] Connect installed state, receipts, module directories, process protocol,
@@ -231,6 +235,10 @@ full platform/lifecycle acceptance cells.
 
 - [x] Convert live catalog evidence into shared uninstall findings and exact
   action plans rather than extending the temporary `uninstall_review` model.
+- [x] Add one narrow manager-native uninstall apply boundary that reuses the
+  foundation external-effect executor, exact executable identity, destructive
+  confirmation, explicit no-rollback acknowledgement, and fresh inventory
+  verification; this is pre-alpha evidence, not broad uninstall support.
 - [ ] Implement manager-native uninstall adapters, dependent/shared-component
   review, elevation, restart/reboot, verification, rollback, and recovery for
   every frozen manager/platform.

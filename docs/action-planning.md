@@ -158,9 +158,12 @@ the selected live catalog record into a shared `classified_finding_report`.
 Manager-owned records can additionally produce a finding-bound
 `crates/action-plan` value when an exact allowlisted manager executable is
 observed and sealed. Without that identity the action remains blocked; protected,
-unknown, receipt-only, and local-bundle records stay blocked/report-only. Every
-result remains dry-run, has no execution authority, and cannot be confirmed into
-execution because no uninstall executor exists.
+unknown, receipt-only, and local-bundle records stay blocked/report-only. The
+separate `rz0 uninstall apply <id> --executable <path>` lane now reuses the
+foundation manager executor after a fresh exact destructive confirmation and
+`--accept-no-rollback`, records the external effect, and requires fresh
+installed-software verification. Broad filesystem cleanup and non-manager
+uninstall remain unavailable.
 
 The updater now has a bounded, explicit manager-execution lane for live
 platform probes: `rz0 updates --apply` requires an exact action ID (or the

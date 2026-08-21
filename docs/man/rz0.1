@@ -114,7 +114,13 @@ this remains report-only and never authorizes remediation.
 .B uninstall plan ID [--executable PATH] [--format text|json]
 Build a live shared finding report and non-authorizing uninstall action plan.
 An exact manager executable can make a manager action representable; no
-uninstall executes.
+uninstall executes from this form.
+.TP
+.B uninstall apply ID --executable PATH --accept-no-rollback [--challenge-issued-unix-seconds SECONDS] [--confirm PHRASE] [--format text|json]
+Apply one exact manager-owned uninstall after destructive confirmation. The
+foundation records a durable external-effect receipt and requires fresh
+installed-software verification; broad cleanup, user bundles, and protected
+software remain blocked.
 .TP
 .B scan --dry-run [--include-raw-paths] [--format text|json]
 Collect bounded inventory. Raw paths are local-private and unsuitable for

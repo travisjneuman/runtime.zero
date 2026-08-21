@@ -196,7 +196,7 @@ The current exceptions and blocks are:
   Linux native-ELF identity binding, SIGINT cancellation, external-effect
   receipts, and recovery status exist, while macOS/Windows binding, OS isolation,
   full cancellation, rollback, manager-specific recovery, and platform proof remain;
-- no uninstall, recursive cleanup, permanent deletion, module
+- no broad uninstall, recursive cleanup, permanent deletion, module
   install/activation, repair, broad quarantine/restore, or arbitrary module
   execution; the sole narrow exception is the exact confirmation-bound
   leftovers module-store file lane described above;

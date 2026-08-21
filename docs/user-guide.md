@@ -314,6 +314,7 @@ the exact challenge is accepted. See [`tui.md`](tui.md).
 ```bash
 rz0 uninstall plan <installed-software-id>
 rz0 uninstall plan <id> --executable /opt/homebrew/bin/brew --format json
+rz0 uninstall apply <id> --executable /opt/homebrew/bin/brew --accept-no-rollback
 ```
 
 The command now converts live catalog evidence into the shared uninstall finding
@@ -328,9 +329,13 @@ contract. Manager-owned records also receive a finding-bound action plan:
   quarantine-first action contract;
 - unknown/package-receipt-only ownership remains unsupported or blocked.
 
-A `planned` uninstall action is still non-authorizing. No uninstall process,
-file move, quarantine, deletion, dependent-package review, rollback, or restart
-is performed.
+A `planned` uninstall action is still non-authorizing. The explicit `apply`
+lane is limited to manager-owned records with an exact allowlisted executable;
+it requires the challenge phrase and `--accept-no-rollback`, records a durable
+external-effect receipt, and verifies fresh installed-software evidence. It does
+not recursively clean files, handle user bundles, collect credentials, or claim
+manager rollback; manager-required elevation is non-interactive and fail-closed.
+Protected, unknown, and ambiguous records remain blocked.
 
 ## Update review and execution boundary
 

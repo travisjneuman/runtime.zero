@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as FmtWrite;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rz0_inventory_contract::{AppRecord, SoftwareIdentifier};
 use rz0_module_inventory::{InventoryOptions, collect_inventory};
@@ -630,20 +631,113 @@ pub fn uninstall_command(args: &[String]) -> (ExitCode, String, String) {
     if matches!(args, [help] if matches!(help.as_str(), "--help" | "-h" | "help")) {
         return (ExitCode::Ok, uninstall_usage(), String::new());
     }
-    if args.first().map(String::as_str) != Some("plan") {
+    if args.len() == 2
+        && matches!(args[0].as_str(), "plan" | "apply")
+        && matches!(args[1].as_str(), "--help" | "-h" | "help")
+    {
+        return (ExitCode::Ok, uninstall_usage(), String::new());
+    }
+    let Some(mode) = args.first().map(String::as_str) else {
         return (
             ExitCode::Usage,
             String::new(),
-            format!("uninstall requires a review plan\n\n{}", uninstall_usage()),
+            format!(
+                "uninstall requires a review plan or apply action\n\n{}",
+                uninstall_usage()
+            ),
         );
-    }
+    };
+    let apply = match mode {
+        "plan" => false,
+        "apply" => true,
+        _ => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!(
+                    "uninstall requires a review plan or apply action\n\n{}",
+                    uninstall_usage()
+                ),
+            );
+        }
+    };
     let mut app_id = None;
     let mut executable = None;
     let mut format = AppOutputFormat::Text;
+    let mut accept_no_rollback = false;
+    let mut challenge_issued_unix_seconds = None;
+    let mut confirmation = None;
     let mut index = 1usize;
     while index < args.len() {
         match args[index].as_str() {
             "--json" => format = AppOutputFormat::Json,
+            "--accept-no-rollback" if apply && !accept_no_rollback => {
+                accept_no_rollback = true;
+            }
+            "--accept-no-rollback" => {
+                return (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!(
+                        "uninstall option was provided more than once\n\n{}",
+                        uninstall_usage()
+                    ),
+                );
+            }
+            "--challenge-issued-unix-seconds" if apply => {
+                let Some(value) = args.get(index + 1) else {
+                    return (
+                        ExitCode::Usage,
+                        String::new(),
+                        format!(
+                            "uninstall apply requires a challenge timestamp\n\n{}",
+                            uninstall_usage()
+                        ),
+                    );
+                };
+                if challenge_issued_unix_seconds.is_some() {
+                    return (
+                        ExitCode::Usage,
+                        String::new(),
+                        format!(
+                            "uninstall challenge timestamp was provided more than once\n\n{}",
+                            uninstall_usage()
+                        ),
+                    );
+                }
+                challenge_issued_unix_seconds = value.parse::<u64>().ok();
+                if challenge_issued_unix_seconds.is_none() {
+                    return (
+                        ExitCode::Usage,
+                        String::new(),
+                        "uninstall challenge timestamp must be an integer\n".to_string(),
+                    );
+                }
+                index += 1;
+            }
+            "--confirm" if apply => {
+                let Some(value) = args.get(index + 1) else {
+                    return (
+                        ExitCode::Usage,
+                        String::new(),
+                        format!(
+                            "uninstall apply requires an exact confirmation phrase\n\n{}",
+                            uninstall_usage()
+                        ),
+                    );
+                };
+                if confirmation.replace(value.clone()).is_some() {
+                    return (
+                        ExitCode::Usage,
+                        String::new(),
+                        format!(
+                            "uninstall confirmation was provided more than once\n\n{}",
+                            uninstall_usage()
+                        ),
+                    );
+                }
+                index += 1;
+            }
             "--executable" => {
                 let Some(value) = args.get(index + 1) else {
                     return (
@@ -693,7 +787,7 @@ pub fn uninstall_command(args: &[String]) -> (ExitCode, String, String) {
                 return (
                     ExitCode::Usage,
                     String::new(),
-                    format!("uninstall requires a review plan\n\n{}", uninstall_usage()),
+                    format!("uninstall arguments are invalid\n\n{}", uninstall_usage()),
                 );
             }
         }
@@ -706,6 +800,18 @@ pub fn uninstall_command(args: &[String]) -> (ExitCode, String, String) {
             format!("uninstall requires a review plan\n\n{}", uninstall_usage()),
         );
     };
+    if !apply
+        && (accept_no_rollback || challenge_issued_unix_seconds.is_some() || confirmation.is_some())
+    {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            format!(
+                "confirmation options require `uninstall apply`\n\n{}",
+                uninstall_usage()
+            ),
+        );
+    }
     if !rz0_validation_contract::valid_dotted_id(app_id, 100) {
         return (
             ExitCode::Usage,
@@ -730,6 +836,16 @@ pub fn uninstall_command(args: &[String]) -> (ExitCode, String, String) {
             format!("installed software id '{app_id}' was not found\n"),
         );
     };
+    if apply {
+        return uninstall_apply_command(
+            app,
+            executable.as_deref(),
+            format,
+            accept_no_rollback,
+            challenge_issued_unix_seconds,
+            confirmation.as_deref(),
+        );
+    }
     let (finding_report, action_plan) = match shared_uninstall_evidence(app, executable.as_deref())
     {
         Ok(evidence) => evidence,
@@ -862,6 +978,238 @@ fn shared_uninstall_evidence(
     Ok((report, plan))
 }
 
+fn uninstall_apply_command(
+    app: &InstalledSoftware,
+    executable: Option<&str>,
+    format: AppOutputFormat,
+    accept_no_rollback: bool,
+    challenge_issued_unix_seconds: Option<u64>,
+    confirmation: Option<&str>,
+) -> (ExitCode, String, String) {
+    if app.uninstall_option != UninstallOption::ManagerReview {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "uninstall apply is available only for manager-owned records; protected, user-owned, and unknown software remain report-only\n".to_string(),
+        );
+    }
+    let Some(executable) = executable else {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            format!(
+                "uninstall apply requires --executable <absolute-manager-path>\n\n{}",
+                uninstall_usage()
+            ),
+        );
+    };
+    let (_finding_report, action_plan) = match shared_uninstall_evidence(app, Some(executable)) {
+        Ok(evidence) => evidence,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("shared uninstall planning failed closed: {error}\n"),
+            );
+        }
+    };
+    let Some(plan) = action_plan else {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "manager-owned uninstall did not produce an action plan\n".to_string(),
+        );
+    };
+    let Some(action) = plan.actions.first() else {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "manager-owned uninstall action plan is empty\n".to_string(),
+        );
+    };
+    if action.disposition != rz0_action_plan::ActionDisposition::Planned {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "manager-owned uninstall action is blocked by missing exact command evidence\n"
+                .to_string(),
+        );
+    }
+    if !action.rollback.supported && !accept_no_rollback {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "this uninstall has no proven rollback path; pass --accept-no-rollback to acknowledge manual recovery risk\n".to_string(),
+        );
+    }
+    let single_plan = match crate::update_execution::make_single_action_plan(&plan, action) {
+        Ok(plan) => plan,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("single-action uninstall plan failed closed: {error}\n"),
+            );
+        }
+    };
+    let single_action = &single_plan.actions[0];
+    let issued = challenge_issued_unix_seconds.unwrap_or_else(unix_seconds);
+    let (challenge, view) = match crate::update_execution::build_update_challenge(
+        &single_plan,
+        single_action,
+        accept_no_rollback,
+        issued,
+    ) {
+        Ok(challenge) => challenge,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("uninstall confirmation challenge failed closed: {error}\n"),
+            );
+        }
+    };
+    let Some(confirmation) = confirmation else {
+        return (
+            ExitCode::Ok,
+            render_uninstall_challenge(&view, format),
+            String::new(),
+        );
+    };
+    if challenge_issued_unix_seconds.is_none() {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "uninstall apply requires --challenge-issued-unix-seconds from the exact dry-run challenge\n".to_string(),
+        );
+    }
+    let response = match crate::update_execution::validate_update_confirmation(
+        &challenge,
+        confirmation,
+        unix_seconds(),
+    ) {
+        Ok(response) => response,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("uninstall confirmation rejected: {error}\n"),
+            );
+        }
+    };
+    let state_root = PathBuf::from(
+        crate::module_store::module_store_plan(None, None, "uninstall execution").state_root,
+    );
+    if !state_root.is_dir() {
+        return (
+            ExitCode::Usage,
+            String::new(),
+            "runtime.zero state store is not initialized; run `rz0 store init --dry-run` before explicit initialization\n".to_string(),
+        );
+    }
+    let (controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+    let _interrupt = match crate::update_cli::InterruptBridge::install(controller) {
+        Ok(bridge) => bridge,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("install uninstall cancellation bridge: {error}\n"),
+            );
+        }
+    };
+    let app_id = app.id.clone();
+    let result = crate::update_execution::execute_uninstall_action(
+        crate::update_execution::UpdateExecutionRequest {
+            state_root: &state_root,
+            plan: &single_plan,
+            action: single_action,
+            challenge: &challenge,
+            response: &response,
+            now_unix_seconds: unix_seconds(),
+            environment: crate::update_cli::probe_environment(),
+            cancellation: &cancellation,
+            verify_after: || {
+                let fresh = collect_app_catalog()?;
+                if fresh.apps.iter().any(|candidate| candidate.id == app_id) {
+                    Err(
+                        "fresh installed-software inventory still reports the exact target"
+                            .to_string(),
+                    )
+                } else {
+                    Ok(
+                        "fresh installed-software inventory no longer reports the exact target"
+                            .to_string(),
+                    )
+                }
+            },
+        },
+    );
+    match result {
+        Ok(report) => (
+            ExitCode::Ok,
+            render_uninstall_execution(&report, format),
+            String::new(),
+        ),
+        Err(error) => (ExitCode::Usage, String::new(), format!("{error}\n")),
+    }
+}
+
+fn render_uninstall_challenge(
+    view: &crate::update_execution::UpdateChallengeView,
+    format: AppOutputFormat,
+) -> String {
+    match format {
+        AppOutputFormat::Text => format!(
+            "runtime.zero uninstall confirmation\n\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\nrollback_available: {}\nmanual_recovery_acknowledged: {}\n\nType this exact phrase in a new command invocation and pass --challenge-issued-unix-seconds {}:\n{}\n\nNo manager command was executed.\n",
+            view.plan_id,
+            view.action_id,
+            view.plan_sha256,
+            view.issued_unix_seconds,
+            view.expires_unix_seconds,
+            view.rollback_available,
+            view.manual_recovery_acknowledged,
+            view.issued_unix_seconds,
+            view.expected_phrase,
+        ),
+        AppOutputFormat::Json => serde_json::to_string_pretty(view).map_or_else(
+            |error| format!("challenge serialization failed: {error}\n"),
+            |json| format!("{json}\n"),
+        ),
+    }
+}
+
+fn render_uninstall_execution(
+    report: &crate::update_execution::UpdateExecutionReport,
+    format: AppOutputFormat,
+) -> String {
+    match format {
+        AppOutputFormat::Text => format!(
+            "runtime.zero uninstall execution\n\noperation: uninstall\ntransaction_id: {}\naction_id: {}\nmanager: {}\ntarget: {}\nstatus: {:?}\nexit_code: {:?}\nverification: {}\nreceipt_reference: {}\nwrites_attempted: {}\nproduct_execution_authorized: {}\n",
+            report.transaction_id,
+            report.action_id,
+            report.manager,
+            report.target,
+            report.status,
+            report.exit_code,
+            report.verification,
+            report.receipt_reference,
+            report.writes_attempted,
+            report.product_execution_authorized,
+        ),
+        AppOutputFormat::Json => serde_json::to_string_pretty(report).map_or_else(
+            |error| format!("execution serialization failed: {error}\n"),
+            |json| format!("{json}\n"),
+        ),
+    }
+}
+
+fn unix_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_secs())
+}
+
 fn build_uninstall_review(
     app: &InstalledSoftware,
     finding_report: rz0_finding_contract::FindingReport,
@@ -879,7 +1227,7 @@ fn build_uninstall_review(
                 "review_available",
                 true,
                 true,
-                "Review the manager-owned uninstall; execution remains disabled until the manager transaction path is authorized.".to_string(),
+                "Review the exact manager action; apply requires an allowlisted executable, destructive confirmation, and explicit no-rollback acknowledgement.".to_string(),
             ),
             UninstallOption::QuarantineReview => (
                 "review_available",
@@ -991,7 +1339,7 @@ fn apps_usage() -> String {
 }
 
 fn uninstall_usage() -> String {
-    "Usage: rz0 uninstall plan <installed-software-id> [--executable <absolute-manager-path>] [--format text|json]\n\nBuilds a live finding-bound, read-only uninstall review. An exact manager executable may make the dry-run manager action representable, but no uninstall or filesystem mutation is authorized.\n".to_string()
+    "Usage: rz0 uninstall plan <installed-software-id> [--executable <absolute-manager-path>] [--format text|json]\n       rz0 uninstall apply <installed-software-id> --executable <absolute-manager-path> --accept-no-rollback [--challenge-issued-unix-seconds <seconds>] [--confirm <exact-phrase>] [--format text|json]\n\n`plan` builds a live finding-bound, read-only uninstall review. `apply` is limited to manager-owned records, revalidates the exact manager executable, requires a short-lived destructive confirmation and explicit no-rollback acknowledgement, records the external effect through the shared transaction/receipt path, and verifies fresh installed-software inventory. It never recursively deletes files, handles user bundles, elevates implicitly, or authorizes automatic mutation.\n".to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1061,6 +1409,33 @@ mod tests {
         assert_eq!(review.status, "review_available");
         assert!(!review.product_execution_authorized);
         assert!(!review.writes_attempted);
+    }
+
+    #[test]
+    fn uninstall_apply_keeps_non_manager_software_report_only() {
+        let app = InstalledSoftware {
+            id: "macos.app.local".to_string(),
+            name: "Local App".to_string(),
+            version: None,
+            source_id: "macos.application_bundles".to_string(),
+            identifiers: Vec::new(),
+            identity_group_id: "software.fixture".to_string(),
+            identity_confidence: IdentityConfidence::ExactEvidence,
+            kind: SoftwareKind::ApplicationBundle,
+            scope: InstallScope::Local,
+            uninstall_option: UninstallOption::QuarantineReview,
+        };
+        let (code, stdout, stderr) = uninstall_apply_command(
+            &app,
+            Some("/opt/homebrew/bin/brew"),
+            AppOutputFormat::Text,
+            true,
+            None,
+            None,
+        );
+        assert_eq!(code, ExitCode::Usage);
+        assert!(stdout.is_empty());
+        assert!(stderr.contains("manager-owned records"));
     }
 
     #[test]

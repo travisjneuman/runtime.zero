@@ -8,7 +8,7 @@ Five first-party packages consume the shared
 | Package | Current source behavior | Live/core status |
 | --- | --- | --- |
 | `modules/updater/` | Classifies installed/manager-owned update evidence, parses selected manager output, builds finding-bound action plans and serial queues | Fixture, captured-output, and explicit live-probe paths exist; core owns the separate explicit apply lane |
-| `modules/uninstall/` | Classifies synthetic or live installed-software evidence and builds optional finding-bound dry-run manager plans | Core `uninstall plan` uses this shared producer; no uninstall execution |
+| `modules/uninstall/` | Classifies synthetic or live installed-software evidence and builds optional finding-bound manager plans | Core `uninstall plan` uses this shared producer; the foundation owns the narrow exact-manager apply boundary |
 | `modules/leftovers/` | Classifies bounded runtime.zero-owned module/log and unreferenced-receipt evidence for conservative post-uninstall review | Core `rz0 leftovers --dry-run` live adapter, strict fixture path, exact module-file plan, and confirmation-bound exact quarantine; no recursive cleanup |
 | `modules/cache/` | Classifies bounded known-root cache evidence while preserving conservative ownership policy | Core `rz0 cache --dry-run` live adapter plus strict fixture path and one exact runtime-cache-file plan/apply lane; no recursive cleanup |
 | `modules/security-integrity/` | Classifies exact digest match/mismatch observations | Core `rz0 integrity --dry-run --fixture` and bounded exact-file path; report-only and no trusted baseline |
@@ -40,28 +40,28 @@ cancellation, rollback, manager-specific recovery, and platform-proof gates. See
 
 ## Other classifier limits
 
-Uninstall now receives one selected live catalog record from core and can build
-a sealed manager action plan, but it still has no process, elevation, dependent-
-package review, quarantine, rollback, or execution lane. Leftovers now has
-bounded runtime-owned read-only discovery plus an explicit exact-module-file
-dry-run plan and confirmation-bound exact quarantine lane, while
-security/integrity has a bounded exact-file read adapter and cache has bounded
-known-root read-only discovery. The core `restore` command is deliberately
-outside discovery: it accepts only one validated runtime.zero quarantine record
-and restores only its exact original cache/module path after fresh confirmation.
-Across
-these four families there is:
+Uninstall now receives one selected live catalog record from core, can build a
+sealed manager action plan, and has one narrow foundation-owned manager apply
+boundary. It still has no dependent-package review, quarantine, rollback, or
+broad cleanup lane. Leftovers now has bounded runtime-owned read-only discovery
+plus an explicit exact-module-file dry-run plan and confirmation-bound exact
+quarantine lane, while security/integrity has a bounded exact-file read adapter
+and cache has bounded known-root read-only discovery. The core `restore` command
+is deliberately outside discovery: it accepts only one validated runtime.zero
+quarantine record and restores only its exact original cache/module path after
+fresh confirmation.
+
+Across these non-updater families there is:
 
 - no independent complete live Windows/macOS/Linux adapter;
-- no authorized binary/process protocol or host write permission;
-- no package-manager mutation or network action;
-- no execution-capable manager action pipeline;
 - no signed lifecycle artifact or installation/activation path;
-- no direct TUI mutation flow.
+- no direct TUI mutation flow;
+- no broad package-manager mutation, recursive cleanup, or network action.
 
-Their manifests remain `planned`. Core does not install or execute these
-non-updater families. The updater is the separate foundation-owned exception
-with the shared CLI/TUI manager apply lane.
+Their manifests remain `planned`. Core does not install, activate, or execute
+third-party/module lifecycle code. The updater and the narrow manager-native
+uninstall boundary are foundation-owned exceptions with shared transaction and
+receipt paths.
 
 Current tests establish only that:
 

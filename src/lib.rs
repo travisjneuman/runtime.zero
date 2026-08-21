@@ -125,6 +125,13 @@ pub fn help_text() -> String {
     );
     let toolchain_usage = format!("  {} toolchain [--format text|json]\n", brand::COMMAND);
     let configuration_usage = format!("  {} config [--format text|json]\n", brand::COMMAND);
+    let uninstall_apply_usage = format!(
+        "  {} uninstall apply <installed-software-id> --executable <manager-path> --accept-no-rollback [--challenge-issued-unix-seconds <seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
+        brand::COMMAND
+    );
+    if let Some(index) = help.find(&format!("  {} completions", brand::COMMAND)) {
+        help.insert_str(index, &uninstall_apply_usage);
+    }
     if let Some(index) = help.find(&format!("  {} apps", brand::COMMAND)) {
         help.insert_str(index, &configuration_usage);
     }

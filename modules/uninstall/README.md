@@ -10,6 +10,7 @@ The installed core exposes:
 ```bash
 rz0 uninstall plan <installed-software-id>
 rz0 uninstall plan <id> --executable /opt/homebrew/bin/brew --format json
+rz0 uninstall apply <id> --executable /opt/homebrew/bin/brew --accept-no-rollback
 ```
 
 The command converts one live record into the module's
@@ -27,15 +28,22 @@ Current dispositions:
   relative mover/restore contract;
 - package-receipt-only or unknown ownership: unsupported/blocked.
 
-The package does not run a manager/uninstaller, resolve dependents/shared
-components, consume confirmation, plan direct filesystem writes, elevate,
-quarantine, roll back, or execute an uninstall. It has no standalone binary,
-signed lifecycle artifact, or production executor. Its manifest remains
-`planned`.
+The package does not own a manager process, resolve dependents/shared
+components, plan direct filesystem writes, elevate, quarantine, or roll back.
+The foundation now exposes one narrow manager-native apply lane for exact
+manager-owned records. It consumes the shared destructive confirmation,
+requires `--accept-no-rollback` because manager rollback is not yet proven,
+records the external effect through the canonical transaction/receipt path, and
+requires fresh installed-software evidence to omit the target. Protected,
+user-owned, unknown, and non-manager records remain report-only. The module has
+no standalone binary, signed lifecycle artifact, or production package
+executor; its manifest remains `planned`.
 
-Before uninstall can execute, every supported manager/platform needs dependent
-and shared-component review, exact executable or bundle identity-to-action
-binding, privilege/network policy, manager-native rollback or quarantine-first
-restore, cancellation, interruption/power-loss recovery, fresh re-inventory,
-CLI/JSON/TUI, and final-artifact acceptance. Protected and unknown software must
-remain blocked; direct recursive deletion is not an acceptable shortcut.
+The current apply lane is pre-alpha and should be treated as a manager-native
+transaction proof point, not a 1.0 claim. Before uninstall is supported broadly,
+every manager/platform needs dependent and shared-component review, exact
+executable or bundle identity-to-action binding, privilege/network policy,
+manager-native rollback or quarantine-first restore, signal cancellation,
+interruption/power-loss recovery, fresh re-inventory, TUI/accessibility, and
+final-artifact acceptance. Protected and unknown software must remain blocked;
+direct recursive deletion is not an acceptable shortcut.

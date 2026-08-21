@@ -123,13 +123,15 @@ and explicit inherited-handle list. The project still needs:
 - real Windows runner, cancellation, UAC, long-path, UNC, antivirus, and restart
   evidence.
 
-Store creation, updater apply, and all cleanup/uninstall execution must fail
+Store creation, updater apply, and broad cleanup/uninstall execution must fail
 closed until those contracts have implementation and disposable-host proof.
 
 ## Cross-platform limitations
 
 - No elevation broker exists.
-- No uninstall executor exists.
+- Only the narrow manager-native uninstall apply lane exists; user-bundle,
+  protected, unknown, recursive-cleanup, and broad cross-platform uninstall
+  execution remain unsupported.
 - A narrow receipt-bound quarantine/restore executor exists in
   crates/quarantine/, and the leftovers CLI may invoke it only for one
   explicitly supplied module-store file after exact confirmation; no broad

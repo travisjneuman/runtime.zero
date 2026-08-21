@@ -401,7 +401,7 @@ end state:
   optional module installation/activation/execution is not production-enabled;
 - the seven first-party module directories are source-level packages at
   different maturity levels, not seven active end-user modules;
-- uninstall, cleanup, quarantine/restore, arbitrary module execution, and
+- broad uninstall, cleanup, quarantine/restore, arbitrary module execution, and
   production third-party trust remain unavailable;
 - Windows runtime proof, macOS race closure, OS capability/network isolation,
   manager-specific recovery, native rollback, final-artifact platform matrices,

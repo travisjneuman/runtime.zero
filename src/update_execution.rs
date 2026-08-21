@@ -51,6 +51,7 @@ pub struct UpdateChallengeView {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct UpdateExecutionReport {
+    pub operation: TransactionOperation,
     pub transaction_id: String,
     pub action_id: String,
     pub manager: String,
@@ -122,7 +123,11 @@ pub fn build_update_challenge(
         write_set_sha256: digests.write_set_sha256,
         before_state_sha256: Some(before_state),
         expected_after_state_sha256: after_state,
-        risk: ConfirmationRisk::Mutating,
+        risk: if action.kind == ActionKind::Uninstall {
+            ConfirmationRisk::Destructive
+        } else {
+            ConfirmationRisk::Mutating
+        },
         action_count: 1,
         capabilities,
         issued_unix_seconds: now_unix_seconds,
@@ -222,6 +227,24 @@ pub fn execute_update_action<F>(
 where
     F: FnOnce() -> Result<String, String>,
 {
+    execute_manager_action(request)
+}
+
+pub fn execute_uninstall_action<F>(
+    request: UpdateExecutionRequest<'_, F>,
+) -> Result<UpdateExecutionReport, String>
+where
+    F: FnOnce() -> Result<String, String>,
+{
+    execute_manager_action(request)
+}
+
+fn execute_manager_action<F>(
+    request: UpdateExecutionRequest<'_, F>,
+) -> Result<UpdateExecutionReport, String>
+where
+    F: FnOnce() -> Result<String, String>,
+{
     let UpdateExecutionRequest {
         state_root,
         plan,
@@ -233,7 +256,16 @@ where
         cancellation,
         verify_after,
     } = request;
-    validate_execution_inputs(plan, action, challenge, response, now_unix_seconds)?;
+    let operation = operation_for_action(action)?;
+    let operation_label = operation_label(operation);
+    validate_execution_inputs(
+        operation,
+        plan,
+        action,
+        challenge,
+        response,
+        now_unix_seconds,
+    )?;
     if !state_root.is_absolute() {
         return Err("update execution state root must be absolute".to_string());
     }
@@ -300,7 +332,7 @@ where
     refuse_if_cancelled(cancellation, "before transaction preparation")?;
 
     let transaction_id = format!(
-        "tx.update.{}.{}",
+        "tx.{operation_label}.{}.{}",
         short_digest(plan.plan_id.as_bytes()),
         now_unix_seconds
     );
@@ -310,6 +342,7 @@ where
     let prepared = journal(
         &transaction_id,
         &plan.plan_id,
+        operation,
         vec![event(TransactionEventKind::Prepared)],
     );
     let transactions_root = state_root.join("transactions");
@@ -343,7 +376,7 @@ where
     let applying = append(&prepared, event(TransactionEventKind::ApplyStarted));
     publish_journal_snapshot(&transactions_root, &applying)
         .map_err(|error| format!("publish update apply journal: {error}"))?;
-    let write_path = format!("manager/{manager}/{}", action.finding_id);
+    let write_path = format!("manager/{operation_label}/{manager}/{}", action.finding_id);
     let intent = append(
         &applying,
         manager_write_event(
@@ -356,7 +389,7 @@ where
     publish_journal_snapshot(&transactions_root, &intent)
         .map_err(|error| format!("publish exact manager write intent: {error}"))?;
 
-    if manager == "electron-squirrel" {
+    if operation == TransactionOperation::Update && manager == "electron-squirrel" {
         let request_path = match prepare_electron_squirrel_update(
             action,
             &transaction_id,
@@ -380,7 +413,9 @@ where
             request_path.display().to_string(),
         ];
     }
-    let warp_update_binary = if manager == "warp-agent-cli" {
+    let warp_update_binary = if operation == TransactionOperation::Update
+        && manager == "warp-agent-cli"
+    {
         match prepare_warp_agent_cli_update(action, &transaction_id, &environment, cancellation) {
             Ok((staging_path, binary_path)) => {
                 manager_environment.cleanup_paths.push(staging_path);
@@ -443,7 +478,7 @@ where
     .map_err(|error| {
         let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
         let _ = publish_journal_snapshot(&transactions_root, &recovery);
-        format!("manager update process failed; recovery is required: {error}")
+        format!("manager {operation_label} process failed; recovery is required: {error}")
     })?;
     drop(executable_binding);
     if let Err(error) = revalidate_verified_executable(&mut verified_executable) {
@@ -460,7 +495,7 @@ where
             let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
             let _ = publish_journal_snapshot(&transactions_root, &recovery);
             return Err(format!(
-                "manager executable identity changed across spawn; recovery is required: {error}"
+                "manager {operation_label} executable identity changed across spawn; recovery is required: {error}"
             ));
         }
     }
@@ -471,13 +506,17 @@ where
         let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
         let _ = publish_journal_snapshot(&transactions_root, &recovery);
         return Err(format!(
-            "manager update did not complete successfully (exit={exit_code:?}, cancellation={:?}, stderr={:?}); recovery is required",
+            "manager {operation_label} did not complete successfully (exit={exit_code:?}, cancellation={:?}, stderr={:?}); recovery is required",
             process.cancellation_reason,
             String::from_utf8_lossy(&process.stderr.bytes)
         ));
     }
 
-    refuse_if_cancelled(cancellation, "before post-update verification").map_err(|error| {
+    refuse_if_cancelled(
+        cancellation,
+        &format!("before post-{operation_label} verification"),
+    )
+    .map_err(|error| {
         let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
         let _ = publish_journal_snapshot(&transactions_root, &recovery);
         format!("{error}; recovery is required")
@@ -488,11 +527,15 @@ where
             let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
             let _ = publish_journal_snapshot(&transactions_root, &recovery);
             return Err(format!(
-                "post-update verification failed; recovery is required: {error}"
+                "post-{operation_label} verification failed; recovery is required: {error}"
             ));
         }
     };
-    refuse_if_cancelled(cancellation, "during post-update verification").map_err(|error| {
+    refuse_if_cancelled(
+        cancellation,
+        &format!("during post-{operation_label} verification"),
+    )
+    .map_err(|error| {
         let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
         let _ = publish_journal_snapshot(&transactions_root, &recovery);
         format!("{error}; recovery is required")
@@ -519,7 +562,7 @@ where
         let recovery = append(&verified, event(TransactionEventKind::RecoveryRequired));
         let _ = publish_journal_snapshot(&transactions_root, &recovery);
         return Err(format!(
-            "publish update commit-pending journal failed; recovery is required: {error}"
+            "publish {operation_label} commit-pending journal failed; recovery is required: {error}"
         ));
     }
 
@@ -539,7 +582,7 @@ where
         transaction_id: transaction_id.clone(),
         plan_id: plan.plan_id.clone(),
         action_id: action.action_id.clone(),
-        operation: TransactionOperation::Update,
+        operation,
         manager: manager.to_string(),
         target: action.target.clone(),
         executable_sha256: executable_identity.sha256.clone(),
@@ -595,11 +638,12 @@ where
     let committed = append(&committing, event(TransactionEventKind::Committed));
     publish_journal_snapshot(&transactions_root, &committed).map_err(|error| {
         format!(
-            "external-effect receipt is durable but final committed journal publication failed; recovery is required: {error}"
+            "external-effect {operation_label} receipt is durable but final committed journal publication failed; recovery is required: {error}"
         )
     })?;
 
     Ok(UpdateExecutionReport {
+        operation,
         transaction_id,
         action_id: action.action_id.clone(),
         manager: manager.to_string(),
@@ -618,6 +662,22 @@ where
         writes_attempted: true,
         product_execution_authorized: true,
     })
+}
+
+fn operation_for_action(action: &PlanAction) -> Result<TransactionOperation, String> {
+    match action.kind {
+        ActionKind::Update => Ok(TransactionOperation::Update),
+        ActionKind::Uninstall => Ok(TransactionOperation::Uninstall),
+        _ => Err("manager executor accepts only update or uninstall actions".to_string()),
+    }
+}
+
+const fn operation_label(operation: TransactionOperation) -> &'static str {
+    match operation {
+        TransactionOperation::Update => "update",
+        TransactionOperation::Uninstall => "uninstall",
+        _ => "manager-action",
+    }
 }
 
 fn ensure_new_transaction(state_root: &Path, transaction_id: &str) -> Result<(), String> {
@@ -1380,6 +1440,7 @@ fn file_url(path: &Path) -> Result<String, String> {
 }
 
 fn validate_execution_inputs(
+    operation: TransactionOperation,
     plan: &ActionPlan,
     action: &PlanAction,
     challenge: &ConfirmationChallenge,
@@ -1393,8 +1454,16 @@ fn validate_execution_inputs(
             plan_validation.errors
         ));
     }
-    if action.kind != ActionKind::Update || action.disposition != ActionDisposition::Planned {
-        return Err("only one planned update action may execute".to_string());
+    let expected_kind = match operation {
+        TransactionOperation::Update => ActionKind::Update,
+        TransactionOperation::Uninstall => ActionKind::Uninstall,
+        _ => return Err("unsupported manager transaction operation".to_string()),
+    };
+    if action.kind != expected_kind || action.disposition != ActionDisposition::Planned {
+        return Err(format!(
+            "only one planned {} action may execute",
+            operation_label(operation)
+        ));
     }
     if plan.actions.len() != 1 || plan.actions[0] != *action {
         return Err("execution requires a single-action exact plan".to_string());
@@ -1426,6 +1495,7 @@ fn validate_execution_inputs(
 fn journal(
     transaction_id: &str,
     plan_id: &str,
+    operation: TransactionOperation,
     mut events: Vec<TransactionEvent>,
 ) -> TransactionJournal {
     let mut journal = TransactionJournal {
@@ -1433,7 +1503,7 @@ fn journal(
         contract: rz0_transaction_contract::TRANSACTION_CONTRACT.to_string(),
         transaction_id: transaction_id.to_string(),
         plan_id: plan_id.to_string(),
-        operation: TransactionOperation::Update,
+        operation,
         state: TransactionState::Prepared,
         durability: DurabilityRequirements::schema_one(),
         events: Vec::new(),
@@ -1708,6 +1778,19 @@ mod tests {
         (plan, action)
     }
 
+    fn harmless_manager_uninstall_test_plan(executable: &Path) -> (ActionPlan, PlanAction) {
+        let (mut plan, mut action) = harmless_manager_test_plan(executable);
+        action.action_id = "uninstall.execution-test".to_string();
+        action.finding_id = "uninstall.execution-test".to_string();
+        action.kind = ActionKind::Uninstall;
+        plan.plan_id = "uninstall.plan.execution-test".to_string();
+        plan.module_id = "first-party.uninstall".to_string();
+        plan.evidence_report_id = "findings:uninstall-execution-test".to_string();
+        plan.actions = vec![action.clone()];
+        assert!(rz0_action_plan::validate_action_plan(&plan).valid);
+        (plan, action)
+    }
+
     fn private_execution_root(label: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!(
             "runtime-zero-update-{label}-{}",
@@ -1818,6 +1901,48 @@ mod tests {
         assert!(receipt.writes_attempted);
         assert!(!receipt.automatic_mutation_authorized);
         assert_eq!(receipt.exit_code, 0);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn manager_executor_binds_uninstall_operation_into_receipt_and_journal() {
+        let executable = Path::new("/opt/homebrew/bin/brew");
+        if !executable.is_file() {
+            return;
+        }
+        let (plan, action) = harmless_manager_uninstall_test_plan(executable);
+        let now = unix_seconds();
+        let (challenge, _) = build_update_challenge(&plan, &action, true, now).expect("challenge");
+        assert_eq!(challenge.risk, ConfirmationRisk::Destructive);
+        let response = validate_update_confirmation(&challenge, &challenge.expected_phrase, now)
+            .expect("confirmation");
+        let root = private_execution_root("uninstall-verified");
+        let (_, cancellation) = rz0_cancellation_contract::cancellation_pair();
+        let report = execute_uninstall_action(UpdateExecutionRequest {
+            state_root: &root,
+            plan: &plan,
+            action: &action,
+            challenge: &challenge,
+            response: &response,
+            now_unix_seconds: now,
+            environment: vec![
+                (
+                    "PATH".to_string(),
+                    "/opt/homebrew/bin:/usr/bin:/bin".to_string(),
+                ),
+                ("HOME".to_string(), "/Users/tjn".to_string()),
+            ],
+            cancellation: &cancellation,
+            verify_after: || Ok("harmless manager uninstall invocation verified".to_string()),
+        })
+        .expect("committed uninstall receipt");
+        assert_eq!(report.operation, TransactionOperation::Uninstall);
+        let receipt_path = root.join(&report.receipt_reference);
+        let receipt: ExternalEffectReceipt =
+            serde_json::from_slice(&std::fs::read(&receipt_path).expect("receipt bytes"))
+                .expect("receipt JSON");
+        assert_eq!(receipt.operation, TransactionOperation::Uninstall);
+        assert_eq!(receipt.transaction_id, report.transaction_id);
         let _ = std::fs::remove_dir_all(root);
     }
 }

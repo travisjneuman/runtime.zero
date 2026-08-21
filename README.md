@@ -64,6 +64,7 @@ rz0 integrity --dry-run --fixture tests/fixtures/integrity/valid.json
 rz0 integrity --dry-run --path /absolute/path/to/file --sha256 <sha256>
 rz0 uninstall plan <installed-software-id>
 rz0 uninstall plan <installed-software-id> --executable /opt/homebrew/bin/brew --format json
+rz0 uninstall apply <installed-software-id> --executable /opt/homebrew/bin/brew --accept-no-rollback
 rz0 completions bash|zsh|fish|powershell
 rz0 scan --dry-run
 rz0 scan --dry-run --format json
@@ -277,8 +278,8 @@ command restores one existing validated quarantine record to its original
 unoccupied cache/module path after a fresh exact confirmation; it never
 overwrites, deletes, recurses, elevates, or uses network access. Integrity has a
 bounded exact-file adapter that remains caller-baseline only. None of these
-surfaces provides uninstall execution, recursive cleanup, elevation, signed lifecycle
-activation, or production support. See
+surfaces provides broad filesystem uninstall, recursive cleanup, signed
+lifecycle activation, or production support. See
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).
 
 A separate `crates/module-trust/` contract now verifies local detached Ed25519

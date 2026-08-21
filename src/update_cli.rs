@@ -3209,7 +3209,7 @@ fn render_execution(report: &UpdateExecutionReport, format: OutputFormat) -> Str
 }
 
 #[cfg(unix)]
-struct InterruptBridge {
+pub(crate) struct InterruptBridge {
     stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
     signal_id: signal_hook::SigId,
     thread: Option<std::thread::JoinHandle<()>>,
@@ -3217,7 +3217,7 @@ struct InterruptBridge {
 
 #[cfg(unix)]
 impl InterruptBridge {
-    fn install(
+    pub(crate) fn install(
         controller: rz0_cancellation_contract::CancellationController,
     ) -> Result<Self, String> {
         use std::sync::{
@@ -3269,11 +3269,11 @@ impl Drop for InterruptBridge {
 }
 
 #[cfg(not(unix))]
-struct InterruptBridge;
+pub(crate) struct InterruptBridge;
 
 #[cfg(not(unix))]
 impl InterruptBridge {
-    fn install(
+    pub(crate) fn install(
         _controller: rz0_cancellation_contract::CancellationController,
     ) -> Result<Self, String> {
         Err("interactive update cancellation is not implemented on this platform".to_string())
@@ -3286,7 +3286,7 @@ fn unix_seconds() -> u64 {
         .map_or(0, |duration| duration.as_secs())
 }
 
-fn probe_environment() -> Vec<(String, String)> {
+pub(crate) fn probe_environment() -> Vec<(String, String)> {
     let mut environment = Vec::new();
     if let Some(home) = std::env::var_os("HOME").and_then(|value| value.into_string().ok()) {
         environment.push(("HOME".to_string(), home));

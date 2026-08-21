@@ -112,7 +112,7 @@ release.
 | --- | --- |
 | [`modules/inventory/README.md`](../modules/inventory/README.md) | Built-in read-only collector library plus separate development binary; lifecycle package remains planned |
 | [`modules/updater/README.md`](../modules/updater/README.md) | Live/captured availability parsing, finding/action-plan/queue logic, and core-owned explicit apply lane |
-| [`modules/uninstall/README.md`](../modules/uninstall/README.md) | Shared synthetic/live installed-software finding contract plus non-executing core review/action-plan surface; no uninstall execution |
+| [`modules/uninstall/README.md`](../modules/uninstall/README.md) | Shared installed-software finding contract plus the narrow foundation-owned manager-native uninstall apply boundary |
 | [`modules/leftovers/README.md`](../modules/leftovers/README.md) | Bounded runtime.zero-owned module/log and unreferenced-receipt evidence plus exact-file plan/apply boundary; no recursive cleanup |
 | [`modules/cache/README.md`](../modules/cache/README.md) | Bounded known-root read-only cache evidence plus one exact-file plan/apply boundary; no recursive cleanup |
 | [`cache-management.md`](cache-management.md) | Cache ownership, review age/size signals, active-use uncertainty, exclusions, and remaining release gates |
