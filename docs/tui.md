@@ -18,7 +18,11 @@ The program renders a small local-control shell before collecting the full
 software inventory and system snapshot. The initial frame says `loading local
 snapshot`; the background read then replaces it with the completed local
 dashboard. A disconnected worker fails closed and is shown as unavailable. No
-automatic retry occurs: `r` is an explicit refresh request.
+automatic retry occurs: `r` is an explicit refresh request. `q` cancels and
+drops an in-flight startup or refresh worker before leaving the TUI. Pressing
+`r` cancels the previous load, increments a generation, and starts one new
+worker; a late result from an older generation cannot replace the newer
+snapshot.
 
 The shell is local and read-only until an exact provider action is reviewed,
 confirmed, executed, and freshly verified. Loading, unavailable, empty, and

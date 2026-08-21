@@ -135,10 +135,11 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [x] Reconcile updater journal/receipt publication through the canonical
   external-effect transaction/recovery model with write-intent/outcome evidence
   and deterministic read-only recovery assessment.
-- [ ] Propagate caller cancellation through remaining discovery, verification,
-  receipt, and write boundaries; confirmed Unix execution now bridges SIGINT
-  through bounded process-group teardown, and post-action updater verification
-  now receives the shared token and uses cancellable fresh provider discovery.
+- [x] Propagate the caller-owned cancellation token through updater apply-time
+  discovery, serial refresh, manager execution, post-action verification, and
+  installed-software inventory/tool probes; confirmed Unix execution bridges
+  SIGINT through bounded process-group teardown, and cancellation remains
+  fail-closed before receipt publication.
 - [ ] Native rollback, Windows runtime/ACL/reparse proof, manager-specific locale/
   source-agreement/offline/runtime proof, manager-specific recovery beyond the
   local journal completion lane, real
@@ -173,7 +174,9 @@ See [`action-planning.md`](action-planning.md).
 ## Phase 6 — interactive UX and site
 
 - [x] Interactive terminal flow, section navigation, details panel, command
-  rail, responsive layout tiers, mouse capture, and one-second monitor refresh.
+  rail, responsive layout tiers, mouse capture, one-second monitor refresh,
+  cancellable dashboard loading, refresh generation invalidation, and stale-
+  result suppression.
 - [x] One live installed-software section with per-item details/uninstall posture,
   bottom-safe row selection, mouse-wheel scrolling, and exact CLI action entries.
 - [ ] Manual Windows Terminal/PowerShell TUI smoke and installed-binary refresh.

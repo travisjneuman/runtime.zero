@@ -32,7 +32,7 @@ enum UpdatePhase {
     Execute,
 }
 
-type DashboardLoadResult = Result<tui_dashboard::TuiDashboard, String>;
+type DashboardLoadResult = (u64, Result<tui_dashboard::TuiDashboard, String>);
 
 enum TuiUpdateResult {
     Review(Result<LiveUpdateReview, String>),
@@ -55,14 +55,24 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
 ) -> io::Result<()> {
     let mut dashboard = tui_dashboard::loading_dashboard();
     let mut state = TuiState::new(dashboard.sections.len());
-    let mut dashboard_receiver = Some(start_dashboard_load());
+    let mut dashboard_generation = 0u64;
+    let (dashboard_controller, dashboard_load_receiver) =
+        start_dashboard_load(dashboard_generation);
+    let mut dashboard_controller = Some(dashboard_controller);
+    let mut dashboard_receiver = Some(dashboard_load_receiver);
     let mut update_receiver: Option<Receiver<TuiUpdateResult>> = None;
     let mut update_controller = None;
     let mut update_phase = None;
     let mut pending_update_selection = None;
     render(terminal, &dashboard, &state, launch_context, color)?;
     loop {
-        if let Some(result) = poll_dashboard_result(&mut dashboard_receiver) {
+        if let Some((generation, result)) =
+            poll_dashboard_result(&mut dashboard_receiver, dashboard_generation)
+        {
+            if !dashboard_result_is_current(generation, dashboard_generation) {
+                continue;
+            }
+            dashboard_controller = None;
             match result {
                 Ok(loaded) => dashboard = loaded,
                 Err(detail) => tui_dashboard::mark_startup_load_failed(&mut dashboard, &detail),
@@ -106,6 +116,7 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
             let confirmation_was_active = state.update_confirmation_active();
             match state.apply(input) {
                 TuiAction::Quit => {
+                    cancel_dashboard_load(&mut dashboard_receiver, &mut dashboard_controller);
                     if update_phase.is_some() {
                         if let Some(controller) = update_controller.as_ref() {
                             controller.cancel(
@@ -159,9 +170,11 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
                     state.selected_detail_row = selected_detail_row;
                     state.focus_region = focus_region;
                     state.set_software_view(software_view);
-                    if dashboard_receiver.is_none() {
-                        dashboard_receiver = Some(start_dashboard_load());
-                    }
+                    cancel_dashboard_load(&mut dashboard_receiver, &mut dashboard_controller);
+                    dashboard_generation = dashboard_generation.wrapping_add(1);
+                    let (controller, receiver) = start_dashboard_load(dashboard_generation);
+                    dashboard_controller = Some(controller);
+                    dashboard_receiver = Some(receiver);
                 }
                 TuiAction::Continue => {}
             }
@@ -191,16 +204,24 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
     Ok(())
 }
 
-fn start_dashboard_load() -> Receiver<DashboardLoadResult> {
+fn start_dashboard_load(
+    generation: u64,
+) -> (
+    rz0_cancellation_contract::CancellationController,
+    Receiver<DashboardLoadResult>,
+) {
     let (sender, receiver) = mpsc::channel();
+    let (controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
     thread::spawn(move || {
-        let _ = sender.send(Ok(tui_dashboard::dashboard()));
+        let result = tui_dashboard::dashboard_cancellable(&cancellation);
+        let _ = sender.send((generation, result));
     });
-    receiver
+    (controller, receiver)
 }
 
 fn poll_dashboard_result(
     receiver: &mut Option<Receiver<DashboardLoadResult>>,
+    current_generation: u64,
 ) -> Option<DashboardLoadResult> {
     match receiver.as_ref().map(Receiver::try_recv) {
         Some(Ok(result)) => {
@@ -209,10 +230,27 @@ fn poll_dashboard_result(
         }
         Some(Err(TryRecvError::Disconnected)) => {
             *receiver = None;
-            Some(Err("dashboard worker disconnected".to_string()))
+            Some((
+                current_generation,
+                Err("dashboard worker disconnected".to_string()),
+            ))
         }
         Some(Err(TryRecvError::Empty)) | None => None,
     }
+}
+
+fn cancel_dashboard_load(
+    receiver: &mut Option<Receiver<DashboardLoadResult>>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+) {
+    if let Some(controller) = controller.take() {
+        controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+    }
+    receiver.take();
+}
+
+fn dashboard_result_is_current(generation: u64, current_generation: u64) -> bool {
+    generation == current_generation
 }
 
 fn poll_update_result(
@@ -554,6 +592,30 @@ mod tests {
     fn q_key_maps_to_quit_without_printable_output() {
         let input = input_from_key(KeyEvent::from(KeyCode::Char('q')), false, false);
         assert_eq!(input, Some(TuiInput::Quit));
+    }
+
+    #[test]
+    fn stale_dashboard_generation_is_rejected() {
+        assert!(!dashboard_result_is_current(3, 4));
+        assert!(dashboard_result_is_current(4, 4));
+    }
+
+    #[test]
+    fn cancelling_dashboard_load_records_user_request_and_drops_receiver() {
+        let (controller, _token) = rz0_cancellation_contract::cancellation_pair();
+        let observed = controller.clone();
+        let (_sender, receiver) = mpsc::channel::<DashboardLoadResult>();
+        let mut receiver = Some(receiver);
+        let mut controller = Some(controller);
+
+        cancel_dashboard_load(&mut receiver, &mut controller);
+
+        assert!(receiver.is_none());
+        assert!(controller.is_none());
+        assert_eq!(
+            observed.reason(),
+            Some(rz0_cancellation_contract::CancellationReason::UserRequested)
+        );
     }
 
     #[test]

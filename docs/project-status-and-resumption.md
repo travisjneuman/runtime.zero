@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `476954da8f9e4f0cf404a6cdfbe820bb8d22a41e` (`docs: record cancellation and winget boundary`).
+  `f53c0e68f264094fb1e160957e3e56606adda3bc` (`fix: cancel updater discovery before apply`).
 - **Current behavior implementation:**
-  `7bb5b44` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `f53c0e6` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -131,7 +131,11 @@
   into post-action verification callbacks; updater verification uses the
   cancellable provider-review path for its fresh evidence, and uninstall
   verification checks cancellation around its fresh catalog snapshot before
-  any receipt commit.
+  any receipt commit. The follow-on cancellation slice makes the same
+  caller-owned token cover apply-time provider discovery, serial queue refresh,
+  manager execution, post-action verification, and the underlying installed-
+  software inventory/tool-version probes; a cancelled path fails closed before
+  it can publish an action receipt.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -191,6 +195,8 @@ The shared Toolchain/TUI executable-evidence slice is `3961200`.
 The Home/Toolchain parity slice is `4a8960d`.
 The post-action cancellation propagation slice is `7bb5b44`.
 The documentation and WinGet-boundary follow-up is `476954d`.
+The cancellation-aware inventory and tool-probe slice is `081d92d`.
+The apply-time updater discovery cancellation slice is `f53c0e6`.
 The current exact-head release evidence refresh is bound to
 `476954da8f9e4f0cf404a6cdfbe820bb8d22a41e`.
 Local
@@ -302,8 +308,10 @@ The largest immediate risks are:
   remain incomplete;
 - Unix process groups are containment aids, not syscall/filesystem/network/
   privilege sandboxes, and a hostile child may attempt session escape;
-- cancellation is integrated into confirmed execution but not every discovery,
-  verification, and write boundary;
+- cancellation now covers confirmed updater discovery, serial refresh,
+  manager execution, post-action verification, and installed-software
+  inventory/tool probes; remaining production process/write hosts and
+  platform-runtime proof are still open;
 - a valid external-effect receipt can identify an interrupted final journal
   commit, and a fresh receipt-bound recovery-completion command now exists;
 - native rollback and disposable-host power-loss/
@@ -444,8 +452,11 @@ for scriptable output.
 
 The five workspaces are Home, Toolchain, Software, System, and Diagnostics.
 The TUI renders a loading shell before the full inventory/monitor worker
-finishes, and `r` is the only explicit retry. Controls include `r` inventory
-refresh, `u` explicit provider availability, visible `Review action [U]`, `m`
+finishes, and `r` is the only explicit retry. Startup and refresh workers now
+carry a cancellation token; `q` cancels an in-flight load, `r` cancels the
+previous generation, and stale worker results cannot overwrite a newer
+snapshot. Controls include `r` inventory refresh, `u` explicit provider
+availability, visible `Review action [U]`, `m`
 System, `/` search, `f` filter, `s` sort, arrows/`j`/`k`, Home/End,
 Tab/Shift+Tab, Enter/Space, mouse wheel, `h`/`?`, Esc, and `q`.
 

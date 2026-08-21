@@ -312,6 +312,9 @@ Review even a summary before sharing it.
 The task-first TUI has five workspaces: Home, Toolchain, Software, System,
 and Diagnostics. It renders a loading shell before the full local inventory
 and monitor snapshot completes; an explicit `r` refresh is the only retry.
+`q` cancels an in-flight startup or refresh load, while `r` cancels the prior
+worker and rejects any late stale result before publishing the replacement
+snapshot.
 Important controls:
 
 - `r`: refresh local inventory;

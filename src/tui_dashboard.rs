@@ -1,10 +1,11 @@
 use rz0_action_plan::{ActionDisposition, ActionPlan, PlanAction};
+use rz0_cancellation_contract::CancellationToken;
 use serde::Serialize;
 
 use crate::aiup::report_from_catalog as aiup_report_from_catalog;
 use crate::apps::{
     AppCatalog, InstalledSoftware, SoftwareFilter, SoftwareKind, SoftwareUpdate, SoftwareView,
-    UninstallOption, collect_app_catalog,
+    UninstallOption, collect_app_catalog, collect_app_catalog_cancellable,
 };
 use crate::brand;
 use crate::cache::{self, CacheReviewReport};
@@ -147,6 +148,45 @@ pub fn dashboard() -> TuiDashboard {
     dashboard_with_inventory(true)
 }
 
+pub(crate) fn dashboard_cancellable(
+    cancellation: &CancellationToken,
+) -> Result<TuiDashboard, String> {
+    check_dashboard_cancellation(cancellation)?;
+    let store = store_status_report(&["tui".to_string()]);
+    check_dashboard_cancellation(cancellation)?;
+    let init = store_init_report(
+        &["tui".to_string()],
+        StoreInitOptions::new(StoreInitMode::DryRun),
+    );
+    check_dashboard_cancellation(cancellation)?;
+    let modules = ModuleRegistryReport::empty_installed();
+    let module_status = module_status_report_from_store(&store);
+    check_dashboard_cancellation(cancellation)?;
+    let inventory = Some(collect_app_catalog_cancellable(Some(cancellation)));
+    check_dashboard_cancellation(cancellation)?;
+    let monitor = Some(system_monitor::collect_snapshot(None));
+    check_dashboard_cancellation(cancellation)?;
+    let cache = Some(cache::live_report());
+    check_dashboard_cancellation(cancellation)?;
+    let leftovers = Some(leftovers::live_report());
+    check_dashboard_cancellation(cancellation)?;
+    let recovery = Some(recovery_summary(&store.store));
+    check_dashboard_cancellation(cancellation)?;
+    Ok(build_dashboard(
+        &store,
+        init.status,
+        &modules,
+        &module_status,
+        DashboardEvidence {
+            inventory,
+            monitor,
+            cache,
+            leftovers,
+            recovery,
+        },
+    ))
+}
+
 pub fn private_dashboard() -> TuiDashboard {
     dashboard_with_inventory(false)
 }
@@ -212,6 +252,13 @@ fn dashboard_with_inventory(include_software_names: bool) -> TuiDashboard {
             recovery,
         },
     )
+}
+
+fn check_dashboard_cancellation(cancellation: &CancellationToken) -> Result<(), String> {
+    if let Some(reason) = cancellation.reason() {
+        return Err(format!("dashboard load cancelled: {reason:?}"));
+    }
+    Ok(())
 }
 
 fn build_dashboard(
@@ -1702,5 +1749,20 @@ fn palette() -> TuiPalette {
         brand_accent: tui_theme::BRAND_ACCENT,
         text_primary: tui_theme::TEXT_PRIMARY,
         text_muted: tui_theme::TEXT_MUTED,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pre_cancelled_dashboard_load_never_publishes_a_snapshot() {
+        let (controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+        controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+
+        let error = dashboard_cancellable(&cancellation)
+            .expect_err("pre-cancelled dashboard load should stop before publishing");
+        assert!(error.contains("dashboard load cancelled"));
     }
 }
