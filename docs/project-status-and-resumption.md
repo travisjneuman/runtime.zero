@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `c40633e809a8034ba3a1ab2f2f0e2c833f6d751f` (`docs: record aiup tui posture`).
+  `e3f4bd40c8b36acf6f68e1a0979e2d5dd05b84d2` (`fix: harden aiup provider evidence`).
 - **Current behavior implementation:**
-  `c40633e` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `e3f4bd4` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -170,8 +170,9 @@ The portable provider-locale binding slice is `dabc8ec`.
 The bounded Zypper XML updater parser slice is `899b2a5`.
 The Rust-owned AIUP capability review slice is `687febf`.
 The TUI AIUP posture-parity slice is `80f10ac`.
+The strict AIUP provider-evidence slice is `e3f4bd4`.
 The current exact-head release evidence refresh is bound to
-`c40633e809a8034ba3a1ab2f2f0e2c833f6d751f`.
+`e3f4bd40c8b36acf6f68e1a0979e2d5dd05b84d2`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -179,24 +180,24 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current universal2 package is
-`target/release-package-universal2-c40633e/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+`target/release-package-universal2-e3f4bd4/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
 It has binary SHA-256
-`cd1761aa2cd8035ebfb585fa02a3f3393917eac160e1aa611fc55faeee8edd27`, ZIP
+`b4b270a8e3f070209ae583eb97b51c0fbdd505426dff193cc12ccfdd01d7be27`, ZIP
 SHA-256
-`a0b7e548360c2e6b861a8dc22c007e85ad4a987af0628ee101f6e59f870a1397`, and
-3,977,026 bytes across 8 verified members. The embedded artifact manifest,
+`6d26c56d0999d2de74e368039c43cb4202722a1b0a23c96310145118b6fd8267`, and
+3,981,322 bytes across 8 verified members. The embedded artifact manifest,
 SBOM, and third-party notices have SHA-256 values
-`6cf40349d8be4272f4c6073ecd5b0acfa105b272f92c5b0e27cf97022fa787b1`,
-`fc071af3470b73ea1e7cf448365818835f31310a72b33fb54268375ec1f83936`, and
-`4acc50e8ec0712a8ca6aba14413e0743ba674827cbb162f66672f77461f92462`; their
+`dfce34a1e39a5f8466e0c39a0e0c7c055e457051467260bfa0fcb05b2e42785d`,
+`7e445a5e8b9b936eaa59219e17107848a53e3d4991ff7bfd24f9469db216a478`, and
+`116227e7332b5c7d5712dd2d539a71d0668ad62e2ef162656fbbfc22aa98e1b5`; their
 embedded sizes are 980, 162,322, and 291,176 bytes respectively. The package
 verifier passed, and `file`/`lipo` confirmed arm64 plus x86_64 Mach-O slices.
 Both slices passed four PTY terminal smoke cases and ten-sample final-artifact
 performance evidence. The terminal evidence IDs are
-`terminal:universal2-apple-darwin-arm64-cd1761aa2cd8` and
-`terminal:universal2-apple-darwin-x86_64-cd1761aa2cd8`; the performance IDs are
-`perf:universal2-apple-darwin-arm64-cd1761aa2cd8` and
-`perf:universal2-apple-darwin-x86_64-cd1761aa2cd8`. Both slices passed
+`terminal:universal2-apple-darwin-arm64-b4b270a8e3f0` and
+`terminal:universal2-apple-darwin-x86_64-b4b270a8e3f0`; the performance IDs are
+`perf:universal2-apple-darwin-arm64-b4b270a8e3f0` and
+`perf:universal2-apple-darwin-x86_64-b4b270a8e3f0`. Both slices passed
 read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
 doctor reported 6 passing and 4 blocked policy checks, while scan reported 9
 sources, 325 tools, 273 apps, 895 services, and 22 warnings. The configuration
@@ -630,7 +631,7 @@ and module-host execution.
 ## Validation baseline
 
 Current source validation for
-`c40633e809a8034ba3a1ab2f2f0e2c833f6d751f`:
+`e3f4bd40c8b36acf6f68e1a0979e2d5dd05b84d2`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` and the full
@@ -652,12 +653,15 @@ Current source validation for
 - the Rust-owned AIUP review surface passed focused contract tests, live CLI
   JSON inspection, help/completion coverage, and remains read-only with no
   provider invocation or state writes;
+- the AIUP provider parser now requires bounded UTF-8 output with unique,
+  matching tool sections, one version catalog, and in-section commands; its
+  focused updater suite passed 23 tests including malformed-boundary cases;
 - the TUI Toolchain workspace passed the full Ratatui/render/state/dashboard
   suites with the same AIUP posture summary and no second action authority;
 - the universal2 package was rebuilt from the exact source baseline above at
-  `target/release-package-universal2-c40633e`, and the package verifier passed
+  `target/release-package-universal2-e3f4bd4`, and the package verifier passed
   with the archive SHA-256
-  `a0b7e548360c2e6b861a8dc22c007e85ad4a987af0628ee101f6e59f870a1397`;
+  `6d26c56d0999d2de74e368039c43cb4202722a1b0a23c96310145118b6fd8267`;
 - the trust fixture review returned a valid package/signature result while
   retaining `test_key_only: true`, `execution_authorized: false`, and
   `writes_attempted: false`;
