@@ -7,10 +7,10 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `6d98021cc69531a3f7a70dce9959f5d7fe176e76` (`Define bounded cache safety policy evidence`);
-  current `main` is `b07665c` with a documentation-only status pointer.
+  `74257e3d2e9da7a8c1d2495d1e6be77a8da4f79c` (`Expose bounded transaction recovery review`);
+  the status document is refreshed in a follow-up documentation-only commit.
 - **Current behavior implementation:**
-  `6d98021cc69531a3f7a70dce9959f5d7fe176e76` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `74257e3d2e9da7a8c1d2495d1e6be77a8da4f79c` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -30,9 +30,12 @@
   deletion, elevation, or module authority. The read-only `recovery --dry-run`
   command inventories bounded quarantine records and reports restore
   eligibility without exposing absolute host paths or adding a second mutation
-  authority. The redesigned TUI Diagnostics workspace now shows the same
-  recovery record/valid/restore-capable counts without exposing record paths or
-  adding a second mutation route. Cache review now emits a separate
+  authority. It now also inspects bounded immutable transaction journal heads
+  without acquiring writer locks, reports stable per-transaction recovery
+  decisions and operator guidance, and surfaces checked/invalid/action-required
+  journal counts plus read-only review-warning counts in the TUI Diagnostics
+  workspace. It never publishes, completes, restores, rolls back, or adds a
+  second mutation route. Cache review now emits a separate
   `cache_safety_policy` summary plus path-free per-root modification-time,
   age-threshold, scan-completeness, and conservative lock-marker evidence; the
   TUI renders the observation and age-threshold state without creating a second
@@ -59,22 +62,24 @@ the cache-root/restore slice at `0ce2cc6`, the bounded recovery inventory at
 The status refreshes are `ea4593a`, `da5c5a0`, and `7602a3f`; package
 provenance was finally bound at `7d0ed91`; the bounded cache policy slice is
 `6d98021`.
+The bounded transaction journal inspection and TUI warning-count slice is
+`74257e3`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, the full
 `cargo test --workspace --locked --all-features` suite, strict all-features
-workspace Clippy, Windows MSVC cross-target `cargo check`, and
+workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current local aarch64 Apple Silicon package from
-`6d98021` has binary SHA-256
-`dcb0502ecaa8cc307ad718e646ddf6acc5fea4af0eb2432b414bbb35c1868265`, ZIP
+`74257e3` has binary SHA-256
+`e921458d5787bc4987286566d454e9582686fecd8e030b6ea8156f1a578e67ed`, ZIP
 SHA-256
-`ab8b407a32bc84ec8fa416fd8b8f1b2d8e340164714c13303a5c686e7e4fc4ac`, and
-1,697,304 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`d43c97703b12657970a0c254128ce295f5dc48276de88b03d21df2688fe13d11`, and
+1,706,350 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`41f476c64a46e3ba6084c4336af16992670f3d46ffe2a414a90a8387aa41be17`,
-`168edc8551bff6648a39c2c78b9d6f2d8616d3355c546ef4a59bf8ed4173414d`, and
-`8cee99ca2b9eb19a66ffff1cda5e788a025949257986628571615bd72782c329`.
+`39ddea93ffcf87879f490ef669c3c250772ca624ddc300f9e719d77600313a14`,
+`a15c7ba214c53e5c737f86fa572db5c7507a6d68771366efddce79f83634f7a1`, and
+`e2e1e7d5ce21716cc59c00695473da42c450cda140d342a6e4f2d1bde0ac44f8`.
 Independent verification, repeated byte-identical packaging, four PTY terminal
 smoke cases, and ten-sample final-artifact performance evidence passed. The
 artifact remains unsigned and unnotarized until an owner-led signing/
@@ -85,7 +90,11 @@ The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
 with no writes; and the bounded provider review reports 20 sources, 13 source
 successes, 59 serial queue items, and one AIUP-managed candidate without
-execution authorization. Linux release linking was re-attempted with the
+execution authorization. The same local `recovery --dry-run --format json`
+review inspected 11 valid transaction journals, found 0 invalid journals, and
+classified all 11 as action-required under the conservative assessment; one
+bounded warning reported persistent writer-lock markers without claiming active
+ownership. Linux release linking was re-attempted with the
 installed Rust LLD and still fails because this macOS host lacks the target
 Linux C-runtime libraries. Windows `link.exe` is likewise unavailable. These
 checks do not substitute for target-native runtime, signing, accessibility,
