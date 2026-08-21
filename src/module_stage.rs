@@ -642,6 +642,11 @@ fn build_install_receipt(
             "manifest_sha256": manifest_sha256,
             "package_sha256": package_digest(files)
         },
+        "lifecycle": {
+            "state": INSTALLED_MODULE_LIFECYCLE_STATE,
+            "activation_authorized": false,
+            "invocation_authorized": false
+        },
         "write_set": write_set,
         "rollback": {
             "supported": true

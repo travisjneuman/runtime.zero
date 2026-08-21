@@ -120,7 +120,14 @@ fn developer_promotion_publishes_installed_inactive_state_with_install_receipt()
         .install_receipt_path
         .as_deref()
         .expect("install receipt path");
-    assert!(root.join("state").join(install_receipt).is_file());
+    let install_receipt_path = root.join("state").join(install_receipt);
+    assert!(install_receipt_path.is_file());
+    let install_receipt: serde_json::Value =
+        serde_json::from_slice(&fs::read(install_receipt_path).expect("install receipt bytes"))
+            .expect("install receipt JSON");
+    assert_eq!(install_receipt["lifecycle"]["state"], "installed_inactive");
+    assert_eq!(install_receipt["lifecycle"]["activation_authorized"], false);
+    assert_eq!(install_receipt["lifecycle"]["invocation_authorized"], false);
 
     let registry: serde_json::Value = serde_json::from_slice(
         &fs::read(root.join("state/installed-modules.json")).expect("installed registry"),

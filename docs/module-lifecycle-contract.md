@@ -56,8 +56,11 @@ Schema-1 developer promotion now persists the foundation-owned
 `lifecycle_state: "installed_inactive"` field in each installed registry
 record. The registry accepts no other explicit lifecycle state; this records
 verified installation posture and cannot authorize activation, invocation, or a
-domain action. Activation remains unavailable until the production trust,
-capability, isolation, receipt, and recovery gates are implemented.
+domain action. Newly generated install receipts carry the same lifecycle state
+plus explicit false activation/invocation authority flags; an explicit active
+receipt fails receipt validation. Activation remains unavailable until the
+production trust, capability, isolation, receipt, and recovery gates are
+implemented.
 
 The core module-install dry-run now embeds the canonical foundation install
 transition instead of maintaining a private lifecycle model. No lifecycle plan

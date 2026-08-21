@@ -1,6 +1,7 @@
 use serde::Deserialize;
 
 use crate::installed_registry_path::validate_registry_path;
+use rz0_registry_contract::INSTALLED_MODULE_LIFECYCLE_STATE;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -10,9 +11,32 @@ pub(crate) struct InstallReceiptFile {
     pub source: ReceiptSource,
     pub target: ReceiptTarget,
     pub integrity: ReceiptIntegrity,
+    #[serde(default)]
+    pub lifecycle: ReceiptLifecycle,
     pub write_set: Vec<ReceiptWriteEntry>,
     pub rollback: ReceiptRollback,
     pub quarantine: ReceiptQuarantine,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ReceiptLifecycle {
+    #[serde(default = "default_lifecycle_state")]
+    pub state: String,
+    #[serde(default)]
+    pub activation_authorized: bool,
+    #[serde(default)]
+    pub invocation_authorized: bool,
+}
+
+impl Default for ReceiptLifecycle {
+    fn default() -> Self {
+        Self {
+            state: default_lifecycle_state(),
+            activation_authorized: false,
+            invocation_authorized: false,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -118,6 +142,12 @@ pub(crate) fn validate_receipt_content(receipt: &InstallReceiptFile, errors: &mu
         "package_sha256",
         errors,
     );
+    if receipt.lifecycle.state != INSTALLED_MODULE_LIFECYCLE_STATE {
+        errors.push("lifecycle.state must be installed_inactive".to_string());
+    }
+    if receipt.lifecycle.activation_authorized || receipt.lifecycle.invocation_authorized {
+        errors.push("lifecycle authority flags must remain false".to_string());
+    }
     for entry in &receipt.write_set {
         validate_write_entry(entry, errors);
     }
@@ -139,6 +169,10 @@ pub(crate) fn validate_receipt_content(receipt: &InstallReceiptFile, errors: &mu
             errors,
         );
     }
+}
+
+fn default_lifecycle_state() -> String {
+    INSTALLED_MODULE_LIFECYCLE_STATE.to_string()
 }
 
 fn validate_write_entry(entry: &ReceiptWriteEntry, errors: &mut Vec<String>) {

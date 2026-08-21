@@ -99,6 +99,40 @@ fn inventory_cross_checks_existing_receipts() {
 }
 
 #[test]
+fn explicit_active_lifecycle_receipt_is_invalid() {
+    let root = unique_temp_dir("active-lifecycle");
+    let path = root.join("active.json");
+    fs::create_dir_all(&root).expect("receipt test root created");
+    let mut receipt: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture("valid.json")).expect("fixture bytes"))
+            .expect("fixture JSON");
+    receipt["lifecycle"] = serde_json::json!({
+        "state": "active",
+        "activation_authorized": true,
+        "invocation_authorized": true
+    });
+    fs::write(
+        &path,
+        serde_json::to_vec(&receipt).expect("active lifecycle JSON"),
+    )
+    .expect("active lifecycle receipt written");
+    let report = install_receipt_report(
+        &path,
+        "receipts/active.json",
+        "first-party.inventory",
+        "0.1.0",
+    );
+    fs::remove_dir_all(&root).expect("receipt test root removed");
+    assert_eq!(report.status, InstallReceiptState::Invalid);
+    assert!(
+        report
+            .errors
+            .iter()
+            .any(|error| error.contains("lifecycle"))
+    );
+}
+
+#[test]
 fn inventory_reports_absent_referenced_receipt() {
     let state_root = unique_temp_dir("inventory-absent");
     let records = vec![record("receipts/missing.json")];

@@ -174,6 +174,11 @@ Schema version `1` expects:
     "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
     "package_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
   },
+  "lifecycle": {
+    "state": "installed_inactive",
+    "activation_authorized": false,
+    "invocation_authorized": false
+  },
   "write_set": [
     {
       "path": "modules/first-party.inventory/0.1.0/rz0-module.json",
