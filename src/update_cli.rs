@@ -3332,11 +3332,13 @@ pub(crate) fn probe_environment() -> Vec<(String, String)> {
     {
         environment.push(("PATH".to_string(), path));
     }
-    if std::env::consts::OS == "macos" {
+    if matches!(std::env::consts::OS, "macos" | "linux") {
         environment.push(("LANG".to_string(), "C".to_string()));
         environment.push(("LC_ALL".to_string(), "C".to_string()));
         environment.push(("LC_CTYPE".to_string(), "C".to_string()));
         environment.push(("LANGUAGE".to_string(), "C".to_string()));
+    }
+    if std::env::consts::OS == "macos" {
         environment.push(("HOMEBREW_NO_AUTO_UPDATE".to_string(), "1".to_string()));
         environment.push(("HOMEBREW_NO_ENV_HINTS".to_string(), "1".to_string()));
     }
