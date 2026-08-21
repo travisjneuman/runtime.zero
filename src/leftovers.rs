@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -11,7 +11,11 @@ use rz0_module_leftovers::{
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use crate::{ExitCode, brand, module_store::module_store_plan};
+use crate::{
+    ExitCode, brand,
+    installed_registry::{InstalledRegistryState, installed_registry_report},
+    module_store::{REGISTRY_FILE, module_store_plan},
+};
 
 pub const LEFTOVERS_REVIEW_CONTRACT: &str = "leftovers_review";
 const MAX_INPUT_BYTES: u64 = rz0_resource_contract::MAX_FINDING_REPORT_BYTES;
@@ -177,6 +181,11 @@ pub fn live_report() -> Result<LeftoversReviewReport, String> {
             observations.push(observation);
         }
     }
+    if let Some(observation) =
+        inspect_unreferenced_receipts(Path::new(&plan.state_root), &mut warnings)?
+    {
+        observations.push(observation);
+    }
     observations.sort_by(|left, right| left.id.cmp(right.id));
     let source_evidence_sha256 = observation_digest(&observations);
     let records = observations
@@ -334,6 +343,123 @@ fn inspect_root(
     }))
 }
 
+fn inspect_unreferenced_receipts(
+    state_root: &Path,
+    warnings: &mut Vec<String>,
+) -> Result<Option<LeftoverObservation>, String> {
+    let registry = installed_registry_report(&state_root.join(REGISTRY_FILE));
+    let referenced = match registry.status {
+        InstalledRegistryState::Absent | InstalledRegistryState::Empty => BTreeSet::new(),
+        InstalledRegistryState::Valid => registry
+            .records
+            .iter()
+            .filter(|record| record.valid)
+            .map(|record| record.receipt_path.clone())
+            .collect::<BTreeSet<_>>(),
+        InstalledRegistryState::Invalid | InstalledRegistryState::Unreadable => {
+            add_warning(
+                warnings,
+                "runtime-zero receipt ownership could not be checked because the installed-module registry is not valid".to_string(),
+            );
+            return Ok(None);
+        }
+    };
+    let receipts_root = state_root.join("receipts");
+    let metadata = match fs::symlink_metadata(&receipts_root) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => {
+            add_warning(
+                warnings,
+                "runtime-zero receipt source could not be inspected".to_string(),
+            );
+            return Ok(None);
+        }
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        add_warning(
+            warnings,
+            "runtime-zero receipt source is not a regular directory".to_string(),
+        );
+        return Ok(None);
+    }
+
+    let mut node_count = 0usize;
+    let mut file_count = 0usize;
+    let mut total_bytes = 0u64;
+    let mut digest = Sha256::new();
+    for entry in fs::read_dir(&receipts_root)
+        .map_err(|_| "runtime-zero receipt source could not be read".to_string())?
+    {
+        node_count = node_count.saturating_add(1);
+        if node_count > MAX_SCAN_NODES {
+            add_warning(
+                warnings,
+                "runtime-zero receipt source reached its scan ceiling".to_string(),
+            );
+            break;
+        }
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => {
+                add_warning(
+                    warnings,
+                    "runtime-zero receipt source contains an unreadable entry".to_string(),
+                );
+                continue;
+            }
+        };
+        let path = entry.path();
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(_) => {
+                add_warning(
+                    warnings,
+                    "runtime-zero receipt source changed during inspection".to_string(),
+                );
+                continue;
+            }
+        };
+        if metadata.file_type().is_symlink() {
+            add_warning(
+                warnings,
+                "runtime-zero receipt source contains a skipped symlink".to_string(),
+            );
+            continue;
+        }
+        if !metadata.is_file()
+            || path.extension().and_then(|extension| extension.to_str()) != Some("json")
+        {
+            continue;
+        }
+        let relative = format!("receipts/{}", entry.file_name().to_string_lossy());
+        if referenced.contains(&relative) {
+            continue;
+        }
+        file_count = file_count.saturating_add(1);
+        total_bytes = total_bytes.saturating_add(metadata.len());
+        digest.update(relative.as_bytes());
+        digest.update([0]);
+        digest.update(metadata.len().to_be_bytes());
+        if total_bytes > MAX_SCAN_BYTES {
+            add_warning(
+                warnings,
+                "runtime-zero receipt source reached its byte ceiling".to_string(),
+            );
+            break;
+        }
+    }
+    if file_count == 0 {
+        return Ok(None);
+    }
+    Ok(Some(LeftoverObservation {
+        id: "runtime-zero-unreferenced-receipts",
+        file_count,
+        total_bytes,
+        evidence_sha256: format!("{:x}", digest.finalize()),
+    }))
+}
+
 fn observation_digest(observations: &[LeftoverObservation]) -> String {
     let mut digest = Sha256::new();
     for observation in observations {
@@ -394,7 +520,7 @@ fn render_text(report: &LeftoversReviewReport) -> String {
 }
 
 fn usage() -> String {
-    "Usage: rz0 leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n\nReports bounded runtime.zero-owned module/log evidence. Live mode never scans broad user paths; fixture mode reads one local contract document. No cleanup, quarantine, restore, or deletion path exists.\n".to_string()
+    "Usage: rz0 leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n\nReports bounded runtime.zero-owned module/log and unreferenced-receipt evidence. Live mode never scans broad user paths; receipt ownership is checked only with a valid installed-module registry; fixture mode reads one local contract document. No cleanup, quarantine, restore, or deletion path exists.\n".to_string()
 }
 
 fn disposition_label(disposition: rz0_finding_contract::FindingDisposition) -> &'static str {
@@ -458,5 +584,32 @@ mod tests {
         let (code, _, error) = leftovers_command(&[]);
         assert_eq!(code, ExitCode::Usage);
         assert!(error.contains("dry-run only"));
+    }
+
+    #[test]
+    fn unreferenced_receipt_review_is_bounded_and_path_free() {
+        let root = std::env::temp_dir().join(format!(
+            "runtime-zero-leftovers-receipts-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("receipts")).expect("receipt root");
+        fs::write(
+            root.join(REGISTRY_FILE),
+            r#"{"schema_version":1,"modules":[{"id":"first-party.inventory","version":"0.1.0","manifest_path":"modules/first-party.inventory/0.1.0/rz0-module.json","receipt_path":"receipts/referenced.json","module_dir":"modules/first-party.inventory/0.1.0"}]}"#,
+        )
+        .expect("registry");
+        fs::write(root.join("receipts/referenced.json"), b"referenced").expect("referenced");
+        fs::write(root.join("receipts/orphan.json"), b"orphan").expect("orphan");
+        let mut warnings = Vec::new();
+        let observation = inspect_unreferenced_receipts(&root, &mut warnings)
+            .expect("receipt review")
+            .expect("unreferenced receipt observation");
+        assert_eq!(observation.id, "runtime-zero-unreferenced-receipts");
+        assert_eq!(observation.file_count, 1);
+        assert_eq!(observation.total_bytes, 6);
+        assert!(warnings.is_empty());
+        assert!(!observation.evidence_sha256.contains("orphan"));
+        let _ = fs::remove_dir_all(root);
     }
 }

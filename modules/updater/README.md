@@ -14,6 +14,13 @@ installed native-tool evidence into a runtime.zero plan. AIUP's own catalog,
 install/uninstall behavior, and terminal UI remain AIUP-owned; runtime.zero
 does not edit or reimplement them.
 
+The resulting apply action is deterministic: tool names are ordered from the
+provider's bounded sorted evidence, delegated Homebrew/npm commands are omitted,
+and the exact `aiup only <tools...> --no-install` argument vector plus its
+provider-command digest are bound into the finding/action identity. `--no-install`
+does not make apply read-only; it prevents AIUP from installing missing
+dependencies while the selected update still performs its provider-owned writes.
+
 The standalone binary accepts bounded JSON on standard input:
 
 ```bash
@@ -100,9 +107,12 @@ The core apply lane is pre-alpha rather than a supported module lifecycle:
   completion, and platform power-loss proof are missing;
 - read-only recovery status can reconcile journal/receipt evidence but cannot
   mutate, retry, repair, or finish a commit;
-- live manager updates have been exercised on the development Mac for npm,
-  AIUP, OMP, Pi, and Warp; that evidence does not substitute for the broader
-  platform/release matrix or native rollback proof.
+- live provider review and dry-run planning have been exercised on the
+  development Mac for AIUP and the other discovered channels; no AIUP apply
+  claim is made here until a separately authorized disposable-host run produces
+  receipt, fresh-verification, and recovery evidence. That evidence would still
+  not substitute for the broader platform/release matrix or native rollback
+  proof.
 
 Third-party module execution, uninstall/cleanup mutation, module lifecycle, and
 release support remain separate foundation gates. See

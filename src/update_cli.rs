@@ -1041,57 +1041,29 @@ fn collect_aiup_managed_updates(
             return;
         }
     };
-    let commands = parsed.commands;
-    let versions = parsed.versions;
-    let selected = commands
-        .into_iter()
-        .filter_map(|(tool, commands)| {
-            let installed = versions.get(&tool).is_some_and(|version| {
-                !version.eq_ignore_ascii_case("not installed")
-                    && !version.eq_ignore_ascii_case("missing")
+    let selection = match build_aiup_update_selection(&parsed) {
+        Ok(Some(selection)) => selection,
+        Ok(None) => {
+            sources.push(ProviderSourceStatus {
+                provider: provider_id,
+                status: "ok".to_string(),
+                candidate_count: 0,
             });
-            if !installed {
-                return None;
-            }
-            let relevant = commands
-                .into_iter()
-                .filter(|command| !aiup_command_is_delegated(command))
-                .collect::<Vec<_>>();
-            (!relevant.is_empty()).then_some((tool, relevant))
-        })
-        .collect::<Vec<_>>();
-    if selected.is_empty() {
-        sources.push(ProviderSourceStatus {
-            provider: provider_id,
-            status: "ok".to_string(),
-            candidate_count: 0,
-        });
-        *source_ok_count = source_ok_count.saturating_add(1);
-        return;
-    }
-    let mut arguments = vec!["only".to_string()];
-    let mut identity_material = String::new();
-    for (tool, commands) in &selected {
-        arguments.push(tool.clone());
-        identity_material.push_str(tool);
-        identity_material.push('\0');
-        for command in commands {
-            identity_material.push_str(command);
-            identity_material.push('\0');
+            *source_ok_count = source_ok_count.saturating_add(1);
+            return;
         }
-    }
-    arguments.push("--no-install".to_string());
-    if arguments.len() > rz0_action_plan::MAX_ARGUMENTS {
-        sources.push(ProviderSourceStatus {
-            provider: provider_id,
-            status: "unavailable".to_string(),
-            candidate_count: 0,
-        });
-        warnings.push(
-            "aiup managed-tool selection exceeds the bounded action argument ceiling".to_string(),
-        );
-        return;
-    }
+        Err(error) => {
+            sources.push(ProviderSourceStatus {
+                provider: provider_id,
+                status: "unavailable".to_string(),
+                candidate_count: 0,
+            });
+            warnings.push(error);
+            return;
+        }
+    };
+    let arguments = selection.arguments;
+    let identity_material = selection.identity_material;
     let digest = sha256(format!("aiup-managed\0{identity_material}").as_bytes());
     let target_version = format!("aiup-{}", &digest[..12]);
     records.push(rz0_module_updater::UpdateRecord {
@@ -1117,6 +1089,61 @@ fn collect_aiup_managed_updates(
         candidate_count: 1,
     });
     *source_ok_count = source_ok_count.saturating_add(1);
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AiupUpdateSelection {
+    arguments: Vec<String>,
+    identity_material: String,
+}
+
+fn build_aiup_update_selection(
+    report: &rz0_module_updater::AiupDryRunReport,
+) -> Result<Option<AiupUpdateSelection>, String> {
+    let selected = report
+        .commands
+        .iter()
+        .filter_map(|(tool, commands)| {
+            let installed = report.versions.get(tool).is_some_and(|version| {
+                !version.eq_ignore_ascii_case("not installed")
+                    && !version.eq_ignore_ascii_case("missing")
+            });
+            if !installed {
+                return None;
+            }
+            let relevant = commands
+                .iter()
+                .filter(|command| !aiup_command_is_delegated(command))
+                .cloned()
+                .collect::<Vec<_>>();
+            (!relevant.is_empty()).then_some((tool, relevant))
+        })
+        .collect::<Vec<_>>();
+    if selected.is_empty() {
+        return Ok(None);
+    }
+
+    let mut arguments = vec!["only".to_string()];
+    let mut identity_material = String::new();
+    for (tool, commands) in selected {
+        arguments.push(tool.clone());
+        identity_material.push_str(tool);
+        identity_material.push('\0');
+        for command in commands {
+            identity_material.push_str(&command);
+            identity_material.push('\0');
+        }
+    }
+    arguments.push("--no-install".to_string());
+    if arguments.len() > rz0_action_plan::MAX_ARGUMENTS {
+        return Err(
+            "aiup managed-tool selection exceeds the bounded action argument ceiling".to_string(),
+        );
+    }
+    Ok(Some(AiupUpdateSelection {
+        arguments,
+        identity_material,
+    }))
 }
 
 fn collect_cargo_install_updates(
@@ -3668,8 +3695,8 @@ antigravity 1.1.12
 codex codex-cli 0.147.0
 ";
         let parsed = parse_aiup_dry_run(bytes).expect("AIUP dry-run evidence");
-        let commands = parsed.commands;
-        let versions = parsed.versions;
+        let commands = &parsed.commands;
+        let versions = &parsed.versions;
         assert_eq!(
             versions.get("antigravity").map(String::as_str),
             Some("1.1.12")
@@ -3677,6 +3704,25 @@ codex codex-cli 0.147.0
         assert_eq!(commands["antigravity"].len(), 1);
         assert!(!aiup_command_is_delegated(&commands["antigravity"][0]));
         assert!(aiup_command_is_delegated(&commands["codex"][0]));
+
+        let selection = build_aiup_update_selection(&parsed)
+            .expect("AIUP action selection")
+            .expect("native AIUP action");
+        assert_eq!(selection.arguments, ["only", "antigravity", "--no-install"]);
+        assert_eq!(
+            selection.identity_material,
+            "antigravity\0curl -fsSL https://example.invalid/install.sh | bash\0"
+        );
+
+        let delegated_only = parse_aiup_dry_run(
+            b"TOOL START: codex ==========\nDRY-RUN: npm install -g @openai/codex\n=== Detected tool versions ===\ncodex 0.147.0\n",
+        )
+        .expect("delegated-only AIUP evidence");
+        assert!(
+            build_aiup_update_selection(&delegated_only)
+                .expect("delegated-only selection")
+                .is_none()
+        );
     }
 
     #[test]

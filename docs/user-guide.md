@@ -141,9 +141,11 @@ rz0 leftovers --dry-run --fixture tests/fixtures/leftovers/valid.json --format j
 ```
 
 Leftover review is bounded and read-only. Live mode inspects only runtime.zero
-module and log roots; it never scans the home directory, profile, drive, PATH,
-package receipts, services, or launch entries. Symlinks and special files are
-skipped, entry/byte ceilings are enforced, and directory-listing evidence is
+module, log, and unreferenced receipt roots; it never scans the home directory,
+profile, drive, PATH, package-manager receipts, services, or launch entries.
+Receipt ownership is checked only when the installed-module registry is valid;
+ambiguous registry state is reported as unavailable. Symlinks and special files
+are skipped, entry/byte ceilings are enforced, and metadata evidence is
 report-only because it does not prove stale ownership or a safe exact-file
 transaction. No cleanup, quarantine, restore, or deletion is authorized.
 
