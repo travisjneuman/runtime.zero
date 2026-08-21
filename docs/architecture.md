@@ -138,8 +138,9 @@ returns the same file handle without execution. Linux can expose the held
 `/proc/self/fd` spawn identity and the core updater consumes it for direct native
 ELF managers; macOS uses direct-path identity/digest revalidation and production
 Windows binding remains a later gate. `crates/module-trust/` supplies a
-test-key-only detached Ed25519 verification contract without adding a signer,
-key store, installer, execution path, or production trust root. Schema-1
+test-key-only detached Ed25519 verification contract, now exposed through the
+read-only modules trust verify review adapter, without adding a signer, key
+store, installer, execution path, or production trust root. Schema-1
 staging plans and OS-temp integration tests also exercise immutable publication
 and quarantine/restore failure semantics without a production mover.
 `crates/transaction-contract/` owns the bounded hash-chained transaction state

@@ -2,7 +2,8 @@ use std::fmt::Write as FmtWrite;
 use std::path::Path;
 
 use crate::{
-    ExitCode, brand, module_install_plan, module_manifest, module_registry, module_validation,
+    ExitCode, brand, module_install_plan, module_manifest, module_registry, module_trust_cli,
+    module_validation,
 };
 use rz0_module_lifecycle::{ModuleLifecycleOperation, ModuleLifecycleState, module_lifecycle_plan};
 
@@ -35,6 +36,9 @@ enum ModulesAction {
         to_version: Option<String>,
         transition_id: Option<String>,
         format: OutputFormat,
+    },
+    Trust {
+        args: Vec<String>,
     },
 }
 
@@ -75,6 +79,7 @@ pub fn modules_command(args: &[String]) -> (ExitCode, String, String) {
                 transition_id,
             },
         ),
+        Ok(ModulesAction::Trust { args }) => module_trust_cli::trust_command(&args),
         Err(err) => (ExitCode::Usage, String::new(), err),
     }
 }
@@ -95,6 +100,9 @@ fn parse_modules_args(args: &[String]) -> Result<ModulesAction, String> {
         Some("validate") => parse_validate_args(&args[1..]),
         Some("install") => parse_install_args(&args[1..]),
         Some("lifecycle-plan") => parse_lifecycle_plan_args(&args[1..]),
+        Some("trust") => Ok(ModulesAction::Trust {
+            args: args[1..].to_vec(),
+        }),
         _ => parse_list_args(args),
     }
 }
@@ -638,7 +646,8 @@ fn usage_error(args: &[String]) -> String {
 
 fn modules_usage() -> String {
     format!(
-        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n\nSafety: module install and lifecycle planning are dry-run only; modules are not executed or fetched.\n",
+        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n       {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n\nSafety: module install and lifecycle planning are dry-run only; local trust verification is test-key-only and never authorizes module execution; modules are not executed or fetched.\n",
+        brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,

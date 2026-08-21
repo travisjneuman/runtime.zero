@@ -1,0 +1,38 @@
+{
+  "manifest_version": 1,
+  "id": "first-party.fixture",
+  "display_name": "Trusted Fixture",
+  "version": "0.1.0",
+  "publisher": "runtime.zero",
+  "kind": "first_party_module",
+  "status": "installed",
+  "summary": "Read-only fixture package for local test-key trust review.",
+  "capabilities": ["inventory"],
+  "supported_platforms": ["macos", "windows", "linux"],
+  "risk_level": "read_only",
+  "safety": {
+    "mutates_system": false,
+    "requires_confirmation": true,
+    "dry_run_required": true,
+    "quarantine_supported": false,
+    "remote_execution_allowed": false
+  },
+  "integrity": {
+    "package_format": "directory",
+    "root_policy": "manifest_directory",
+    "hash_algorithm": "sha256",
+    "files": [
+      {
+        "path": "payload.txt",
+        "sha256": "2d0683740e613643ecd43d79f9b1f575cf78b3a4e3d1e8fbb700e4218fbc636c",
+        "size_bytes": 37,
+        "role": "test_fixture"
+      }
+    ],
+    "provenance": {
+      "source": "local_fixture",
+      "publisher": "runtime.zero",
+      "release_id": "fixture"
+    }
+  }
+}

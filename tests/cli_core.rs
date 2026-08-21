@@ -181,6 +181,7 @@ fn subcommand_help_is_scriptable_and_successful() {
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
     assert!(out.contains("rz0 modules install --dry-run"));
+    assert!(out.contains("rz0 modules trust verify"));
     assert!(out.contains("rz0 modules lifecycle-plan"));
     assert!(out.contains("modules are not executed or fetched"));
 
@@ -269,6 +270,7 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("rz0 updates --dry-run --all-providers"));
     assert!(out.contains("rz0 updates --recovery-status --transaction"));
     assert!(out.contains("rz0 modules lifecycle-plan"));
+    assert!(out.contains("rz0 modules trust verify"));
 }
 
 #[test]
@@ -355,6 +357,61 @@ fn modules_validate_accepts_fixture_package_integrity() {
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
     assert!(out.contains("status: valid"));
+}
+
+#[test]
+fn module_trust_review_binds_exact_manifest_and_test_key_signature() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let manifest = format!("{root}/tests/fixtures/module-packages/trusted-fixture/rz0-module.json");
+    let signature =
+        format!("{root}/tests/fixtures/module-packages/trusted-fixture/signature-envelope.json");
+    let trusted_key = format!("{root}/crates/module-trust/tests/fixtures/trusted-test-key.json");
+    let (code, out, err) = run([
+        "modules",
+        "trust",
+        "verify",
+        "--manifest",
+        &manifest,
+        "--signature",
+        &signature,
+        "--trusted-test-key",
+        &trusted_key,
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("module trust JSON");
+    assert_eq!(value["valid"], true);
+    assert_eq!(value["manifest_identity_matches_signature"], true);
+    assert_eq!(value["signature_verification"]["verified"], true);
+    assert_eq!(value["signature_verification"]["test_key_only"], true);
+    assert_eq!(value["execution_authorized"], false);
+    assert_eq!(value["writes_attempted"], false);
+}
+
+#[test]
+fn module_trust_review_rejects_identity_drift_without_authority() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let manifest = format!("{root}/tests/fixtures/module-packages/valid-inventory/rz0-module.json");
+    let signature = format!("{root}/crates/module-trust/tests/fixtures/valid-envelope.json");
+    let trusted_key = format!("{root}/crates/module-trust/tests/fixtures/trusted-test-key.json");
+    let (code, out, err) = run([
+        "modules",
+        "trust",
+        "verify",
+        "--manifest",
+        &manifest,
+        "--signature",
+        &signature,
+        "--trusted-test-key",
+        &trusted_key,
+    ]);
+    assert_eq!(code, ExitCode::Usage);
+    assert!(err.is_empty());
+    assert!(out.contains("identity or manifest digest"));
+    assert!(out.contains("execution_authorized: false"));
+    assert!(out.contains("writes_attempted: false"));
 }
 
 #[test]

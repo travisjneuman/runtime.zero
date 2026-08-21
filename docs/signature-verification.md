@@ -2,8 +2,8 @@
 
 `crates/module-trust/` implements the second bounded module-trust stage: local,
 detached Ed25519 verification with public test keys only. It is a library and
-fixture contract, not a signer, key store, installer, CLI command, production
-trust root, or permission to execute a module.
+fixture contract with one read-only CLI review adapter; it is not a signer, key
+store, installer, production trust root, or permission to execute a module.
 
 ## Contract
 
@@ -38,6 +38,23 @@ binds the domain, scheme, selected key ID, package identity/version, and exact
 manifest digest. A future package verifier must still verify that manifest's
 explicit file hashes and immutable staged bytes; signature success alone does
 not perform those steps.
+
+The current local review surface is:
+
+```bash
+rz0 modules trust verify \
+  --manifest path/to/rz0-module.json \
+  --signature path/to/signature-envelope.json \
+  --trusted-test-key path/to/trusted-test-key.json \
+  --format json
+```
+
+The command reads bounded local files only. It validates the package manifest
+and its declared file digests, computes the SHA-256 of the exact manifest bytes
+used for validation, checks envelope identity/version/digest equality, and
+calls the test-key verifier. A successful result still reports
+`test_key_only: true`, `execution_authorized: false`, and
+`writes_attempted: false`.
 
 ## Cryptographic boundary
 
@@ -78,9 +95,10 @@ See [`transaction-simulation.md`](transaction-simulation.md).
 ## Non-goals and next gate
 
 There is intentionally no production key, private key, signing command,
-manifest mutation, signature-file loader, core integration, install/activation
-path, production/core/inventory-module process launch, network fetch, release
-workflow, or third-party trust decision.
+manifest mutation, production signature policy, install/activation path,
+production/core/inventory-module process launch, network fetch, release
+workflow, or third-party trust decision. The CLI review adapter is not an
+installer integration and cannot authorize lifecycle work.
 
 A versioned first-party invocation/not-executed response protocol is
 fixture-validated, and an explicit-feature lane executes only a Cargo-built test

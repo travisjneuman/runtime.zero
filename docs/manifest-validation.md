@@ -12,6 +12,7 @@ rz0 modules --from <directory>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
 rz0 modules install --dry-run <package-dir-or-manifest> --format json
+rz0 modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json>
 rz0 modules lifecycle-plan install --dry-run --module-id first-party.inventory \
   --from-state absent --to-state installed_inactive --to-version 0.1.0
 ```
@@ -19,6 +20,14 @@ rz0 modules lifecycle-plan install --dry-run --module-id first-party.inventory \
 The loader is read-only. It reads JSON metadata from the local filesystem and
 returns validation results and dry-run plans. It does not fetch remote content,
 install modules, enable modules, run module code, or repair invalid manifests.
+
+`modules trust verify` is the bounded bridge between package integrity and the
+existing `crates/module-trust/` test-key contract. It reads the exact local
+manifest bytes once, validates the manifest and explicitly listed package files,
+binds the detached envelope to the manifest ID, version, and SHA-256, and
+verifies it against a caller-selected non-revoked public test key. The result is
+review evidence only: it never installs, stages, activates, invokes, or
+authorizes a module.
 
 Lifecycle review is separate from manifest loading. The
 `modules lifecycle-plan` command renders the crate-owned transition grammar,
@@ -186,9 +195,10 @@ registry, receipt, transaction, staging, rollback, quarantine, or module files.
 
 ## Safety non-goals
 
-This core manifest-validation layer does not perform signature verification,
-revocation, module installation, remote distribution, update orchestration,
-sandboxing, or third-party trust. The separate `crates/module-trust/` library
-verifies detached signatures against caller-selected public test keys only; it
-is not wired into core validation or installation. Later stages require separate
-approval and threat modeling.
+This core manifest-validation layer does not perform production signature
+verification, revocation, module installation, remote distribution, update
+orchestration, sandboxing, or third-party trust. The separate
+`modules trust verify` review command wires the local test-key contract into a
+read-only evidence path; it remains test-key-only, has no production trust root,
+and is not wired into installation or lifecycle execution. Later stages require
+separate approval and threat modeling.

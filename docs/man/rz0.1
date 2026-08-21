@@ -89,6 +89,11 @@ List built-in core surfaces and explicitly installed module manifests.
 .B modules validate MANIFEST [--format text|json]
 Validate one local manifest without loading or executing code.
 .TP
+.B modules trust verify --manifest MANIFEST --signature ENVELOPE --trusted-test-key KEY [--format text|json]
+Review exact local package integrity and a detached public test-key signature.
+This is test-key-only, read-only evidence and never authorizes installation or
+module execution.
+.TP
 .B modules install --dry-run PACKAGE [--format text|json]
 Build a non-authorizing module lifecycle installation plan.
 .TP

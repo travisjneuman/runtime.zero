@@ -17,6 +17,7 @@ pub mod module_install_plan;
 pub mod module_manifest;
 pub mod module_registry;
 pub mod module_store;
+pub mod module_trust_cli;
 pub mod module_validation;
 pub mod package_integrity;
 mod package_integrity_io;
@@ -141,6 +142,13 @@ pub fn help_text() -> String {
     );
     if let Some(index) = help.find("\n\nFoundation safety posture:") {
         help.insert_str(index, &format!("\n{lifecycle_usage}"));
+    }
+    let module_trust_usage = format!(
+        "  {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n",
+        brand::COMMAND
+    );
+    if let Some(index) = help.find("\n\nFoundation safety posture:") {
+        help.insert_str(index, &format!("\n{module_trust_usage}"));
     }
     let provider_usage = format!(
         "  {} updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback\n",

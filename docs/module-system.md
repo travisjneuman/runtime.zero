@@ -80,6 +80,7 @@ rz0 modules --format json
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
+rz0 modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json>
 rz0 modules lifecycle-plan install --dry-run --module-id first-party.inventory --from-state absent --to-state installed_inactive --to-version 0.1.0
 rz0 store plan
 rz0 store plan --format json
@@ -149,6 +150,12 @@ directory, verified files that would be copied later, and the manifest metadata
 that would be recorded later. Every planned action has `would_write: false` in
 JSON output. The command performs no writes and intentionally has no non-dry-run
 form.
+
+`rz0 modules trust verify` is a separate local package-review command. It
+combines exact manifest-byte hashing, declared package-file integrity, and the
+detached Ed25519 test-key contract. It does not change the install planner's
+status, create a store entry, or authorize any lifecycle transition. Production
+keys, provenance, revocation, and execution remain unresolved.
 
 Dry-run JSON now also includes a `store` object and `launch_context` object.
 The `store` object describes future user-local data/state/cache/log/quarantine
