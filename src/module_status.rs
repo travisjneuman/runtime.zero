@@ -6,6 +6,7 @@ use crate::brand;
 use crate::install_receipt::{InstallReceiptState, ReceiptInventoryState};
 use crate::installed_registry::{InstalledRegistryRecordStatus, InstalledRegistryState};
 use crate::module_registry;
+use crate::module_stage::{DeveloperStagedModuleStatus, developer_staging_inventory};
 use crate::module_validation::load_manifest_file;
 use crate::store_status::{StoreOverallState, store_status_report, store_status_report_for_root};
 use rz0_module_lifecycle::ModuleLifecycleState;
@@ -30,8 +31,11 @@ pub struct ModuleStatusReport {
     pub installed_module_count: usize,
     pub inactive_module_count: usize,
     pub degraded_module_count: usize,
+    pub staged_module_count: usize,
+    pub invalid_staged_module_count: usize,
     pub planned_module_family_count: usize,
     pub modules: Vec<ModuleStatusEntry>,
+    pub staged_modules: Vec<DeveloperStagedModuleStatus>,
     pub warnings: Vec<&'static str>,
     pub guidance: Vec<&'static str>,
     pub safety_note: &'static str,
@@ -86,7 +90,20 @@ pub fn module_status_report_from_store(
         .iter()
         .filter(|module| module.state == ModuleLifecycleState::Degraded)
         .count();
-    let warnings = status_warnings(store, &modules);
+    let staging = developer_staging_inventory(&store.store);
+    let invalid_staged_module_count = staging
+        .modules
+        .iter()
+        .filter(|module| !module.valid)
+        .count();
+    let mut warnings = status_warnings(store, &modules);
+    warnings.extend(staging.warnings.iter().copied());
+    if !staging.modules.is_empty() {
+        warnings.push("developer_staged_modules_are_not_installed_or_active");
+    }
+    if invalid_staged_module_count > 0 {
+        warnings.push("one_or_more_developer_staged_modules_require_review");
+    }
 
     ModuleStatusReport {
         schema_version: MODULE_STATUS_SCHEMA_VERSION,
@@ -101,8 +118,11 @@ pub fn module_status_report_from_store(
         installed_module_count: modules.len(),
         inactive_module_count,
         degraded_module_count,
+        staged_module_count: staging.modules.len(),
+        invalid_staged_module_count,
         planned_module_family_count,
         modules,
+        staged_modules: staging.modules,
         warnings,
         guidance: vec![
             "module status does not install, activate, invoke, repair, migrate, upgrade, or uninstall modules",
@@ -149,6 +169,12 @@ pub fn module_status_text(report: &ModuleStatusReport) -> String {
         "degraded_module_count: {}",
         report.degraded_module_count
     );
+    let _ = writeln!(out, "staged_module_count: {}", report.staged_module_count);
+    let _ = writeln!(
+        out,
+        "invalid_staged_module_count: {}",
+        report.invalid_staged_module_count
+    );
     let _ = writeln!(
         out,
         "planned_module_family_count: {}",
@@ -176,6 +202,28 @@ pub fn module_status_text(report: &ModuleStatusReport) -> String {
                     install_receipt_state_label(receipt_state)
                 );
             }
+            for error in &module.errors {
+                let _ = writeln!(out, "    finding: {error}");
+            }
+        }
+    }
+    let _ = writeln!(out, "staged_modules:");
+    if report.staged_modules.is_empty() {
+        let _ = writeln!(out, "  none");
+    } else {
+        for module in &report.staged_modules {
+            let _ = writeln!(
+                out,
+                "  - {}@{}: {} ({})",
+                module.id,
+                module.version,
+                state_label(module.state),
+                if module.valid {
+                    "verified staged bytes"
+                } else {
+                    "requires review"
+                }
+            );
             for error in &module.errors {
                 let _ = writeln!(out, "    finding: {error}");
             }

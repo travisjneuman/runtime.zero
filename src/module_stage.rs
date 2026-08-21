@@ -53,6 +53,7 @@ const STAGING_RECEIPTS_DIRECTORY: &str = "staging-receipts";
 const MAX_TRUST_DOCUMENT_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
 const STAGE_SAFETY_NOTE: &str = "Developer-only local staging; test-key trust, activation, invocation, registry installation, network fetch, and production release authority remain disabled.";
 const REDACTED_SOURCE_MANIFEST: &str = "<local-package>/rz0-module.json";
+const MAX_STAGING_RECEIPTS: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeveloperStageMode {
@@ -105,7 +106,7 @@ pub struct DeveloperStageReport {
     pub safety_note: &'static str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StageFile {
     pub path: String,
     pub sha256: String,
@@ -123,10 +124,28 @@ pub struct DeveloperStageChallenge {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DeveloperStagedModuleStatus {
+    pub id: String,
+    pub version: String,
+    pub state: rz0_module_lifecycle::ModuleLifecycleState,
+    pub valid: bool,
+    pub manifest_sha256: Option<String>,
+    pub trusted_test_key_id: Option<String>,
+    pub destination_relative: Option<String>,
+    pub errors: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DeveloperStagingInventory {
+    pub modules: Vec<DeveloperStagedModuleStatus>,
+    pub warnings: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeveloperStageReceipt {
     schema_version: u16,
-    contract: &'static str,
+    contract: String,
     stage_id: String,
     transaction_id: String,
     plan_id: String,
@@ -136,7 +155,7 @@ struct DeveloperStageReceipt {
     trusted_test_key_id: String,
     destination: String,
     files: Vec<StageFile>,
-    lifecycle_state: &'static str,
+    lifecycle_state: String,
     developer_only: bool,
     test_key_only: bool,
     activation_authorized: bool,
@@ -668,7 +687,7 @@ fn apply_stage(
 
     let stage_receipt = DeveloperStageReceipt {
         schema_version: 1,
-        contract: "developer_module_stage_receipt",
+        contract: "developer_module_stage_receipt".to_string(),
         stage_id: prepared.stage_id.clone(),
         transaction_id: prepared.transaction_id.clone(),
         plan_id: prepared.action_plan.plan_id.clone(),
@@ -682,7 +701,7 @@ fn apply_stage(
             .iter()
             .map(|file| file.metadata.clone())
             .collect(),
-        lifecycle_state: "staged",
+        lifecycle_state: "staged".to_string(),
         developer_only: true,
         test_key_only: true,
         activation_authorized: false,
@@ -1024,6 +1043,271 @@ fn load_ready_store(store: &ModuleStorePlan) -> Result<InstalledRegistry, StageF
     parse_registry_document(&registry_bytes).map_err(|error| {
         StageFailure::new(format!("installed module registry is not valid: {error}"))
     })
+}
+
+pub fn developer_staging_inventory(store: &ModuleStorePlan) -> DeveloperStagingInventory {
+    let receipts_root = Path::new(&store.state_root).join(STAGING_RECEIPTS_DIRECTORY);
+    let metadata = match fs::symlink_metadata(&receipts_root) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return DeveloperStagingInventory {
+                modules: Vec::new(),
+                warnings: Vec::new(),
+            };
+        }
+        Err(_) => {
+            return DeveloperStagingInventory {
+                modules: Vec::new(),
+                warnings: vec!["developer_staging_receipts_unreadable"],
+            };
+        }
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return DeveloperStagingInventory {
+            modules: Vec::new(),
+            warnings: vec!["developer_staging_receipts_not_a_private_directory"],
+        };
+    }
+
+    let entries = match fs::read_dir(&receipts_root) {
+        Ok(entries) => entries,
+        Err(_) => {
+            return DeveloperStagingInventory {
+                modules: Vec::new(),
+                warnings: vec!["developer_staging_receipts_unreadable"],
+            };
+        }
+    };
+    let mut modules = Vec::new();
+    let mut warnings = Vec::new();
+    for (index, entry) in entries.enumerate() {
+        if index >= MAX_STAGING_RECEIPTS {
+            warnings.push("developer_staging_receipt_limit_reached");
+            break;
+        }
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => {
+                warnings.push("developer_staging_receipt_entry_unreadable");
+                continue;
+            }
+        };
+        let path = entry.path();
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(_) => {
+                warnings.push("developer_staging_receipt_entry_unreadable");
+                continue;
+            }
+        };
+        let review_id = format!("staged-module-review-{}", index + 1);
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            modules.push(invalid_staged_module(
+                review_id,
+                "unknown",
+                "staging_receipt_invalid",
+            ));
+            continue;
+        }
+        if metadata.len() > MAX_TRUST_DOCUMENT_BYTES {
+            modules.push(invalid_staged_module(
+                review_id,
+                "unknown",
+                "staging_receipt_oversized",
+            ));
+            continue;
+        }
+        let bytes = match fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                modules.push(invalid_staged_module(
+                    review_id,
+                    "unknown",
+                    "staging_receipt_unreadable",
+                ));
+                continue;
+            }
+        };
+        let receipt = match serde_json::from_slice::<DeveloperStageReceipt>(&bytes) {
+            Ok(receipt) => receipt,
+            Err(_) => {
+                modules.push(invalid_staged_module(
+                    review_id,
+                    "unknown",
+                    "staging_receipt_invalid",
+                ));
+                continue;
+            }
+        };
+        modules.push(review_staged_module(&receipt, store));
+    }
+    DeveloperStagingInventory { modules, warnings }
+}
+
+fn review_staged_module(
+    receipt: &DeveloperStageReceipt,
+    store: &ModuleStorePlan,
+) -> DeveloperStagedModuleStatus {
+    let id_is_valid = rz0_validation_contract::valid_module_id(&receipt.module_id);
+    let version_is_valid = rz0_validation_contract::valid_version(&receipt.module_version);
+    let id = if id_is_valid {
+        receipt.module_id.clone()
+    } else {
+        "invalid-staged-module".to_string()
+    };
+    let version = if version_is_valid {
+        receipt.module_version.clone()
+    } else {
+        "unknown".to_string()
+    };
+    let destination_relative = if id_is_valid && version_is_valid {
+        Some(format!("modules/{id}/{version}"))
+    } else {
+        None
+    };
+    let mut errors = Vec::new();
+    if receipt.schema_version != 1 {
+        errors.push("staging_receipt_schema_unsupported");
+    }
+    if receipt.contract != "developer_module_stage_receipt" {
+        errors.push("staging_receipt_contract_invalid");
+    }
+    if !id_is_valid {
+        errors.push("staging_module_id_invalid");
+    }
+    if !version_is_valid {
+        errors.push("staging_module_version_invalid");
+    }
+    if !rz0_validation_contract::valid_sha256(&receipt.manifest_sha256) {
+        errors.push("staging_manifest_digest_invalid");
+    }
+    if receipt.lifecycle_state != "staged" {
+        errors.push("staging_lifecycle_state_invalid");
+    }
+    if !receipt.developer_only
+        || !receipt.test_key_only
+        || receipt.activation_authorized
+        || receipt.invocation_authorized
+        || receipt.product_execution_authorized
+        || !receipt.writes_attempted
+    {
+        errors.push("staging_receipt_authority_invalid");
+    }
+    if destination_relative.as_deref() != Some(receipt.destination.as_str()) {
+        errors.push("staging_destination_invalid");
+    }
+    if receipt.files.is_empty() || receipt.files.len() > 128 {
+        errors.push("staging_file_set_invalid");
+    }
+
+    let mut seen = BTreeMap::new();
+    let mut manifest_file = None;
+    for file in &receipt.files {
+        if !rz0_validation_contract::valid_contract_relative_path(&file.path)
+            || file.path.starts_with("state/")
+            || file.path.starts_with("modules/")
+        {
+            errors.push("staging_file_path_invalid");
+        }
+        if seen.insert(file.path.clone(), ()).is_some() {
+            errors.push("staging_file_set_duplicate");
+        }
+        if !rz0_validation_contract::valid_sha256(&file.sha256)
+            || file.size_bytes > rz0_resource_contract::MAX_ARTIFACT_BYTES
+        {
+            errors.push("staging_file_identity_invalid");
+        }
+        if file.path == MODULE_MANIFEST_FILE {
+            manifest_file = Some(file);
+        }
+    }
+    if manifest_file.is_none() {
+        errors.push("staging_manifest_file_missing");
+    }
+
+    if errors.is_empty() {
+        let module_root = Path::new(&store.data_root)
+            .join("modules")
+            .join(&receipt.module_id)
+            .join(&receipt.module_version);
+        match fs::symlink_metadata(&module_root) {
+            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                errors.push("staged_module_destination_invalid");
+            }
+            Ok(_) => {
+                for file in &receipt.files {
+                    let expectation = ArtifactExpectation {
+                        sha256: file.sha256.clone(),
+                        size_bytes: file.size_bytes,
+                    };
+                    let verified = open_verified_artifact(&module_root, &file.path, &expectation)
+                        .map_err(|error| error.to_string())
+                        .and_then(|mut artifact| {
+                            revalidate_verified_artifact(&mut artifact)
+                                .map_err(|error| error.to_string())
+                        });
+                    if verified.is_err() {
+                        errors.push("staged_module_bytes_invalid");
+                        break;
+                    }
+                }
+                let manifest_path = module_root.join(MODULE_MANIFEST_FILE);
+                let validation = load_manifest_file(&manifest_path);
+                match validation.manifest {
+                    Some(manifest)
+                        if validation.valid
+                            && manifest.id == receipt.module_id
+                            && manifest.version == receipt.module_version
+                            && manifest.status == ModuleStatus::Installed => {}
+                    _ => errors.push("staged_module_manifest_invalid"),
+                }
+            }
+            Err(_) => errors.push("staged_module_destination_missing"),
+        }
+    }
+
+    DeveloperStagedModuleStatus {
+        id,
+        version,
+        state: if errors.is_empty() {
+            rz0_module_lifecycle::ModuleLifecycleState::Staged
+        } else {
+            rz0_module_lifecycle::ModuleLifecycleState::Degraded
+        },
+        valid: errors.is_empty(),
+        manifest_sha256: if rz0_validation_contract::valid_sha256(&receipt.manifest_sha256) {
+            Some(receipt.manifest_sha256.clone())
+        } else {
+            None
+        },
+        trusted_test_key_id: if receipt.trusted_test_key_id.is_empty()
+            || receipt.trusted_test_key_id.len() > 128
+            || receipt.trusted_test_key_id.chars().any(char::is_control)
+        {
+            None
+        } else {
+            Some(receipt.trusted_test_key_id.clone())
+        },
+        destination_relative,
+        errors: errors.into_iter().collect(),
+    }
+}
+
+fn invalid_staged_module(
+    id: String,
+    version: &str,
+    error: &'static str,
+) -> DeveloperStagedModuleStatus {
+    DeveloperStagedModuleStatus {
+        id,
+        version: version.to_string(),
+        state: rz0_module_lifecycle::ModuleLifecycleState::Degraded,
+        valid: false,
+        manifest_sha256: None,
+        trusted_test_key_id: None,
+        destination_relative: None,
+        errors: vec![error],
+    }
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path, label: &str) -> Result<T, StageFailure> {

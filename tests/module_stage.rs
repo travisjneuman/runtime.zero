@@ -61,6 +61,19 @@ fn developer_trial_stages_verified_bytes_without_publishing_installation() {
     .unwrap();
     assert_eq!(registry["modules"].as_array().map(Vec::len), Some(0));
 
+    let status = runtime_zero::module_status::module_status_report(
+        &["modules status".to_string()],
+        Some(root.clone()),
+    );
+    assert_eq!(status.installed_module_count, 0);
+    assert_eq!(status.staged_module_count, 1);
+    assert_eq!(status.invalid_staged_module_count, 0);
+    assert_eq!(
+        status.staged_modules[0].state,
+        rz0_module_lifecycle::ModuleLifecycleState::Staged
+    );
+    assert!(status.staged_modules[0].valid);
+
     remove_owned_root(&root);
 }
 

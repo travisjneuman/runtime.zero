@@ -122,6 +122,10 @@ composes the installed registry, receipt, manifest, and declared package-file
 integrity validators and reports each installed record as `installed_inactive`
 only when the receipt and installed module bytes are valid; missing, invalid,
 unreadable, or unsupported evidence produces `degraded`.
+It also reviews developer-only staging receipts and staged destination bytes as
+a separate `staged_modules` collection. A valid staged entry is `staged`, not
+installed; an invalid receipt or destination is `degraded` in that collection
+and remains operator review evidence only.
 It never reports `active` because module activation and invocation are not
 available in the current product. The command is read-only, does not execute
 module code, and does not treat an installed record as execution authority.

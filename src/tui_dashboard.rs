@@ -45,6 +45,7 @@ pub struct TuiDashboard {
     pub installed_module_count: usize,
     pub inactive_module_count: usize,
     pub degraded_module_count: usize,
+    pub staged_module_count: usize,
     pub module_lifecycle_execution_available: bool,
     pub planned_module_family_count: usize,
     pub installed_software_count: usize,
@@ -312,6 +313,7 @@ fn build_dashboard(
         installed_module_count: store.registry.installed_module_count,
         inactive_module_count: module_status.inactive_module_count,
         degraded_module_count: module_status.degraded_module_count,
+        staged_module_count: module_status.staged_module_count,
         module_lifecycle_execution_available: module_status.lifecycle_execution_available,
         planned_module_family_count: modules.summary.planned_family_count,
         installed_software_count: catalog.as_ref().map_or(0, |catalog| catalog.app_count),
@@ -523,6 +525,12 @@ fn diagnostics_section(
             } else {
                 "warn"
             },
+        ),
+        row_count(
+            tui_theme::LABEL_INFO,
+            module_status.staged_module_count,
+            "developer-staged modules",
+            "info",
         ),
         row_count(
             tui_theme::LABEL_PLAN,

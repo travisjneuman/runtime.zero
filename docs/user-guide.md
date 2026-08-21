@@ -489,10 +489,11 @@ is no supported production command to install, activate, invoke, repair,
 migrate, upgrade, deactivate, or uninstall module code. The seven first-party
 manifests remain planned.
 
-Use `rz0 modules status` when you need the current installed-module answer:
+Use `rz0 modules status` when you need the current module-store answer:
 valid registry-plus-receipt-plus-installed-byte evidence is
 `installed_inactive`; missing or invalid receipt, manifest, or declared package
-file evidence is `degraded`; no module is reported `active` because
+file evidence is `degraded`; a valid developer-stage receipt and staged byte
+set is reported separately as `staged`; no module is reported `active` because
 the lifecycle execution gate remains unavailable. The output is read-only and
 path-redacted by default.
 
