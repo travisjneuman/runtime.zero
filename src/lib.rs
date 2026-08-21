@@ -125,8 +125,9 @@ pub fn help_text() -> String {
         help.insert_str(index, &cache_usage);
     }
     let leftovers_usage = format!(
-        "  {} leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n",
-        brand::COMMAND
+        "  {} leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n  {} leftovers --dry-run --plan --path <absolute-module-file> [--format text|json]\n",
+        brand::COMMAND,
+        brand::COMMAND,
     );
     if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {
         help.insert_str(index, &leftovers_usage);

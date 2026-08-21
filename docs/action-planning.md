@@ -132,8 +132,12 @@ destination bytes, requires the quarantine record for restore, and publishes
 append-only journal snapshots plus a filesystem-effect receipt. Its tests still
 use disposable OS-temp roots; no user or repository path is touched by tests.
 The executor does not discover ownership, create candidate plans, or add a
-public cleanup command. Domain integration, cross-filesystem behavior, and
-platform-specific bundle semantics remain release gates.
+public cleanup command. The leftovers module now provides one bounded planning
+entry point, `rz0 leftovers --dry-run --plan --path <absolute-module-file>`;
+it re-reads one explicitly selected regular file inside the private module
+store, emits a logical-path plan, and remains non-authorizing. Domain
+confirmation/invocation, cross-filesystem behavior, and platform-specific
+bundle semantics remain release gates.
 
 `crates/confirmation-contract/` adds exact short-lived CLI/TUI challenge,
 response, and single-use consumption evidence while remaining structurally

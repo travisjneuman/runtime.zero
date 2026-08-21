@@ -54,6 +54,8 @@ complete -c rz0 -n '__fish_seen_subcommand_from cache' -l format -xa 'text json'
 complete -c rz0 -n '__fish_seen_subcommand_from cache' -l json
 complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l dry-run
 complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l fixture -rF
+complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l plan
+complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l path -rF
 complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l format -xa 'text json'
 complete -c rz0 -n '__fish_seen_subcommand_from leftovers' -l json
 complete -c rz0 -n '__fish_seen_subcommand_from integrity' -l dry-run

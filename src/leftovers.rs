@@ -3,6 +3,10 @@ use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use rz0_action_plan::{
+    ActionCapability, ActionDisposition, ActionKind, ActionPlan, ActionRisk, ActionSource,
+    RollbackPlan, WriteKind, WriteSetEntry, action_plan_digests, validate_action_plan,
+};
 use rz0_finding_contract::FindingReport;
 use rz0_module_leftovers::{
     INPUT_CONTRACT as LEFTOVER_INPUT_CONTRACT, LeftoverFindingInput, LeftoverRecord,
@@ -14,7 +18,7 @@ use sha2::{Digest, Sha256};
 use crate::{
     ExitCode, brand,
     installed_registry::{InstalledRegistryState, installed_registry_report},
-    module_store::{REGISTRY_FILE, module_store_plan},
+    module_store::{ModuleStorePlan, REGISTRY_FILE, module_store_plan},
 };
 
 pub const LEFTOVERS_REVIEW_CONTRACT: &str = "leftovers_review";
@@ -32,6 +36,8 @@ pub struct LeftoversReviewReport {
     pub raw_paths_included: bool,
     pub platform: &'static str,
     pub finding_report: FindingReport,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action_plan: Option<ActionPlan>,
     pub warnings: Vec<String>,
 }
 
@@ -69,20 +75,58 @@ pub fn leftovers_command(args: &[String]) -> (ExitCode, String, String) {
             );
         }
     };
-    let report = match options.fixture.as_deref() {
-        Some(path) => fixture_report(Path::new(path)),
-        None => live_report(),
-    };
-    let report = match report {
-        Ok(report) => report,
-        Err(error) => {
+    let (mut report, action_plan) = if options.plan {
+        let Some(path) = options.path.as_deref() else {
             return (
                 ExitCode::Usage,
                 String::new(),
-                format!("leftovers review failed closed: {error}\n"),
+                format!("leftovers --plan requires --path\n\n{}", usage()),
+            );
+        };
+        match exact_quarantine_plan(Path::new(path)) {
+            Ok((finding_report, action_plan)) => (
+                wrap_report(
+                    finding_report,
+                    vec![
+                        "exact path evidence was supplied explicitly; no broad live scan was used"
+                            .to_string(),
+                    ],
+                ),
+                Some(action_plan),
+            ),
+            Err(error) => {
+                return (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!("leftovers action plan failed closed: {error}\n"),
+                );
+            }
+        }
+    } else {
+        if options.path.is_some() {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("leftovers --path requires --plan\n\n{}", usage()),
             );
         }
+        let report = match options.fixture.as_deref() {
+            Some(path) => fixture_report(Path::new(path)),
+            None => live_report(),
+        };
+        let report = match report {
+            Ok(report) => report,
+            Err(error) => {
+                return (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!("leftovers review failed closed: {error}\n"),
+                );
+            }
+        };
+        (report, None)
     };
+    report.action_plan = action_plan;
     match options.format {
         OutputFormat::Text => (ExitCode::Ok, render_text(&report), String::new()),
         OutputFormat::Json => match serde_json::to_string_pretty(&report) {
@@ -99,12 +143,16 @@ pub fn leftovers_command(args: &[String]) -> (ExitCode, String, String) {
 struct Options {
     format: OutputFormat,
     fixture: Option<String>,
+    plan: bool,
+    path: Option<String>,
 }
 
 fn parse_args(args: &[String]) -> Result<Options, String> {
     let mut dry_run = false;
     let mut format = OutputFormat::Text;
     let mut fixture = None;
+    let mut plan = false;
+    let mut path = None;
     let mut index = 0usize;
     while index < args.len() {
         match args[index].as_str() {
@@ -133,6 +181,17 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
                 }
                 index += 1;
             }
+            "--plan" if !plan => plan = true,
+            "--plan" => return Err("leftovers --plan was provided more than once".to_string()),
+            "--path" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err("leftovers --path requires one absolute file path".to_string());
+                };
+                if path.replace(value.clone()).is_some() {
+                    return Err("leftovers --path was provided more than once".to_string());
+                }
+                index += 1;
+            }
             value => return Err(format!("unsupported leftovers option '{value}'")),
         }
         index += 1;
@@ -140,7 +199,18 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
     if !dry_run {
         return Err("leftovers review is dry-run only; pass --dry-run".to_string());
     }
-    Ok(Options { format, fixture })
+    if plan && path.is_none() {
+        return Err("leftovers --plan requires --path".to_string());
+    }
+    if path.is_some() && fixture.is_some() {
+        return Err("leftovers --plan cannot be combined with --fixture".to_string());
+    }
+    Ok(Options {
+        format,
+        fixture,
+        plan,
+        path,
+    })
 }
 
 fn fixture_report(path: &Path) -> Result<LeftoversReviewReport, String> {
@@ -222,8 +292,185 @@ fn wrap_report(finding_report: FindingReport, warnings: Vec<String>) -> Leftover
         raw_paths_included: false,
         platform: std::env::consts::OS,
         finding_report,
+        action_plan: None,
         warnings,
     }
+}
+
+fn exact_quarantine_plan(path: &Path) -> Result<(FindingReport, ActionPlan), String> {
+    let store = module_store_plan(None, None, "leftovers exact plan");
+    exact_quarantine_plan_for_store(&store, path)
+}
+
+fn exact_quarantine_plan_for_store(
+    store: &ModuleStorePlan,
+    path: &Path,
+) -> Result<(FindingReport, ActionPlan), String> {
+    let data_root = PathBuf::from(&store.data_root);
+    let modules_root = PathBuf::from(&store.modules_root);
+    if !path.is_absolute() {
+        return Err("exact leftovers plan paths must be absolute".to_string());
+    }
+    let _data_relative = path
+        .strip_prefix(&data_root)
+        .map_err(|_| "exact leftovers plan path must remain inside the runtime.zero data root")?;
+    let module_relative = path.strip_prefix(&modules_root).map_err(
+        |_| "exact leftovers plan path must remain inside the runtime.zero module store",
+    )?;
+    let logical_relative = logical_relative_path(module_relative)?;
+    validate_no_symlinked_file(&modules_root, module_relative)?;
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("inspect exact leftover path: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("exact leftovers plan path must be a regular non-symlink file".to_string());
+    }
+    if metadata.len() > rz0_action_plan::MAX_ACTION_SOURCE_BYTES {
+        return Err("exact leftover file exceeds the action source byte ceiling".to_string());
+    }
+    let bytes = fs::read(path).map_err(|error| format!("read exact leftover path: {error}"))?;
+    if bytes.len() as u64 != metadata.len() {
+        return Err("exact leftover file changed while reading".to_string());
+    }
+    let source_sha256 = format!("{:x}", Sha256::digest(&bytes));
+    let source_path = format!("workspace/{logical_relative}");
+    let finding_id = format!("leftover.exact.{}", &source_sha256[..24]);
+    let source_evidence_sha256 =
+        exact_evidence_digest(&source_path, &source_sha256, metadata.len());
+    let input = LeftoverFindingInput {
+        schema_version: 1,
+        contract: LEFTOVER_INPUT_CONTRACT.to_string(),
+        platform: std::env::consts::OS.to_string(),
+        input_evidence_sha256: source_evidence_sha256.clone(),
+        source_id: "leftovers.exact-plan".to_string(),
+        source_evidence_sha256: source_evidence_sha256.clone(),
+        records: vec![LeftoverRecord {
+            finding_id: finding_id.clone(),
+            subject_reference: "leftover:runtime-zero-module-artifact".to_string(),
+            ownership: rz0_finding_contract::FindingOwnership::RuntimeOwned,
+            data_class: rz0_finding_contract::FindingDataClass::OrphanedData,
+            exact_evidence: Some(rz0_finding_contract::ExactFindingEvidence {
+                sha256: source_sha256.clone(),
+                size_bytes: metadata.len(),
+            }),
+        }],
+    };
+    let finding_report = classify_leftovers(&input)?;
+    let plan_id = format!("rz0plan-leftovers-{}", &source_sha256[..16]);
+    let action_id = format!("quarantine-leftover-{}", &source_sha256[..16]);
+    let quarantine_prefix = format!("quarantine/{plan_id}");
+    let action_plan = ActionPlan {
+        schema_version: rz0_action_plan::ACTION_PLAN_SCHEMA_VERSION,
+        plan_id,
+        module_id: rz0_module_leftovers::MODULE_ID.to_string(),
+        created_at: None,
+        expires_at: None,
+        dry_run: true,
+        writes_attempted: false,
+        evidence_contract: rz0_finding_contract::FINDING_CONTRACT.to_string(),
+        evidence_report_id: finding_report.report_id.clone(),
+        evidence_sha256: finding_report.input_evidence_sha256.clone(),
+        actions: vec![rz0_action_plan::PlanAction {
+            action_id,
+            finding_id,
+            kind: ActionKind::Quarantine,
+            disposition: ActionDisposition::Planned,
+            target: "runtime.zero-owned module artifact".to_string(),
+            source: Some(ActionSource {
+                path: source_path,
+                sha256: source_sha256,
+                size_bytes: metadata.len(),
+            }),
+            manager: None,
+            executable: None,
+            executable_identity: None,
+            arguments: Vec::new(),
+            would_write: false,
+            requires_confirmation: true,
+            requires_elevation: false,
+            network_required: false,
+            risk: ActionRisk::Medium,
+            capabilities: vec![ActionCapability::RuntimeStateWrite, ActionCapability::QuarantineWrite],
+            forbidden_path_classes: Vec::new(),
+            write_set: vec![
+                WriteSetEntry {
+                    path: format!("{quarantine_prefix}/payload.bin"),
+                    kind: WriteKind::QuarantinedPayload,
+                },
+                WriteSetEntry {
+                    path: format!("{quarantine_prefix}/quarantine.json"),
+                    kind: WriteKind::QuarantineRecord,
+                },
+            ],
+            rollback: RollbackPlan {
+                supported: true,
+                quarantine_required: true,
+                description:
+                    "Restore only to the exact original logical path after fresh digest verification."
+                        .to_string(),
+            },
+        }],
+        warnings: vec![
+            "exact path was supplied explicitly; this plan is dry-run only and does not move files"
+                .to_string(),
+            "the absolute source root is intentionally withheld from the report; execution requires a separate reviewed CLI/TUI binding"
+                .to_string(),
+        ],
+    };
+    let validation = validate_action_plan(&action_plan);
+    if !validation.valid {
+        return Err(format!(
+            "generated action plan is invalid: {:?}",
+            validation.errors
+        ));
+    }
+    action_plan_digests(&action_plan)
+        .map_err(|errors| format!("generated action plan digest failed: {errors:?}"))?;
+    Ok((finding_report, action_plan))
+}
+
+fn logical_relative_path(path: &Path) -> Result<String, String> {
+    let components = path
+        .components()
+        .map(|component| match component {
+            std::path::Component::Normal(value) => {
+                value.to_str().map(str::to_string).ok_or_else(|| {
+                    "exact leftovers plan path must use valid UTF-8 components".to_string()
+                })
+            }
+            _ => Err("exact leftovers plan path contains an unsafe component".to_string()),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if components.is_empty() || components.len() > 32 {
+        return Err("exact leftovers plan path is empty or too deep".to_string());
+    }
+    Ok(components.join("/"))
+}
+
+fn validate_no_symlinked_file(root: &Path, relative: &Path) -> Result<(), String> {
+    let mut current = root.to_path_buf();
+    for component in relative.components() {
+        let std::path::Component::Normal(name) = component else {
+            return Err("exact leftovers plan path contains an unsafe component".to_string());
+        };
+        current.push(name);
+        let metadata = fs::symlink_metadata(&current)
+            .map_err(|error| format!("inspect exact leftover component: {error}"))?;
+        if metadata.file_type().is_symlink() {
+            return Err("exact leftovers plan refuses symlinked components".to_string());
+        }
+    }
+    Ok(())
+}
+
+fn exact_evidence_digest(path: &str, sha256: &str, size_bytes: u64) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"runtime.zero.leftovers-exact-plan.v1\0");
+    digest.update((path.len() as u64).to_be_bytes());
+    digest.update(path.as_bytes());
+    digest.update((sha256.len() as u64).to_be_bytes());
+    digest.update(sha256.as_bytes());
+    digest.update(size_bytes.to_be_bytes());
+    format!("{:x}", digest.finalize())
 }
 
 fn inspect_root(
@@ -507,6 +754,11 @@ fn render_text(report: &LeftoversReviewReport) -> String {
             );
         }
     }
+    if let Some(action_plan) = report.action_plan.as_ref() {
+        let _ = writeln!(out, "action_plan: {}", action_plan.plan_id);
+        let _ = writeln!(out, "action_plan_actions: {}", action_plan.actions.len());
+        out.push_str("action_plan_safety: dry-run only; no file was moved or authorized\n");
+    }
     if !report.warnings.is_empty() {
         out.push_str("warnings:\n");
         for warning in &report.warnings {
@@ -520,7 +772,7 @@ fn render_text(report: &LeftoversReviewReport) -> String {
 }
 
 fn usage() -> String {
-    "Usage: rz0 leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n\nReports bounded runtime.zero-owned module/log and unreferenced-receipt evidence. Live mode never scans broad user paths; receipt ownership is checked only with a valid installed-module registry; fixture mode reads one local contract document. No cleanup, quarantine, restore, or deletion path exists.\n".to_string()
+    "Usage: rz0 leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n       rz0 leftovers --dry-run --plan --path <absolute-module-file> [--format text|json]\n\nReports bounded runtime.zero-owned module/log and unreferenced-receipt evidence. The explicit plan form seals one exact runtime-owned module-file quarantine plan but remains dry-run only; no cleanup, quarantine, restore, or deletion is invoked.\n".to_string()
 }
 
 fn disposition_label(disposition: rz0_finding_contract::FindingDisposition) -> &'static str {
@@ -547,6 +799,8 @@ fn ownership_label(ownership: rz0_finding_contract::FindingOwnership) -> &'stati
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
     use super::*;
     use rz0_finding_contract::{FindingDataClass, FindingOwnership};
 
@@ -584,6 +838,67 @@ mod tests {
         let (code, _, error) = leftovers_command(&[]);
         assert_eq!(code, ExitCode::Usage);
         assert!(error.contains("dry-run only"));
+    }
+
+    #[test]
+    fn exact_module_file_plan_is_sealed_path_free_and_non_authorizing() {
+        static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "runtime-zero-leftovers-plan-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let module_file = root.join("modules/first-party.leftovers/0.1.0/old-shim");
+        fs::create_dir_all(module_file.parent().expect("module parent")).expect("module root");
+        fs::write(&module_file, b"old shim\n").expect("module artifact");
+        let store = crate::module_store::module_store_plan_for_data_root(
+            root.clone(),
+            None,
+            None,
+            "test exact plan",
+        );
+
+        let (finding_report, action_plan) =
+            exact_quarantine_plan_for_store(&store, &module_file).expect("exact plan");
+        let validation = validate_action_plan(&action_plan);
+        assert!(validation.valid, "{:?}", validation.errors);
+        assert_eq!(finding_report.summary.quarantine_candidate_count, 1);
+        assert_eq!(action_plan.evidence_report_id, finding_report.report_id);
+        assert_eq!(action_plan.actions.len(), 1);
+        assert_eq!(
+            action_plan.actions[0].source.as_ref().expect("source").path,
+            "workspace/first-party.leftovers/0.1.0/old-shim"
+        );
+        assert!(
+            !serde_json::to_string(&action_plan)
+                .expect("plan JSON")
+                .contains(root.to_str().expect("root UTF-8"))
+        );
+        assert!(!action_plan.writes_attempted);
+        assert!(action_plan.actions[0].requires_confirmation);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn exact_plan_refuses_log_and_outside_paths() {
+        static SEQUENCE: AtomicU64 = AtomicU64::new(1000);
+        let root = std::env::temp_dir().join(format!(
+            "runtime-zero-leftovers-plan-reject-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let outside = root.join("logs/not-a-module.log");
+        fs::create_dir_all(outside.parent().expect("log parent")).expect("log root");
+        fs::write(&outside, b"log\n").expect("log");
+        let store = crate::module_store::module_store_plan_for_data_root(
+            root.clone(),
+            None,
+            None,
+            "test exact reject",
+        );
+        let error = exact_quarantine_plan_for_store(&store, &outside).expect_err("log rejection");
+        assert!(error.contains("module store"));
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

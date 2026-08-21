@@ -218,6 +218,8 @@ full platform/lifecycle acceptance cells.
   adapter and expose its shared finding contract through the CLI and TUI.
 - [x] Add bounded, path-free, read-only evidence for unreferenced runtime-owned
   receipt files when the installed-module registry is valid.
+- [x] Add one exact module-store file dry-run quarantine plan with re-read
+  digest/size evidence, logical paths, and no absolute source-root disclosure.
 - [ ] Implement the remaining bounded post-uninstall ownership adapters for shims,
   launch/service entries, exact runtime-owned files, and approved roots.
 - [ ] Prove stale versus user-valued/shared/config/log/backup evidence and keep

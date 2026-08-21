@@ -226,9 +226,10 @@ explicit live manager evidence. Uninstall accepts selected live installed-
 software evidence to produce a non-authorizing finding and optional sealed dry-
 run manager action plan. Cache now has a bounded read-only adapter over known
 manager/runtime roots; leftovers now has bounded runtime.zero-owned module/log
-and unreferenced-receipt evidence, while integrity has a bounded exact-file
-adapter that remains caller-baseline only. None of these surfaces provides
-uninstall/cleanup execution, elevation, signed lifecycle
+and unreferenced-receipt evidence plus an explicit exact-module-file dry-run
+quarantine plan, while integrity has a bounded exact-file adapter that remains
+caller-baseline only. None of these surfaces provides uninstall/cleanup
+execution, elevation, signed lifecycle
 activation, or production support. See
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).
 

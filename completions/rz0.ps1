@@ -28,7 +28,7 @@ Register-ArgumentCompleter -Native -CommandName rz0 -ScriptBlock {
     } elseif ($tokens[1] -eq 'cache') {
         @('--dry-run','--fixture','--format','--json','--help')
     } elseif ($tokens[1] -eq 'leftovers') {
-        @('--dry-run','--fixture','--format','--json','--help')
+        @('--dry-run','--fixture','--plan','--path','--format','--json','--help')
     } elseif ($tokens[1] -eq 'integrity') {
         @('--dry-run','--fixture','--format','--json','--help')
     } elseif ($tokens[1] -eq 'scan') {
