@@ -7,16 +7,18 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `3012176` (`Enforce complete module package file sets`).
+  `63f7d8d` (`Validate module provenance metadata`).
 - **Current behavior implementation:**
-  `3012176` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `63f7d8d` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
   pre-start Windows Job Object/handle-list process host, shared version probes,
   independent portable-package verification, the read-only local test-key-bound
   module package trust review, and optional complete-file-set package
-  enumeration with bounded undeclared-file rejection.
+ enumeration with bounded undeclared-file rejection.
+  Bounded provenance consistency checks now reject malformed or publisher-drifted
+  package metadata without treating provenance as trust authority.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -29,7 +31,8 @@ The cache slice is pushed at `f50eb5b`, the leftovers slice at `87aef29`, the
 updater/receipt slices at `d5e5153`, `ee1a1eb`, and `ad999c3`, the compact TUI
 posture update at `8132b4e`, the exact-file integrity slice at `47c6f9f`, and
 the Windows process-host/probe slice at `39adb92`, the module trust review
-slice at `a6664d6`, and the complete-file-set slice at `3012176`. Local
+slice at `a6664d6`, the complete-file-set slice at `3012176`, and provenance
+validation at `63f7d8d`. Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, strict
@@ -414,12 +417,12 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current validation for `3012176` on `aarch64-apple-darwin`:
+Current validation for `63f7d8d` on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` passed, including the new valid and
   identity-drift module-trust CLI cases and complete-file-set acceptance/
-  undeclared-file rejection cases;
+  undeclared-file rejection and provenance-consistency cases;
 - strict locked all-target Clippy passed with `-D warnings`;
 - `git diff --check` passed;
 - the trust fixture review returned a valid package/signature result while
