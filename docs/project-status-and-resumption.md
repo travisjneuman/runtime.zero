@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `f53c0e68f264094fb1e160957e3e56606adda3bc` (`fix: cancel updater discovery before apply`).
+  `3930a515693b960c7dc712f5d42febacee3787d1` (`feat: make dashboard loading cancellable`).
 - **Current behavior implementation:**
-  `f53c0e6` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `3930a51` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -197,15 +197,16 @@ The post-action cancellation propagation slice is `7bb5b44`.
 The documentation and WinGet-boundary follow-up is `476954d`.
 The cancellation-aware inventory and tool-probe slice is `081d92d`.
 The apply-time updater discovery cancellation slice is `f53c0e6`.
+The cancellable dashboard loading and stale-generation slice is `3930a51`.
 The current exact-head release evidence refresh is bound to
-`476954da8f9e4f0cf404a6cdfbe820bb8d22a41e`.
+`3930a515693b960c7dc712f5d42febacee3787d1`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, the full
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
-`git diff --check`. The current universal2 package is
+`git diff --check`. The prior universal2 package was
 `target/release-package-universal2-476954d/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
 It has binary SHA-256
 `cb6531d4668442e574f7fb482dba15b3f065c5a5c1557b5110c8725749e050d6`, ZIP
@@ -232,6 +233,32 @@ records, including 10 observed-only executable records. The configuration
 digest is `b4d57157ae30be77f81a293bd49ddc2f939168377b20b9d9bb16a4ea1e40258f`.
 The artifact remains unsigned and unnotarized until an owner-led
 signing/notarization lane exists; it is not a public release.
+
+The subsequent exact-head universal2 package is
+`target/release-package-universal2-3930a51/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+The package verifier passed for source commit
+`3930a515693b960c7dc712f5d42febacee3787d1`, target `universal2-apple-darwin`,
+and 8 members. Its ZIP SHA-256 is
+`c72160f19b9b331c41965aebe8a61a1c266693e5a51acb855327e2826b9b1897` and its
+size is 4,004,579 bytes; the universal binary SHA-256 is
+`a8d4c3a691177d56546f62d7fc4b8866ed634ded146f0fdd9dfd270ee410acce`. The
+embedded artifact manifest, SBOM, and third-party notices have SHA-256 values
+`6ec7780e272c23b8a3136aa3ed3aff39666d5134a9a0ac730dd32466451f6c47`,
+`d03ecbe1f784e0ed2c4e991baac62ce0ee5f8c50f6cf3ecad05dbbafd94d0e29`, and
+`d9210f67237eb56d9e90d848a2f5f4dcbc846985454726140ba4b1cf2b5143cc`; their
+embedded sizes are 980, 162,322, and 291,176 bytes. `file` and `lipo`
+confirmed arm64 plus x86_64 Mach-O slices. Both slices passed four PTY smoke
+cases and ten-sample final-artifact performance evidence with terminal IDs
+`terminal:universal2-apple-darwin-arm64-627f497f6435`,
+`terminal:universal2-apple-darwin-x86_64-9542dfdffdc8`, and performance IDs
+`perf:universal2-apple-darwin-arm64-627f497f6435` and
+`perf:universal2-apple-darwin-x86_64-9542dfdffdc8`. Both slices passed
+read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
+doctor reported 6 passing and 4 blocked policy checks; scan reported 9 sources,
+325 tools, 273 apps, 895 services, and 22 warnings; AIUP reported an
+observed-only orchestrator with 5 tools; Toolchain reported 17 tools including
+10 observed-only records; and configuration was valid but non-authorizing.
+The artifact remains unsigned and unnotarized and is not a public release.
 
 The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
