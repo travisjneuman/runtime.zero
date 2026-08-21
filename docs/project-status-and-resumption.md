@@ -7,10 +7,10 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `74257e3d2e9da7a8c1d2495d1e6be77a8da4f79c` (`Expose bounded transaction recovery review`);
+  `baa7e614925241b8224b21319eaed5a3b6dbfc68` (`Add read-only module lifecycle status`);
   the status document is refreshed in a follow-up documentation-only commit.
 - **Current behavior implementation:**
-  `74257e3d2e9da7a8c1d2495d1e6be77a8da4f79c` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `baa7e614925241b8224b21319eaed5a3b6dbfc68` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -39,7 +39,10 @@
   `cache_safety_policy` summary plus path-free per-root modification-time,
   age-threshold, scan-completeness, and conservative lock-marker evidence; the
   TUI renders the observation and age-threshold state without creating a second
-  action route.
+  action route. The read-only `modules status` surface now composes registry and
+  receipt evidence, reports valid records as `installed_inactive`, reports
+  missing or invalid receipt evidence as `degraded`, redacts unsafe registry
+  identifiers, and never claims activation or invocation authority.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -64,6 +67,7 @@ provenance was finally bound at `7d0ed91`; the bounded cache policy slice is
 `6d98021`.
 The bounded transaction journal inspection and TUI warning-count slice is
 `74257e3`.
+The path-redacted module lifecycle status slice is `baa7e61`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -71,15 +75,15 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current local aarch64 Apple Silicon package from
-`74257e3` has binary SHA-256
-`e921458d5787bc4987286566d454e9582686fecd8e030b6ea8156f1a578e67ed`, ZIP
+`baa7e614925241b8224b21319eaed5a3b6dbfc68` has binary SHA-256
+`930409b43bc70ac43f34219e0c3e8a1cc1e4443ee54578819a5c8c3912870d6c`, ZIP
 SHA-256
-`d43c97703b12657970a0c254128ce295f5dc48276de88b03d21df2688fe13d11`, and
-1,706,350 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`788b96f9f699932e7a9d5a5dac59fef3bc0879efdfa3bdec3e9f2dac17664c0b`, and
+1,713,956 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`39ddea93ffcf87879f490ef669c3c250772ca624ddc300f9e719d77600313a14`,
-`a15c7ba214c53e5c737f86fa572db5c7507a6d68771366efddce79f83634f7a1`, and
-`e2e1e7d5ce21716cc59c00695473da42c450cda140d342a6e4f2d1bde0ac44f8`.
+`435583b7b77f97fb639fc85cbbc6f3d83686662a059f7d95dcdc1fd9b8043bbd`,
+`e5bc7cc5dfa9cae8b8f81b51edae072dfe6b7892d082458713fd719f08182f43`, and
+`e19882406c0bd8141e7f9f1da7ae62bb8a830408258793adda6c67b94713d896`.
 Independent verification, repeated byte-identical packaging, four PTY terminal
 smoke cases, and ten-sample final-artifact performance evidence passed. The
 artifact remains unsigned and unnotarized until an owner-led signing/
@@ -486,13 +490,13 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current validation for `74257e3d2e9da7a8c1d2495d1e6be77a8da4f79c` on `aarch64-apple-darwin`:
+Current validation for `baa7e614925241b8224b21319eaed5a3b6dbfc68` on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` and the full
   `cargo test --workspace --locked --all-features` suite passed, including the
-  module-trust, complete-file-set, provenance-consistency, process-host,
-  transaction, and TUI cases;
+  module-status fixture cases plus module-trust, complete-file-set,
+  provenance-consistency, process-host, transaction, and TUI cases;
 - strict locked all-target all-features Clippy passed with `-D warnings`;
 - Windows MSVC cross-target `cargo check --workspace --target
   x86_64-pc-windows-msvc --locked` passed;
