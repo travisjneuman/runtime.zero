@@ -112,7 +112,9 @@ does not invoke AIUP, Cargo, rustup, npm, or another provider, and it never
 installs or updates anything. Provider states remain explicit (`ready`,
 `observed-only`, or a later failed/blocked state) so an observed binary is not
 mistaken for an executable update authority. The TUI Toolchain workspace uses
-the same classification; provider availability review remains the separate
+the same classification and includes the same bounded known-executable evidence
+as `rz0 scan`; wrapper-like PATH names remain inventory-only. Provider
+availability review remains the separate
 read-only `u`/`rz0 updates --dry-run --all-providers` workflow.
 
 AIUP-managed tools intentionally remain `observed-only` in this snapshot. Their

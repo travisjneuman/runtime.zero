@@ -70,8 +70,10 @@ scriptable CLI/JSON surfaces.
 Home and Toolchain also expose the Rust-owned AIUP boundary from the same local
 catalog: orchestrator posture, AI-tool count, and provider-review count remain
 visible as a compact summary, while `rz0 aiup --format json` provides the full
-scriptable review. This is discovery and posture only; it does not invoke AIUP
-or create a second provider action path.
+scriptable review. Toolchain rows also include the same bounded named
+executable evidence as `rz0 scan`; unknown or wrapper-like PATH names remain
+observations and do not become provider actions. This is discovery and posture
+only; it does not invoke AIUP or create a second provider action path.
 
 ## Layout and terminal behavior
 

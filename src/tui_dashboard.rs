@@ -3,8 +3,8 @@ use serde::Serialize;
 
 use crate::aiup::report_from_catalog as aiup_report_from_catalog;
 use crate::apps::{
-    AppCatalog, InstalledSoftware, SoftwareKind, SoftwareUpdate, SoftwareView, UninstallOption,
-    collect_app_catalog,
+    AppCatalog, InstalledSoftware, SoftwareFilter, SoftwareKind, SoftwareUpdate, SoftwareView,
+    UninstallOption, collect_app_catalog,
 };
 use crate::brand;
 use crate::cache::{self, CacheReviewReport};
@@ -17,7 +17,9 @@ use crate::recovery_cli::{RecoverySummary, recovery_summary};
 use crate::store_init::{StoreInitMode, StoreInitOptions, StoreInitStatus, store_init_report};
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
 use crate::system_monitor::{self, SystemSnapshot};
-use crate::toolchain::{is_toolchain_software, is_toolchain_text, toolchain_provider_id};
+use crate::toolchain::{
+    is_toolchain_record, is_toolchain_software, is_toolchain_text, toolchain_provider_id,
+};
 use crate::tui_dashboard_labels::{
     init_label, init_status_label, init_tone, receipt_label, receipt_state_label, receipt_tone,
     registry_label, registry_state_label, registry_tone, row, row_count, row_with_preview,
@@ -27,6 +29,7 @@ use crate::tui_theme;
 use crate::update_cli::TuiUpdateChallenge;
 use crate::update_execution::UpdateExecutionReport;
 use crate::updates::{LiveUpdateCatalog, LiveUpdateReview, collect_live_update_review};
+use rz0_inventory_contract::ToolRecord;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TuiDashboard {
@@ -990,11 +993,16 @@ fn installed_software_section(
                 .filter(|app| is_toolchain_app(app) == toolchain_only)
                 .collect::<Vec<_>>();
             visible.sort_by(|left, right| view.compare(left, right));
+            let visible_known_tools = if toolchain_only {
+                visible_tool_records(catalog, view)
+            } else {
+                Vec::new()
+            };
             let visible_dynamic = visible_dynamic_updates(catalog, updates, view)
                 .into_iter()
                 .filter(|update| is_toolchain_update(update) == toolchain_only)
                 .collect::<Vec<_>>();
-            let visible_count = visible.len() + visible_dynamic.len();
+            let visible_count = visible.len() + visible_known_tools.len() + visible_dynamic.len();
             if toolchain_only {
                 let aiup = aiup_report_from_catalog(catalog);
                 let provider_review_count = aiup
@@ -1147,6 +1155,31 @@ fn installed_software_section(
                     preview: Some(preview),
                 });
             }
+            for tool in visible_known_tools {
+                let source_id = tool
+                    .source_ids
+                    .first()
+                    .map(String::as_str)
+                    .unwrap_or("known.executables");
+                let provider = toolchain_provider_id(&format!(
+                    "{} {} {} {:?}",
+                    tool.id, tool.display_name, source_id, tool.source_ids
+                ));
+                rows.push(TuiRow {
+                    label: "[OBS]",
+                    value: format!(
+                        "{} · version {} · provider {} · observed-only",
+                        tool.display_name,
+                        tool.version.as_deref().unwrap_or("unknown"),
+                        provider
+                    ),
+                    tone: "info",
+                    preview: Some(format!(
+                        "exact executable evidence · source: {source_id} · confidence: {}; provider action is not established",
+                        tool.confidence
+                    )),
+                });
+            }
             for update in visible_dynamic {
                 let action = update_action(update_plan, update);
                 let (update_label, tone) = update_label_and_tone(action);
@@ -1221,6 +1254,36 @@ fn installed_software_section(
 
 fn is_toolchain_app(app: &InstalledSoftware) -> bool {
     is_toolchain_software(app)
+}
+
+fn visible_tool_records<'a>(catalog: &'a AppCatalog, view: &SoftwareView) -> Vec<&'a ToolRecord> {
+    let query = view.query().to_ascii_lowercase();
+    let mut tools = catalog
+        .known_tools
+        .iter()
+        .filter(|tool| is_toolchain_record(tool))
+        .filter(|tool| match view.filter {
+            SoftwareFilter::All => true,
+            SoftwareFilter::Applications | SoftwareFilter::Reviewable => false,
+            SoftwareFilter::PackageManagers => tool.category == "package_manager",
+        })
+        .filter(|tool| {
+            query.is_empty()
+                || tool.display_name.to_ascii_lowercase().contains(&query)
+                || tool.id.to_ascii_lowercase().contains(&query)
+                || tool
+                    .source_ids
+                    .iter()
+                    .any(|source| source.to_ascii_lowercase().contains(&query))
+        })
+        .collect::<Vec<_>>();
+    tools.sort_by(|left, right| {
+        left.display_name
+            .to_ascii_lowercase()
+            .cmp(&right.display_name.to_ascii_lowercase())
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    tools
 }
 
 fn is_toolchain_update(update: &SoftwareUpdate) -> bool {
@@ -1483,8 +1546,19 @@ impl TuiDashboard {
                     .into_iter()
                     .filter(|app| is_toolchain_app(app) == toolchain_only)
                     .collect::<Vec<_>>();
+                let known_tools = if toolchain_only {
+                    visible_tool_records(catalog, view)
+                } else {
+                    Vec::new()
+                };
                 let row = row_index.checked_sub(2)?;
-                apps.get(row).map(|app| app.id.clone())
+                if let Some(app) = apps.get(row) {
+                    return Some(app.id.clone());
+                }
+                if row.saturating_sub(apps.len()) < known_tools.len() {
+                    return None;
+                }
+                None
             })
     }
 
@@ -1528,6 +1602,11 @@ impl TuiDashboard {
             .into_iter()
             .filter(|app| is_toolchain_app(app) == toolchain_only)
             .collect::<Vec<_>>();
+        let known_tools = if toolchain_only {
+            visible_tool_records(catalog, view)
+        } else {
+            Vec::new()
+        };
         let dynamic = visible_dynamic_updates(catalog, self.update_catalog.as_ref(), view)
             .into_iter()
             .filter(|update| is_toolchain_update(update) == toolchain_only)
@@ -1542,7 +1621,11 @@ impl TuiDashboard {
                 .iter()
                 .find(|candidate| candidate.software_id == app.id);
         }
-        dynamic.get(row.saturating_sub(apps.len())).copied()
+        let after_apps = row.saturating_sub(apps.len());
+        if after_apps < known_tools.len() {
+            return None;
+        }
+        dynamic.get(after_apps - known_tools.len()).copied()
     }
 
     pub(crate) fn start_update_prepare(&mut self, action: &PlanAction) {

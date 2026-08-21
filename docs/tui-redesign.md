@@ -55,6 +55,9 @@ Rules:
   same catalog: orchestrator state, AI-tool count, and provider-review count.
   The selected explanation points to `rz0 aiup` for the full read-only report;
   it never invokes AIUP or creates a second update authority.
+- Toolchain rows include the same bounded known-executable evidence used by
+  `rz0 scan` and `rz0 toolchain`; unknown or wrapper-like PATH names remain
+  observed-only and path-free in the user-facing surface.
 - Primary rows use a short status summary. Dense evidence (load averages,
   journal counts, active-use uncertainty, and integrity posture) moves into
   the selected explanation instead of competing with the task list.

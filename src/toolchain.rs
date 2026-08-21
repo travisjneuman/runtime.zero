@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::apps::{InstalledSoftware, collect_app_catalog};
 use crate::{ExitCode, brand};
+use rz0_inventory_contract::ToolRecord;
 
 pub const TOOLCHAIN_CONTRACT: &str = "toolchain_snapshot";
 
@@ -111,12 +112,29 @@ pub fn toolchain_command(args: &[String]) -> (ExitCode, String, String) {
 
 pub fn collect_toolchain_report() -> Result<ToolchainReport, String> {
     let catalog = collect_app_catalog()?;
+    Ok(toolchain_report_from_catalog(&catalog))
+}
+
+fn toolchain_report_from_catalog(catalog: &crate::apps::AppCatalog) -> ToolchainReport {
     let mut tools = catalog
         .apps
         .iter()
         .filter(|app| is_toolchain_software(app))
         .map(tool_from_app)
         .collect::<Vec<_>>();
+    for tool in catalog
+        .known_tools
+        .iter()
+        .filter(|tool| is_toolchain_record(tool))
+        .map(tool_from_record)
+    {
+        if !tools
+            .iter()
+            .any(|existing| existing.id == tool.id && existing.source_id == tool.source_id)
+        {
+            tools.push(tool);
+        }
+    }
     tools.sort_by(|left, right| {
         left.provider
             .cmp(right.provider)
@@ -135,9 +153,10 @@ pub fn collect_toolchain_report() -> Result<ToolchainReport, String> {
             ToolchainProvider {
                 id,
                 label,
-                state: if *id == "aiup" {
-                    "observed-only"
-                } else if observed_tool_count > 0 {
+                state: if tools
+                    .iter()
+                    .any(|tool| tool.provider == *id && tool.state == "ready")
+                {
                     "ready"
                 } else {
                     "observed-only"
@@ -148,7 +167,7 @@ pub fn collect_toolchain_report() -> Result<ToolchainReport, String> {
         })
         .collect();
 
-    Ok(ToolchainReport {
+    ToolchainReport {
         schema_version: 1,
         contract: TOOLCHAIN_CONTRACT,
         read_only: true,
@@ -156,8 +175,8 @@ pub fn collect_toolchain_report() -> Result<ToolchainReport, String> {
         platform: std::env::consts::OS,
         providers,
         tools,
-        warnings: catalog.warnings,
-    })
+        warnings: catalog.warnings.clone(),
+    }
 }
 
 fn tool_from_app(app: &InstalledSoftware) -> ToolchainTool {
@@ -179,6 +198,26 @@ fn tool_from_app(app: &InstalledSoftware) -> ToolchainTool {
     }
 }
 
+fn tool_from_record(tool: &ToolRecord) -> ToolchainTool {
+    let source_id = tool
+        .source_ids
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "known.executables".to_string());
+    let provider = toolchain_provider_id(&format!(
+        "{} {} {} {:?}",
+        tool.id, tool.display_name, source_id, tool.source_ids
+    ));
+    ToolchainTool {
+        id: tool.id.clone(),
+        name: tool.display_name.clone(),
+        version: tool.version.clone(),
+        source_id,
+        provider,
+        state: "observed-only",
+    }
+}
+
 pub(crate) fn toolchain_provider_id(value: &str) -> &'static str {
     provider_for_text(value)
 }
@@ -188,6 +227,14 @@ pub fn is_toolchain_software(app: &InstalledSoftware) -> bool {
         "{} {} {} {:?}",
         app.id, app.name, app.source_id, app.identifiers
     ))
+}
+
+pub(crate) fn is_toolchain_record(tool: &ToolRecord) -> bool {
+    tool.category != "path_executable"
+        && is_toolchain_text(&format!(
+            "{} {} {} {:?}",
+            tool.id, tool.display_name, tool.category, tool.source_ids
+        ))
 }
 
 pub fn is_toolchain_text(value: &str) -> bool {
@@ -369,6 +416,38 @@ mod tests {
         let tool = tool_from_app(&app);
         assert_eq!(tool.provider, "aiup");
         assert_eq!(tool.state, "observed-only");
+    }
+
+    #[test]
+    fn known_executable_inventory_is_bounded_to_named_tools() {
+        let codex = ToolRecord {
+            id: "codex".to_string(),
+            display_name: "Codex".to_string(),
+            category: "ai_tool".to_string(),
+            executable_path: Some("/private/user/bin/codex".to_string()),
+            version: None,
+            source_ids: vec!["process.path".to_string()],
+            confidence: "exact_path_match".to_string(),
+            warnings: Vec::new(),
+        };
+        let wrapper = ToolRecord {
+            id: "path.wrapper".to_string(),
+            display_name: "codex-execve-wrapper".to_string(),
+            category: "path_executable".to_string(),
+            executable_path: Some("/private/user/bin/codex-execve-wrapper".to_string()),
+            version: None,
+            source_ids: vec!["known.executables".to_string()],
+            confidence: "observed_path".to_string(),
+            warnings: Vec::new(),
+        };
+        assert!(is_toolchain_record(&codex));
+        assert!(!is_toolchain_record(&wrapper));
+        let tool = tool_from_record(&codex);
+        assert_eq!(tool.id, "codex");
+        assert_eq!(tool.source_id, "process.path");
+        assert_eq!(tool.state, "observed-only");
+        let json = serde_json::to_string(&tool).expect("toolchain tool JSON");
+        assert!(!json.contains("/private/user/bin"));
     }
 
     #[test]

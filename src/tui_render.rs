@@ -83,9 +83,6 @@ fn render_dashboard_frame(
     }
 
     let section = selected_section(dashboard, state);
-    lines.extend(primary_lines(section, state, width, color));
-    lines.push(separator(width));
-    lines.extend(selected_lines(dashboard, state, width, color));
     let mut tail = vec![
         separator(width),
         line(
@@ -126,6 +123,11 @@ fn render_dashboard_frame(
     }
 
     let prefix_budget = height.saturating_sub(tail.len() + 1);
+    let selected = selected_lines(dashboard, state, width, color);
+    let primary_budget = prefix_budget.saturating_sub(lines.len() + 1 + selected.len());
+    lines.extend(primary_lines(section, state, width, color, primary_budget));
+    lines.push(separator(width));
+    lines.extend(selected);
     lines.truncate(prefix_budget);
     lines.extend(tail);
     lines.push(border_bottom(width));
@@ -149,7 +151,13 @@ fn workspace_tabs(dashboard: &TuiDashboard, state: &TuiState) -> String {
         .join(" · ")
 }
 
-fn primary_lines(section: &TuiSection, state: &TuiState, width: usize, color: bool) -> Vec<String> {
+fn primary_lines(
+    section: &TuiSection,
+    state: &TuiState,
+    width: usize,
+    color: bool,
+    max_lines: usize,
+) -> Vec<String> {
     let title = workspace_heading(section.title);
     let mut lines = vec![line(&title, width, color, Some(tui_theme::TuiTone::Accent))];
     lines.push(line(
@@ -169,7 +177,8 @@ fn primary_lines(section: &TuiSection, state: &TuiState, width: usize, color: bo
             width,
         ));
     } else {
-        for (index, row) in section.rows.iter().enumerate() {
+        let row_budget = max_lines.saturating_sub(lines.len());
+        for (index, row) in section.rows.iter().take(row_budget).enumerate() {
             lines.push(line(
                 &format_row(row, index == selected, state, width),
                 width,
