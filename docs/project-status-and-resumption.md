@@ -7,10 +7,10 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `9b7e01ddfc5fdb0d7689c377bdff4cde16b4fd37` (`Expose module lifecycle status in TUI`);
+  `1f94241b873a0322de567f2b86286c4c77f8fef6` (`Simplify TUI evidence presentation`);
   the status document is refreshed in a follow-up documentation-only commit.
 - **Current behavior implementation:**
-  `9b7e01ddfc5fdb0d7689c377bdff4cde16b4fd37` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `1f94241b873a0322de567f2b86286c4c77f8fef6` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -46,6 +46,9 @@
   The TUI Diagnostics workspace now renders the same inactive/degraded counts
   and explicit lifecycle-unavailable state, while the JSON dashboard exposes
   those additive non-authorizing fields from the same status report.
+  The follow-on TUI presentation slice keeps primary diagnostics and monitor
+  rows concise and moves dense evidence into the selected explanation pane;
+  the text and Ratatui renderers share the calmer `LOCAL SNAPSHOT` header copy.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -72,6 +75,7 @@ The bounded transaction journal inspection and TUI warning-count slice is
 `74257e3`.
 The path-redacted module lifecycle status slice is `baa7e61`.
 The TUI lifecycle-status parity slice is `9b7e01d`.
+The attention-first TUI evidence presentation slice is `1f94241`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -79,15 +83,15 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current local aarch64 Apple Silicon package from
-`9b7e01ddfc5fdb0d7689c377bdff4cde16b4fd37` has binary SHA-256
-`96a34ab17c922e62ce14c5a008f9d127ae609d9fc551a080765ffedc0b5c3ba1`, ZIP
+`1f94241b873a0322de567f2b86286c4c77f8fef6` has binary SHA-256
+`3e2fb54bce09fc85ee5269d5452943d54544348145935df571bb4b0ac932276a`, ZIP
 SHA-256
-`899db7041c5063e753060a45f2f7bb8fd2a62548e5b6daae2da5e7fdeb86dfe2`, and
-1,714,824 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`fd3ab0c606c73a714411854b9b2010f19a102fae1eb8bb8584a6a61d29f75c3d`, and
+1,715,808 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`d60ae15445d0cdcd2fd179fd150d82f55fc32aae2dfce43a33675f6345ebb199`,
-`fd70adfb0280ceda4af068227bd4513dacfeebdc30a349031668f4df703cbad7`, and
-`3f10dc2e13df88eee773760f7aceebf94c89ef3440315ab4fc0a8e898f7a0b91c`.
+`c2ea0a097bf25c256a3c04543c0cf9be6677a7d9528305c2bd64da8276b1b126`,
+`cbcea22657e68b8c5eacc2c2e9695fc2e8e1f69f8954f95cb50bc3d7a15b35eb`, and
+`9b8f5e31c3df3336609c5665e2aa7cb38c5c22811bfad3515ebf553686173a5e`.
 Independent verification, repeated byte-identical packaging, four PTY terminal
 smoke cases, and ten-sample final-artifact performance evidence passed. The
 artifact remains unsigned and unnotarized until an owner-led signing/
@@ -494,12 +498,12 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current validation for `9b7e01ddfc5fdb0d7689c377bdff4cde16b4fd37` on `aarch64-apple-darwin`:
+Current validation for `1f94241b873a0322de567f2b86286c4c77f8fef6` on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` and the full
   `cargo test --workspace --locked --all-features` suite passed, including the
-  module-status fixture/TUI parity cases plus module-trust, complete-file-set,
+  module-status fixture/TUI parity and concise-selected-evidence cases plus module-trust, complete-file-set,
   provenance-consistency, process-host, transaction, and TUI cases;
 - strict locked all-target all-features Clippy passed with `-D warnings`;
 - Windows MSVC cross-target `cargo check --workspace --target
