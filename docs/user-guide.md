@@ -450,6 +450,8 @@ remains blocked pending ACL/runtime proof.
 
 ```bash
 rz0 modules
+rz0 modules status
+rz0 modules status --store-root path/to/store --format json
 rz0 modules validate modules/inventory/rz0-module.json
 rz0 modules install --dry-run modules/inventory
 rz0 modules lifecycle-plan invoke --dry-run --module-id first-party.inventory \
@@ -459,6 +461,12 @@ rz0 modules lifecycle-plan invoke --dry-run --module-id first-party.inventory \
 These commands parse, validate, hash, and plan. They do not install, activate,
 invoke, repair, migrate, upgrade, deactivate, or uninstall module code. The
 seven first-party manifests remain planned.
+
+Use `rz0 modules status` when you need the current installed-module answer:
+valid registry-plus-receipt evidence is `installed_inactive`; missing or
+invalid receipt evidence is `degraded`; no module is reported `active` because
+the lifecycle execution gate remains unavailable. The output is read-only and
+path-redacted by default.
 
 The product direction is broader than this current planning surface: every
 feature family or provider should eventually be an independently manageable

@@ -8,6 +8,8 @@ model exists. This is a foundation contract, not a module installer.
 ```bash
 rz0 modules validate <manifest.json>
 rz0 modules validate <manifest.json> --format json
+rz0 modules status [--store-root <path>]
+rz0 modules status --store-root <path> --format json
 rz0 modules --from <directory>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
@@ -172,6 +174,12 @@ loads JSON files directly in that directory only. Valid manifests are listed as
 installed modules; invalid manifests remain validation reports. Duplicate
 installed module IDs are treated as validation errors so the registry never has
 to choose between competing manifests silently.
+
+`rz0 modules status` reads the installed registry and receipt inventory through
+the same bounded validators. It is the status surface for deciding whether an
+installed record is `installed_inactive` or `degraded`; it never claims
+`active`, executes a module, or changes registry/receipt state. Its optional
+`--store-root` argument is a local read-only inspection override.
 
 ## Dry-run install planner
 

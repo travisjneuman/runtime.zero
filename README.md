@@ -30,6 +30,8 @@ rz0 doctor
 rz0 doctor --format json
 rz0 modules
 rz0 modules --format json
+rz0 modules status
+rz0 modules status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
@@ -194,6 +196,12 @@ not be confused with manager update execution. Target commands such as
 `rz0 modules enable`, `disable`, `configure`, `repair`, and `uninstall` are not
 current commands until the foundation-owned lifecycle, registry publication,
 receipts, recovery, and TUI path are implemented together.
+
+`rz0 modules status` is the path-redacted read-only lifecycle surface. It
+reports valid installed records as `installed_inactive`, records with missing
+or invalid receipts as `degraded`, and never claims `active` or authorizes
+module execution. `--store-root` accepts a local fixture/store root for
+bounded support review and does not initialize or modify it.
 
 The dry-run planner also reports future local store and CLI/TUI routing
 contract metadata in JSON output. These fields describe where future state would

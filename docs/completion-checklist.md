@@ -150,6 +150,9 @@ full platform/lifecycle acceptance cells.
 - [ ] Connect installed state, receipts, module directories, process protocol,
   capability grants, transactions, diagnostics, and recovery without module-
   private alternatives.
+- [x] Add a path-redacted, read-only `modules status` surface that composes
+  registry/receipt evidence and reports `installed_inactive` or `degraded`
+  without claiming activation or execution authority.
 - [ ] Build and validate signed first-party artifacts for all seven module
   families and supported targets.
 - [ ] Keep third-party packages blocked until publisher governance, review,

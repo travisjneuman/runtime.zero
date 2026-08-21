@@ -291,6 +291,13 @@ subcommand.
 renders a digest-bound schema-1 lifecycle plan and never initializes the store,
 publishes a registry, or launches a module.
 
+`rz0 modules status` is the complementary path-redacted read-only operator
+surface. It composes the installed registry and receipt validators, reports a
+valid record as `installed_inactive` and a record with missing or invalid receipt
+evidence as `degraded`, and never authorizes activation or invocation. Its
+`--store-root` override is limited to local inspection and does not initialize
+or modify the selected root.
+
 The store contract includes safety flags:
 
 - `rollback_supported`;

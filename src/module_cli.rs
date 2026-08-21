@@ -1,9 +1,10 @@
 use std::fmt::Write as FmtWrite;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::{env, fs};
 
 use crate::{
-    ExitCode, brand, module_install_plan, module_manifest, module_registry, module_trust_cli,
-    module_validation,
+    ExitCode, brand, module_install_plan, module_manifest, module_registry, module_status,
+    module_trust_cli, module_validation,
 };
 use rz0_module_lifecycle::{ModuleLifecycleOperation, ModuleLifecycleState, module_lifecycle_plan};
 
@@ -18,6 +19,10 @@ enum ModulesAction {
     List {
         format: OutputFormat,
         from: Option<String>,
+    },
+    Status {
+        format: OutputFormat,
+        store_root: Option<PathBuf>,
     },
     Validate {
         path: String,
@@ -56,6 +61,9 @@ pub fn modules_command(args: &[String]) -> (ExitCode, String, String) {
     match parse_modules_args(args) {
         Ok(ModulesAction::Help) => (ExitCode::Ok, modules_usage(), String::new()),
         Ok(ModulesAction::List { format, from }) => render_modules(format, from.as_deref()),
+        Ok(ModulesAction::Status { format, store_root }) => {
+            render_module_status(format, store_root)
+        }
         Ok(ModulesAction::Validate { path, format }) => render_validation(format, &path),
         Ok(ModulesAction::InstallDryRun { path, format }) => render_install_plan(format, &path),
         Ok(ModulesAction::LifecyclePlan {
@@ -99,11 +107,58 @@ fn parse_modules_args(args: &[String]) -> Result<ModulesAction, String> {
         }
         Some("validate") => parse_validate_args(&args[1..]),
         Some("install") => parse_install_args(&args[1..]),
+        Some("status") => parse_status_args(&args[1..]),
         Some("lifecycle-plan") => parse_lifecycle_plan_args(&args[1..]),
         Some("trust") => Ok(ModulesAction::Trust {
             args: args[1..].to_vec(),
         }),
         _ => parse_list_args(args),
+    }
+}
+
+fn parse_status_args(args: &[String]) -> Result<ModulesAction, String> {
+    let mut format = OutputFormat::Text;
+    let mut store_root = None;
+    let mut index = 0usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--json" => format = OutputFormat::Json,
+            "--format" => format = parse_format(args, &mut index)?,
+            "--store-root" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(status_usage());
+                };
+                if store_root.is_some() {
+                    return Err("module status store root was provided more than once".to_string());
+                }
+                store_root = Some(resolve_store_root(value)?);
+                index += 1;
+            }
+            _ => return Err(status_usage()),
+        }
+        index += 1;
+    }
+    Ok(ModulesAction::Status { format, store_root })
+}
+
+fn resolve_store_root(value: &str) -> Result<PathBuf, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.contains("://") {
+        return Err("module status store root must be a local filesystem path".to_string());
+    }
+    let path = PathBuf::from(trimmed);
+    let absolute = if path.is_absolute() {
+        path
+    } else {
+        env::current_dir()
+            .map_err(|err| format!("failed to resolve current directory: {err}"))?
+            .join(path)
+    };
+    if absolute.exists() {
+        fs::canonicalize(&absolute)
+            .map_err(|err| format!("failed to canonicalize module status store root: {err}"))
+    } else {
+        Ok(absolute)
     }
 }
 
@@ -333,6 +388,24 @@ fn render_modules(format: OutputFormat, from: Option<&str>) -> (ExitCode, String
         OutputFormat::Json => match modules_json_from(from) {
             Ok(json) => (ExitCode::Ok, json, String::new()),
             Err(err) => (ExitCode::Usage, String::new(), err),
+        },
+    }
+}
+
+fn render_module_status(
+    format: OutputFormat,
+    store_root: Option<PathBuf>,
+) -> (ExitCode, String, String) {
+    let report = module_status::module_status_report(&["modules status".to_string()], store_root);
+    match format {
+        OutputFormat::Text => (
+            ExitCode::Ok,
+            module_status::module_status_text(&report),
+            String::new(),
+        ),
+        OutputFormat::Json => match serde_json::to_string_pretty(&report) {
+            Ok(json) => (ExitCode::Ok, format!("{json}\n"), String::new()),
+            Err(err) => (ExitCode::Usage, String::new(), err.to_string()),
         },
     }
 }
@@ -646,11 +719,19 @@ fn usage_error(args: &[String]) -> String {
 
 fn modules_usage() -> String {
     format!(
-        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n       {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n\nSafety: module install and lifecycle planning are dry-run only; local trust verification is test-key-only and never authorizes module execution; modules are not executed or fetched.\n",
+        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules status [--store-root <path>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n       {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n\nSafety: module status is read-only; module install and lifecycle planning are dry-run only; local trust verification is test-key-only and never authorizes module execution; modules are not executed or fetched.\n",
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
+        brand::COMMAND,
+        brand::COMMAND
+    )
+}
+
+fn status_usage() -> String {
+    format!(
+        "module status is read-only\n\nUsage: {} modules status [--store-root <path>] [--format text|json]\n\nIt reports installed, degraded, and absent module state without activating, invoking, installing, or repairing modules.\n",
         brand::COMMAND
     )
 }

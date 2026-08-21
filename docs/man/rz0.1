@@ -130,6 +130,11 @@ External sharing remains unauthorized pending review.
 .B modules
 List built-in core surfaces and explicitly installed module manifests.
 .TP
+.B modules status [--store-root PATH] [--format text|json]
+Report path-redacted installed-module lifecycle status from the local registry
+and receipts. This is read-only; installed modules remain inactive and module
+execution is not authorized.
+.TP
 .B modules validate MANIFEST [--format text|json]
 Validate one local manifest without loading or executing code.
 .TP

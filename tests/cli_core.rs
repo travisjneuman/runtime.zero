@@ -181,6 +181,7 @@ fn subcommand_help_is_scriptable_and_successful() {
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
     assert!(out.contains("rz0 modules install --dry-run"));
+    assert!(out.contains("rz0 modules status [--store-root <path>]"));
     assert!(out.contains("rz0 modules trust verify"));
     assert!(out.contains("rz0 modules lifecycle-plan"));
     assert!(out.contains("modules are not executed or fetched"));
@@ -283,6 +284,7 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("rz0 updates --dry-run --fixture"));
     assert!(out.contains("rz0 updates --dry-run --all-providers"));
     assert!(out.contains("rz0 updates --recovery-status --transaction"));
+    assert!(out.contains("rz0 modules status [--store-root <path>]"));
     assert!(out.contains("rz0 modules lifecycle-plan"));
     assert!(out.contains("rz0 modules trust verify"));
 }
@@ -343,6 +345,91 @@ fn modules_json_shows_empty_installed_registry() {
     assert!(out.contains("\"schema_version\": 1"));
     assert!(out.contains("\"installed_modules\": []"));
     assert!(out.contains("\"remote_execution_allowed\": false"));
+}
+
+#[test]
+fn modules_status_reports_valid_installed_modules_as_inactive() {
+    let store_root = format!(
+        "{}/tests/fixtures/store-roots/valid-registry-valid-receipt",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let (code, out, err) = run([
+        "modules",
+        "status",
+        "--store-root",
+        &store_root,
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("module status JSON");
+    assert_eq!(value["contract"], "module_lifecycle_status");
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["lifecycle_execution_available"], false);
+    assert_eq!(value["product_execution_authorized"], false);
+    assert_eq!(value["registry_state"], "valid");
+    assert_eq!(value["receipt_state"], "valid");
+    assert_eq!(value["inactive_module_count"], 1);
+    assert_eq!(value["degraded_module_count"], 0);
+    assert_eq!(value["modules"][0]["state"], "installed_inactive");
+    assert_eq!(value["modules"][0]["activation_supported"], false);
+    assert_eq!(value["modules"][0]["invocation_supported"], false);
+    assert!(!out.contains("/Users/"));
+    assert!(!out.contains(&store_root));
+}
+
+#[test]
+fn modules_status_reports_missing_receipt_as_degraded() {
+    let store_root = format!(
+        "{}/tests/fixtures/store-roots/missing-receipt",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let (code, out, err) = run([
+        "modules",
+        "status",
+        "--store-root",
+        &store_root,
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("module status JSON");
+    assert_eq!(value["receipt_state"], "absent");
+    assert_eq!(value["inactive_module_count"], 0);
+    assert_eq!(value["degraded_module_count"], 1);
+    assert_eq!(value["modules"][0]["state"], "degraded");
+    assert_eq!(value["modules"][0]["errors"][0], "receipt_missing");
+    assert!(!out.contains("/Users/"));
+    assert!(!out.contains(&store_root));
+}
+
+#[test]
+fn modules_status_empty_store_is_path_free_and_non_authorizing() {
+    let store_root = format!(
+        "{}/tests/fixtures/store-roots/valid-empty-registry",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let (code, out, err) = run([
+        "modules",
+        "status",
+        "--store-root",
+        &store_root,
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("module status JSON");
+    assert_eq!(value["registry_state"], "valid");
+    assert_eq!(value["receipt_state"], "not_referenced");
+    assert_eq!(value["installed_module_count"], 0);
+    assert_eq!(value["modules"].as_array().map(Vec::len), Some(0));
+    assert_eq!(value["product_execution_authorized"], false);
+    assert!(!out.contains("/Users/"));
+    assert!(!out.contains(&store_root));
 }
 
 #[test]

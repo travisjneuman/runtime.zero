@@ -77,6 +77,8 @@ configuration, receipts, recovery, and the TUI path are implemented together.
 ```bash
 rz0 modules
 rz0 modules --format json
+rz0 modules status
+rz0 modules status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
@@ -109,6 +111,16 @@ An empty `installed_modules` list is valid and expected for the foundation-only
 build. The planned registry is pinned by test to the frozen seven-family 1.0
 catalog: inventory/environment, updater, uninstall, leftovers, cache management,
 security/integrity, and report/export. Planned entries are not implementations.
+
+`rz0 modules status` is the operator-facing, path-redacted lifecycle view. It
+composes the installed registry and receipt validators and reports each
+installed record as `installed_inactive` only when its receipt is valid;
+missing, invalid, unreadable, or unsupported receipts produce `degraded`.
+It never reports `active` because module activation and invocation are not
+available in the current product. The command is read-only, does not execute
+module code, and does not treat an installed record as execution authority.
+`--store-root` is a local read-only inspection override for fixtures and
+support triage.
 
 `rz0 modules validate` reads one local JSON manifest and reports whether it
 passes the foundation contract. `rz0 modules --from <directory>` reads JSON

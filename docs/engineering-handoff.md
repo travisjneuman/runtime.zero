@@ -257,8 +257,10 @@ rz0 modules uninstall <module-id> --dry-run
 These commands must not be added as cosmetic aliases before the lifecycle
 runtime, registry publication, trust, configuration, receipts, recovery, and
 TUI flows can support them. The current repository exposes listing, validation,
-store inspection, and installation planning only; it does not yet expose these
-mutating module lifecycle commands.
+read-only lifecycle status, store inspection, and installation planning only; it
+does not yet expose these mutating module lifecycle commands. `modules status`
+is deliberately not an enable/activate alias: it reports registry/receipt
+evidence and keeps execution unavailable.
 
 The current `modules lifecycle-plan` command is a bounded review renderer for
 the crate-owned schema-1 transition grammar. It is not one of the mutating
