@@ -105,6 +105,7 @@ Schema version `1` expects:
       "version": "0.1.0",
       "manifest_path": "modules/first-party.inventory/0.1.0/rz0-module.json",
       "receipt_path": "receipts/rz0plan_inventory.json",
+      "lifecycle_state": "installed_inactive",
       "module_dir": "modules/first-party.inventory/0.1.0"
     }
   ]
@@ -112,11 +113,12 @@ Schema version `1` expects:
 ```
 
 `module_dir` is optional for forward compatibility with future receipt-first
-records, but `id`, `version`, `manifest_path`, and `receipt_path` are required.
-The current schema-1 parser does not yet persist executable lifecycle state. A
-future reviewed extension may add a `state` field whose values distinguish at
-least `disabled`, `active`, and `degraded/blocked`; a registry state never
-authorizes a domain action by itself.
+records, but `id`, `version`, `manifest_path`, `receipt_path`, and
+`lifecycle_state` are required in newly published records. Schema 1 accepts
+only `installed_inactive`; older records without the field are read as that
+state, while any other explicit value is invalid. The persisted state records
+installation posture only and never authorizes activation, invocation, or a
+domain action.
 Paths are registry references, not instructions to write files. They must be
 relative, must not use backslashes, absolute paths, URL-like values, or `..`
 traversal, and must stay in the expected future store classes:

@@ -39,6 +39,7 @@ pub struct InstalledRegistryRecordStatus {
     pub version: String,
     pub manifest_path: String,
     pub receipt_path: String,
+    pub lifecycle_state: String,
     pub module_dir: Option<String>,
     pub valid: bool,
     pub errors: Vec<String>,
@@ -109,6 +110,7 @@ fn validate_registry_file(
             version: record.version.clone(),
             manifest_path: record.manifest_path.clone(),
             receipt_path: record.receipt_path.clone(),
+            lifecycle_state: record.lifecycle_state.clone(),
             module_dir: record.module_dir.clone(),
             valid: true,
             errors: Vec::new(),
@@ -179,6 +181,9 @@ fn violation_message(violation: &RegistryViolation) -> String {
         }
         RegistryViolationCode::InvalidReceiptPath => {
             "receipt_path path is unsafe or non-canonical".to_string()
+        }
+        RegistryViolationCode::InvalidLifecycleState => {
+            "lifecycle_state is not the supported installed_inactive state".to_string()
         }
         RegistryViolationCode::InvalidModuleDirectory => {
             "module_dir directory is unsafe or does not match id/version".to_string()

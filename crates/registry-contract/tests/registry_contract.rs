@@ -1,6 +1,7 @@
 use rz0_registry_contract::{
-    InstalledModuleRecord, InstalledRegistry, RegistryDocumentErrorCode, RegistryViolationCode,
-    canonical_registry_bytes, parse_registry_document, registry_sha256, validate_registry,
+    INSTALLED_MODULE_LIFECYCLE_STATE, InstalledModuleRecord, InstalledRegistry,
+    RegistryDocumentErrorCode, RegistryViolationCode, canonical_registry_bytes,
+    parse_registry_document, registry_sha256, validate_registry,
 };
 
 fn record(id: &str) -> InstalledModuleRecord {
@@ -9,6 +10,7 @@ fn record(id: &str) -> InstalledModuleRecord {
         version: "0.1.0".to_string(),
         manifest_path: format!("modules/{id}/0.1.0/rz0-module.json"),
         receipt_path: format!("receipts/{id}.json"),
+        lifecycle_state: INSTALLED_MODULE_LIFECYCLE_STATE.to_string(),
         module_dir: Some(format!("modules/{id}/0.1.0")),
     }
 }
@@ -95,4 +97,24 @@ fn reserved_ids_unsafe_receipts_and_version_drift_are_rejected() {
     ] {
         assert!(validation.violations.iter().any(|item| item.code == code));
     }
+}
+
+#[test]
+fn lifecycle_state_is_explicit_and_only_installed_inactive_is_publishable() {
+    let mut registry = InstalledRegistry {
+        schema_version: 1,
+        modules: vec![record("first-party.inventory")],
+    };
+    assert_eq!(
+        registry.modules[0].lifecycle_state,
+        INSTALLED_MODULE_LIFECYCLE_STATE
+    );
+    registry.modules[0].lifecycle_state = "active".to_string();
+    let validation = validate_registry(&registry);
+    assert!(
+        validation
+            .violations
+            .iter()
+            .any(|violation| { violation.code == RegistryViolationCode::InvalidLifecycleState })
+    );
 }

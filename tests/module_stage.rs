@@ -127,6 +127,10 @@ fn developer_promotion_publishes_installed_inactive_state_with_install_receipt()
     )
     .expect("installed registry JSON");
     assert_eq!(registry["modules"].as_array().map(Vec::len), Some(1));
+    assert_eq!(
+        registry["modules"][0]["lifecycle_state"],
+        "installed_inactive"
+    );
 
     let status = runtime_zero::module_status::module_status_report(
         &["modules status".to_string()],

@@ -10,6 +10,7 @@ use crate::module_stage::{DeveloperStagedModuleStatus, developer_staging_invento
 use crate::module_validation::load_manifest_file;
 use crate::store_status::{StoreOverallState, store_status_report, store_status_report_for_root};
 use rz0_module_lifecycle::ModuleLifecycleState;
+use rz0_registry_contract::INSTALLED_MODULE_LIFECYCLE_STATE;
 use serde::Serialize;
 
 pub const MODULE_STATUS_SCHEMA_VERSION: u16 = 1;
@@ -254,7 +255,7 @@ fn valid_record_status(
         Some(InstallReceiptState::Valid) if module_files.valid => ModuleStatusEntry {
             id: record.id.clone(),
             version: record.version.clone(),
-            state: ModuleLifecycleState::InstalledInactive,
+            state: persisted_module_state(record),
             receipt_state: Some(InstallReceiptState::Valid),
             activation_supported: false,
             invocation_supported: false,
@@ -291,6 +292,14 @@ fn valid_record_status(
             reason: "installed record has no receipt assessment",
             errors: vec!["receipt_assessment_missing"],
         },
+    }
+}
+
+fn persisted_module_state(record: &InstalledRegistryRecordStatus) -> ModuleLifecycleState {
+    if record.lifecycle_state == INSTALLED_MODULE_LIFECYCLE_STATE {
+        ModuleLifecycleState::InstalledInactive
+    } else {
+        ModuleLifecycleState::Degraded
     }
 }
 

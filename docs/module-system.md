@@ -119,8 +119,9 @@ security/integrity, and report/export. Planned entries are not implementations.
 
 `rz0 modules status` is the operator-facing, path-redacted lifecycle view. It
 composes the installed registry, receipt, manifest, and declared package-file
-integrity validators and reports each installed record as `installed_inactive`
-only when the receipt and installed module bytes are valid; missing, invalid,
+integrity validators and reports each installed record only when its persisted
+foundation state is `installed_inactive` and the receipt and installed module
+bytes are valid; missing, invalid,
 unreadable, or unsupported evidence produces `degraded`.
 It also reviews developer-only staging receipts and staged destination bytes as
 a separate `staged_modules` collection. A valid staged entry is `staged`, not

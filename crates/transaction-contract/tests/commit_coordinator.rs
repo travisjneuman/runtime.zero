@@ -563,6 +563,7 @@ fn existing_registry_is_copied_for_recovery_before_atomic_replacement() {
             version: "0.1.0".to_string(),
             manifest_path: "modules/first-party.inventory/0.1.0/rz0-module.json".to_string(),
             receipt_path: "receipts/rz0plan-inventory.json".to_string(),
+            lifecycle_state: "installed_inactive".to_string(),
             module_dir: Some("modules/first-party.inventory/0.1.0".to_string()),
         }],
     };

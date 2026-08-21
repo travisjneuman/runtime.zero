@@ -52,6 +52,13 @@ are P0 work for the end-state platform. See
 [`engineering-handoff.md`](engineering-handoff.md) for the target command shape
 and the shift sequence.
 
+Schema-1 developer promotion now persists the foundation-owned
+`lifecycle_state: "installed_inactive"` field in each installed registry
+record. The registry accepts no other explicit lifecycle state; this records
+verified installation posture and cannot authorize activation, invocation, or a
+domain action. Activation remains unavailable until the production trust,
+capability, isolation, receipt, and recovery gates are implemented.
+
 The core module-install dry-run now embeds the canonical foundation install
 transition instead of maintaining a private lifecycle model. No lifecycle plan
 installs, activates, invokes, repairs, migrates, upgrades, deactivates, or removes

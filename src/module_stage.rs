@@ -33,8 +33,8 @@ use rz0_module_trust::{
     SignatureEnvelope, SignatureVerification, TrustedTestKey, verify_detached_signature,
 };
 use rz0_registry_contract::{
-    InstalledModuleRecord, InstalledRegistry, bytes_sha256, canonical_registry_bytes,
-    parse_registry_document,
+    INSTALLED_MODULE_LIFECYCLE_STATE, InstalledModuleRecord, InstalledRegistry, bytes_sha256,
+    canonical_registry_bytes, parse_registry_document,
 };
 use rz0_secure_fs::SecureDirectory;
 use rz0_transaction_contract::{
@@ -431,6 +431,7 @@ fn prepare_stage(
             receipt_path: install_receipt_relative
                 .clone()
                 .expect("promotion install receipt path"),
+            lifecycle_state: INSTALLED_MODULE_LIFECYCLE_STATE.to_string(),
             module_dir: Some(destination_relative.clone()),
         });
         next_registry

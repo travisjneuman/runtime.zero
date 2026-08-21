@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub const INSTALLED_REGISTRY_SCHEMA_VERSION: u16 = 1;
+pub const INSTALLED_MODULE_LIFECYCLE_STATE: &str = "installed_inactive";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -19,6 +20,8 @@ pub struct InstalledModuleRecord {
     pub version: String,
     pub manifest_path: String,
     pub receipt_path: String,
+    #[serde(default = "default_lifecycle_state")]
+    pub lifecycle_state: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub module_dir: Option<String>,
 }
@@ -32,6 +35,7 @@ pub enum RegistryViolationCode {
     InvalidVersion,
     InvalidManifestPath,
     InvalidReceiptPath,
+    InvalidLifecycleState,
     InvalidModuleDirectory,
     DuplicateModuleId,
     NonCanonicalOrder,
@@ -173,6 +177,13 @@ pub fn validate_registry(registry: &InstalledRegistry) -> RegistryValidation {
                 Some(index),
             );
         }
+        if record.lifecycle_state != INSTALLED_MODULE_LIFECYCLE_STATE {
+            push(
+                &mut violations,
+                RegistryViolationCode::InvalidLifecycleState,
+                Some(index),
+            );
+        }
         if record
             .module_dir
             .as_deref()
@@ -207,6 +218,10 @@ pub fn validate_registry(registry: &InstalledRegistry) -> RegistryValidation {
         valid: violations.is_empty(),
         violations,
     }
+}
+
+fn default_lifecycle_state() -> String {
+    INSTALLED_MODULE_LIFECYCLE_STATE.to_string()
 }
 
 pub fn canonical_registry_bytes(

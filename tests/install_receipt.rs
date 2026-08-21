@@ -113,6 +113,7 @@ fn record(receipt_path: &str) -> InstalledRegistryRecordStatus {
         version: "0.1.0".to_string(),
         manifest_path: "modules/first-party.inventory/0.1.0/rz0-module.json".to_string(),
         receipt_path: receipt_path.to_string(),
+        lifecycle_state: "installed_inactive".to_string(),
         module_dir: Some("modules/first-party.inventory/0.1.0".to_string()),
         valid: true,
         errors: Vec::new(),
