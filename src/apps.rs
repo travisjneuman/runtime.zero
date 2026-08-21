@@ -3,8 +3,9 @@ use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use rz0_cancellation_contract::CancellationToken;
 use rz0_inventory_contract::{AppRecord, SoftwareIdentifier, ToolRecord};
-use rz0_module_inventory::{InventoryOptions, collect_inventory};
+use rz0_module_inventory::{InventoryOptions, collect_inventory_cancellable};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -305,14 +306,29 @@ pub struct UninstallReview {
 }
 
 pub fn collect_app_catalog() -> Result<AppCatalog, String> {
-    let report = collect_inventory(&InventoryOptions {
-        fixture: None,
-        redact_paths: false,
-        probe_versions: false,
-        include_apps: true,
-    })?;
+    collect_app_catalog_cancellable(None)
+}
+
+pub(crate) fn collect_app_catalog_cancellable(
+    cancellation: Option<&CancellationToken>,
+) -> Result<AppCatalog, String> {
+    let report = collect_inventory_cancellable(
+        &InventoryOptions {
+            fixture: None,
+            redact_paths: false,
+            probe_versions: false,
+            include_apps: true,
+        },
+        cancellation,
+    )?;
+    if let Some(reason) = cancellation.and_then(CancellationToken::reason) {
+        return Err(format!("installed software catalog cancelled: {reason:?}"));
+    }
     let mut apps = report.apps.iter().map(classify_app).collect::<Vec<_>>();
     let identity_groups = assign_identity_groups(&mut apps);
+    if let Some(reason) = cancellation.and_then(CancellationToken::reason) {
+        return Err(format!("installed software catalog cancelled: {reason:?}"));
+    }
     apps.sort_by(|left, right| {
         left.name
             .to_ascii_lowercase()
@@ -1143,7 +1159,7 @@ fn uninstall_apply_command(
                         "uninstall verification cancelled before fresh inventory: {reason:?}"
                     ));
                 }
-                let fresh = collect_app_catalog()?;
+                let fresh = collect_app_catalog_cancellable(Some(cancellation))?;
                 if let Some(reason) = cancellation.reason() {
                     return Err(format!(
                         "uninstall verification cancelled after fresh inventory: {reason:?}"

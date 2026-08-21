@@ -3,9 +3,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use rz0_cancellation_contract::CancellationToken;
 use rz0_inventory_contract::{InventorySource, PathEntry, ToolRecord};
 
-use crate::command_probe::run_version_probe;
+use crate::command_probe::run_version_probe_cancellable;
 use crate::tool_specs::{ToolSpec, tool_specs};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,16 +15,38 @@ pub struct ToolCollection {
     pub tools: Vec<ToolRecord>,
 }
 
+#[cfg(test)]
 pub fn discover_known_tools(path_entries: &[PathEntry], probe_versions: bool) -> ToolCollection {
+    discover_known_tools_cancellable(path_entries, probe_versions, None).unwrap_or_else(|error| {
+        ToolCollection {
+            source: InventorySource {
+                id: "known.executables".to_string(),
+                kind: "filesystem".to_string(),
+                status: "unavailable".to_string(),
+                duration_ms: Some(0),
+                read_only: true,
+                warnings: vec![error],
+            },
+            tools: Vec::new(),
+        }
+    })
+}
+
+pub(crate) fn discover_known_tools_cancellable(
+    path_entries: &[PathEntry],
+    probe_versions: bool,
+    cancellation: Option<&CancellationToken>,
+) -> Result<ToolCollection, String> {
     let started = Instant::now();
     let mut tools = Vec::new();
     let mut source_warnings = Vec::new();
 
     for spec in tool_specs() {
+        check_cancellation(cancellation)?;
         if let Some((path, source_id)) = find_tool(spec.names, path_entries) {
             let mut warnings = Vec::new();
             let version = if probe_versions {
-                probe_version(spec, &path, &mut warnings)
+                probe_version(spec, &path, &mut warnings, cancellation)?
             } else {
                 None
             };
@@ -55,7 +78,7 @@ pub fn discover_known_tools(path_entries: &[PathEntry], probe_versions: bool) ->
         })
         .collect::<BTreeSet<_>>();
     let (mut path_tools, path_truncated) =
-        discover_path_executables(path_entries, &known_paths, &known_names);
+        discover_path_executables(path_entries, &known_paths, &known_names, cancellation)?;
     if !path_tools.is_empty() {
         source_warnings.push(
             "unrecognized PATH executables are inventory-only until a provider adapter proves a safe update channel"
@@ -81,7 +104,7 @@ pub fn discover_known_tools(path_entries: &[PathEntry], probe_versions: bool) ->
     } else {
         "ok"
     };
-    ToolCollection {
+    Ok(ToolCollection {
         source: InventorySource {
             id: "known.executables".to_string(),
             kind: "filesystem".to_string(),
@@ -91,14 +114,15 @@ pub fn discover_known_tools(path_entries: &[PathEntry], probe_versions: bool) ->
             warnings: source_warnings,
         },
         tools,
-    }
+    })
 }
 
 fn discover_path_executables(
     path_entries: &[PathEntry],
     known_paths: &BTreeSet<String>,
     known_names: &BTreeSet<String>,
-) -> (Vec<ToolRecord>, bool) {
+    cancellation: Option<&CancellationToken>,
+) -> Result<(Vec<ToolRecord>, bool), String> {
     let mut tools = Vec::new();
     let mut seen_paths = known_paths.clone();
     let mut seen_names = known_names.clone();
@@ -106,6 +130,7 @@ fn discover_path_executables(
     let remaining_capacity =
         rz0_resource_contract::MAX_INVENTORY_TOOL_RECORDS.saturating_sub(known_paths.len());
     for entry in path_entries {
+        check_cancellation(cancellation)?;
         if !entry.exists || entry.entry_kind != "directory" {
             continue;
         }
@@ -116,9 +141,10 @@ fn discover_path_executables(
             continue;
         };
         for directory_entry in entries.flatten() {
+            check_cancellation(cancellation)?;
             if tools.len() == remaining_capacity {
                 truncated = true;
-                return (tools, truncated);
+                return Ok((tools, truncated));
             }
             let path = directory_entry.path();
             let display_path = path.display().to_string();
@@ -146,7 +172,7 @@ fn discover_path_executables(
             });
         }
     }
-    (tools, truncated)
+    Ok((tools, truncated))
 }
 
 fn is_system_tool_directory(path: &Path) -> bool {
@@ -187,31 +213,45 @@ fn fnv1a(value: &[u8]) -> u64 {
     hash
 }
 
-fn probe_version(spec: &ToolSpec, path: &Path, warnings: &mut Vec<String>) -> Option<String> {
+fn probe_version(
+    spec: &ToolSpec,
+    path: &Path,
+    warnings: &mut Vec<String>,
+    cancellation: Option<&CancellationToken>,
+) -> Result<Option<String>, String> {
+    check_cancellation(cancellation)?;
     match path_contains_symlink_or_reparse(path) {
         Ok(true) => {
             warnings.push(
                 "version probe refused a path containing a symlink or reparse point".to_string(),
             );
-            return None;
+            return Ok(None);
         }
         Ok(false) => {}
         Err(error) => {
             warnings.push(format!("version probe path inspection failed: {error}"));
-            return None;
+            return Ok(None);
         }
     }
     let Some(args) = spec.version_args else {
         warnings.push("version probe is disabled for command-script executables".to_string());
-        return None;
+        return Ok(None);
     };
-    match run_version_probe(path, args) {
-        Ok(version) => Some(version),
+    match run_version_probe_cancellable(path, args, cancellation) {
+        Ok(version) => Ok(Some(version)),
         Err(error) => {
+            check_cancellation(cancellation)?;
             warnings.push(error);
-            None
+            Ok(None)
         }
     }
+}
+
+fn check_cancellation(cancellation: Option<&CancellationToken>) -> Result<(), String> {
+    if let Some(reason) = cancellation.and_then(CancellationToken::reason) {
+        return Err(format!("inventory collection cancelled: {reason:?}"));
+    }
+    Ok(())
 }
 
 fn find_tool(names: &[&str], path_entries: &[PathEntry]) -> Option<(PathBuf, String)> {

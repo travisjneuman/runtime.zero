@@ -1,14 +1,26 @@
 use std::path::Path;
 use std::time::Duration;
 
-use rz0_process_host::{ReadOnlyProcessRequest, run_read_only_process};
+use rz0_cancellation_contract::CancellationToken;
+use rz0_process_host::{
+    ReadOnlyProcessRequest, run_read_only_process, run_read_only_process_cancellable,
+};
 
 const PROBE_TIMEOUT: Duration =
     Duration::from_millis(rz0_resource_contract::VERSION_PROBE_TIMEOUT_MS);
 const MAX_CAPTURE_BYTES: usize = rz0_resource_contract::MAX_VERSION_OUTPUT_BYTES;
 
+#[cfg(test)]
 pub(crate) fn run_version_probe(path: &Path, args: &[&str]) -> Result<String, String> {
-    let output = run_read_only_process(&ReadOnlyProcessRequest {
+    run_version_probe_cancellable(path, args, None)
+}
+
+pub(crate) fn run_version_probe_cancellable(
+    path: &Path,
+    args: &[&str],
+    cancellation: Option<&CancellationToken>,
+) -> Result<String, String> {
+    let request = ReadOnlyProcessRequest {
         executable: path.to_path_buf(),
         arguments: args
             .iter()
@@ -18,7 +30,11 @@ pub(crate) fn run_version_probe(path: &Path, args: &[&str]) -> Result<String, St
         environment: Vec::new(),
         timeout: PROBE_TIMEOUT,
         output_limit: MAX_CAPTURE_BYTES as u64,
-    })
+    };
+    let output = match cancellation {
+        Some(cancellation) => run_read_only_process_cancellable(&request, cancellation),
+        None => run_read_only_process(&request),
+    }
     .map_err(|error| format!("version probe process host failed: {error}"))?;
     let rz0_process_host::ProcessOutput {
         status,

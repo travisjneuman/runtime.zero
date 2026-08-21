@@ -14,6 +14,7 @@ mod windows_registry;
 
 use std::path::PathBuf;
 
+use rz0_cancellation_contract::CancellationToken;
 use rz0_inventory_contract::{
     InventoryEvent, InventoryHost, InventoryReport, InventoryRuntime, InventorySource,
     validate_inventory_report,
@@ -45,16 +46,26 @@ impl Default for InventoryOptions {
 }
 
 pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, String> {
+    collect_inventory_cancellable(options, None)
+}
+
+pub fn collect_inventory_cancellable(
+    options: &InventoryOptions,
+    cancellation: Option<&CancellationToken>,
+) -> Result<InventoryReport, String> {
     validate_options(options)?;
+    check_cancellation(cancellation)?;
     let mut report = module_report(options.fixture.is_none());
 
     if let Some(path) = &options.fixture {
         let collection = fixture::load_path_fixture(path)?;
+        check_cancellation(cancellation)?;
         record_source_event(&mut report, &collection.source);
         report.sources.push(collection.source);
         report.path_entries.extend(collection.entries);
     } else {
         let process_path = path_inventory::collect_process_path();
+        check_cancellation(cancellation)?;
         record_source_event(&mut report, &process_path.source);
         report.sources.push(process_path.source);
         report.path_entries.extend(process_path.entries);
@@ -62,6 +73,7 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
         #[cfg(windows)]
         {
             for collection in windows_registry::collect_persisted_paths() {
+                check_cancellation(cancellation)?;
                 record_source_event(&mut report, &collection.source);
                 report.sources.push(collection.source);
                 report.path_entries.extend(collection.entries);
@@ -70,7 +82,12 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
     }
 
     if options.fixture.is_none() {
-        let tools = tools::discover_known_tools(&report.path_entries, options.probe_versions);
+        let tools = tools::discover_known_tools_cancellable(
+            &report.path_entries,
+            options.probe_versions,
+            cancellation,
+        )?;
+        check_cancellation(cancellation)?;
         record_source_event(&mut report, &tools.source);
         report.sources.push(tools.source);
         report.tools.extend(tools.tools);
@@ -86,6 +103,7 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
         let app_collections = vec![apps];
 
         for mut collection in app_collections {
+            check_cancellation(cancellation)?;
             let remaining =
                 rz0_inventory_contract::MAX_INVENTORY_APP_RECORDS.saturating_sub(report.apps.len());
             if collection.apps.len() > remaining {
@@ -107,6 +125,7 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
 
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         for mut collection in platform_services::collect_services() {
+            check_cancellation(cancellation)?;
             let remaining = rz0_inventory_contract::MAX_INVENTORY_SERVICE_RECORDS
                 .saturating_sub(report.services.len());
             if collection.services.len() > remaining {
@@ -122,6 +141,7 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
         }
         #[cfg(windows)]
         {
+            check_cancellation(cancellation)?;
             let mut collection = windows_registry::collect_services();
             if collection.services.len() > rz0_inventory_contract::MAX_INVENTORY_SERVICE_RECORDS {
                 collection
@@ -144,6 +164,7 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
         );
     }
 
+    check_cancellation(cancellation)?;
     if options.redact_paths {
         redaction::redact_path_values(&mut report)?;
     }
@@ -156,6 +177,13 @@ pub fn collect_inventory(options: &InventoryOptions) -> Result<InventoryReport, 
         ));
     }
     Ok(report)
+}
+
+fn check_cancellation(cancellation: Option<&CancellationToken>) -> Result<(), String> {
+    if let Some(reason) = cancellation.and_then(CancellationToken::reason) {
+        return Err(format!("inventory collection cancelled: {reason:?}"));
+    }
+    Ok(())
 }
 
 fn validate_options(options: &InventoryOptions) -> Result<(), String> {
@@ -245,5 +273,16 @@ mod tests {
         assert!(!report.raw_registry_keys_included);
         assert_eq!(report.runtime.module_id.as_deref(), Some(MODULE_ID));
         assert!(report.generated_at.is_none());
+    }
+
+    #[test]
+    fn cancellable_collection_stops_before_reading_sources() {
+        let (controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+        controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+
+        let error =
+            collect_inventory_cancellable(&InventoryOptions::default(), Some(&cancellation))
+                .expect_err("pre-cancelled inventory should fail closed");
+        assert!(error.contains("inventory collection cancelled"));
     }
 }
