@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `08635e6` (`Surface recovery evidence in TUI diagnostics`).
+  `8d1a9db` (`Refresh TUI recovery status`).
 - **Current behavior implementation:**
-  `08635e6` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `8d1a9db` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -59,18 +59,21 @@ Local
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, the full
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC cross-target `cargo check`, and
-`git diff --check`. The final local aarch64 Apple Silicon package from
-`7d0ed91` has binary SHA-256
-`4503eca1e57f6d0260dbbde311d208f7fc5593bf12d4e9e95363d3d2c4c0f9a2`, ZIP
+`git diff --check`. The current local aarch64 Apple Silicon package from
+`8d1a9db` has binary SHA-256
+`a3ebbe021627f42c9a688915bd6ee90549a97685490cfbada1c2583b2abbf1f8`, ZIP
 SHA-256
-`bd10dbfbc77582884b47b1ef4bc8354d948c432b932471d0320cf47521a94668`, and
-1,662,494 bytes across 8 verified members. Independent verification, repeated
-byte-identical packaging, four PTY terminal smoke cases, and ten-sample final
-artifact performance evidence passed. The artifact remains unsigned and
-unnotarized until an owner-led signing/notarization lane exists. That package
-was built from `7d0ed91`, before the `0ce2cc6` cache-root/restore and
-`366153f` recovery-inventory, and `08635e6` TUI evidence changes; the release
-package must be rebuilt before it can represent the current source.
+`d733d60b709f2436cfffd3b437ffdf6763f994cbd023793e454ed56fe354d6e8`, and
+1,692,597 bytes across 8 verified members. Embedded SBOM, third-party notices,
+and artifact-manifest SHA-256 values are
+`eec9c830f8031fda52e3e1e0962690a61667dd596249fd82d8b609f5cc1d310e`,
+`3200c58fc7b79f5b8136be80fc7cde53fc72db6910a8da640322bda19f385843`, and
+`a1d9a7454036f817458389fa669cfe1524c68c99e7003bba7b95172585deffa5`.
+Independent verification, repeated byte-identical packaging, four PTY terminal
+smoke cases, and ten-sample final-artifact performance evidence passed. The
+artifact remains unsigned and unnotarized until an owner-led signing/
+notarization lane exists. The later status commit is documentation-only and
+does not change the package source.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
