@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `6f644153dd357512853dcd2d7c93a38e56872301` (`feat: parse flatpak update evidence`).
+  `dabc8ec` (`fix: force portable provider locale`).
 - **Current behavior implementation:**
-  `6f64415` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `dabc8ec` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -29,9 +29,10 @@
   deletion, elevation, or module authority. Built-in Linux inventory also reads
   bounded Flatpak `active/metadata` records and preserves exact app
   ID/architecture/branch identity without granting action authority. The
-  updater also has a strict Flatpak JSON/ref/commit parser under the forced
-  `C` locale; it retains the human-readable version only as bounded evidence
-  and binds update identity to the remote commit. The
+  updater also has strict Flatpak JSON/ref/commit and Snap five-column
+  `refresh --list` parsers under the forced `C` locale; they retain only
+  bounded human-readable version evidence and bind update candidates to their
+  exact provider identity. The
   read-only `recovery --dry-run`
   command inventories bounded quarantine records and reports restore
   eligibility without exposing absolute host paths or adding a second mutation
@@ -53,7 +54,8 @@
   those additive non-authorizing fields from the same status report.
   The follow-on TUI presentation slice keeps primary diagnostics and monitor
   rows concise and moves dense evidence into the selected explanation pane;
-  the text and Ratatui renderers share the calmer `LOCAL SNAPSHOT` header copy.
+  the text and Ratatui renderers share the calmer `local snapshot` header copy
+  and the Home workspace keeps its first frame to the next useful review step.
   Module status now also checks the installed manifest and declared package
   files, so a valid registry-plus-receipt with missing or tampered module bytes
   is `degraded` rather than a false `installed_inactive` result.
@@ -157,7 +159,10 @@ The persisted inactive lifecycle-state slice is `1186c3d`.
 The inactive install-receipt authority slice is `4f90dd5`.
 The bounded Flatpak inventory slice is `27b4adf`.
 The bounded Flatpak updater parser slice is `6f64415`.
-The current exact-head release evidence refresh is bound to `6f64415`.
+The quiet task-first TUI slice is `d82c60f`.
+The bounded Snap updater parser slice is `5285173`.
+The portable provider-locale binding slice is `dabc8ec`.
+The current exact-head release evidence refresh is pending for `dabc8ec`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -438,10 +443,11 @@ name-normalized heuristic. Group confidence and version disagreement remain
 visible. IDs improve local reconciliation but are not universal product IDs and
 never authorize mutation.
 
-Coverage remains incomplete: RPM/DNF, Snap, AppImage, Nix, language managers,
+Coverage remains incomplete: RPM/DNF, AppImage, Nix, language managers,
 containers, browser extensions, live service status/dependencies,
 MSIX/AppX/Winget/Chocolatey/Scoop, and many persistence/driver details await an
-explicit 1.0 scope and target-native proof.
+explicit 1.0 scope and target-native proof. Snap now has bounded table parsing,
+but its manager/runtime and target-native proof remain open.
 
 ## Support summary and privacy
 
@@ -465,14 +471,15 @@ live probe. Homebrew JSON and bounded APT/DNF/Pacman/MacPorts parser slices exis
 The all-provider lane also has native update adapters for Homebrew,
 Apple Software Update, npm prefixes, language tools, AIUP-managed tools,
 crates.io Cargo installs, Warp's standalone CLI store, and declared
-Electron/Squirrel releases. Winget/Zypper/Snap specifications fail closed
-where parsers are not accepted; Flatpak now has a strict JSON, ref/commit-bound
-parser. Findings, action plans, and queue plans
+Electron/Squirrel releases. Winget and Zypper specifications fail closed
+where parsers are not accepted; Flatpak has a strict JSON, ref/commit-bound
+parser and Snap has a strict five-column table parser. Findings, action plans, and queue plans
 remain non-authorizing until the apply lane consumes an exact confirmation.
 
 Live discovery observes the exact manager artifact and seals its SHA-256, size,
 and platform identity into each plan. Replacement invalidates plan/confirmation
-identity.
+identity. Winget and Zypper remain explicitly unavailable until stable,
+locale-safe machine interfaces are proven.
 
 ### Confirmed execution sequence
 
@@ -606,7 +613,7 @@ and module-host execution.
 
 ## Validation baseline
 
-Current source validation for `6f644153dd357512853dcd2d7c93a38e56872301` and
+Current source validation for `dabc8ec` and
 the packaged artifact on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
