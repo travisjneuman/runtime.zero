@@ -7,7 +7,8 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `6d98021cc69531a3f7a70dce9959f5d7fe176e76` (`Define bounded cache safety policy evidence`).
+  `6d98021cc69531a3f7a70dce9959f5d7fe176e76` (`Define bounded cache safety policy evidence`);
+  current `main` is `b07665c` with a documentation-only status pointer.
 - **Current behavior implementation:**
   `6d98021cc69531a3f7a70dce9959f5d7fe176e76` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
