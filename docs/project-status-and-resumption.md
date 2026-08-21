@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `481831b` (`Refresh provenance status evidence`).
+  `22c3619` (`Add exact leftovers quarantine apply lane`).
 - **Current behavior implementation:**
-  `481831b` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `22c3619` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -20,7 +20,7 @@
   Bounded provenance consistency checks now reject malformed or publisher-drifted
   package metadata without treating provenance as trust authority. The leftovers
   surface now also has an explicit one-file module-store plan and a separate
-  confirmation-bound quarantine invocation under review; it does not provide
+  confirmation-bound quarantine invocation; it does not provide
   recursive cleanup, uninstall, deletion, elevation, or module authority.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
@@ -35,17 +35,21 @@ The cache slice is pushed at `f50eb5b`, the leftovers slice at `87aef29`, the
 updater/receipt slices at `d5e5153`, `ee1a1eb`, and `ad999c3`, the compact TUI
 posture update at `8132b4e`, the exact-file integrity slice at `47c6f9f`, and
 the Windows process-host/probe slice at `39adb92`, the module trust review
-slice at `a6664d6`, the complete-file-set slice at `3012176`, and provenance
-validation at `63f7d8d`, with status/evidence refresh at `481831b`. Local
+slice at `a6664d6`, the complete-file-set slice at `3012176`, provenance
+validation at `63f7d8d`, and the exact leftovers plan/apply lane at `22c3619`.
+Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, the full
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC cross-target `cargo check`, and
 `git diff --check`. A current aarch64 Apple Silicon artifact was independently
-verified and reproduced byte-for-byte; its hash is recorded in the private
-release-artifact note. It remains unsigned and unnotarized until an owner-led
-signing/notarization lane exists.
+verified and reproduced byte-for-byte from `22c3619`; the binary SHA-256 is
+`fa133cfd84132c94e85a01002be69b56382279d3ddd54a7d6c3c3709486e79bb` and the
+ZIP SHA-256 is
+`704166938c9999cfff9fb31f27e511914dfa6e06219a5977537b2ce82f6550f0`.
+It remains unsigned and unnotarized until an owner-led signing/notarization
+lane exists.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
