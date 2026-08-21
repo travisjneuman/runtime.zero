@@ -309,6 +309,36 @@ SBOM/third-party-notice bytes to the artifact manifest's exact path, digest,
 and size. The exact DMG verification was rerun successfully after both
 hardening changes; no packaged binary bytes changed.
 
+The latest clean-head unsigned universal2 package is
+`target/release-package-universal2-c5429f6/runtime-zero-0.1.0-universal2-apple-darwin.zip`,
+from source commit `c5429f6660481824cf9adc5597904c8e4054063c`. Its package
+verifier passed for 8 members with ZIP SHA-256
+`e6573113299bbf0de9bc64ae25829010ad72f7ce15a142ad9807eb711d6713a8` and
+universal binary SHA-256
+`166046a6c7bd5280309ff83980509cfb018b538155e54d6e3496a9a34fea7a36`.
+Both ARM64 and Rosetta slices passed four PTY smoke cases and schema-3
+performance evidence. The latest TUI startup/refresh-request p95 values were
+6,673/703 microseconds on ARM64 and 13,364/947 microseconds on x86_64; the
+evidence IDs are
+`terminal:universal2-apple-darwin-arm64-166046a6c7bd`,
+`terminal:universal2-apple-darwin-x86_64-166046a6c7bd`,
+`perf:universal2-apple-darwin-arm64-166046a6c7bd`, and
+`perf:universal2-apple-darwin-x86_64-166046a6c7bd`. Extracted package binaries
+passed version, doctor, dry-run scan, AIUP, Toolchain, and configuration
+reviews on both slices.
+
+The matching unsigned DMG is
+`target/release-dmg-universal2-c5429f6/runtime-zero-0.1.0-universal2-apple-darwin.dmg`.
+Its SHA-256 is
+`37bedffd06624ddf4da80061015e2f26f66e4761991742bd600b7e8fcf36df1b` and its
+size is 4,036,312 bytes. The independent mounted verifier passed the exact
+9-member contract, read-only smoke, checksum, source-ZIP, content, license,
+SBOM, and notice bindings with `writes_attempted: false` and
+`release_authorized: false`. The DMG builder now keeps its commit-scoped
+staging under `target/` instead of the system temporary directory. Signing,
+notarization, clean-host acceptance, target-native runtime, and public release
+remain blocked.
+
 The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
 with no writes; and the final artifact passed the bounded terminal and
