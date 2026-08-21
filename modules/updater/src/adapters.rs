@@ -748,6 +748,8 @@ pub fn parse_aiup_dry_run(bytes: &[u8]) -> Result<AiupDryRunReport, String> {
     let mut versions = BTreeMap::<String, String>::new();
     let mut current_tool = None;
     let mut in_versions = false;
+    let mut recognized_tool_section = false;
+    let mut recognized_versions_section = false;
     for line in text.lines() {
         if let Some(value) = line.split_once("TOOL START: ").map(|(_, value)| value)
             && let Some(tool) = value.strip_suffix(" ==========")
@@ -756,11 +758,13 @@ pub fn parse_aiup_dry_run(bytes: &[u8]) -> Result<AiupDryRunReport, String> {
             current_tool = Some(tool.to_string());
             commands.entry(tool.to_string()).or_default();
             in_versions = false;
+            recognized_tool_section = true;
             continue;
         }
         if line.contains("=== Detected tool versions ===") {
             current_tool = None;
             in_versions = true;
+            recognized_versions_section = true;
             continue;
         }
         if let Some(command) = line.split_once("DRY-RUN: ").map(|(_, value)| value.trim())
@@ -788,6 +792,9 @@ pub fn parse_aiup_dry_run(bytes: &[u8]) -> Result<AiupDryRunReport, String> {
                 versions.insert(tool.to_string(), version);
             }
         }
+    }
+    if !recognized_tool_section && !recognized_versions_section {
+        return Err("AIUP dry-run output contained no recognized catalog sections".to_string());
     }
     Ok(AiupDryRunReport { commands, versions })
 }
@@ -1695,6 +1702,13 @@ antigravity 1.1.12\n",
     fn aiup_dry_run_rejects_invalid_encoding_and_oversized_output() {
         assert!(parse_aiup_dry_run(&[0xff]).is_err());
         assert!(parse_aiup_dry_run(&vec![b'x'; MAX_MANAGER_OUTPUT_BYTES as usize + 1]).is_err());
+    }
+
+    #[test]
+    fn aiup_dry_run_rejects_unrecognized_or_malformed_catalog_output() {
+        assert!(parse_aiup_dry_run(b"aiup completed successfully\n").is_err());
+        assert!(parse_aiup_dry_run(b"TOOL START: invalid tool ==========").is_err());
+        assert!(parse_aiup_dry_run(b"=== Detected tool versions ===\n").is_ok());
     }
 
     #[test]

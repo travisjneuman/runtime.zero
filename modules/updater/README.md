@@ -14,6 +14,11 @@ installed native-tool evidence into a runtime.zero plan. AIUP's own catalog,
 install/uninstall behavior, and terminal UI remain AIUP-owned; runtime.zero
 does not edit or reimplement them.
 
+The Rust adapter fails closed when the captured output contains neither a valid
+AIUP tool section nor the detected-version section. Arbitrary success text,
+malformed tool labels, truncated output, invalid UTF-8, and oversized captures
+cannot silently become an empty successful provider review.
+
 The resulting apply action is deterministic: tool names are ordered from the
 provider's bounded sorted evidence, delegated Homebrew/npm commands are omitted,
 and the exact `aiup only <tools...> --no-install` argument vector plus its
