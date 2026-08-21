@@ -207,7 +207,11 @@ rz0 modules install --developer-trial --dry-run path/to/module-package \
 The explicit apply form requires the dry-run challenge phrase and stages only
 runtime.zero-owned bytes with transaction/receipt evidence. It leaves the
 installed registry unchanged, never activates or executes the module, and is
-not a production installer. Target commands such as
+not a production installer. For local lifecycle testing only, add
+`--developer-promote` to the dry-run and apply forms; the same test-key-only
+transaction then publishes one `installed_inactive` registry record plus a
+separate install receipt. Promotion still never activates, invokes, or grants
+production trust to module code. Target commands such as
 `rz0 modules enable`, `disable`, `configure`, `repair`, and `uninstall` are not
 current commands until the foundation-owned lifecycle, registry publication,
 receipts, recovery, and TUI path are implemented together.
@@ -217,11 +221,13 @@ reports installed records as `installed_inactive` only when registry, receipt,
 manifest, and declared package-file evidence is valid, reports missing or
 invalid evidence as `degraded`. It separately reports valid developer-stage
 receipts and verified staged bytes as `staged`; staged bytes are not installed,
-active, discoverable, or executable. The staged review also binds each stage
-receipt to its immutable committed transaction journal and commit receipt;
-missing or tampered transaction evidence is `degraded`. It never claims
-`active` or authorizes module execution. `--store-root` accepts a local fixture
-store root for bounded support review and does not initialize or modify it.
+active, discoverable, or executable. A developer promotion instead appears as
+`installed_inactive` only when its registry, install receipt, manifest, and
+package bytes are valid. The staged review binds each stage receipt to its
+immutable committed transaction journal and commit receipt; missing or
+tampered transaction evidence is `degraded`. It never claims `active` or
+authorizes module execution. `--store-root` accepts a local fixture store root
+for bounded support review and does not initialize or modify it.
 
 The dry-run planner also reports future local store and CLI/TUI routing
 contract metadata in JSON output. These fields describe where future state would

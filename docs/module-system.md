@@ -196,6 +196,14 @@ It is a developer fixture lane for validating the foundation write boundary
 while production signing, revocation, provenance, sandboxing, upgrade, repair,
 rollback, and distribution remain open.
 
+For lifecycle fixture work, the explicit `--developer-promote` flag may be
+added to both the dry-run and apply forms. Promotion publishes a single
+test-key-only `installed_inactive` registry record and a separate install
+receipt through the same commit coordinator. It does not replace an existing
+module ID, activate or invoke code, and does not establish production trust.
+Without that flag, the developer trial remains staged-only and leaves the
+installed registry unchanged.
+
 `rz0 modules trust verify` is a separate local package-review command. It
 combines exact manifest-byte hashing, declared package-file integrity, and the
 detached Ed25519 test-key contract. It does not change the install planner's

@@ -145,6 +145,9 @@ full platform/lifecycle acceptance cells.
   identity, private runtime.zero roots, exact confirmation, transaction
   snapshots, byte verification, and a stage receipt; this is not production
   trust or public installation.
+- [x] Add an explicit developer-only promotion path that publishes one
+  test-key-only `installed_inactive` registry record and install receipt through
+  the shared transaction coordinator; it does not activate or invoke code.
 - [ ] Implement production immutable staging without reopening mutable source,
   with production trust roots, revocation, provenance, and platform proof
   paths after verification.

@@ -18,7 +18,12 @@ fn developer_trial_stages_verified_bytes_without_publishing_installation() {
     );
     assert!(!init.status.is_blocked(), "{:?}", init.steps);
 
-    let request = request(&root, DeveloperStageMode::DryRun);
+    let request = request(
+        &root,
+        DeveloperStageMode::DryRun {
+            publish_installed: false,
+        },
+    );
     let dry_run = developer_stage_report(&request);
     assert!(dry_run.valid, "{:?}", dry_run.errors);
     assert!(dry_run.dry_run);
@@ -35,6 +40,7 @@ fn developer_trial_stages_verified_bytes_without_publishing_installation() {
         DeveloperStageMode::Apply {
             challenge_issued_unix_seconds: challenge.issued_unix_seconds,
             confirmation: challenge.expected_phrase,
+            publish_installed: false,
         },
     ));
     assert!(applied.valid, "{:?}", applied.errors);
@@ -79,6 +85,70 @@ fn developer_trial_stages_verified_bytes_without_publishing_installation() {
 }
 
 #[test]
+fn developer_promotion_publishes_installed_inactive_state_with_install_receipt() {
+    let root = temp_root("developer-promotion");
+    let init = store_init_report(
+        &["store".to_string(), "init".to_string()],
+        StoreInitOptions::with_store_root(StoreInitMode::Apply, root.clone()),
+    );
+    assert!(!init.status.is_blocked(), "{:?}", init.steps);
+
+    let request = request(
+        &root,
+        DeveloperStageMode::DryRun {
+            publish_installed: true,
+        },
+    );
+    let dry_run = developer_stage_report(&request);
+    assert!(dry_run.valid, "{:?}", dry_run.errors);
+    assert!(dry_run.registry_publication_requested);
+    let challenge = dry_run.challenge.expect("promotion dry-run challenge");
+
+    let applied = developer_stage_report(&request_with_mode(
+        &root,
+        DeveloperStageMode::Apply {
+            challenge_issued_unix_seconds: challenge.issued_unix_seconds,
+            confirmation: challenge.expected_phrase,
+            publish_installed: true,
+        },
+    ));
+    assert!(applied.valid, "{:?}", applied.errors);
+    assert!(applied.registry_publication_requested);
+    assert!(applied.installed_registry_published);
+    assert!(applied.stage_receipt_path.is_none());
+    let install_receipt = applied
+        .install_receipt_path
+        .as_deref()
+        .expect("install receipt path");
+    assert!(root.join("state").join(install_receipt).is_file());
+
+    let registry: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.join("state/installed-modules.json")).expect("installed registry"),
+    )
+    .expect("installed registry JSON");
+    assert_eq!(registry["modules"].as_array().map(Vec::len), Some(1));
+
+    let status = runtime_zero::module_status::module_status_report(
+        &["modules status".to_string()],
+        Some(root.clone()),
+    );
+    assert_eq!(status.installed_module_count, 1);
+    assert_eq!(status.inactive_module_count, 1);
+    assert_eq!(status.degraded_module_count, 0);
+    assert_eq!(status.staged_module_count, 0);
+    assert_eq!(
+        status.modules[0].state,
+        rz0_module_lifecycle::ModuleLifecycleState::InstalledInactive
+    );
+    assert_eq!(
+        status.modules[0].receipt_state,
+        Some(runtime_zero::install_receipt::InstallReceiptState::Valid)
+    );
+
+    remove_owned_root(&root);
+}
+
+#[test]
 fn staged_status_degrades_when_commit_evidence_is_tampered() {
     let root = temp_root("developer-trial-tamper");
     let init = store_init_report(
@@ -87,7 +157,12 @@ fn staged_status_degrades_when_commit_evidence_is_tampered() {
     );
     assert!(!init.status.is_blocked(), "{:?}", init.steps);
 
-    let request = request(&root, DeveloperStageMode::DryRun);
+    let request = request(
+        &root,
+        DeveloperStageMode::DryRun {
+            publish_installed: false,
+        },
+    );
     let dry_run = developer_stage_report(&request);
     let challenge = dry_run.challenge.expect("dry-run challenge");
     let applied = developer_stage_report(&request_with_mode(
@@ -95,6 +170,7 @@ fn staged_status_degrades_when_commit_evidence_is_tampered() {
         DeveloperStageMode::Apply {
             challenge_issued_unix_seconds: challenge.issued_unix_seconds,
             confirmation: challenge.expected_phrase,
+            publish_installed: false,
         },
     ));
     assert!(applied.valid, "{:?}", applied.errors);
@@ -159,7 +235,7 @@ fn remove_owned_root(root: &PathBuf) {
     assert!(
         root.file_name()
             .and_then(|name| name.to_str())
-            .is_some_and(|name| name.starts_with("rz0-developer-trial-"))
+            .is_some_and(|name| name.starts_with("rz0-developer-"))
     );
     fs::remove_dir_all(root).expect("remove owned temp root");
 }

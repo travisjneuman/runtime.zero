@@ -218,6 +218,7 @@ fn parse_install_args(args: &[String]) -> Result<ModulesAction, String> {
     let mut format = OutputFormat::Text;
     let mut mode = None;
     let mut developer_trial = false;
+    let mut developer_promote = false;
     let mut path = None;
     let mut signature = None;
     let mut trusted_test_key = None;
@@ -229,6 +230,8 @@ fn parse_install_args(args: &[String]) -> Result<ModulesAction, String> {
         match args[index].as_str() {
             "--developer-trial" if !developer_trial => developer_trial = true,
             "--developer-trial" => return Err(install_usage()),
+            "--developer-promote" if !developer_promote => developer_promote = true,
+            "--developer-promote" => return Err(install_usage()),
             "--dry-run" if mode.is_none() => mode = Some(false),
             "--dry-run" => return Err(install_usage()),
             "--apply" if mode.is_none() => mode = Some(true),
@@ -317,6 +320,7 @@ fn parse_install_args(args: &[String]) -> Result<ModulesAction, String> {
             crate::module_stage::DeveloperStageMode::Apply {
                 challenge_issued_unix_seconds: issued,
                 confirmation,
+                publish_installed: developer_promote,
             }
         } else {
             if challenge_issued_unix_seconds.is_some() || confirmation.is_some() {
@@ -325,7 +329,9 @@ fn parse_install_args(args: &[String]) -> Result<ModulesAction, String> {
                         .to_string(),
                 );
             }
-            crate::module_stage::DeveloperStageMode::DryRun
+            crate::module_stage::DeveloperStageMode::DryRun {
+                publish_installed: developer_promote,
+            }
         };
         return Ok(ModulesAction::InstallDeveloperTrial {
             request: crate::module_stage::DeveloperStageRequest {
@@ -337,6 +343,9 @@ fn parse_install_args(args: &[String]) -> Result<ModulesAction, String> {
             },
             format,
         });
+    }
+    if developer_promote {
+        return Err("--developer-promote requires --developer-trial".to_string());
     }
     if mode != Some(false)
         || signature.is_some()
@@ -474,7 +483,9 @@ fn install_dry_run_usage() -> String {
 
 fn install_usage() -> String {
     format!(
-        "module installation remains blocked; the developer trial is local, signed-test-key-only staging\n\nUsage: {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules install --developer-trial --dry-run <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n       {} modules install --developer-trial --apply <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n\nThe developer trial stages only a locally selected read-only first-party package. It leaves the installed registry unchanged and never activates, invokes, fetches, replaces, or cleans module bytes. Production signing, revocation, sandboxing, and public distribution remain unavailable.\n",
+        "module installation remains blocked; the developer trial is local, signed-test-key-only staging\n\nUsage: {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules install --developer-trial --dry-run <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n       {} modules install --developer-trial --dry-run --developer-promote <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n       {} modules install --developer-trial --apply <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n       {} modules install --developer-trial --apply --developer-promote <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n\nThe developer trial stages a locally selected read-only first-party package. --developer-promote additionally publishes an installed_inactive registry record and install receipt for local lifecycle testing. Neither mode activates, invokes, fetches, replaces, or cleans module bytes. Production signing, revocation, sandboxing, and public distribution remain unavailable.\n",
+        brand::COMMAND,
+        brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
@@ -936,7 +947,7 @@ fn usage_error(args: &[String]) -> String {
 
 fn modules_usage() -> String {
     format!(
-        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules status [--store-root <path>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules install --developer-trial --dry-run <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n       {} modules install --developer-trial --apply <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n       {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n\nSafety: module status is read-only; normal module installation and lifecycle planning remain dry-run only; the developer trial is local, test-key-only staging that leaves the installed registry unchanged; local trust verification never authorizes module execution; modules are not executed or fetched. The product still never executes modules from this command surface.\n",
+        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules status [--store-root <path>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules install --developer-trial --dry-run <package-dir-or-manifest> [--developer-promote] --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n       {} modules install --developer-trial --apply <package-dir-or-manifest> [--developer-promote] --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n       {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n\nSafety: module status is read-only; normal module installation and lifecycle planning remain dry-run only; --developer-trial is local, test-key-only; --developer-promote may publish only an installed_inactive record for local lifecycle testing; neither mode activates or invokes modules; local trust verification never authorizes module execution; modules are not executed or fetched. The product still never executes modules from this command surface.\n",
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,

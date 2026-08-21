@@ -467,9 +467,12 @@ If the dry-run is valid, repeat the command as `--apply` with its exact
 accepts only a read-only first-party package, a detached public test-key
 signature, and an initialized private store. It verifies source bytes before
 copying them, writes only runtime.zero-owned module/receipt state, refuses
-replacement, and leaves the installed registry unchanged. It never fetches,
-activates, invokes, or executes module code. This is a developer foundation
-test, not a public installer or a production trust decision.
+replacement, and leaves the installed registry unchanged. Add
+`--developer-promote` to the dry-run and apply forms to publish one
+test-key-only `installed_inactive` registry record and a separate install
+receipt for local lifecycle testing. Promotion still never activates, invokes,
+or executes module code. Both paths are developer foundation tests, not a
+public installer or a production trust decision.
 
 ## Module surfaces
 

@@ -1,11 +1,13 @@
 //! Developer-only signed module staging.
 //!
-//! This is deliberately narrower than module installation. It accepts only a
-//! locally selected first-party package, verifies it with the public test-key
-//! trust fixture, copies the verified bytes into the private runtime.zero
-//! module store, and records transaction evidence. It does not publish an
-//! installed registry record, activate a module, invoke code, or provide a
-//! production trust root.
+//! This is deliberately narrower than production module installation. It
+//! accepts only a locally selected first-party package, verifies it with the
+//! public test-key trust fixture, copies the verified bytes into the private
+//! runtime.zero module store, and records transaction evidence. The ordinary
+//! developer trial stages bytes without publishing an installed registry
+//! record; its explicit promotion variant may publish an installed-inactive
+//! record for local lifecycle testing. Neither variant activates a module,
+//! invokes code, or provides a production trust root.
 
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
@@ -31,7 +33,8 @@ use rz0_module_trust::{
     SignatureEnvelope, SignatureVerification, TrustedTestKey, verify_detached_signature,
 };
 use rz0_registry_contract::{
-    InstalledRegistry, bytes_sha256, canonical_registry_bytes, parse_registry_document,
+    InstalledModuleRecord, InstalledRegistry, bytes_sha256, canonical_registry_bytes,
+    parse_registry_document,
 };
 use rz0_secure_fs::SecureDirectory;
 use rz0_transaction_contract::{
@@ -53,17 +56,21 @@ const STORE_INIT_MARKER: &str = "store-init.json";
 const STAGING_RECEIPTS_DIRECTORY: &str = "staging-receipts";
 const TRANSACTIONS_DIRECTORY: &str = "transactions";
 const RECEIPTS_DIRECTORY: &str = "receipts";
+const INSTALL_RECEIPT_PREFIX: &str = "install-";
 const MAX_TRUST_DOCUMENT_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
-const STAGE_SAFETY_NOTE: &str = "Developer-only local staging; test-key trust, activation, invocation, registry installation, network fetch, and production release authority remain disabled.";
+const STAGE_SAFETY_NOTE: &str = "Developer-only local staging or promotion; test-key trust, activation, invocation, network fetch, and production release authority remain disabled.";
 const REDACTED_SOURCE_MANIFEST: &str = "<local-package>/rz0-module.json";
 const MAX_STAGING_RECEIPTS: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeveloperStageMode {
-    DryRun,
+    DryRun {
+        publish_installed: bool,
+    },
     Apply {
         challenge_issued_unix_seconds: u64,
         confirmation: String,
+        publish_installed: bool,
     },
 }
 
@@ -95,11 +102,14 @@ pub struct DeveloperStageReport {
     pub source_manifest_path: String,
     pub destination_relative: Option<String>,
     pub stage_receipt_path: Option<String>,
+    pub install_receipt_path: Option<String>,
     pub commit_receipt_path: Option<String>,
     pub transaction_id: Option<String>,
     pub plan_id: Option<String>,
     pub plan_sha256: Option<String>,
     pub write_set_sha256: Option<String>,
+    pub registry_publication_requested: bool,
+    pub installed_registry_published: bool,
     pub manifest_validation: Option<ManifestValidationReport>,
     pub signature_verification: Option<SignatureVerification>,
     pub files: Vec<StageFile>,
@@ -184,8 +194,11 @@ struct PreparedStage {
     transaction_id: String,
     stage_id: String,
     destination_relative: String,
-    stage_receipt_relative: String,
+    stage_receipt_relative: Option<String>,
+    install_receipt_relative: Option<String>,
+    install_receipt_bytes: Option<Vec<u8>>,
     commit_receipt_relative: String,
+    publish_installed: bool,
 }
 
 struct StageFileContent {
@@ -200,8 +213,8 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
         Err(failure) => return failure.into_report(&source_manifest_path),
     };
 
-    let (challenge, full_challenge, is_apply) = match &request.mode {
-        DeveloperStageMode::DryRun => {
+    let (challenge, full_challenge, is_apply, publish_installed) = match &request.mode {
+        DeveloperStageMode::DryRun { publish_installed } => {
             let full = match build_confirmation_challenge(&prepared, unix_seconds()) {
                 Ok(challenge) => challenge,
                 Err(error) => {
@@ -209,24 +222,39 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
                         source_manifest_path,
                         false,
                         false,
+                        *publish_installed,
+                        false,
                         None,
                         vec![error],
                         Vec::new(),
                     );
                 }
             };
-            (challenge_view(&prepared, &full), full, false)
+            (
+                challenge_view(&prepared, &full),
+                full,
+                false,
+                *publish_installed,
+            )
         }
         DeveloperStageMode::Apply {
             challenge_issued_unix_seconds,
+            publish_installed,
             ..
         } => match build_confirmation_challenge(&prepared, *challenge_issued_unix_seconds) {
-            Ok(challenge) => (challenge_view(&prepared, &challenge), challenge, true),
+            Ok(challenge) => (
+                challenge_view(&prepared, &challenge),
+                challenge,
+                true,
+                *publish_installed,
+            ),
             Err(error) => {
                 return prepared.report(
                     source_manifest_path,
                     false,
                     true,
+                    *publish_installed,
+                    false,
                     None,
                     vec![error],
                     Vec::new(),
@@ -240,6 +268,8 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
             source_manifest_path,
             true,
             false,
+            publish_installed,
+            false,
             Some(challenge),
             Vec::new(),
             Vec::new(),
@@ -249,6 +279,7 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
     let DeveloperStageMode::Apply {
         challenge_issued_unix_seconds: _,
         confirmation,
+        publish_installed: _,
     } = &request.mode
     else {
         unreachable!("dry-run returned above");
@@ -261,6 +292,8 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
                 source_manifest_path,
                 false,
                 true,
+                publish_installed,
+                false,
                 Some(challenge),
                 vec![error],
                 Vec::new(),
@@ -272,6 +305,8 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
             source_manifest_path,
             true,
             true,
+            publish_installed,
+            publish_installed,
             Some(challenge),
             Vec::new(),
             vec![format!(
@@ -283,6 +318,8 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
             source_manifest_path,
             false,
             true,
+            publish_installed,
+            false,
             Some(challenge),
             vec![error],
             Vec::new(),
@@ -294,6 +331,12 @@ fn prepare_stage(
     request: &DeveloperStageRequest,
     source_manifest_path: &Path,
 ) -> Result<PreparedStage, StageFailure> {
+    let publish_installed = match &request.mode {
+        DeveloperStageMode::DryRun { publish_installed }
+        | DeveloperStageMode::Apply {
+            publish_installed, ..
+        } => *publish_installed,
+    };
     let package_root = source_manifest_path
         .parent()
         .ok_or_else(|| StageFailure::new("package manifest has no parent directory"))?;
@@ -364,11 +407,40 @@ fn prepare_stage(
         StageFailure::new(format!("read current module registry bytes: {error}"))
     })?;
     let registry_before_sha256 = bytes_sha256(&current_registry_bytes);
-    let registry_bytes = canonical_registry_bytes(&registry).map_err(|error| {
+    let destination_relative = format!("modules/{}/{}", manifest.id, manifest.version);
+    if publish_installed
+        && registry
+            .modules
+            .iter()
+            .any(|record| record.id == manifest.id)
+    {
+        return Err(StageFailure::new(
+            "developer promotion refuses to replace an existing module ID",
+        ));
+    }
+    let mut next_registry = registry.clone();
+    let stage_id = format!("module-stage-{}", &manifest_sha256[..16]);
+    let plan_id = stage_id.clone();
+    let install_receipt_relative =
+        publish_installed.then(|| format!("receipts/{INSTALL_RECEIPT_PREFIX}{plan_id}.json"));
+    if publish_installed {
+        next_registry.modules.push(InstalledModuleRecord {
+            id: manifest.id.clone(),
+            version: manifest.version.clone(),
+            manifest_path: format!("{destination_relative}/{MODULE_MANIFEST_FILE}"),
+            receipt_path: install_receipt_relative
+                .clone()
+                .expect("promotion install receipt path"),
+            module_dir: Some(destination_relative.clone()),
+        });
+        next_registry
+            .modules
+            .sort_by(|left, right| left.id.cmp(&right.id));
+    }
+    let registry_bytes = canonical_registry_bytes(&next_registry).map_err(|error| {
         StageFailure::new(format!("canonical current module registry: {error}"))
     })?;
     let registry_after_sha256 = bytes_sha256(&registry_bytes);
-    let destination_relative = format!("modules/{}/{}", manifest.id, manifest.version);
     let destination = Path::new(&store.data_root)
         .join("modules")
         .join(&manifest.id)
@@ -379,17 +451,30 @@ fn prepare_stage(
         ));
     }
 
-    let stage_id = format!("module-stage-{}", &manifest_sha256[..16]);
-    let plan_id = stage_id.clone();
     let transaction_id = format!("tx-module-stage-{}", &manifest_sha256[..16]);
-    let stage_receipt_relative = format!("state/{STAGING_RECEIPTS_DIRECTORY}/{plan_id}.json");
+    let stage_receipt_relative =
+        (!publish_installed).then(|| format!("state/{STAGING_RECEIPTS_DIRECTORY}/{plan_id}.json"));
     let commit_receipt_relative = format!("state/receipts/{plan_id}.json");
+    let install_receipt_bytes = install_receipt_relative
+        .as_deref()
+        .map(|receipt_path| {
+            build_install_receipt(
+                &manifest,
+                &files,
+                &destination_relative,
+                receipt_path,
+                &manifest_sha256,
+            )
+        })
+        .transpose()
+        .map_err(StageFailure::new)?;
     let action_plan = build_action_plan(
         &plan_id,
         &stage_id,
         &manifest,
         &files,
-        &stage_receipt_relative,
+        stage_receipt_relative.as_deref(),
+        install_receipt_relative.as_deref(),
         &commit_receipt_relative,
     );
     let validation = validate_action_plan(&action_plan);
@@ -411,7 +496,7 @@ fn prepare_stage(
         manifest_sha256,
         files,
         store,
-        registry,
+        registry: next_registry,
         registry_before_sha256,
         registry_after_sha256,
         action_plan,
@@ -421,7 +506,10 @@ fn prepare_stage(
         stage_id,
         destination_relative,
         stage_receipt_relative,
+        install_receipt_relative,
+        install_receipt_bytes,
         commit_receipt_relative,
+        publish_installed,
     })
 }
 
@@ -430,14 +518,11 @@ fn build_action_plan(
     stage_id: &str,
     manifest: &ModuleManifest,
     files: &[StageFileContent],
-    stage_receipt_relative: &str,
+    stage_receipt_relative: Option<&str>,
+    install_receipt_relative: Option<&str>,
     commit_receipt_relative: &str,
 ) -> ActionPlan {
     let mut write_set = vec![
-        WriteSetEntry {
-            path: stage_receipt_relative.to_string(),
-            kind: WriteKind::RuntimeState,
-        },
         WriteSetEntry {
             path: commit_receipt_relative.to_string(),
             kind: WriteKind::RuntimeState,
@@ -447,6 +532,18 @@ fn build_action_plan(
             kind: WriteKind::RuntimeState,
         },
     ];
+    if let Some(path) = stage_receipt_relative {
+        write_set.push(WriteSetEntry {
+            path: path.to_string(),
+            kind: WriteKind::RuntimeState,
+        });
+    }
+    if let Some(path) = install_receipt_relative {
+        write_set.push(WriteSetEntry {
+            path: format!("state/{path}"),
+            kind: WriteKind::RuntimeState,
+        });
+    }
     write_set.extend(files.iter().map(|file| WriteSetEntry {
         path: format!(
             "modules/{}/{}/{}",
@@ -493,9 +590,84 @@ fn build_action_plan(
         }],
         warnings: vec![
             "developer-only local stage; test-key trust does not authorize production installation or module execution".to_string(),
-            "the installed registry remains unchanged; staged bytes are not active or discoverable runtime modules".to_string(),
+            if install_receipt_relative.is_some() {
+                "developer promotion publishes installed_inactive state only; activation and invocation remain disabled".to_string()
+            } else {
+                "the installed registry remains unchanged; staged bytes are not active or discoverable runtime modules".to_string()
+            },
         ],
     }
+}
+
+fn build_install_receipt(
+    manifest: &ModuleManifest,
+    files: &[StageFileContent],
+    destination_relative: &str,
+    receipt_relative: &str,
+    manifest_sha256: &str,
+) -> Result<Vec<u8>, String> {
+    let mut write_set = vec![serde_json::json!({
+        "path": destination_relative,
+        "kind": "directory"
+    })];
+    for file in files {
+        let path = format!("{destination_relative}/{}", file.metadata.path);
+        write_set.push(serde_json::json!({
+            "path": path,
+            "kind": if file.metadata.path == MODULE_MANIFEST_FILE { "manifest" } else { "file" },
+            "sha256": file.metadata.sha256,
+            "size_bytes": file.metadata.size_bytes
+        }));
+    }
+    write_set.push(serde_json::json!({
+        "path": receipt_relative,
+        "kind": "receipt"
+    }));
+    let value = serde_json::json!({
+        "schema_version": 1,
+        "module": {
+            "id": manifest.id,
+            "version": manifest.version
+        },
+        "source": {
+            "source_type": "local_developer_trial",
+            "package_reference": "test-key-signed-local-package"
+        },
+        "target": {
+            "module_dir": destination_relative,
+            "manifest_path": format!("{destination_relative}/{MODULE_MANIFEST_FILE}")
+        },
+        "integrity": {
+            "manifest_sha256": manifest_sha256,
+            "package_sha256": package_digest(files)
+        },
+        "write_set": write_set,
+        "rollback": {
+            "supported": true
+        },
+        "quarantine": {
+            "supported": false
+        }
+    });
+    let mut bytes = serde_json::to_vec(&value)
+        .map_err(|error| format!("serialize developer install receipt: {error}"))?;
+    bytes.push(b'\n');
+    if bytes.len() as u64 > MAX_TRUST_DOCUMENT_BYTES {
+        return Err("developer install receipt exceeds the foundation ceiling".to_string());
+    }
+    Ok(bytes)
+}
+
+fn package_digest(files: &[StageFileContent]) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"runtime.zero.developer-package.v1\0");
+    for file in files {
+        digest.update((file.metadata.path.len() as u64).to_be_bytes());
+        digest.update(file.metadata.path.as_bytes());
+        digest.update(file.metadata.sha256.as_bytes());
+        digest.update(file.metadata.size_bytes.to_be_bytes());
+    }
+    format!("{:x}", digest.finalize())
 }
 
 fn build_confirmation_challenge(
@@ -688,74 +860,129 @@ fn apply_stage(
         current = verified_event;
     }
 
-    let stage_receipt = DeveloperStageReceipt {
-        schema_version: 1,
-        contract: "developer_module_stage_receipt".to_string(),
-        stage_id: prepared.stage_id.clone(),
-        transaction_id: prepared.transaction_id.clone(),
-        plan_id: prepared.action_plan.plan_id.clone(),
-        module_id: prepared.manifest.id.clone(),
-        module_version: prepared.manifest.version.clone(),
-        manifest_sha256: prepared.manifest_sha256.clone(),
-        trusted_test_key_id: prepared.trusted_key_id.clone(),
-        destination: prepared.destination_relative.clone(),
-        files: prepared
-            .files
-            .iter()
-            .map(|file| file.metadata.clone())
-            .collect(),
-        lifecycle_state: "staged".to_string(),
-        developer_only: true,
-        test_key_only: true,
-        activation_authorized: false,
-        invocation_authorized: false,
-        product_execution_authorized: false,
-        writes_attempted: true,
-    };
-    let mut stage_receipt_bytes = serde_json::to_vec(&stage_receipt)
-        .map_err(|error| format!("serialize developer stage receipt: {error}"))?;
-    stage_receipt_bytes.push(b'\n');
     let state = SecureDirectory::open(state_root)
         .map_err(|error| format!("open stage state root: {error}"))?;
     state
         .verify_private()
         .map_err(|error| format!("verify stage state root: {error}"))?;
-    let staging_receipts = state
-        .open_or_create_child_directory(OsStr::new(STAGING_RECEIPTS_DIRECTORY))
-        .map_err(|error| format!("open staging receipt directory: {error}"))?;
-    let receipt_sha256 = sha256_bytes(&stage_receipt_bytes);
-    let receipt_path = prepared.stage_receipt_relative.clone();
-    let receipt_intent = append(
-        &current,
-        write_event(
-            TransactionEventKind::WriteIntent,
-            &format!("stage-{}", short_digest(receipt_path.as_bytes())),
-            &receipt_path,
-            None,
-            Some(&receipt_sha256),
-        ),
-    );
-    publish_journal_snapshot(&transactions_root, &receipt_intent)
-        .map_err(|error| format!("publish stage receipt intent: {error}"))?;
-    staging_receipts
-        .write_new_child(
-            OsStr::new(&format!("{}.json", prepared.action_plan.plan_id)),
-            &stage_receipt_bytes,
-            MAX_TRUST_DOCUMENT_BYTES,
-        )
-        .map_err(|error| format!("publish developer stage receipt: {error}"))?;
-    let receipt_verified = append(
-        &receipt_intent,
-        write_event(
-            TransactionEventKind::WriteVerified,
-            &format!("stage-{}", short_digest(receipt_path.as_bytes())),
-            &receipt_path,
-            None,
-            Some(&receipt_sha256),
-        ),
-    );
-    publish_journal_snapshot(&transactions_root, &receipt_verified)
-        .map_err(|error| format!("publish verified stage receipt: {error}"))?;
+    let receipt_verified = if prepared.publish_installed {
+        let receipt_path = prepared
+            .install_receipt_relative
+            .as_deref()
+            .ok_or_else(|| "developer promotion has no install receipt path".to_string())?;
+        let receipt_journal_path = format!("state/{receipt_path}");
+        let receipt_bytes = prepared
+            .install_receipt_bytes
+            .as_deref()
+            .ok_or_else(|| "developer promotion has no install receipt bytes".to_string())?;
+        let receipt_sha256 = sha256_bytes(receipt_bytes);
+        let receipt_intent = append(
+            &current,
+            write_event(
+                TransactionEventKind::WriteIntent,
+                &format!("stage-{}", short_digest(receipt_journal_path.as_bytes())),
+                &receipt_journal_path,
+                None,
+                Some(&receipt_sha256),
+            ),
+        );
+        publish_journal_snapshot(&transactions_root, &receipt_intent)
+            .map_err(|error| format!("publish install receipt intent: {error}"))?;
+        let receipts = state
+            .open_child_directory(OsStr::new(RECEIPTS_DIRECTORY))
+            .map_err(|error| format!("open install receipt directory: {error}"))?;
+        let receipt_name = receipt_path
+            .strip_prefix("receipts/")
+            .ok_or_else(|| "developer promotion receipt path is not state-relative".to_string())?;
+        receipts
+            .write_new_child(
+                OsStr::new(receipt_name),
+                receipt_bytes,
+                MAX_TRUST_DOCUMENT_BYTES,
+            )
+            .map_err(|error| format!("publish developer install receipt: {error}"))?;
+        let verified = append(
+            &receipt_intent,
+            write_event(
+                TransactionEventKind::WriteVerified,
+                &format!("stage-{}", short_digest(receipt_journal_path.as_bytes())),
+                &receipt_journal_path,
+                None,
+                Some(&receipt_sha256),
+            ),
+        );
+        publish_journal_snapshot(&transactions_root, &verified)
+            .map_err(|error| format!("publish verified install receipt: {error}"))?;
+        verified
+    } else {
+        let stage_receipt = DeveloperStageReceipt {
+            schema_version: 1,
+            contract: "developer_module_stage_receipt".to_string(),
+            stage_id: prepared.stage_id.clone(),
+            transaction_id: prepared.transaction_id.clone(),
+            plan_id: prepared.action_plan.plan_id.clone(),
+            module_id: prepared.manifest.id.clone(),
+            module_version: prepared.manifest.version.clone(),
+            manifest_sha256: prepared.manifest_sha256.clone(),
+            trusted_test_key_id: prepared.trusted_key_id.clone(),
+            destination: prepared.destination_relative.clone(),
+            files: prepared
+                .files
+                .iter()
+                .map(|file| file.metadata.clone())
+                .collect(),
+            lifecycle_state: "staged".to_string(),
+            developer_only: true,
+            test_key_only: true,
+            activation_authorized: false,
+            invocation_authorized: false,
+            product_execution_authorized: false,
+            writes_attempted: true,
+        };
+        let mut stage_receipt_bytes = serde_json::to_vec(&stage_receipt)
+            .map_err(|error| format!("serialize developer stage receipt: {error}"))?;
+        stage_receipt_bytes.push(b'\n');
+        let staging_receipts = state
+            .open_or_create_child_directory(OsStr::new(STAGING_RECEIPTS_DIRECTORY))
+            .map_err(|error| format!("open staging receipt directory: {error}"))?;
+        let receipt_path = prepared
+            .stage_receipt_relative
+            .as_deref()
+            .ok_or_else(|| "developer stage has no staging receipt path".to_string())?;
+        let receipt_sha256 = sha256_bytes(&stage_receipt_bytes);
+        let receipt_intent = append(
+            &current,
+            write_event(
+                TransactionEventKind::WriteIntent,
+                &format!("stage-{}", short_digest(receipt_path.as_bytes())),
+                receipt_path,
+                None,
+                Some(&receipt_sha256),
+            ),
+        );
+        publish_journal_snapshot(&transactions_root, &receipt_intent)
+            .map_err(|error| format!("publish stage receipt intent: {error}"))?;
+        staging_receipts
+            .write_new_child(
+                OsStr::new(&format!("{}.json", prepared.action_plan.plan_id)),
+                &stage_receipt_bytes,
+                MAX_TRUST_DOCUMENT_BYTES,
+            )
+            .map_err(|error| format!("publish developer stage receipt: {error}"))?;
+        let receipt_verified = append(
+            &receipt_intent,
+            write_event(
+                TransactionEventKind::WriteVerified,
+                &format!("stage-{}", short_digest(receipt_path.as_bytes())),
+                receipt_path,
+                None,
+                Some(&receipt_sha256),
+            ),
+        );
+        publish_journal_snapshot(&transactions_root, &receipt_verified)
+            .map_err(|error| format!("publish verified stage receipt: {error}"))?;
+        receipt_verified
+    };
 
     let committing = append(
         &receipt_verified,
@@ -812,11 +1039,14 @@ fn apply_stage(
 }
 
 impl PreparedStage {
+    #[allow(clippy::too_many_arguments)]
     fn report(
         &self,
         _source_manifest_path: PathBuf,
         valid: bool,
         apply: bool,
+        registry_publication_requested: bool,
+        installed_registry_published: bool,
         challenge: Option<DeveloperStageChallenge>,
         errors: Vec<String>,
         mut warnings: Vec<String>,
@@ -839,12 +1069,15 @@ impl PreparedStage {
             trusted_key_id: Some(self.trusted_key_id.clone()),
             source_manifest_path: REDACTED_SOURCE_MANIFEST.to_string(),
             destination_relative: Some(self.destination_relative.clone()),
-            stage_receipt_path: Some(self.stage_receipt_relative.clone()),
+            stage_receipt_path: self.stage_receipt_relative.clone(),
+            install_receipt_path: self.install_receipt_relative.clone(),
             commit_receipt_path: Some(self.commit_receipt_relative.clone()),
             transaction_id: Some(self.transaction_id.clone()),
             plan_id: Some(self.action_plan.plan_id.clone()),
             plan_sha256: Some(self.plan_sha256.clone()),
             write_set_sha256: Some(self.write_set_sha256.clone()),
+            registry_publication_requested,
+            installed_registry_published,
             manifest_validation: Some(self.manifest_validation.clone()),
             signature_verification: Some(self.signature_verification.clone()),
             files: self
@@ -902,11 +1135,14 @@ impl StageFailure {
             source_manifest_path: REDACTED_SOURCE_MANIFEST.to_string(),
             destination_relative: None,
             stage_receipt_path: None,
+            install_receipt_path: None,
             commit_receipt_path: None,
             transaction_id: None,
             plan_id: None,
             plan_sha256: None,
             write_set_sha256: None,
+            registry_publication_requested: false,
+            installed_registry_published: false,
             manifest_validation: self.manifest_validation.map(|report| *report),
             signature_verification: self.signature_verification.map(|report| *report),
             files: Vec::new(),
@@ -1600,7 +1836,8 @@ mod tests {
             "module-stage-demo",
             &manifest,
             &files,
-            "state/staging-receipts/module-stage-demo.json",
+            Some("state/staging-receipts/module-stage-demo.json"),
+            None,
             "state/receipts/module-stage-demo.json",
         );
         let validation = validate_action_plan(&plan);

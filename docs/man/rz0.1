@@ -159,6 +159,13 @@ stage receipts but does not publish the installed registry, replace existing
 bytes, activate or invoke code, fetch network content, or establish production
 trust.
 .TP
+.B modules install --developer-trial --developer-promote --dry-run|--apply PACKAGE ...
+Use the same local test-key-only developer trial, but publish one
+installed_inactive registry record and separate install receipt through the
+foundation commit coordinator. This is a lifecycle fixture path only: it
+refuses an existing module ID and never activates, invokes, fetches, replaces,
+or establishes production trust.
+.TP
 .B modules lifecycle-plan OPERATION --dry-run --module-id ID --from-state STATE --to-state STATE [--from-version VERSION] [--to-version VERSION] [--format text|json]
 Render one digest-bound schema-1 module lifecycle plan. This is a review-only
 surface; it does not publish registry state, execute code, or authorize a

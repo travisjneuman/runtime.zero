@@ -12,8 +12,10 @@
 `runtime.zero` is active pre-alpha development. It is not a supported release,
 and the production module lifecycle is still planning-only. A bounded
 developer-only signed staging trial now exists for local read-only
-first-party artifacts; it deliberately does not publish installed state or
-activate/execute modules. The current source
+first-party artifacts. Its ordinary form deliberately does not publish
+installed state or activate/execute modules; an explicit promotion form now
+publishes one test-key-only `installed_inactive` record for local lifecycle
+fixture testing, still without activation or invocation. The current source
 snapshot is the `main` branch at the updater/TUI implementation commit recorded
 in [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
