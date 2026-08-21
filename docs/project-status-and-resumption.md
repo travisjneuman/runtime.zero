@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `5d0b8f728803f02f5c2a674603a8a9224310f1ff` (`feat: measure interactive TUI performance`).
+  `887dbcccfc20f54096d0ed872ffafe662cee4ab9` (`test: close TUI state parity gaps`).
 - **Current behavior implementation:**
-  `5d0b8f7` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `887dbcc` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -139,6 +139,10 @@
   includes versioned PTY startup and refresh-request operations, and the TUI
   exposes an explicit refreshing state so request responsiveness is measurable
   even while the replacement inventory worker is still running.
+  The follow-on state-parity slice keeps the text and Ratatui renderers aligned
+  for loading, unavailable, empty, and blocked states with visible semantic
+  labels, and records those states in the acceptance tests without adding a
+  second authority path.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -354,6 +358,30 @@ PTY smoke, package command smoke, and schema-3 performance; TUI startup and
 refresh-request p95 were 6,747/747 microseconds on ARM64 and 13,339/1,026
 microseconds on x86_64. This remains local unsigned evidence, not a public
 release.
+
+The latest exact-head TUI parity slice is `887dbcccfc20f54096d0ed872ffafe662cee4ab9`.
+Both Rust renderers now preserve explicit loading, unavailable, empty, and
+blocked states; the acceptance guide marks workspace-size, state, and
+plain/color semantic automation complete. Human terminal/accessibility review
+and the end-to-end AIUP golden path remain open.
+
+The exact-head unsigned universal2 package is
+`target/release-package-universal2-887dbcc/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+Its package verifier passed the exact eight-member contract with ZIP SHA-256
+`7b10914531edde11d5b3c9f624536fc19ee4b819bcec5c0c3acfbfc6fdd054c7` and
+binary SHA-256
+`6c2f2f156feee068eb8d35028531c6babc868b28a7ef80751d8c83a76944e5a2`.
+The matching unsigned DMG is
+`target/release-dmg-universal2-887dbcc/runtime-zero-0.1.0-universal2-apple-darwin.dmg`
+with SHA-256
+`55a99d6f8243a82e0d797e2624e9c918b2f93e09dbdbfc102116246cd0c2b466`.
+Its mounted verifier passed the exact nine-member contract, read-only smoke,
+and source-ZIP/content/SBOM/notice bindings with `writes_attempted: false`
+and `release_authorized: false`. ARM64 and Rosetta x86_64 each passed four
+final-artifact PTY cases, package command smoke, and ten-sample schema-3
+performance. TUI startup/refresh p95 was 7,015/741 microseconds on ARM64 and
+13,226/976 microseconds under Rosetta. This is exact local unsigned evidence,
+not signing, target-native runtime, accessibility, or public-release approval.
 
 The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
