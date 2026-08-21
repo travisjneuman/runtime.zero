@@ -70,6 +70,8 @@
   The read-only `config` command exposes the same immutable built-in schema-one
   privacy, execution, mutation, and lifecycle policy that `doctor` binds by
   digest; it never loads user configuration or authorizes execution.
+  The TUI Diagnostics selected-evidence pane now shows that same policy digest
+  and a compact disabled-policy summary without adding a new action rail.
   The same read-only status report now reviews staged receipts and destination
   bytes as a separate `staged_modules` collection, and the redesigned TUI
   Diagnostics workspace exposes the staged count without treating it as an

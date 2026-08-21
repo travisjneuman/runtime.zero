@@ -305,6 +305,9 @@ full platform/lifecycle acceptance cells.
   rollback, unsupported, and partial-evidence UX in CLI and TUI.
 - [x] Expose the effective immutable foundation configuration as a
   path-free, non-authorizing `rz0 config` text/JSON review surface.
+- [x] Keep the effective configuration digest and disabled-policy summary
+  visible in the TUI Diagnostics selected-evidence pane without adding a
+  second authority or command rail.
 - [ ] Add shell completions, manual pages, examples, troubleshooting, migration,
   repair, rollback, uninstall, privacy/sharing, and support guides.
 - [ ] Decide localization policy and prove locale-independent machine output and

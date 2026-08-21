@@ -46,11 +46,15 @@ The Diagnostics workspace derives module lifecycle counts from the same
 registry/receipt status contract as `rz0 modules status`: valid evidence is
 shown as installed-inactive, receipt or registry problems are shown as
 degraded, valid developer-stage evidence is shown as staged, and the workspace
-explicitly says lifecycle execution is unavailable. Staged evidence that fails
+  explicitly says lifecycle execution is unavailable. Staged evidence that fails
 the receipt, immutable transaction-journal, commit-receipt, or byte checks is
 counted separately as requiring review rather than being shown as valid staged
 material.
 It never renders an active-module claim or adds activation/invocation controls.
+The selected Diagnostics evidence also exposes the effective built-in policy
+digest and the compact statement that network, production modules, shell
+execution, telemetry, and automatic lifecycle work remain disabled. The same
+digest is available from `rz0 config --format json`.
 
 The same two-panel shell is reused in every workspace. Home and the other
 workspaces do not expose a persistent command rail, duplicate status-card
@@ -146,7 +150,9 @@ posture, provider-review status, and update counters used by the TUI. Terminal
 dimensions, color, raw mode, and Ratatui state must not affect the JSON shape.
 The dashboard JSON also exposes `inactive_module_count`,
 `degraded_module_count`, and `module_lifecycle_execution_available`; these are
-status fields only and do not authorize lifecycle actions.
+status fields only and do not authorize lifecycle actions. It also exposes
+`configuration_sha256`, which identifies the immutable built-in policy in force
+without exposing host paths or loading user configuration.
 
 ## Validation contract
 

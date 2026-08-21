@@ -38,6 +38,7 @@ pub struct TuiDashboard {
     pub version: &'static str,
     pub mode: &'static str,
     pub safety_posture: &'static str,
+    pub configuration_sha256: String,
     pub store_state: StoreOverallState,
     pub registry_state: InstalledRegistryState,
     pub receipt_state: ReceiptInventoryState,
@@ -296,6 +297,9 @@ fn build_dashboard(
         .as_ref()
         .map_or(0, |summary| summary.transaction_warning_count);
     let integrity_status = "baseline unavailable · fixture or exact-file evidence".to_string();
+    let configuration = rz0_configuration_contract::default_configuration();
+    let configuration_sha256 = rz0_configuration_contract::configuration_sha256(&configuration)
+        .expect("built-in foundation configuration is canonical");
     let default_view = SoftwareView::default();
     TuiDashboard {
         schema_version: 1,
@@ -307,6 +311,7 @@ fn build_dashboard(
         version: env!("CARGO_PKG_VERSION"),
         mode: "interactive dashboard",
         safety_posture: brand::SAFETY_POSTURE,
+        configuration_sha256: configuration_sha256.clone(),
         store_state: store.overall_state,
         registry_state: store.registry.status,
         receipt_state: store.receipts.overall_state,
@@ -358,6 +363,7 @@ fn build_dashboard(
             update_status: "not checked",
             update_action_status: "idle · u scans providers · review action requires confirmation",
             monitor: monitor.as_ref(),
+            configuration_sha256: &configuration_sha256,
         }),
         palette: palette(),
         software_catalog: catalog,
@@ -389,6 +395,7 @@ struct SectionContext<'a> {
     update_status: &'a str,
     update_action_status: &'a str,
     monitor: Option<&'a SystemSnapshot>,
+    configuration_sha256: &'a str,
 }
 
 struct DashboardEvidence {
@@ -404,6 +411,7 @@ struct EvidenceContext<'a> {
     leftovers: Option<&'a LeftoversReviewReport>,
     recovery: Option<&'a RecoverySummary>,
     integrity_status: &'a str,
+    configuration_sha256: &'a str,
 }
 
 fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
@@ -425,6 +433,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
         update_status,
         update_action_status,
         monitor,
+        configuration_sha256,
     } = context;
     let mut sections = vec![
         overview_section(
@@ -465,6 +474,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
                 leftovers,
                 recovery,
                 integrity_status,
+                configuration_sha256,
             },
         ),
     ];
@@ -486,6 +496,7 @@ fn diagnostics_section(
         leftovers,
         recovery,
         integrity_status,
+        configuration_sha256,
     } = evidence;
     let mut rows = vec![
         row(
@@ -571,6 +582,14 @@ fn diagnostics_section(
             tui_theme::LABEL_INFO,
             "module lifecycle execution unavailable · use rz0 modules status for redacted detail",
             "info",
+        ),
+        row_with_preview(
+            tui_theme::LABEL_INFO,
+            "effective policy: built-in defaults · network deny",
+            "info",
+            &format!(
+                "configuration {configuration_sha256}; user configuration is not loaded; production modules, remote execution, shell execution, telemetry, automatic updates, background services, and startup repair remain disabled"
+            ),
         ),
         match (cache, leftovers) {
             (Some(cache), Some(leftovers)) => {

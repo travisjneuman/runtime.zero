@@ -27,6 +27,7 @@ fn dashboard_does_not_claim_active_feature_modules() {
     assert!(dashboard.planned_module_family_count > 0);
     assert_eq!(dashboard.update_check_status, "not checked");
     assert_eq!(dashboard.update_candidate_count, 0);
+    assert_eq!(dashboard.configuration_sha256.len(), 64);
     assert!(dashboard.cache_status.starts_with("live") || dashboard.cache_status == "unavailable");
     assert!(
         dashboard.leftovers_status.starts_with("live")
@@ -84,6 +85,18 @@ fn dashboard_does_not_claim_active_feature_modules() {
             .rows
             .iter()
             .any(|row| row.value.contains("module lifecycle execution unavailable"))
+    );
+    let policy_row = diagnostics
+        .rows
+        .iter()
+        .find(|row| row.value.starts_with("effective policy:"))
+        .expect("effective policy row");
+    assert!(policy_row.value.len() < 80);
+    assert!(
+        policy_row
+            .preview
+            .as_deref()
+            .is_some_and(|preview| preview.contains(&dashboard.configuration_sha256))
     );
     let monitor = dashboard
         .sections
