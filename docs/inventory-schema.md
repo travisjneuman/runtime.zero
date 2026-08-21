@@ -117,7 +117,7 @@ schema 1 entirely.
 | Process PATH | On | Environment read only; bounded and normalized |
 | Windows User/Machine PATH | On for Windows module | `KEY_READ` registry access only |
 | Known executable discovery | On | Exact allowlisted filenames under PATH only |
-| Known executable version probes | Off | Explicit `--probe-versions`; exact path, symlink/reparse-component rejection, static arguments, no shell, cleared environment, `/` working directory, shared descriptor audit/Unix process-group teardown, atomic 2-second deadline, 64 KiB per-stream capture; Windows fails closed pending race-free containment |
+| Known executable version probes | Off | Explicit `--probe-versions`; exact path, symlink/reparse-component rejection, static arguments, no shell, cleared environment, `/` working directory, shared bounded process host, atomic 2-second deadline, 64 KiB per-stream capture; Windows uses the pre-start Job Object/handle-list host |
 | Windows installed applications | Off | Explicit `--include-apps`; standard uninstall views, product-code/product-key identity, read only, 4,096-record cap |
 | Windows services/drivers | Off | Explicit `--include-apps`; direct `CurrentControlSet\\Services` metadata, no service-controller invocation |
 | macOS application bundles | On in installed core; opt-in in development binary | Direct `.app` roots; bounded `Info.plist` name/version/bundle-ID reads |
@@ -173,7 +173,8 @@ These references describe APIs; they do not replace fixture/runtime verification
 ## Remaining proof gates
 
 The code is fixture-tested on macOS and cross-checked for the Windows MSVC
-target. Before claiming Windows support, it still needs race-free handle audit/process
+target. Before claiming complete Windows support, it still needs runtime
+validation of the handle-list/process
 containment plus a real Windows runtime smoke covering persisted PATH, registry
 views, app normalization, timeout behavior, redaction, and the installed
 terminal experience. The macOS app/receipt/MacPorts/launchd adapters were exercised on the development

@@ -123,8 +123,8 @@ Limitations:
   required;
 - abrupt kill, kernel panic, reboot, or power loss is not equivalent to orderly
   SIGINT;
-- Windows production cancellation/containment and macOS identity-bound spawn
-  remain blocked.
+- Windows runtime cancellation/containment proof, broader capability isolation,
+  and macOS identity-bound spawn remain incomplete.
 
 ## Store initialization recovery
 

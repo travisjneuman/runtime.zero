@@ -110,7 +110,7 @@ Current broad targets are:
 
 | Platform | Required production scope | Current evidence |
 | --- | --- | --- |
-| Windows | Client 11/10/8.1/8/7 and Server 2025/2022/2019/2016/2012 R2/2012/2008 R2/2008 across real editions, Core/Desktop forms, and x86-64/ARM64/x86 where available; complete PowerShell/console/obtainable Terminal matrix; registry, reparse, ACL, locked-file, handle, Job Object, manager, installer, recovery, and elevation behavior | Modern x86-64/ARM64 target compilation, fixtures, and compile-only Job Object support; Rust's normal baseline is Windows 10/Server 2016, so legacy target/artifact runtime proof is incomplete |
+| Windows | Client 11/10/8.1/8/7 and Server 2025/2022/2019/2016/2012 R2/2012/2008 R2/2008 across real editions, Core/Desktop forms, and x86-64/ARM64/x86 where available; complete PowerShell/console/obtainable Terminal matrix; registry, reparse, ACL, locked-file, handle, Job Object, manager, installer, recovery, and elevation behavior | Modern x86-64/ARM64 target compilation, fixtures, and pre-start Job Object/handle-list implementation; Rust's normal baseline is Windows 10/Server 2016, so legacy target/artifact runtime proof is incomplete |
 | macOS | Tahoe 26, Sequoia 15, Sonoma 14, Ventura 13 across supported Apple Silicon/Intel pairs; bundle, launch/service, manager, code identity, sandbox, ACL, filesystem, terminal, packaging, recovery, and privilege behavior | Native newest-generation inventory and guarded Unix test-helper evidence; older/final-artifact runtime incomplete |
 | Linux | Ubuntu LTS 26.04/24.04/22.04/20.04, Debian 13/12/11/10, RHEL 10/9/8/7, and current Arch rolling plus snapshot regression evidence; x86-64/ARM64 first; XDG, managers, services, namespaces/seccomp/landlock, filesystems, terminals, packages, recovery, and privilege | Target compilation and fixtures; final-artifact distro runtime matrix incomplete |
 
@@ -126,7 +126,7 @@ Every module must reach the same lifecycle bar on every supported platform:
 | Module | Windows | macOS | Linux | Current maturity |
 | --- | --- | --- | --- | --- |
 | Inventory/environment | Required | Required | Required | Built-in catalog/scan with source IDs plus bounded macOS receipts/MacPorts/launchd, Linux dpkg/pacman/systemd, and Windows registry/service metadata; broader source depth and runtime parity incomplete |
-| Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, macOS path-revalidated and Linux native-ELF manager execution, SIGINT cancellation, isolated npm environments, exact journal evidence, canonical external-effect receipts, fresh post-action verification, and receipt-bound local recovery completion; Windows containment, OS capability/network enforcement, rollback, manager proof, and full runtime matrix incomplete |
+| Updater | Required | Required | Required | Live/captured parsers, finding-bound plans/queues, macOS path-revalidated, Linux native-ELF, and Windows pre-start Job Object manager execution, SIGINT cancellation, isolated npm environments, exact journal evidence, canonical external-effect receipts, fresh post-action verification, and receipt-bound local recovery completion; Windows runtime/reparse/ACL proof, OS capability/network enforcement, rollback, manager proof, and full runtime matrix incomplete |
 | Uninstall | Required | Required | Required | Live catalog records become shared findings and optional sealed dry-run manager plans; no uninstall/elevation/quarantine execution |
 | Leftovers | Required | Required | Required | Bounded runtime.zero-owned module/log and unreferenced-receipt evidence plus synthetic classifier; no quarantine or platform parity proof |
 | Cache management | Required | Required | Required | Bounded known-root read-only evidence and synthetic classifier; no cleanup/quarantine or platform parity proof |
@@ -207,10 +207,10 @@ parallel once its shared foundation dependency is stable.
    sandbox/elevation policy, and network policy. Shared bounded capture and Unix
    descriptor auditing now live in the process-host foundation; the Unix mutating
    boundary is serialized and caller cancellation tears down/reaps its process
-   group. Windows handle audit explicitly fails closed, and Job Object support
-   remains guarded-test compile evidence. Hostile session escape, full boundary
-   propagation, OS sandbox/capability/network policy, and target runtime proof
-   remain.
+   group. Windows production launch now uses an explicit inherited-handle list
+   and assigns a kill-on-close Job Object before the child begins; hostile
+   descendants, full boundary propagation, OS sandbox/capability/network
+   policy, and target runtime proof remain.
 5. Implement crash-safe staging, journals, receipts, atomic state, quarantine,
    rollback, idempotency, and interrupted recovery. The bounded hash-chained
    state machine now has exclusive immutable snapshot publication/recovery,

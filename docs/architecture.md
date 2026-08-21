@@ -85,8 +85,8 @@ process-PATH collection on
 Windows/macOS/Linux, read-only persisted PATH and optional app registry reads on
 Windows, bounded `.app`/Homebrew/MacPorts/Apple-receipt and XDG/dpkg/pacman
 evidence on macOS/Linux, metadata-only launchd/systemd/Windows service records,
-allowlisted direct executable discovery, opt-in Unix probes using shared
-cleared-environment drains/deadlines/process groups (Windows fails closed),
+allowlisted direct executable discovery, opt-in probes using shared
+cleared-environment drains/deadlines and platform containment,
 report-local path redaction, and structured source events. It does not invoke
 package managers/service controllers, execute desktop entries, or recursively
 scan drives. Bundle versions come only from bounded direct `Info.plist` reads;
@@ -156,8 +156,9 @@ An explicit-feature integration lane launches only a Cargo-built test helper
 from a guarded OS-temp receipt-like path to exercise framing, shared bounded
 drains, Unix inheritable-descriptor refusal, Unix process-group teardown, and
 compile-only Windows Job Object tree teardown. Linux and Windows builds hold the
-verified executable lease through spawn; Windows handle auditing and production
-macOS module spawning still fail closed. The updater has a separate bounded
+verified executable lease through spawn; the updater's Windows production host
+also assigns a Job Object and explicit handle list before launch, while
+production macOS module spawning still fails closed. The updater has a separate bounded
 core execution lane with macOS path revalidation. No core or inventory-module
 launch exists outside that updater lane. Future module
 execution, production signing, capability enforcement, durable transactions,
@@ -220,7 +221,8 @@ fresh manager probe -> updater finding report -> dry-run action plan
 
 This is the only current system-manager write flow. Linux direct native ELF
 execution consumes the opened lease; macOS uses path identity/digest
-revalidation; Windows fails closed. Read-only
+revalidation; Windows uses pre-start Job Object and explicit handle-list
+containment. Read-only
 recovery status reconciles receipt/journal state, and receipt-bound completion can
 append the final local journal event. Manager-specific recovery, native rollback,
 OS capability isolation, and disposable-host proof remain production blockers.

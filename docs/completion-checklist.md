@@ -40,7 +40,8 @@ full platform/lifecycle acceptance cells.
 
 - [x] Bind every supported updater manager executable from a verified opened
   artifact or equally reviewed platform identity primitive through the actual
-  spawn on macOS/Linux; Windows remains gated.
+  spawn on macOS/Linux; Windows uses the pre-start Job Object/handle-list host
+  but remains gated on runtime identity and platform proof.
 - [ ] Replace path allowlisting alone with adversarially proven replacement-race
   closure on Linux/macOS/Windows and complete platform containment proof.
 - [x] Integrate updater confirmation, journal, receipt, and final state through

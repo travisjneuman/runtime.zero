@@ -61,8 +61,8 @@ exact identity is sealed into the plan, explicit network-write approval, an
 initialized private store, an exact short-lived confirmation, and a
 manual-recovery acknowledgement when rollback is not proven. Linux launches
 through the held executable descriptor; macOS uses path identity/digest
-revalidation; Windows remains blocked pending production process-image
-containment. The direct process is cancellable, bounded, journaled with exact
+revalidation; Windows uses the shared Rust process host's pre-start Job Object
+and explicit inherited-handle list. The direct process is cancellable, bounded, journaled with exact
 write intent and outcome, backed by a canonical external-effect receipt, and
 followed by fresh verification. Elevated managers use the fixed `/usr/bin/sudo`
 wrapper with `sudo -n`; npm updates receive an isolated temporary cache and

@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot (reviewed 2026-08-20):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a task-first five-workspace TUI, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The TUI now starts with a loading shell and groups Rust/AI/developer tools in a Toolchain workspace; the old command rail and six-section chrome are retired. The coordinator resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. Receipt-bound local recovery can complete only the final runtime.zero journal commit after a fresh explicit challenge; it never reruns a manager. The project remains pre-alpha: Windows production containment, private/UI-only app channels, native rollback, third-party trust, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`TUI guide`](docs/tui.md), [`current status`](docs/project-status-and-resumption.md), [`engineering handoff`](docs/engineering-handoff.md), and [`documentation guide`](docs/documentation-index.md).
+> **Current pre-alpha snapshot (reviewed 2026-08-20):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a task-first five-workspace TUI, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The TUI now starts with a loading shell and groups Rust/AI/developer tools in a Toolchain workspace; the old command rail and six-section chrome are retired. The coordinator resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. Receipt-bound local recovery can complete only the final runtime.zero journal commit after a fresh explicit challenge; it never reruns a manager. The project remains pre-alpha: Windows runtime/ACL/reparse proof, private/UI-only app channels, native rollback, third-party trust, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`TUI guide`](docs/tui.md), [`current status`](docs/project-status-and-resumption.md), [`engineering handoff`](docs/engineering-handoff.md), and [`documentation guide`](docs/documentation-index.md).
 
 ## The promise
 
@@ -168,8 +168,8 @@ separate write lane and additionally requires `--allow-network-write`, exact
 confirmation, an initialized private store, journal/receipt publication, and
 fresh verification. Linux binds a direct native ELF manager's retained opened
 identity to `/proc/self/fd` spawn; macOS uses last-moment path identity/digest
-revalidation; Windows remains blocked pending production process-image
-containment. The network flags are explicit intent rather than an OS network
+revalidation; Windows uses the Rust process host's pre-start Job Object and
+explicit inherited-handle list. The network flags are explicit intent rather than an OS network
 sandbox. See the current-status guide
 before evaluating this lane. Installed manifests must also pass local SHA-256 integrity checks
 for explicitly listed package files:
@@ -246,7 +246,8 @@ artifact, capability, executable-identity, process, runtime, and transaction
 gates while remaining structurally unable to authorize execution. The
 `crates/artifact-identity/` hashes and identifies one receipt-relative file
 through the same returned handle and can issue a non-authorizing Linux lease or
-macOS path-revalidation binding; production Windows spawn containment remains
+macOS path-revalidation binding; production Windows spawn now uses pre-start Job
+Object/handle-list containment, while runtime proof and broader isolation remain
 incomplete. `crates/capability-contract/` supplies one shared least-privilege
 vocabulary plus exact partition/list validation for manifests, protocols, and
 action plans while granting no authority.
@@ -351,8 +352,8 @@ initializes, repairs, migrates, or writes the supplied path.
 future-ready local store needs. On Unix, `store init --yes` creates runtime.zero-
 owned user-local directories, an empty schema-1 registry, and an initialization
 marker through held-parent no-follow operations. It is idempotent and refuses to
-repair or overwrite invalid existing state. Windows apply currently fails closed
-until reviewed owner/DACL policy and NT runtime evidence exist. It does not
+repair or overwrite invalid existing state. Windows store initialization remains
+blocked until reviewed owner/DACL policy and NT runtime evidence exist. It does not
 install modules, copy packages, execute code, fetch remote content, edit PATH,
 or create services, tasks, registry entries, persistence, releases, or
 bootstrap hooks.

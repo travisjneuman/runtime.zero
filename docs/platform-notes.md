@@ -112,10 +112,11 @@ start-configuration evidence, not authoritative current-running state.
 
 ### Mutation blocks
 
-Production apply remains disabled. The project still needs:
+Production apply is now wired to the Rust process host's pre-start Job Object
+and explicit inherited-handle list. The project still needs:
 
-- exact inherited/duplicated executable handle-to-process-image binding;
-- race-free Job Object assignment (suspended creation or equivalent);
+- runtime proof that the exact executable identity and process image remain
+  aligned on supported Windows editions;
 - descendant escape/nested-job tests;
 - reparse-safe owner/DACL directory traversal and creation;
 - directory durability semantics and locked-file/pending-reboot handling;

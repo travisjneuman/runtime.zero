@@ -2,11 +2,14 @@ use std::{
     fmt,
     io::Read,
     path::{Path, PathBuf},
-    process::{Child, Command, ExitStatus, Stdio},
+    process::{Child, Command, ExitStatus},
     sync::Mutex,
     thread,
     time::{Duration, Instant},
 };
+
+#[cfg(not(windows))]
+use std::process::Stdio;
 
 use rz0_artifact_identity::BoundExecutable;
 use rz0_cancellation_contract::{
@@ -222,6 +225,128 @@ fn run_process_inner(
         }
     };
     validate_working_directory(&request.working_directory)?;
+    #[cfg(windows)]
+    return run_windows_process(request, launch_path, cancellation);
+
+    #[cfg(not(windows))]
+    {
+        let spawn_guard = PROCESS_SPAWN_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        audit_inheritable_process_handles()?;
+        if let Some(reason) = cancellation.reason() {
+            return Err(ProcessHostError::new(
+                ProcessHostErrorCode::Cancelled,
+                format!("process was cancelled at the serialized spawn boundary: {reason:?}"),
+            ));
+        }
+        if let ExecutableSelection::Bound(binding) = &executable {
+            binding.verify_spawn_path().map_err(|error| {
+                ProcessHostError::new(
+                    ProcessHostErrorCode::UnsupportedContainment,
+                    format!("revalidate bound executable immediately before spawn: {error}"),
+                )
+            })?;
+        }
+
+        let mut command = Command::new(launch_path);
+        command
+            .args(&request.arguments)
+            .current_dir(&request.working_directory)
+            .env_clear()
+            .envs(request.environment.iter().map(|(key, value)| (key, value)))
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        configure_child_process_group(&mut command)?;
+        let mut child = command.spawn().map_err(|error| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                format!("spawn bounded process: {error}"),
+            )
+        })?;
+        drop(spawn_guard);
+        let stdout = child.stdout.take().ok_or_else(|| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                "bounded process did not provide stdout",
+            )
+        })?;
+        let stderr = child.stderr.take().ok_or_else(|| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                "bounded process did not provide stderr",
+            )
+        })?;
+        let output_limit = request.output_limit;
+        let stdout_thread = thread::spawn(move || drain_bounded(stdout, output_limit));
+        let stderr_thread = thread::spawn(move || drain_bounded(stderr, output_limit));
+        let started = Instant::now();
+        let deadline = ProcessDeadline::new(0, timeout_ms, timeout_ms).map_err(|error| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::LimitExceeded,
+                format!("process deadline is invalid: {error:?}"),
+            )
+        })?;
+        let mut cancellation_reason = None;
+        let status = loop {
+            if let Some(status) = child.try_wait().map_err(|error| {
+                ProcessHostError::new(
+                    ProcessHostErrorCode::PlatformIo,
+                    format!("poll bounded process: {error}"),
+                )
+            })? {
+                break status;
+            }
+            let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+            if let Some(reason) = cancellation.poll(elapsed_ms, deadline) {
+                cancellation_reason = Some(reason);
+                terminate_child_process_group(&mut child)?;
+                break child.wait().map_err(|error| {
+                    ProcessHostError::new(
+                        ProcessHostErrorCode::PlatformIo,
+                        format!("reap cancelled process: {error}"),
+                    )
+                })?;
+            }
+            thread::sleep(Duration::from_millis(10));
+        };
+        let stdout = stdout_thread.join().map_err(|_| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                "process stdout drain panicked",
+            )
+        })??;
+        let stderr = stderr_thread.join().map_err(|_| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                "process stderr drain panicked",
+            )
+        })??;
+        if stdout.truncated || stderr.truncated {
+            return Err(ProcessHostError::new(
+                ProcessHostErrorCode::LimitExceeded,
+                "process output exceeded its retention ceiling",
+            ));
+        }
+        Ok(ProcessOutput {
+            status,
+            stdout,
+            stderr,
+            timed_out: cancellation_reason == Some(CancellationReason::DeadlineExceeded),
+            cancellation_reason,
+        })
+    }
+}
+
+#[cfg(windows)]
+fn run_windows_process(
+    request: &ProcessRequest,
+    launch_path: &Path,
+    cancellation: &CancellationToken,
+) -> Result<ProcessOutput, ProcessHostError> {
+    use std::os::windows::io::FromRawHandle;
+
     let spawn_guard = PROCESS_SPAWN_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -232,102 +357,469 @@ fn run_process_inner(
             format!("process was cancelled at the serialized spawn boundary: {reason:?}"),
         ));
     }
-    if let ExecutableSelection::Bound(binding) = &executable {
-        binding.verify_spawn_path().map_err(|error| {
-            ProcessHostError::new(
-                ProcessHostErrorCode::UnsupportedContainment,
-                format!("revalidate bound executable immediately before spawn: {error}"),
-            )
-        })?;
-    }
 
-    let mut command = Command::new(launch_path);
-    command
-        .args(&request.arguments)
-        .current_dir(&request.working_directory)
-        .env_clear()
-        .envs(request.environment.iter().map(|(key, value)| (key, value)))
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    configure_child_process_group(&mut command)?;
-    let mut child = command.spawn().map_err(|error| {
-        ProcessHostError::new(
-            ProcessHostErrorCode::PlatformIo,
-            format!("spawn bounded process: {error}"),
+    let job = create_windows_job()?;
+    let (stdout_read, stdout_write) = create_windows_pipe()?;
+    let (stderr_read, stderr_write) = create_windows_pipe()?;
+    let stdin = create_windows_null_input()?;
+    let mut startup = windows_sys::Win32::System::Threading::STARTUPINFOEXW::default();
+    startup.StartupInfo.cb =
+        std::mem::size_of::<windows_sys::Win32::System::Threading::STARTUPINFOEXW>() as u32;
+    startup.StartupInfo.dwFlags = windows_sys::Win32::System::Threading::STARTF_USESTDHANDLES;
+    startup.StartupInfo.hStdInput = stdin.raw();
+    startup.StartupInfo.hStdOutput = stdout_write.raw();
+    startup.StartupInfo.hStdError = stderr_write.raw();
+
+    let mut attribute_size = 0usize;
+    // SAFETY: the first call only requests the required attribute-list size.
+    unsafe {
+        windows_sys::Win32::System::Threading::InitializeProcThreadAttributeList(
+            std::ptr::null_mut(),
+            2,
+            0,
+            &mut attribute_size,
+        );
+    }
+    if attribute_size == 0 {
+        return Err(windows_process_error("size Windows process attribute list"));
+    }
+    let attribute_words =
+        (attribute_size + std::mem::size_of::<usize>() - 1) / std::mem::size_of::<usize>();
+    let mut attribute_storage = vec![0usize; attribute_words];
+    startup.lpAttributeList = attribute_storage.as_mut_ptr().cast();
+    // SAFETY: storage is aligned and remains live through CreateProcessW.
+    if unsafe {
+        windows_sys::Win32::System::Threading::InitializeProcThreadAttributeList(
+            startup.lpAttributeList,
+            2,
+            0,
+            &mut attribute_size,
         )
-    })?;
-    drop(spawn_guard);
-    let stdout = child.stdout.take().ok_or_else(|| {
-        ProcessHostError::new(
-            ProcessHostErrorCode::PlatformIo,
-            "bounded process did not provide stdout",
-        )
-    })?;
-    let stderr = child.stderr.take().ok_or_else(|| {
-        ProcessHostError::new(
-            ProcessHostErrorCode::PlatformIo,
-            "bounded process did not provide stderr",
-        )
-    })?;
-    let output_limit = request.output_limit;
-    let stdout_thread = thread::spawn(move || drain_bounded(stdout, output_limit));
-    let stderr_thread = thread::spawn(move || drain_bounded(stderr, output_limit));
-    let started = Instant::now();
-    let deadline = ProcessDeadline::new(0, timeout_ms, timeout_ms).map_err(|error| {
-        ProcessHostError::new(
-            ProcessHostErrorCode::LimitExceeded,
-            format!("process deadline is invalid: {error:?}"),
-        )
-    })?;
-    let mut cancellation_reason = None;
-    let status = loop {
-        if let Some(status) = child.try_wait().map_err(|error| {
-            ProcessHostError::new(
-                ProcessHostErrorCode::PlatformIo,
-                format!("poll bounded process: {error}"),
-            )
-        })? {
-            break status;
-        }
-        let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        if let Some(reason) = cancellation.poll(elapsed_ms, deadline) {
-            cancellation_reason = Some(reason);
-            terminate_child_process_group(&mut child)?;
-            break child.wait().map_err(|error| {
-                ProcessHostError::new(
-                    ProcessHostErrorCode::PlatformIo,
-                    format!("reap cancelled process: {error}"),
-                )
-            })?;
-        }
-        thread::sleep(Duration::from_millis(10));
-    };
-    let stdout = stdout_thread.join().map_err(|_| {
-        ProcessHostError::new(
-            ProcessHostErrorCode::PlatformIo,
-            "process stdout drain panicked",
-        )
-    })??;
-    let stderr = stderr_thread.join().map_err(|_| {
-        ProcessHostError::new(
-            ProcessHostErrorCode::PlatformIo,
-            "process stderr drain panicked",
-        )
-    })??;
-    if stdout.truncated || stderr.truncated {
-        return Err(ProcessHostError::new(
-            ProcessHostErrorCode::LimitExceeded,
-            "process output exceeded its retention ceiling",
+    } == 0
+    {
+        return Err(windows_process_error(
+            "initialize Windows process attributes",
         ));
     }
-    Ok(ProcessOutput {
-        status,
-        stdout,
-        stderr,
-        timed_out: cancellation_reason == Some(CancellationReason::DeadlineExceeded),
-        cancellation_reason,
-    })
+    let result = (|| {
+        let jobs = [job.raw()];
+        // SAFETY: the job handle array remains live through CreateProcessW.
+        if unsafe {
+            windows_sys::Win32::System::Threading::UpdateProcThreadAttribute(
+                startup.lpAttributeList,
+                0,
+                windows_sys::Win32::System::Threading::PROC_THREAD_ATTRIBUTE_JOB_LIST as usize,
+                jobs.as_ptr().cast(),
+                std::mem::size_of_val(&jobs),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        } == 0
+        {
+            return Err(windows_process_error("bind Windows process job"));
+        }
+        let handles = [stdin.raw(), stdout_write.raw(), stderr_write.raw()];
+        // SAFETY: the explicit handle list prevents unrelated parent handles
+        // from crossing the process boundary.
+        if unsafe {
+            windows_sys::Win32::System::Threading::UpdateProcThreadAttribute(
+                startup.lpAttributeList,
+                0,
+                windows_sys::Win32::System::Threading::PROC_THREAD_ATTRIBUTE_HANDLE_LIST as usize,
+                handles.as_ptr().cast(),
+                std::mem::size_of_val(&handles),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        } == 0
+        {
+            return Err(windows_process_error("bind Windows child handle list"));
+        }
+
+        let application = windows_wide(launch_path.as_os_str())?;
+        let working_directory = windows_wide(request.working_directory.as_os_str())?;
+        let mut command_line = windows_command_line(launch_path, &request.arguments)?;
+        let environment = windows_environment(&request.environment)?;
+        let mut process_information =
+            windows_sys::Win32::System::Threading::PROCESS_INFORMATION::default();
+        let creation_flags = windows_sys::Win32::System::Threading::EXTENDED_STARTUPINFO_PRESENT
+            | windows_sys::Win32::System::Threading::CREATE_UNICODE_ENVIRONMENT
+            | windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
+        // SAFETY: all pointers reference writable, NUL-terminated buffers that
+        // remain live until CreateProcessW returns. The job attribute assigns
+        // the process before its first instruction executes.
+        if unsafe {
+            windows_sys::Win32::System::Threading::CreateProcessW(
+                application.as_ptr(),
+                command_line.as_mut_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                1,
+                creation_flags,
+                environment.as_ptr().cast(),
+                working_directory.as_ptr(),
+                (&raw const startup).cast(),
+                &mut process_information,
+            )
+        } == 0
+        {
+            return Err(windows_process_error("spawn job-contained Windows process"));
+        }
+        let process = WindowsHandle::from_raw(process_information.hProcess)?;
+        let thread = WindowsHandle::from_raw(process_information.hThread)?;
+        drop(thread);
+        drop(stdin);
+        drop(stdout_write);
+        drop(stderr_write);
+        let stdout = unsafe { std::fs::File::from_raw_handle(stdout_read.into_raw()) };
+        let stderr = unsafe { std::fs::File::from_raw_handle(stderr_read.into_raw()) };
+        let process = WindowsProcess { process, job };
+        drop(spawn_guard);
+        let stdout_limit = request.output_limit;
+        let stdout_thread = thread::spawn(move || drain_bounded(stdout, stdout_limit));
+        let stderr_thread = thread::spawn(move || drain_bounded(stderr, stdout_limit));
+        let timeout_ms = bounded_duration_millis(request.timeout)?;
+        let started = Instant::now();
+        let deadline = ProcessDeadline::new(0, timeout_ms, timeout_ms).map_err(|error| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::LimitExceeded,
+                format!("process deadline is invalid: {error:?}"),
+            )
+        })?;
+        let mut cancellation_reason = None;
+        let status = loop {
+            if let Some(status) = process.try_wait()? {
+                break status;
+            }
+            let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+            if let Some(reason) = cancellation.poll(elapsed_ms, deadline) {
+                cancellation_reason = Some(reason);
+                process.terminate()?;
+                break process.wait()?;
+            }
+            thread::sleep(Duration::from_millis(10));
+        };
+        let stdout = stdout_thread.join().map_err(|_| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                "process stdout drain panicked",
+            )
+        })??;
+        let stderr = stderr_thread.join().map_err(|_| {
+            ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                "process stderr drain panicked",
+            )
+        })??;
+        if stdout.truncated || stderr.truncated {
+            return Err(ProcessHostError::new(
+                ProcessHostErrorCode::LimitExceeded,
+                "process output exceeded its retention ceiling",
+            ));
+        }
+        Ok(ProcessOutput {
+            status,
+            stdout,
+            stderr,
+            timed_out: cancellation_reason == Some(CancellationReason::DeadlineExceeded),
+            cancellation_reason,
+        })
+    })();
+    // SAFETY: the attribute list was initialized and no longer escapes the
+    // CreateProcessW call.
+    unsafe {
+        windows_sys::Win32::System::Threading::DeleteProcThreadAttributeList(
+            startup.lpAttributeList,
+        );
+    }
+    result
+}
+
+#[cfg(windows)]
+fn windows_process_error(context: &str) -> ProcessHostError {
+    ProcessHostError::new(
+        ProcessHostErrorCode::PlatformIo,
+        format!("{context}: {}", std::io::Error::last_os_error()),
+    )
+}
+
+#[cfg(windows)]
+#[derive(Debug)]
+struct WindowsHandle(windows_sys::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+impl WindowsHandle {
+    fn from_raw(handle: windows_sys::Win32::Foundation::HANDLE) -> Result<Self, ProcessHostError> {
+        if handle.is_null() || handle == windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE {
+            Err(windows_process_error("obtain Windows process handle"))
+        } else {
+            Ok(Self(handle))
+        }
+    }
+
+    fn raw(&self) -> windows_sys::Win32::Foundation::HANDLE {
+        self.0
+    }
+
+    fn into_raw(self) -> windows_sys::Win32::Foundation::HANDLE {
+        let raw = self.0;
+        std::mem::forget(self);
+        raw
+    }
+}
+
+#[cfg(windows)]
+impl Drop for WindowsHandle {
+    fn drop(&mut self) {
+        // SAFETY: this wrapper owns the unique handle returned by Win32.
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(self.0);
+        }
+    }
+}
+
+#[cfg(windows)]
+struct WindowsProcess {
+    process: WindowsHandle,
+    job: WindowsHandle,
+}
+
+#[cfg(windows)]
+impl WindowsProcess {
+    fn try_wait(&self) -> Result<Option<std::process::ExitStatus>, ProcessHostError> {
+        use windows_sys::Win32::Foundation::{WAIT_OBJECT_0, WAIT_TIMEOUT};
+        use windows_sys::Win32::System::Threading::WaitForSingleObject;
+        // SAFETY: process is a live synchronization handle owned by self.
+        let wait = unsafe { WaitForSingleObject(self.process.raw(), 0) };
+        if wait == WAIT_TIMEOUT {
+            Ok(None)
+        } else if wait == WAIT_OBJECT_0 {
+            self.exit_status().map(Some)
+        } else {
+            Err(windows_process_error("poll Windows process"))
+        }
+    }
+
+    fn wait(&self) -> Result<std::process::ExitStatus, ProcessHostError> {
+        use windows_sys::Win32::Foundation::{WAIT_FAILED, WAIT_OBJECT_0};
+        use windows_sys::Win32::System::Threading::{INFINITE, WaitForSingleObject};
+        // SAFETY: process is a live synchronization handle owned by self.
+        let wait = unsafe { WaitForSingleObject(self.process.raw(), INFINITE) };
+        if wait == WAIT_OBJECT_0 {
+            self.exit_status()
+        } else if wait == WAIT_FAILED {
+            Err(windows_process_error("wait for Windows process"))
+        } else {
+            Err(ProcessHostError::new(
+                ProcessHostErrorCode::PlatformIo,
+                "Windows process wait returned an unexpected status",
+            ))
+        }
+    }
+
+    fn exit_status(&self) -> Result<std::process::ExitStatus, ProcessHostError> {
+        use std::os::windows::process::ExitStatusExt;
+        let mut code = 0u32;
+        // SAFETY: process is a live process handle and code points to writable storage.
+        if unsafe {
+            windows_sys::Win32::System::Threading::GetExitCodeProcess(self.process.raw(), &mut code)
+        } == 0
+        {
+            return Err(windows_process_error("read Windows process exit code"));
+        }
+        Ok(ExitStatusExt::from_raw(code))
+    }
+
+    fn terminate(&self) -> Result<(), ProcessHostError> {
+        // SAFETY: the job was assigned at process creation and remains owned by self.
+        if unsafe { windows_sys::Win32::System::JobObjects::TerminateJobObject(self.job.raw(), 1) }
+            == 0
+        {
+            return Err(windows_process_error("terminate Windows process job"));
+        }
+        self.wait().map(|_| ())
+    }
+}
+
+#[cfg(windows)]
+fn create_windows_job() -> Result<WindowsHandle, ProcessHostError> {
+    use windows_sys::Win32::System::JobObjects::{
+        CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JobObjectExtendedLimitInformation, SetInformationJobObject,
+    };
+    let job = WindowsHandle::from_raw(unsafe {
+        // SAFETY: null security/name pointers request one private unnamed job.
+        CreateJobObjectW(std::ptr::null(), std::ptr::null())
+    })?;
+    let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    // SAFETY: the structure and exact size remain valid for this synchronous call.
+    if unsafe {
+        SetInformationJobObject(
+            job.raw(),
+            JobObjectExtendedLimitInformation,
+            (&raw const limits).cast(),
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        )
+    } == 0
+    {
+        return Err(windows_process_error("configure Windows job containment"));
+    }
+    Ok(job)
+}
+
+#[cfg(windows)]
+fn create_windows_pipe() -> Result<(WindowsHandle, WindowsHandle), ProcessHostError> {
+    use windows_sys::Win32::{
+        Foundation::{HANDLE_FLAG_INHERIT, SetHandleInformation},
+        Security::SECURITY_ATTRIBUTES,
+        System::Pipes::CreatePipe,
+    };
+    let mut attributes = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: std::ptr::null_mut(),
+        bInheritHandle: 1,
+    };
+    let mut read = std::ptr::null_mut();
+    let mut write = std::ptr::null_mut();
+    // SAFETY: the pipe handle outputs and security attributes are writable and live.
+    if unsafe { CreatePipe(&mut read, &mut write, &raw mut attributes, 0) } == 0 {
+        return Err(windows_process_error("create Windows output pipe"));
+    }
+    let read = WindowsHandle::from_raw(read)?;
+    let write = WindowsHandle::from_raw(write)?;
+    // SAFETY: only the child-side write handle belongs in the explicit inheritance list.
+    if unsafe { SetHandleInformation(read.raw(), HANDLE_FLAG_INHERIT, 0) } == 0 {
+        return Err(windows_process_error("seal Windows output read pipe"));
+    }
+    Ok((read, write))
+}
+
+#[cfg(windows)]
+fn create_windows_null_input() -> Result<WindowsHandle, ProcessHostError> {
+    use windows_sys::Win32::{
+        Foundation::{GENERIC_READ, INVALID_HANDLE_VALUE},
+        Security::SECURITY_ATTRIBUTES,
+        Storage::FileSystem::{
+            CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+        },
+    };
+    let name: Vec<u16> = "NUL\0".encode_utf16().collect();
+    let attributes = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: std::ptr::null_mut(),
+        bInheritHandle: 1,
+    };
+    // SAFETY: the NUL device name is NUL-terminated and attributes live for the call.
+    let handle = unsafe {
+        CreateFileW(
+            name.as_ptr(),
+            GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            &raw const attributes,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            std::ptr::null_mut(),
+        )
+    };
+    if handle.is_null() || handle == INVALID_HANDLE_VALUE {
+        Err(windows_process_error("open Windows NUL stdin"))
+    } else {
+        WindowsHandle::from_raw(handle)
+    }
+}
+
+#[cfg(windows)]
+fn windows_wide(value: &std::ffi::OsStr) -> Result<Vec<u16>, ProcessHostError> {
+    use std::os::windows::ffi::OsStrExt;
+    let mut wide: Vec<u16> = value.encode_wide().collect();
+    if wide.iter().any(|unit| *unit == 0) {
+        return Err(ProcessHostError::new(
+            ProcessHostErrorCode::LimitExceeded,
+            "Windows process paths cannot contain NUL characters",
+        ));
+    }
+    wide.push(0);
+    Ok(wide)
+}
+
+#[cfg(windows)]
+fn windows_command_line(
+    executable: &Path,
+    arguments: &[String],
+) -> Result<Vec<u16>, ProcessHostError> {
+    let mut command_line = Vec::new();
+    append_windows_argument(&mut command_line, executable.as_os_str())?;
+    for argument in arguments {
+        command_line.push(' ' as u16);
+        append_windows_argument(&mut command_line, std::ffi::OsStr::new(argument))?;
+    }
+    command_line.push(0);
+    Ok(command_line)
+}
+
+#[cfg(windows)]
+fn append_windows_argument(
+    output: &mut Vec<u16>,
+    value: &std::ffi::OsStr,
+) -> Result<(), ProcessHostError> {
+    use std::os::windows::ffi::OsStrExt;
+    let units: Vec<u16> = value.encode_wide().collect();
+    if units.iter().any(|unit| *unit == 0) {
+        return Err(ProcessHostError::new(
+            ProcessHostErrorCode::LimitExceeded,
+            "Windows process arguments cannot contain NUL characters",
+        ));
+    }
+    let needs_quotes = units.is_empty()
+        || units
+            .iter()
+            .any(|unit| *unit == b' ' as u16 || *unit == b'\t' as u16 || *unit == b'"' as u16);
+    if !needs_quotes {
+        output.extend(units);
+        return Ok(());
+    }
+    output.push(b'"' as u16);
+    let mut backslashes = 0usize;
+    for unit in units {
+        if unit == b'\\' as u16 {
+            backslashes += 1;
+        } else if unit == b'"' as u16 {
+            output.extend(std::iter::repeat_n(b'\\' as u16, backslashes * 2 + 1));
+            output.push(unit);
+            backslashes = 0;
+        } else {
+            output.extend(std::iter::repeat_n(b'\\' as u16, backslashes));
+            output.push(unit);
+            backslashes = 0;
+        }
+    }
+    output.extend(std::iter::repeat_n(b'\\' as u16, backslashes * 2));
+    output.push(b'"' as u16);
+    Ok(())
+}
+
+#[cfg(windows)]
+fn windows_environment(environment: &[(String, String)]) -> Result<Vec<u16>, ProcessHostError> {
+    let mut block = Vec::new();
+    for (key, value) in environment {
+        if key.contains('=') {
+            return Err(ProcessHostError::new(
+                ProcessHostErrorCode::LimitExceeded,
+                "Windows environment keys cannot contain '='",
+            ));
+        }
+        let mut entry = windows_wide(std::ffi::OsStr::new(&format!("{key}={value}")))?;
+        entry.pop();
+        block.extend(entry);
+        block.push(0);
+    }
+    if environment.is_empty() {
+        block.extend([0, 0]);
+    } else {
+        block.push(0);
+    }
+    Ok(block)
 }
 
 fn bounded_duration_millis(duration: Duration) -> Result<u64, ProcessHostError> {
@@ -423,7 +915,8 @@ pub fn drain_bounded(
 }
 
 /// Refuses spawn when a non-standard inheritable Unix descriptor is observed.
-/// Windows fails closed until an equivalent complete handle audit exists.
+/// Windows uses an explicit child-handle attribute list in its CreateProcessW
+/// path, so the production boundary does not inherit arbitrary parent handles.
 #[cfg(unix)]
 pub fn audit_inheritable_process_handles() -> Result<(), ProcessHostError> {
     let descriptor_root = if std::path::Path::new("/dev/fd").is_dir() {
@@ -466,11 +959,20 @@ pub fn audit_inheritable_process_handles() -> Result<(), ProcessHostError> {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+pub fn audit_inheritable_process_handles() -> Result<(), ProcessHostError> {
+    // The Windows production launcher passes PROC_THREAD_ATTRIBUTE_HANDLE_LIST
+    // to CreateProcessW and never relies on ambient handle inheritance. This is
+    // stronger than enumerating a mutable process handle table at a separate
+    // time-of-check boundary.
+    Ok(())
+}
+
+#[cfg(not(any(unix, windows)))]
 pub fn audit_inheritable_process_handles() -> Result<(), ProcessHostError> {
     Err(ProcessHostError::new(
         ProcessHostErrorCode::UnsupportedHandleAudit,
-        "complete Windows inherited-handle auditing is not implemented",
+        "complete inherited-handle auditing is not implemented on this platform",
     ))
 }
 

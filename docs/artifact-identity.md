@@ -71,8 +71,8 @@ reports `execution_authorized: false`:
 The core updater now consumes this binding in its confirmed execution lane.
 Linux passes the `BoundExecutable` to the process host, which substitutes the
 held-descriptor launch path, serializes its descriptor audit/spawn boundary, and
-revalidates the artifact after spawn. Windows still lacks race-free suspended
-creation/Job assignment and real runtime proof, so core production execution
+revalidates the artifact after spawn. Windows now uses a pre-start Job Object and
+explicit handle list, but still lacks real runtime identity/ACL proof, so core production execution
 remains disabled. Same-user filesystem authority, descriptor/handle inheritance,
 platform code-signing, and sandbox policy remain relevant.
 

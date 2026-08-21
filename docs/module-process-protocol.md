@@ -142,21 +142,23 @@ network operation. This is test evidence only; it is not an execution API.
 The test lane deliberately does **not** claim production isolation:
 
 - Linux and Windows test-host builds bind the held verified artifact through
-  spawn, but this still lacks real Windows runtime proof and a production host;
+  spawn, but this still lacks real Windows runtime proof and broader capability
+  enforcement;
   guarded macOS tests spawn only their copied test helper by canonical path
   while production macOS binding remains unsupported;
 - the standard process boundary does not enforce filesystem, registry, process,
   network, or syscall capabilities;
 - shared Unix preflight enumeration rejects currently observed descriptors with
   `FD_CLOEXEC` clear, but a descriptor created after that audit remains a race;
-  Windows inherited-handle auditing fails closed as unsupported;
+  Windows production launch uses an explicit inherited-handle list; general
+  module execution still has no capability broker;
 - Unix tests assign the helper to a fresh process group and kill the group on
   timeout, but the host reaps only its direct child; the shared cancellation
   token is not yet a production host or platform teardown implementation;
-- Windows-target test support assigns the stdin-blocked helper to a private
-  kill-on-close Job Object before behavior dispatch and terminates that job on
-  timeout, but this has compile evidence only: it is not real Windows runtime
-  proof, suspended-create race closure, a product process host, or a sandbox;
+- Windows-target test support retains a private kill-on-close Job Object helper
+  for fixture coverage; the updater process host now assigns its production Job
+  Object before behavior dispatch, but this is not a sandbox or real Windows
+  runtime proof;
 - descendants that escape the assigned group or retain pipes through another
   process could still delay reader completion;
 - Windows reparse/File ID, macOS sandbox/code-signing, and Linux namespace/

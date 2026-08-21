@@ -56,7 +56,7 @@ The dependency order is therefore:
 - [ ] Promote both write surfaces to complete platform runtime evidence; updater
   now has working macOS/Linux manager execution, cancellation-aware execution,
   canonical external-effect receipts, isolated npm execution, and fresh
-  post-action verification, but still needs Windows containment, recovery
+  post-action verification, but still needs Windows runtime/ACL proof, recovery
   completion, rollback, and disposable-host proof.
 
 ## Phase 2 — inventory contracts and primitives (implemented; runtime proof remains)
@@ -69,9 +69,9 @@ The dependency order is therefore:
 - [x] Bounded process-PATH normalization on Windows/macOS/Linux.
 - [x] Read-only Windows User/Machine PATH registry adapters.
 - [x] Allowlisted known-executable discovery without recursive scans.
-- [x] Opt-in exact-path Unix version probes with no shell, cleared environment,
-  shared bounded drains/descriptor audit/process-group teardown, and atomic
-  deadline; Windows fails closed pending race-free production containment.
+- [x] Opt-in exact-path version probes with no shell, cleared environment,
+  shared bounded process-host drains/containment, and atomic deadline; Windows
+  uses the production pre-start Job Object/handle-list path.
 - [x] Structured source status, duration, warnings, and generic events.
 - [x] Report-local path redaction for share-oriented output.
 - [x] Opt-in normalized Windows application registry evidence.
@@ -127,7 +127,7 @@ See [`inventory-schema.md`](inventory-schema.md).
 - [ ] Propagate caller cancellation through remaining discovery, verification,
   receipt, and write boundaries; confirmed Unix execution now bridges SIGINT
   through bounded process-group teardown.
-- [ ] Native rollback, Windows production containment, manager-specific locale/
+- [ ] Native rollback, Windows runtime/ACL/reparse proof, manager-specific locale/
   source-agreement/offline/runtime proof, manager-specific recovery beyond the
   local journal completion lane, real
   failure/recovery evidence, and equal-platform production acceptance remain.
@@ -237,8 +237,8 @@ See [`action-planning.md`](action-planning.md).
   concurrent output drains, timeout kill/reap, environment/cwd proof, and
   fail-closed fixture tests; no module/core execution.
 - [x] Move bounded pipe draining and descriptor/handle/test-containment
-  primitives into a shared process-host foundation; Windows handle audit fails
-  closed rather than reporting success.
+  primitives into a shared process-host foundation; production Windows launch
+  uses an explicit inherited-handle list and pre-start Job Object assignment.
 - [x] Native Unix test-helper preflight for observed inheritable descriptors and
   process-group timeout teardown including a sleeping descendant.
 - [x] Windows-target test-helper Job Object assignment, kill-on-close, bounded
@@ -270,8 +270,8 @@ See [`action-planning.md`](action-planning.md).
   deny-write/delete handle lease.
 - [x] Integrate Linux/Windows executable leases through guarded test-host spawn.
 - [ ] Adversarially prove Linux/macOS/Windows binding in production-contained
-  hosts, close descriptor/handle-inheritance and Windows suspended-create races,
-  obtain real Job Object proof, enforce capabilities, and complete
+  hosts, validate descriptor/handle inheritance and the Windows pre-start Job
+  Object path on supported editions, enforce capabilities, and complete
   sandbox/isolation runtime tests.
 - [ ] Signing keys, release artifacts, package publishing, bootstrap, remote
   feeds, third-party modules, deployment automation, and production actions only

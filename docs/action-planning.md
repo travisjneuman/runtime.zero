@@ -151,7 +151,8 @@ initialized private store, an exact short-lived challenge, and a manual-recovery
 acknowledgement when manager rollback is not proven. Before confirmation is
 consumed it obtains a platform executable binding. Linux invokes a direct native
 ELF manager through the held `/proc/self/fd` identity; macOS revalidates the
-direct path identity/digest; Windows remains blocked at production containment.
+direct path identity/digest; Windows uses pre-start Job Object and explicit
+handle-list containment through the shared Rust process host.
 The lane publishes single-use confirmation and exact write-intent/outcome journal
 events, captures bounded cancellable process-group output, revalidates
 executable identity, verifies fresh manager evidence, and synchronizes a
@@ -161,8 +162,8 @@ absolute runtime PATH entries. Failure/cancellation/verification mismatch leaves
 `recovery_required` evidence where publication remains possible.
 
 This does not authorize arbitrary module execution, third-party packages,
-uninstall, cleanup, or filesystem mutation. Windows process containment and
-manager-specific runtime proof remain fail-closed, and production use still
+uninstall, cleanup, or filesystem mutation. Windows runtime/ACL/reparse proof
+and manager-specific runtime proof remain incomplete, and production use still
 requires the platform/disposable-host evidence applicable to the target.
 
 The updater execution bridge is not the final generic action executor. Linux

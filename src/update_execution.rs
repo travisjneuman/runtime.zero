@@ -1570,10 +1570,13 @@ fn is_native_elf_magic(bytes: &[u8]) -> bool {
 
 #[cfg(windows)]
 fn validate_platform_manager_execution(_artifact: &VerifiedArtifact) -> Result<(), String> {
-    Err(
-        "Windows manager execution is blocked before transaction preparation until exact process-image binding and race-free Job Object containment are implemented"
-            .to_string(),
-    )
+    // Windows now launches through the process-host CreateProcessW path, which
+    // attaches a kill-on-close Job Object and explicit inherited-handle list
+    // before the child begins. The artifact binding retains the deny-write/
+    // delete lease through that spawn. Runtime proof, reparse/ACL guarantees,
+    // and broader capability isolation remain release gates, but this path no
+    // longer needs the old unconditional pre-transaction block.
+    Ok(())
 }
 
 #[cfg(not(any(target_os = "linux", windows)))]

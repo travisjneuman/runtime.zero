@@ -174,13 +174,14 @@ The configuration-contract crate adds no new external package and owns canonical
 immutable offline/default-deny schema-1 settings and their digest. The diagnostics-contract crate adds no new external package and owns the strict
 private text/JSON doctor model. The performance-contract crate adds no new external package and owns canonical
 final-artifact command ceilings plus strict non-authorizing evidence. The
-process-host crate adds no new external package, centralizes bounded capture plus Unix descriptor auditing, and places
-process-group/Job Object helper containment behind `test-support`; it exposes no
-production runner. The module-protocol crate uses Serde for its default fixture
+process-host crate adds no new external package, centralizes bounded capture,
+Unix descriptor auditing, and production Windows Job Object/handle-list
+containment; its `test-support` helpers remain separate from the product path.
+The module-protocol crate uses Serde for its default fixture
 validator. Its non-default test-child feature adds Serde JSON framing and
 consumes the process-host test foundation. SHA-256 remains a dev dependency.
-Process spawn code exists only in integration-test support, not the library,
-core, CLI, or TUI.
+The updater is the only production mutation caller; general module execution
+still exists only in integration-test support, not the core, CLI, or TUI.
 
 The core Ratatui graph contains two `hashbrown` versions through Ratatui's
 internal `kasuari`/`lru` graph. The audit found one crossterm backend version and
@@ -197,8 +198,8 @@ no duplicate terminal-control stack.
   deterministic local evidence only.
 - Signed provenance/key lifecycle and revocation design implementation.
 - Linux/Windows executable-binding runtime proof, a reviewed macOS handle-to-
-  spawn primitive, descriptor/handle-inheritance race closure, Windows suspended-
-  create and real Job Object runtime proof,
+  spawn primitive, descriptor/handle-inheritance race closure, and real Windows
+  Job Object runtime proof,
   production capability enforcement, and platform sandbox runtime proof;
   current process evidence executes only the Cargo test helper.
 - Windows owner/DACL and directory-flush evidence, production cancellation

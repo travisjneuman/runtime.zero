@@ -11,8 +11,8 @@ The default library provides:
   deadlock, retains only the caller ceiling, and uses saturating byte accounting;
 - Unix enumeration of non-standard descriptors and fail-closed rejection of any
   descriptor without `FD_CLOEXEC`;
-- explicit failure on Windows because a complete inherited-handle audit is not
-  yet implemented;
+- Windows `CreateProcessW` launch with a private kill-on-close Job Object
+  assigned before first instruction and an explicit inherited-handle list;
 - Unix pre-exec dedicated process-group setup and whole-group termination/reap.
   This contains ordinary descendants but is not a sandbox and cannot prevent a
   hostile child from creating a new session;
@@ -34,16 +34,17 @@ atomic deadline/cancellation signal. The mutating lane accepts a borrow-scoped
 child creation; macOS revalidates the direct path's device/inode/link/size/digest
 immediately before spawn. It clears the
 environment, uses `/` as working directory, rejects truncated streams, and reaps
-on timeout or cancellation. Windows probes/apply fail closed at production
-handle/containment policy rather than using the post-spawn test Job assignment.
-Hostile session escape and OS capability isolation remain production gates, so
-this adapter does not authorize general module execution.
+on timeout or cancellation. Windows probes/apply use the same production host;
+the verified executable's deny-write/delete lease remains held through
+CreateProcessW, and only the three intended standard handles are inherited.
+Hostile descendants, reparse/ACL guarantees, and OS capability isolation remain
+production gates, so this adapter does not authorize general module execution.
 
 The `test-support` feature contains guarded helper-only process groups and Job
 Objects. Unix helpers enter a fresh process group and timeout teardown signals
-the group. Windows build evidence uses a private kill-on-close Job Object with a
-two-process ceiling, but assignment occurs after creation and is therefore not a
-race-free production mechanism.
+the group. Windows helpers retain their small post-spawn assignment fixture for
+legacy transport tests; production code uses the pre-start attribute-list Job
+Object path above.
 
 The module-protocol test transport now consumes this crate rather than owning
 capture and containment code. On Linux and Windows builds it also creates the

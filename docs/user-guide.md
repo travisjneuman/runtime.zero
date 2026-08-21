@@ -59,7 +59,8 @@ rz0 doctor --format json
 Diagnostics omit host name, user name, current directory, environment values,
 and raw paths. The updater policy check reports platform-specific execution
 posture. On macOS, manager apply is available as a pre-alpha path-revalidated
-lane; Windows remains blocked by production process containment.
+lane; Windows uses pre-start Job Object/handle-list containment but remains
+pre-alpha pending runtime and ACL/reparse evidence.
 
 ### Installed software and source identity
 
@@ -318,8 +319,8 @@ Execution requires a platform `BoundExecutable` lease before confirmation is
 consumed. Linux uses the held `/proc/self/fd` launch identity for direct native
 ELF managers; scripts/interpreter chains fail before transaction preparation.
 macOS revalidates the direct path's device/inode/link/size/digest immediately
-before spawn. Windows remains fail-closed at production handle/process
-containment. Known self-updaters may replace their own launcher; the executor
+before spawn. Windows uses pre-start Job Object/handle-list containment but
+remains pre-alpha pending runtime identity and platform proof. Known self-updaters may replace their own launcher; the executor
 accepts that declared transition and relies on fresh provider verification.
 
 A successful supported-platform action records an exact manager write intent,

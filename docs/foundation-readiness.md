@@ -85,7 +85,7 @@ Do not copy or broaden this lane. Before it is production-ready it still needs:
 - cancellation at every boundary;
 - native rollback and tested manual recovery;
 - real manager/platform failure, interruption, and power-loss evidence;
-- complete Windows production containment.
+- Windows runtime/ACL/reparse containment proof and broader capability policy.
 
 The other current write surface, `store init --yes`, is limited to validated
 runtime.zero-owned user-local scaffolding and remains blocked on Windows.
