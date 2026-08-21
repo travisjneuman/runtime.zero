@@ -408,7 +408,7 @@ trust, configuration, receipts, recovery, and module-host execution.
 | `process-host` | Bounded direct transport, Unix groups, and Windows pre-start Job Object/handle list | OS sandbox, runtime proof, and broader capability policy |
 | `secure-fs` | Opened-directory state I/O | Windows ACL creation/runtime and FS matrix |
 | `artifact-identity` | Same-handle identity plus Linux lease and macOS path-revalidation binding | Windows production binding and cross-platform runtime proof |
-| `module-trust` | Test-key signature/staging contracts, local review adapter, and complete-file-set package review | Production roots/provenance/revocation |
+| `module-trust` | Test-key signature/staging contracts, local review adapter, complete-file-set package review, and bounded provenance consistency | Production trust roots/freshness/transparency/revocation |
 | `module-protocol` | Unauthorized preview/test child | Production module host |
 | `module-lifecycle` | Eight planning transitions | No lifecycle execution |
 | `registry-contract` | Canonical installed state | No module install publication |
@@ -418,19 +418,25 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current validation for `63f7d8d` on `aarch64-apple-darwin`:
+Current validation for `8d0a3aa` on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
-- `cargo test --workspace --locked` passed, including the new valid and
-  identity-drift module-trust CLI cases and complete-file-set acceptance/
-  undeclared-file rejection and provenance-consistency cases;
-- strict locked all-target Clippy passed with `-D warnings`;
+- `cargo test --workspace --locked` and the full
+  `cargo test --workspace --locked --all-features` suite passed, including the
+  module-trust, complete-file-set, provenance-consistency, process-host,
+  transaction, and TUI cases;
+- strict locked all-target all-features Clippy passed with `-D warnings`;
+- Windows MSVC cross-target `cargo check --workspace --target
+  x86_64-pc-windows-msvc --locked` passed;
+- the Ratatui buffer matrix passed for all five workspaces at 58x16, 80x24,
+  118x30, and 160x50 in plain and color modes;
 - `git diff --check` passed;
 - the trust fixture review returned a valid package/signature result while
   retaining `test_key_only: true`, `execution_authorized: false`, and
   `writes_attempted: false`;
-- existing Apple Silicon release-package evidence must be rebuilt from this
-  exact source head before it can be used for a release claim.
+- the Apple Silicon release ZIP was independently verified and reproduced
+  byte-for-byte from this exact source head; its hashes and runtime evidence
+  are recorded in the private release-artifact note.
 
 Historical earlier validation also recorded completion-source parity, Bash/Zsh
 syntax, PowerShell parsing, `mandoc`, Markdown-link checks, module-manifest

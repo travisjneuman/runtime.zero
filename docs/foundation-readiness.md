@@ -18,7 +18,8 @@ Current feature work may reuse:
   findings, plans, registry, receipt, transaction, and support-report schemas;
 - one canonical installed-software TUI list with search, filter, sort, refresh,
   details, mouse navigation, update availability, and a native monitor;
-- strict local manifest and package-integrity validation;
+- strict local manifest and package-integrity validation, including optional
+  complete-file-set and bounded provenance-consistency review;
 - dry-run module-install planning and canonical lifecycle transition plans;
 - user-local store plan/status, registry/receipt inspection, and explicit Unix
   store scaffolding;
