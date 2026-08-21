@@ -2,14 +2,14 @@
 
 ## Snapshot identity
 
-- **Reviewed:** 2026-08-20.
+- **Reviewed:** 2026-08-21.
 - **Product status:** active pre-alpha development; not production-ready and not
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `8d1a9db` (`Refresh TUI recovery status`).
+  `6d98021cc69531a3f7a70dce9959f5d7fe176e76` (`Define bounded cache safety policy evidence`).
 - **Current behavior implementation:**
-  `8d1a9db` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `6d98021cc69531a3f7a70dce9959f5d7fe176e76` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -31,7 +31,11 @@
   eligibility without exposing absolute host paths or adding a second mutation
   authority. The redesigned TUI Diagnostics workspace now shows the same
   recovery record/valid/restore-capable counts without exposing record paths or
-  adding a second mutation route.
+  adding a second mutation route. Cache review now emits a separate
+  `cache_safety_policy` summary plus path-free per-root modification-time,
+  age-threshold, scan-completeness, and conservative lock-marker evidence; the
+  TUI renders the observation and age-threshold state without creating a second
+  action route.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -52,7 +56,8 @@ validation at `63f7d8d`, the exact leftovers plan/apply lane at `22c3619`, and
 the cache-root/restore slice at `0ce2cc6`, the bounded recovery inventory at
 `366153f`, and the TUI recovery evidence slice at `08635e6`.
 The status refreshes are `ea4593a`, `da5c5a0`, and `7602a3f`; package
-provenance was finally bound at `7d0ed91`.
+provenance was finally bound at `7d0ed91`; the bounded cache policy slice is
+`6d98021`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -60,15 +65,15 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC cross-target `cargo check`, and
 `git diff --check`. The current local aarch64 Apple Silicon package from
-`8d1a9db` has binary SHA-256
-`a3ebbe021627f42c9a688915bd6ee90549a97685490cfbada1c2583b2abbf1f8`, ZIP
+`6d98021` has binary SHA-256
+`dcb0502ecaa8cc307ad718e646ddf6acc5fea4af0eb2432b414bbb35c1868265`, ZIP
 SHA-256
-`d733d60b709f2436cfffd3b437ffdf6763f994cbd023793e454ed56fe354d6e8`, and
-1,692,597 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`ab8b407a32bc84ec8fa416fd8b8f1b2d8e340164714c13303a5c686e7e4fc4ac`, and
+1,697,304 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`eec9c830f8031fda52e3e1e0962690a61667dd596249fd82d8b609f5cc1d310e`,
-`3200c58fc7b79f5b8136be80fc7cde53fc72db6910a8da640322bda19f385843`, and
-`a1d9a7454036f817458389fa669cfe1524c68c99e7003bba7b95172585deffa5`.
+`41f476c64a46e3ba6084c4336af16992670f3d46ffe2a414a90a8387aa41be17`,
+`168edc8551bff6648a39c2c78b9d6f2d8616d3355c546ef4a59bf8ed4173414d`, and
+`8cee99ca2b9eb19a66ffff1cda5e788a025949257986628571615bd72782c329`.
 Independent verification, repeated byte-identical packaging, four PTY terminal
 smoke cases, and ten-sample final-artifact performance evidence passed. The
 artifact remains unsigned and unnotarized until an owner-led signing/
@@ -422,7 +427,7 @@ All seven first-party manifests remain `planned`:
 | Updater | Provider-driven plans plus working macOS/Linux core executor | Windows isolation, rollback/recovery, manager/runtime matrix, release proof |
 | Uninstall | Shared synthetic/live findings and dry-run manager plans | Every execution/elevation/quarantine/rollback path |
 | Leftovers | Synthetic exact-runtime-owned classifier plus one exact module-file plan/apply lane | Post-uninstall ownership discovery, broad cleanup, platform parity, retention, and full quarantine/restore |
-| Cache | Synthetic ownership-aware classifier plus bounded live review and one exact-file quarantine/restore path | Active-use/ownership budgets, platform parity, retention, and full lifecycle acceptance |
+| Cache | Synthetic ownership-aware classifier plus bounded live review, explicit age/size/lock-marker policy evidence, and one exact-file quarantine/restore path | Platform-native active-use/ownership proof, retention/conflict policy, multi-file lifecycle, platform parity, and full acceptance |
 | Security/integrity | Fixture and bounded exact-file digest classifier | Trusted baselines, incident review, and remediation policy |
 | Report/export | Strict module binary plus integrated foundation report | Signed lifecycle and final-artifact platform proof |
 
@@ -469,7 +474,7 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current validation for `8d0a3aa` on `aarch64-apple-darwin`:
+Current validation for `6d98021cc69531a3f7a70dce9959f5d7fe176e76` on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` and the full
@@ -479,14 +484,20 @@ Current validation for `8d0a3aa` on `aarch64-apple-darwin`:
 - strict locked all-target all-features Clippy passed with `-D warnings`;
 - Windows MSVC cross-target `cargo check --workspace --target
   x86_64-pc-windows-msvc --locked` passed;
+- Linux GNU cross-target `cargo check --workspace --target
+  x86_64-unknown-linux-gnu --locked` passed;
 - the Ratatui buffer matrix passed for all five workspaces at 58x16, 80x24,
   118x30, and 160x50 in plain and color modes;
+- final-artifact `doctor`, `scan --dry-run`, and `cache --dry-run` JSON reviews
+  passed privacy checks; the cache review exposed the new policy, age, scan,
+  and active-use uncertainty fields without raw paths;
 - `git diff --check` passed;
 - the trust fixture review returned a valid package/signature result while
   retaining `test_key_only: true`, `execution_authorized: false`, and
   `writes_attempted: false`;
 - the Apple Silicon release ZIP was independently verified and reproduced
-  byte-for-byte from this exact source head; its hashes and runtime evidence
+  byte-for-byte from this exact source head; four PTY cases and ten-sample
+  final-artifact performance evidence passed, and its hashes/runtime evidence
   are recorded in the private release-artifact note.
 
 Historical earlier validation also recorded completion-source parity, Bash/Zsh
