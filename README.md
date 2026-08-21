@@ -50,6 +50,7 @@ rz0 cache --dry-run --format json
 rz0 leftovers --dry-run
 rz0 leftovers --dry-run --format json
 rz0 integrity --dry-run --fixture tests/fixtures/integrity/valid.json
+rz0 integrity --dry-run --path /absolute/path/to/file --sha256 <sha256>
 rz0 uninstall plan <installed-software-id>
 rz0 uninstall plan <installed-software-id> --executable /opt/homebrew/bin/brew --format json
 rz0 completions bash|zsh|fish|powershell
@@ -224,7 +225,8 @@ explicit live manager evidence. Uninstall accepts selected live installed-
 software evidence to produce a non-authorizing finding and optional sealed dry-
 run manager action plan. Cache now has a bounded read-only adapter over known
 manager/runtime roots; leftovers now has bounded runtime.zero-owned module/log
-and unreferenced-receipt evidence, while integrity remains synthetic. None of these surfaces provides
+and unreferenced-receipt evidence, while integrity has a bounded exact-file
+adapter that remains caller-baseline only. None of these surfaces provides
 uninstall/cleanup execution, elevation, signed lifecycle
 activation, or production support. See
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).

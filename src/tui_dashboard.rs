@@ -222,7 +222,7 @@ fn build_dashboard(
     let leftover_warning_count = leftovers_value
         .as_ref()
         .map_or(0, |report| report.warnings.len());
-    let integrity_status = "baseline unavailable · explicit fixture required".to_string();
+    let integrity_status = "baseline unavailable · fixture or exact-file evidence".to_string();
     let default_view = SoftwareView::default();
     TuiDashboard {
         schema_version: 1,

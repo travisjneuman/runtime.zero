@@ -50,8 +50,8 @@ The contract is implemented and fixture-tested. The updater now emits it from
 strict fixture, captured-manager, and explicit live-probe evidence before
 building action plans. Core uninstall reviews emit shared findings, and the
 cache and leftovers now emit bounded live evidence through `rz0 cache --dry-run`
-and `rz0 leftovers --dry-run`; security/integrity has an explicit fixture-only
-review through `rz0 integrity --dry-run --fixture` and remains report-only
+and `rz0 leftovers --dry-run`; security/integrity has fixture and bounded
+exact-file review through `rz0 integrity --dry-run` and remains report-only
 without a trusted baseline.
 
 Every remaining domain needs comprehensive adversarial fixtures, bounded live

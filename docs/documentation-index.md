@@ -115,7 +115,7 @@ release.
 | [`modules/uninstall/README.md`](../modules/uninstall/README.md) | Shared synthetic/live installed-software finding contract plus non-executing core review/action-plan surface; no uninstall execution |
 | [`modules/leftovers/README.md`](../modules/leftovers/README.md) | Bounded runtime.zero-owned module/log and unreferenced-receipt evidence plus exact-runtime classifier; no quarantine |
 | [`modules/cache/README.md`](../modules/cache/README.md) | Bounded known-root read-only cache evidence plus ownership-aware classifier; no cleanup |
-| [`modules/security-integrity/README.md`](../modules/security-integrity/README.md) | Strict fixture-only exact-digest observation classifier; no trusted baseline or remediation |
+| [`modules/security-integrity/README.md`](../modules/security-integrity/README.md) | Fixture and bounded exact-file digest observation classifier; no trusted baseline or remediation |
 | [`modules/report-export/README.md`](../modules/report-export/README.md) | Separate stdin/stdout summary development binary; not integrated into core lifecycle |
 | [`domain-classifier-modules.md`](domain-classifier-modules.md) | Shared summary of the five classifier packages |
 

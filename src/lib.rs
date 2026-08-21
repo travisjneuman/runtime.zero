@@ -128,7 +128,8 @@ pub fn help_text() -> String {
         help.insert_str(index, &leftovers_usage);
     }
     let integrity_usage = format!(
-        "  {} integrity --dry-run --fixture <integrity-input.json> [--format text|json]\n",
+        "  {} integrity --dry-run --fixture <integrity-input.json> [--format text|json]\n  {} integrity --dry-run --path <absolute-file> --sha256 <digest> [--format text|json]\n",
+        brand::COMMAND,
         brand::COMMAND
     );
     if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {

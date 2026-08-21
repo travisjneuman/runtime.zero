@@ -153,13 +153,16 @@ transaction. No cleanup, quarantine, restore, or deletion is authorized.
 
 ```bash
 rz0 integrity --dry-run --fixture tests/fixtures/integrity/valid.json --format json
+rz0 integrity --dry-run --path /absolute/path/to/file --sha256 <sha256> --format json
 ```
 
-Integrity review is fixture-only until runtime.zero has a trusted, versioned,
-revocable baseline. The shared contract preserves exact digest observations and
-can mark mismatches high-risk, but it never claims malware or vulnerability
-detection and never authorizes remediation, quarantine, restore, or deletion.
-Without `--fixture`, the command fails closed.
+Integrity review accepts either bounded caller-supplied fixture evidence or one
+absolute regular file plus an expected SHA-256 digest. The exact-file adapter
+uses the shared opened-artifact identity check and omits the path from output.
+Neither form is a trusted, versioned, revocable runtime baseline. The shared
+contract preserves exact digest observations and can mark mismatches high-risk,
+but it never claims malware or vulnerability detection and never authorizes
+remediation, quarantine, restore, or deletion.
 
 ### System monitor
 

@@ -11,7 +11,7 @@ Five first-party packages consume the shared
 | `modules/uninstall/` | Classifies synthetic or live installed-software evidence and builds optional finding-bound dry-run manager plans | Core `uninstall plan` uses this shared producer; no uninstall execution |
 | `modules/leftovers/` | Classifies bounded runtime.zero-owned module/log and unreferenced-receipt evidence for conservative post-uninstall review | Core `rz0 leftovers --dry-run` live adapter plus strict fixture path; no quarantine |
 | `modules/cache/` | Classifies bounded known-root cache evidence while preserving conservative ownership policy | Core `rz0 cache --dry-run` live adapter plus strict fixture path; no cleanup |
-| `modules/security-integrity/` | Classifies exact digest match/mismatch observations | Core `rz0 integrity --dry-run --fixture` strict fixture path; report-only and no trusted baseline |
+| `modules/security-integrity/` | Classifies exact digest match/mismatch observations | Core `rz0 integrity --dry-run --fixture` and bounded exact-file path; report-only and no trusted baseline |
 
 The foundation owns producer/category binding, privacy, protected-data policy,
 resource ceilings, evidence identity, sorting, summary counts, and authority
@@ -43,8 +43,9 @@ cancellation, rollback/recovery completion, and platform-proof gates. See
 Uninstall now receives one selected live catalog record from core and can build
 a sealed manager action plan, but it still has no process, elevation, dependent-
 package review, quarantine, rollback, or execution lane. Leftovers now has
-bounded runtime-owned read-only discovery, while security/integrity remains
-synthetic-only and cache has bounded known-root read-only discovery. Across
+bounded runtime-owned read-only discovery, while security/integrity has a
+bounded exact-file read adapter and cache has bounded known-root read-only
+discovery. Across
 these four families there is:
 
 - no independent complete live Windows/macOS/Linux adapter;

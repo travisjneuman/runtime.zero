@@ -130,7 +130,7 @@ Every module must reach the same lifecycle bar on every supported platform:
 | Uninstall | Required | Required | Required | Live catalog records become shared findings and optional sealed dry-run manager plans; no uninstall/elevation/quarantine execution |
 | Leftovers | Required | Required | Required | Bounded runtime.zero-owned module/log and unreferenced-receipt evidence plus synthetic classifier; no quarantine or platform parity proof |
 | Cache management | Required | Required | Required | Bounded known-root read-only evidence and synthetic classifier; no cleanup/quarantine or platform parity proof |
-| Security/integrity | Required | Required | Required | Synthetic exact-digest report-only classifier only |
+| Security/integrity | Required | Required | Required | Fixture and bounded exact-file exact-digest report-only evidence; trusted baseline, incident policy, and remediation remain unavailable |
 | Report/export | Required | Required | Required | Integrated summary-only `rz0 report`, shared strict contract, and stdin/stdout source module; signed lifecycle/final-artifact runtime proof open |
 
 ## Required lifecycle for every module-platform cell

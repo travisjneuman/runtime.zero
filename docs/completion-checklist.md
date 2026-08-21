@@ -229,13 +229,14 @@ full platform/lifecycle acceptance cells.
 
 ### Security and integrity
 
-- [x] Expose strict fixture-only exact-digest evidence through the shared
-  report contract while refusing remediation and trusted-baseline claims.
+- [x] Expose strict fixture and bounded exact-file digest evidence through the
+  shared report contract while refusing remediation and trusted-baseline claims.
 - [ ] Define exact checks and non-goals without malware-removal or unsupported
   assurance claims.
 - [ ] Establish trusted, versioned baselines and provenance for every integrity
   comparison.
-- [ ] Implement bounded live reads, mismatch severity, incident guidance,
+- [x] Implement one bounded live exact-file read with path-safe opened-artifact
+  identity and path-free output; mismatch severity, incident guidance,
   privacy handling, and false-positive review on all platforms.
 - [ ] Keep remediation out of 1.0 unless separately scoped through the complete
   action/transaction/rollback matrix.

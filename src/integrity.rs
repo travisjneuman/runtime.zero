@@ -2,11 +2,16 @@ use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::Path;
 
-use rz0_finding_contract::FindingReport;
+use rz0_artifact_identity::open_observed_artifact;
+use rz0_finding_contract::{
+    ExactFindingEvidence, FindingDataClass, FindingOwnership, FindingReport,
+};
 use rz0_module_security_integrity::{
-    INPUT_CONTRACT as INTEGRITY_INPUT_CONTRACT, IntegrityFindingInput, classify_integrity,
+    INPUT_CONTRACT as INTEGRITY_INPUT_CONTRACT, IntegrityFindingInput, IntegrityRecord,
+    classify_integrity,
 };
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 use crate::{ExitCode, brand};
 
@@ -46,7 +51,15 @@ pub fn integrity_command(args: &[String]) -> (ExitCode, String, String) {
             );
         }
     };
-    let report = match fixture_report(options.fixture.as_deref().expect("fixture is required")) {
+    let report = match (options.fixture.as_deref(), options.path.as_deref(), options.sha256.as_deref()) {
+        (Some(fixture), None, None) => fixture_report(fixture),
+        (None, Some(path), Some(expected_sha256)) => live_exact_file_report(path, expected_sha256),
+        _ => Err(
+            "integrity review requires either --fixture <path> or --path <absolute-file> --sha256 <digest>"
+                .to_string(),
+        ),
+    };
+    let report = match report {
         Ok(report) => report,
         Err(error) => {
             return (
@@ -72,12 +85,16 @@ pub fn integrity_command(args: &[String]) -> (ExitCode, String, String) {
 struct Options {
     format: OutputFormat,
     fixture: Option<String>,
+    path: Option<String>,
+    sha256: Option<String>,
 }
 
 fn parse_args(args: &[String]) -> Result<Options, String> {
     let mut dry_run = false;
     let mut format = OutputFormat::Text;
     let mut fixture = None;
+    let mut path = None;
+    let mut sha256 = None;
     let mut index = 0usize;
     while index < args.len() {
         match args[index].as_str() {
@@ -106,6 +123,26 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
                 }
                 index += 1;
             }
+            "--path" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err("integrity --path requires an absolute local file path".to_string());
+                };
+                if path.replace(value.clone()).is_some() {
+                    return Err("integrity --path was provided more than once".to_string());
+                }
+                index += 1;
+            }
+            "--sha256" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(
+                        "integrity --sha256 requires a 64-character lowercase digest".to_string(),
+                    );
+                };
+                if sha256.replace(value.clone()).is_some() {
+                    return Err("integrity --sha256 was provided more than once".to_string());
+                }
+                index += 1;
+            }
             value => return Err(format!("unsupported integrity option '{value}'")),
         }
         index += 1;
@@ -113,13 +150,37 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
     if !dry_run {
         return Err("integrity review is dry-run only; pass --dry-run".to_string());
     }
-    if fixture.is_none() {
-        return Err(
-            "integrity review requires --fixture because no trusted baseline is configured"
-                .to_string(),
-        );
+    if fixture.is_some() && (path.is_some() || sha256.is_some()) {
+        return Err("integrity --fixture cannot be combined with --path or --sha256".to_string());
     }
-    Ok(Options { format, fixture })
+    match (&path, &sha256) {
+        (Some(path), Some(sha256)) => {
+            if !Path::new(path).is_absolute() {
+                return Err("integrity --path must be absolute".to_string());
+            }
+            if !rz0_validation_contract::valid_sha256(sha256) {
+                return Err(
+                    "integrity --sha256 must be a lowercase 64-character digest".to_string()
+                );
+            }
+        }
+        (None, None) if fixture.is_none() => {
+            return Err(
+                "integrity review requires --fixture or --path with --sha256; no trusted baseline is configured"
+                    .to_string(),
+            );
+        }
+        (None, Some(_)) | (Some(_), None) => {
+            return Err("integrity --path and --sha256 must be provided together".to_string());
+        }
+        _ => {}
+    }
+    Ok(Options {
+        format,
+        fixture,
+        path,
+        sha256,
+    })
 }
 
 fn fixture_report(path: &str) -> Result<IntegrityReviewReport, String> {
@@ -154,6 +215,78 @@ fn fixture_report(path: &str) -> Result<IntegrityReviewReport, String> {
             "integrity review does not detect malware or authorize remediation".to_string(),
         ],
     })
+}
+
+fn live_exact_file_report(
+    path: &str,
+    expected_sha256: &str,
+) -> Result<IntegrityReviewReport, String> {
+    let path = Path::new(path);
+    let parent = path
+        .parent()
+        .filter(|parent| parent.is_absolute())
+        .ok_or_else(|| "integrity exact-file path has no absolute parent".to_string())?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "integrity exact-file path has no valid final name".to_string())?;
+    let observed = open_observed_artifact(parent, file_name)
+        .map_err(|error| format!("observe exact integrity file: {error}"))?;
+    let expected_size = observed.size_bytes;
+    let expected_digest_matches = observed.sha256 == expected_sha256;
+    let evidence_sha256 = digest_parts(&[
+        "integrity.exact-file",
+        expected_sha256,
+        &observed.sha256,
+        &expected_size.to_string(),
+    ]);
+    let input = IntegrityFindingInput {
+        schema_version: 1,
+        contract: INTEGRITY_INPUT_CONTRACT.to_string(),
+        platform: std::env::consts::OS.to_string(),
+        input_evidence_sha256: evidence_sha256.clone(),
+        source_id: "integrity.exact-file".to_string(),
+        source_evidence_sha256: evidence_sha256,
+        records: vec![IntegrityRecord {
+            finding_id: format!("integrity.exact-file.{}", &observed.sha256[..16]),
+            subject_reference: format!("artifact:sha256:{}", &observed.sha256[..16]),
+            ownership: FindingOwnership::Unknown,
+            data_class: FindingDataClass::Unknown,
+            expected_digest_matches,
+            exact_evidence: ExactFindingEvidence {
+                sha256: observed.sha256,
+                size_bytes: observed.size_bytes,
+            },
+        }],
+    };
+    let finding_report = classify_integrity(&input)?;
+    Ok(IntegrityReviewReport {
+        schema_version: 1,
+        contract: INTEGRITY_REVIEW_CONTRACT,
+        read_only: true,
+        writes_attempted: false,
+        raw_paths_included: false,
+        platform: std::env::consts::OS,
+        baseline_status: "caller-supplied exact digest; not a runtime trust baseline",
+        finding_report,
+        warnings: vec![
+            "the exact file was observed through a path-safe opened artifact; the path is omitted from the report"
+                .to_string(),
+            "no trusted runtime baseline is configured; the supplied digest is evidence only"
+                .to_string(),
+            "integrity review does not detect malware or authorize remediation".to_string(),
+        ],
+    })
+}
+
+fn digest_parts(parts: &[&str]) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"runtime.zero.integrity-observation.v1\0");
+    for part in parts {
+        digest.update((part.len() as u64).to_be_bytes());
+        digest.update(part.as_bytes());
+    }
+    format!("{:x}", digest.finalize())
 }
 
 fn render_text(report: &IntegrityReviewReport) -> String {
@@ -196,7 +329,7 @@ fn render_text(report: &IntegrityReviewReport) -> String {
 }
 
 fn usage() -> String {
-    "Usage: rz0 integrity --dry-run --fixture <integrity-input.json> [--format text|json]\n\nReviews caller-supplied exact digest observations through the shared report contract. A trusted runtime baseline is not configured, so fixture input is mandatory. No remediation, malware-detection, quarantine, restore, or deletion path exists.\n".to_string()
+    "Usage: rz0 integrity --dry-run --fixture <integrity-input.json> [--format text|json]\n       rz0 integrity --dry-run --path <absolute-file> --sha256 <digest> [--format text|json]\n\nReviews caller-supplied exact digest observations through the shared report contract. The live exact-file form is bounded, path-safe, read-only, and still not a trusted runtime baseline. No remediation, malware-detection, quarantine, restore, or deletion path exists.\n".to_string()
 }
 
 fn integrity_risk_label(risk: rz0_finding_contract::FindingRisk) -> &'static str {
@@ -231,5 +364,48 @@ mod tests {
         let (code, _, error) = integrity_command(&["--dry-run".to_string()]);
         assert_eq!(code, ExitCode::Usage);
         assert!(error.contains("trusted baseline"));
+    }
+
+    #[test]
+    fn exact_file_review_is_read_only_path_free_and_unknown_owned() {
+        let root = std::env::temp_dir().join(format!(
+            "rz0-integrity-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir(&root).expect("create integrity test root");
+        let file = root.join("sample.bin");
+        let bytes = b"runtime.zero integrity sample";
+        fs::write(&file, bytes).expect("write integrity sample");
+        let expected = format!("{:x}", Sha256::digest(bytes));
+        let (code, output, error) = integrity_command(&[
+            "--dry-run".to_string(),
+            "--path".to_string(),
+            file.display().to_string(),
+            "--sha256".to_string(),
+            expected,
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::Ok);
+        assert!(error.is_empty());
+        let json: serde_json::Value = serde_json::from_str(&output).expect("integrity JSON");
+        assert_eq!(json["read_only"], true);
+        assert_eq!(json["writes_attempted"], false);
+        assert_eq!(json["raw_paths_included"], false);
+        assert_eq!(
+            json["baseline_status"],
+            "caller-supplied exact digest; not a runtime trust baseline"
+        );
+        assert_eq!(
+            json["finding_report"]["findings"][0]["ownership"],
+            "unknown"
+        );
+        assert!(!output.contains("sample.bin"));
+        fs::remove_file(file).expect("remove integrity sample");
+        fs::remove_dir(root).expect("remove integrity test root");
     }
 }
