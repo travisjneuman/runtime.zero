@@ -7,10 +7,10 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `1e782c8` (`Add developer-only signed module staging`); this status document
+  `26c1b44` (`Expose staged module status safely`); this status document
   is refreshed in a follow-up documentation-only commit.
 - **Current behavior implementation:**
-  `1e782c8` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `26c1b44` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -93,6 +93,7 @@ The TUI lifecycle-status parity slice is `9b7e01d`.
 The attention-first TUI evidence presentation slice is `1f94241`.
 The installed-module-byte status hardening slice is `17dd2e2`.
 The developer-only signed module staging slice is `1e782c8`.
+The staged-receipt status and TUI count slice is `26c1b44`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -113,8 +114,8 @@ Independent verification, repeated byte-identical packaging, four PTY terminal
 smoke cases, and ten-sample final-artifact performance evidence passed. The
 artifact remains unsigned and unnotarized until an owner-led signing/
 notarization lane exists. That package is intentionally recorded as historical
-evidence for `17dd2e2`; it was not rebuilt for `1e782c8`, so no current-release
-package claim is made for the developer staging slice.
+evidence for `17dd2e2`; it was not rebuilt for `1e782c8` or `26c1b44`, so no
+current-release package claim is made for the developer staging/status slices.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
