@@ -6,11 +6,11 @@ explicitly, `rz0 --no-tui` for deterministic text, and `rz0 --json` for the
 read-only machine-readable dashboard. Explicit subcommands never launch the
 TUI.
 
-The TUI is a Rust-first presentation of the same evidence, provider, action
-plan, confirmation, transaction, cancellation, receipt, and verification
-contracts used by the CLI. It is not a second authority path. The current
-repository is still pre-alpha; this guide describes the active implementation
-contract and does not claim public-release acceptance by itself.
+The TUI is the Rust-first Dossier Queue presentation of the same evidence,
+provider, action-plan, confirmation, transaction, cancellation, receipt, and
+verification contracts used by the CLI. It is not a second authority path.
+The repository remains pre-alpha; this guide records source and test evidence,
+not owner, platform, or public-release acceptance.
 
 ## First frame and loading
 
@@ -26,26 +26,24 @@ snapshot. The refresh frame explicitly says `refreshing local snapshot` so the
 request is visible even when the previous load has not completed yet.
 
 The shell is local and read-only until an exact provider action is reviewed,
-confirmed, executed, and freshly verified. Loading, unavailable, empty, and
-blocked are separate states; an empty result is not treated as “not loaded.”
+confirmed, executed, and freshly verified. Loading, ready, unavailable, empty,
+blocked, stale, and failed are separate states; an empty result is not treated
+as “not loaded.” Provider review is explicit (`u`) and cancellable, so a slow
+provider cannot block the ready local first screen.
 Provider probes run through the Rust process host in a detached Unix session so
 terminal-aware tools such as AIUP cannot reopen `/dev/tty` and overwrite the
 runtime.zero frame.
 
 ## Workspaces
 
-The dashboard has five stable destinations:
+The UI has five stable destinations:
 
-- `HOME`: local readiness, update-review state, and the next safe step;
-- `TOOLCHAIN`: Rust, AI, developer-tool, and provider-owned records, including
-  AIUP-managed candidates when the provider evidence identifies them;
-- `SOFTWARE`: installed applications and packages outside the toolchain;
-- `SYSTEM`: bounded CPU, memory, disk, network, and process evidence;
-- `DIAGNOSTICS`: store, registry, receipt, module, bounded quarantine recovery
-  review including transaction-journal validity, action-required, and
-  incomplete-review warning counts,
-  bounded cache/leftovers evidence including cache age-threshold and active-use
-  uncertainty, and integrity-baseline posture.
+- `OVERVIEW`: local readiness, attention, and the next safe step;
+- `EXPLORE`: searchable local evidence and provider observations;
+- `REVIEW`: exact action plans, findings, blocked boundaries, and confirmation
+  requirements;
+- `ACTIVITY`: running, cancellation, receipt, stale, and recovery evidence;
+- `MODULES`: registry-backed module posture without lifecycle authority.
 
 The Diagnostics workspace derives module lifecycle counts from the same
 registry/receipt status contract as `rz0 modules status`: valid evidence is
@@ -61,9 +59,9 @@ digest and the compact statement that network, production modules, shell
 execution, telemetry, and automatic lifecycle work remain disabled. The same
 digest is available from `rz0 config --format json`.
 
-The same two-panel shell is reused in every workspace. Home and the other
-workspaces do not expose a persistent command rail, duplicate status-card
-dashboard, or standalone Actions destination.
+The same bounded Dossier Queue shell is reused in every destination. Modules
+contribute typed records and references only; they cannot add global chrome,
+keymaps, focus regions, lifecycle state, confirmation, or execution authority.
 
 The primary list is intentionally concise: Home shows the next provider-review
 decision and small toolchain/software counts, while selected details carry
@@ -87,17 +85,15 @@ interactive layout. The scriptable text renderer uses the same dashboard model
 without raw mode. There are never more than two bordered content panels:
 
 ```text
-runtime.zero · local snapshot                          ready
-273 software · 0 modules · review first
-
-• Home • · Toolchain · Software · System · Diagnostics
-
-┌ Home / next step ───────────────────────┐ ┌ Selected ────────────────┐
-│ one focused list or task summary         │ │ source, state, next step │
-└──────────────────────────────────────────┘ └──────────────────────────┘
-
-status                                                        [? help]
-↑↓/jk move · Tab focus · Enter details · Review action [U] · q quit
+runtime.zero / OVERVIEW                         ready
+attention first · choose the next safe step
+[1 Overview] [2 Explore] [3 Review] [4 Activity] [5 Modules]
+┌ Overview · evidence queue ─────────────┐ ┌ Selected detail ─────────┐
+│ > [OK] local snapshot ready             │ │ source: overview         │
+│   [PLAN] provider review not requested   │ │ state: read-only         │
+└─────────────────────────────────────────┘ └───────────────────────────┘
+status · job idle
+↑↓/jk move · Tab focus · Enter detail/review · c confirm · q quit
 ```
 
 Named layout tiers keep content bounded:
@@ -118,37 +114,33 @@ labels without ANSI; JSON is always ANSI-free.
 
 - `q`: quit safely;
 - `r`: explicitly refresh the local snapshot;
-- `m`: select `SYSTEM`;
 - `u`: perform a read-only provider-availability review;
-- `U`: compatibility shortcut for `Review action`; it acts only on the exact
-  selected planned update through the shared safety path;
+- `c`: request the foundation-owned confirmation challenge for the selected
+  reviewable action;
 - `/`: search cached software records; Enter accepts and Esc cancels;
-- `f`: cycle software filters; `s`: cycle software sort order;
 - `Tab` / `Shift+Tab`: cycle navigation, selected details, and context pane;
 - arrows or `j`/`k`: move within the focused region;
 - `Home` / `End`: jump to the relevant boundary;
-- `Enter` / `Space`: open or close the selected explanation;
-- mouse wheel: move the list under the pointer by a bounded increment;
+- `Enter`: open detail or the read-only action review;
+- mouse click: select a route/record or open detail; wheel moves the bounded list;
 - `h` / `?`: open help; `Esc`: close details/help/search/confirmation before
   backing out or quitting.
 
-`Review action [U]` is a review entry point, not permission to write. The TUI
-must show the provider, exact target, executable identity, command, network and
-elevation requirements, rollback/recovery posture, action ID, and plan digest
-before it requests the short-lived exact confirmation phrase. Cancellation and
-failed or stale evidence remain visible and read-only.
+Review is an entry point, not permission to write. The TUI shows the exact
+foundation action reference, plan and write-set digests, target, risk,
+capabilities, network/elevation requirements, rollback/recovery posture, and
+action ID before it requests the short-lived exact confirmation phrase.
+Cancellation and failed or stale evidence remain visible and read-only.
 
 ## Evidence and provider posture
 
-The Toolchain workspace groups records by evidence-backed provider rather than
-assuming that a display name owns an update channel. Each tool row now includes
-the bounded provider ID in its value and selected explanation, including
-`aiup` for AIUP-managed evidence. It may show native AIUP,
-Cargo, rustup, npm-prefix, Homebrew, or other discovered provider records. Each
-record must remain visibly distinguishable as ready, update available,
-delegated, unavailable, observed-only, blocked, or unsupported. A provider that
-is not installed or not currently supported is reported as such; it is not
-silently promoted into an executable action.
+Explore and Review consume evidence-backed provider records rather than
+assuming that a display name owns an update channel. Each action record is
+derived from the foundation `ActionPlan` and carries sealed plan/write-set
+digests, risk, capabilities, confirmation, identity, rollback, and recovery
+posture. A planned update is re-prepared against fresh evidence by the
+existing foundation function before any challenge or execution; the UI never
+constructs or validates a plan itself.
 
 The `u` review may request bounded network metadata according to the existing
 CLI policy, but it never writes. A planned update still requires the shared
@@ -191,16 +183,19 @@ passing Rust test.
 
 ## Implementation boundaries
 
-- `src/tui_dashboard.rs` builds the bounded, serializable dashboard model and
-  provider/toolchain grouping;
-- `src/tui_render.rs` renders the scriptable text shell;
-- `src/tui_ratatui.rs` renders the interactive shell;
-- `src/tui_layout.rs`, `src/tui_canvas.rs`, and the `*_support.rs` modules own
-  layout, truncation, and style primitives;
-- `src/tui_state.rs` owns focus, navigation, details, search, confirmation,
-  and read-only state transitions;
-- `src/tui_app.rs` owns raw-mode lifecycle, event dispatch, background startup
-  loading, provider review workers, cancellation, and terminal restoration.
+- `src/tui_dashboard.rs` remains a foundation-owned bounded snapshot builder
+  used by CLI/text and the typed adapter; it is not an interactive renderer;
+- `src/tui_render.rs` is the retained scriptable text contract for `--no-tui`;
+- `src/ui/model.rs` and `src/ui/foundation_adapter.rs` define bounded typed
+  records and projections from foundation evidence/action plans;
+- `src/ui/messages.rs` and `src/ui/state.rs` define the reducer, focus,
+  overlays, search, confirmation input, stale generations, and job states;
+- `src/ui/layout.rs`, `src/ui/widgets.rs`, `src/ui/screens/`, and
+  `src/ui/theme.rs` own pure Ratatui composition;
+- `src/ui/terminal.rs` owns raw-mode lifecycle and one-at-a-time cancellable
+  workers that delegate review/prepare/execute to foundation contracts;
+- `src/ui/testkit.rs` owns deterministic TestBackend fixtures and buffer
+  assertions.
 
 The old command-rail component/module is retired. Future UI work should extend
 typed workspace/provider/action states and shared CLI contracts rather than

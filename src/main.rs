@@ -19,11 +19,7 @@ fn main() {
         let color = parsed
             .color_mode
             .enabled_for_tui(launch_context.stdout_is_tty);
-        let result = if runtime_zero::ui::next_frontend_requested() {
-            runtime_zero::ui::run_interactive_tui(&launch_context, color)
-        } else {
-            runtime_zero::tui_app::run_interactive_tui(&launch_context, color)
-        };
+        let result = runtime_zero::ui::run_interactive_tui(&launch_context, color);
         if let Err(err) = result {
             write_output_or_exit(
                 OutputStream::Stderr,

@@ -309,27 +309,23 @@ Review even a summary before sharing it.
 
 ## Interactive TUI
 
-The task-first TUI has five workspaces: Home, Toolchain, Software, System,
-and Diagnostics. It renders a loading shell before the full local inventory
-and monitor snapshot completes; an explicit `r` refresh is the only retry.
-`q` cancels an in-flight startup or refresh load, while `r` cancels the prior
-worker and rejects any late stale result before publishing the replacement
-snapshot. The refresh frame explicitly says `refreshing local snapshot` while
-the replacement load is in progress.
+The Dossier Queue TUI has five stable destinations: Overview, Explore, Review,
+Activity, and Modules. It renders a loading shell before the local snapshot
+completes; an explicit `r` refresh is the only retry. `u` separately requests
+cancellable provider review, so a slow provider cannot block the ready local
+first screen. `q` cancels in-flight work and rejects late stale results before
+publishing a replacement snapshot.
 Important controls:
 
 - `r`: refresh local inventory;
 - `u`: scan every discovered provider for availability and potentially read
   network metadata; it never applies an update;
-- `U`: compatibility shortcut for Review action on the highlighted installed-
-  software or provider row. The TUI
-  refreshes exact evidence, shows the manager/target/command and challenge
-  phrase, then executes after the phrase is entered and accepted;
-- `m`: select the System workspace;
-- `/`: search; `f`: filter; `s`: sort;
+- `c`: request the foundation confirmation challenge for a selected
+  reviewable action, then enter its exact phrase only if you intend to proceed;
+- `/`: search the current typed evidence set;
 - arrows or `j`/`k`: move; Home/End: boundaries;
-- Tab/Shift+Tab: change focus among navigation, details, and the selected
-  context pane; Enter/Space: details;
+- Tab/Shift+Tab: change focus among routes, records, detail, and footer;
+  Enter opens detail or the read-only action review;
 - `h`/`?`: help; Esc: back; `q`: quit.
 
 The TUI and CLI share the same exact action plan, confirmation, transaction,

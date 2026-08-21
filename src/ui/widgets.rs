@@ -27,6 +27,31 @@ pub fn draw_shell(frame: &mut Frame<'_>, state: &UiState, color: bool) {
     render_overlay(frame, plan.overlay, state, theme);
 }
 
+pub fn draw_overview(frame: &mut Frame<'_>, state: &UiState, color: bool) {
+    draw_destination(frame, state, color, Route::Overview);
+}
+
+pub fn draw_explore(frame: &mut Frame<'_>, state: &UiState, color: bool) {
+    draw_destination(frame, state, color, Route::Explore);
+}
+
+pub fn draw_review(frame: &mut Frame<'_>, state: &UiState, color: bool) {
+    draw_destination(frame, state, color, Route::Review);
+}
+
+pub fn draw_activity(frame: &mut Frame<'_>, state: &UiState, color: bool) {
+    draw_destination(frame, state, color, Route::Activity);
+}
+
+pub fn draw_modules(frame: &mut Frame<'_>, state: &UiState, color: bool) {
+    draw_destination(frame, state, color, Route::Modules);
+}
+
+fn draw_destination(frame: &mut Frame<'_>, state: &UiState, color: bool, route: Route) {
+    debug_assert_eq!(state.route, route);
+    draw_shell(frame, state, color);
+}
+
 pub fn render_route_screen(
     frame: &mut Frame<'_>,
     area: Rect,
@@ -49,6 +74,8 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Them
         ViewState::Unavailable { .. } => ("unavailable", Tone::Warn),
         ViewState::Empty { .. } => ("empty", Tone::Info),
         ViewState::Blocked { .. } => ("blocked", Tone::Danger),
+        ViewState::Stale { .. } => ("stale", Tone::Warn),
+        ViewState::Failed { .. } => ("failed", Tone::Danger),
     };
     let line = Line::from(vec![
         Span::styled("runtime.zero", theme.heading()),
@@ -61,13 +88,25 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Them
         Span::styled(readiness.0, theme.tone(readiness.1)),
     ]);
     let subtitle = format!(
-        "evidence-led operator console  ·  generation {}  ·  {}",
-        state.model.generation, state.model.status
+        "{}  ·  generation {}  ·  {}",
+        route_goal(state.route),
+        state.model.generation,
+        state.model.status,
     );
     frame.render_widget(
         Paragraph::new(vec![line, Line::from(truncate(&subtitle, area.width))]),
         area,
     );
+}
+
+fn route_goal(route: Route) -> &'static str {
+    match route {
+        Route::Overview => "attention first · choose the next safe step",
+        Route::Explore => "evidence index · inspect facts before action",
+        Route::Review => "action dossier · verify exact foundation authority",
+        Route::Activity => "activity ledger · receipts and recovery stay visible",
+        Route::Modules => "module registry · posture without lifecycle control",
+    }
 }
 
 fn render_routes(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
@@ -148,6 +187,8 @@ fn render_record_lines(
                 ViewState::Unavailable { .. } => "[WARN] evidence unavailable · r refresh",
                 ViewState::Empty { .. } => "[INFO] no records are available in this workspace",
                 ViewState::Blocked { .. } => "[BLOCKED] evidence is blocked by foundation policy",
+                ViewState::Stale { .. } => "[WARN] evidence is stale · r refresh",
+                ViewState::Failed { .. } => "[ERROR] evidence failed · r retry explicitly",
                 ViewState::Ready { .. } => "[INFO] no records match this view",
             },
             theme.tone(Tone::Muted),
@@ -263,6 +304,7 @@ fn render_status(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Them
         JobState::Succeeded { .. } => "succeeded · receipt verified",
         JobState::Cancelled { .. } => "cancelled · not rollback",
         JobState::Recovery { .. } => "recovery review required",
+        JobState::Failed { .. } => "failed · foundation rejected or could not complete",
     };
     let status = format!("{} · job {job}", state.model.status);
     frame.render_widget(
@@ -280,8 +322,10 @@ fn render_status(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Them
 fn render_keys(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
     let text = if state.search_active {
         "search  type to filter · Enter accept · Esc cancel"
+    } else if state.confirmation.is_some() {
+        "confirmation  type exact foundation phrase · Enter submit · Esc cancel"
     } else {
-        "↑↓/jk move · Tab focus · Enter detail/review · / search · r refresh · ? help · q quit"
+        "↑↓/jk move · Tab focus · Enter detail/review · c confirm · / search · r refresh · ? help · q quit"
     };
     frame.render_widget(
         Paragraph::new(Line::styled(text, theme.tone(Tone::Muted))),
@@ -303,7 +347,8 @@ fn render_overlay(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: The
                 "↑↓ or j/k       move; Home/End jump to boundaries".to_string(),
                 "Enter            open detail or read-only action review".to_string(),
                 "/                search current typed records".to_string(),
-                "r                explicit refresh; no automatic retry".to_string(),
+                "u                explicit provider review; no automatic retry".to_string(),
+                "r                refresh local evidence; no automatic retry".to_string(),
                 "Esc              close overlay; q quits safely".to_string(),
             ],
         ),
@@ -326,6 +371,10 @@ fn render_overlay(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: The
             "Read-only action review",
             action_review_lines(state, action_id),
         ),
+        Overlay::Confirmation(action_id) => (
+            "Foundation confirmation",
+            confirmation_lines(state, action_id),
+        ),
         Overlay::Recovery(transaction) => (
             "Recovery evidence",
             vec![
@@ -343,6 +392,44 @@ fn render_overlay(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: The
             .wrap(Wrap { trim: true }),
         area,
     );
+}
+
+fn confirmation_lines(state: &UiState, action_id: &super::model::BoundedId) -> Vec<String> {
+    let Some(prompt) = state.confirmation.as_ref() else {
+        return vec![
+            format!("reference: {action_id}"),
+            "confirmation challenge is unavailable".to_string(),
+            "Esc cancels without execution.".to_string(),
+        ];
+    };
+    vec![
+        "The foundation owns confirmation validation and execution.".to_string(),
+        format!("action: {}", prompt.action_id),
+        format!("plan: {}", prompt.plan_id),
+        format!("target: {}", prompt.target),
+        format!("risk: {}", prompt.risk),
+        format!("plan sha256: {}", prompt.plan_sha256),
+        format!(
+            "rollback: {}",
+            if prompt.rollback_available {
+                "available"
+            } else {
+                "not established"
+            }
+        ),
+        format!(
+            "manual recovery acknowledgement: {}",
+            if prompt.manual_recovery_acknowledged {
+                "recorded"
+            } else {
+                "required by foundation"
+            }
+        ),
+        format!("type exactly: {}", prompt.expected_phrase),
+        format!("input: {}", state.confirmation_input),
+        format!("expires: unix {}", prompt.expires_unix_seconds),
+        "Enter submits to foundation validation · Esc cancels".to_string(),
+    ]
 }
 
 fn action_review_lines(state: &UiState, action_id: &super::model::BoundedId) -> Vec<String> {
@@ -365,6 +452,10 @@ fn action_review_lines(state: &UiState, action_id: &super::model::BoundedId) -> 
             format!("operation: {}", action.review.operation),
             format!("target: {}", action.review.target),
             format!("authority: {}", action.review.authority),
+            format!("plan: {}", action.review.plan_id),
+            format!("plan sha256: {}", action.review.plan_sha256),
+            format!("write set sha256: {}", action.review.write_set_sha256),
+            format!("risk: {}", action.review.risk),
             format!(
                 "confirmation: {}",
                 if action.review.requires_confirmation {
@@ -373,7 +464,34 @@ fn action_review_lines(state: &UiState, action_id: &super::model::BoundedId) -> 
                     "not required"
                 }
             ),
-            "capabilities: foundation-defined; the UI grants none".to_string(),
+            format!(
+                "elevation: {} · network: {}",
+                if action.review.requires_elevation {
+                    "required"
+                } else {
+                    "not required"
+                },
+                if action.review.network_required {
+                    "required"
+                } else {
+                    "not required"
+                },
+            ),
+            format!(
+                "capabilities: {}",
+                if action.review.capabilities.is_empty() {
+                    "none".to_string()
+                } else {
+                    action
+                        .review
+                        .capabilities
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                }
+            ),
+            format!("rollback: {}", action.review.rollback),
             "recovery: foundation transaction and recovery evidence".to_string(),
             format!(
                 "executed: {}",

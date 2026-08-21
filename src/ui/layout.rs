@@ -50,8 +50,9 @@ impl LayoutPlan {
         let after_header = below(area, 2);
         let routes = take_top(after_header, 2);
         let body = below(after_header, 2);
-        let keys = take_bottom(body, 1);
-        let status = take_bottom(below(body, 1), 1);
+        let footer = take_bottom(body, 2);
+        let status = take_top(footer, 1);
+        let keys = take_bottom(footer, 1);
         let content = above(body, 2);
         let (primary, detail) = match tier {
             LayoutTier::VerySmall => (content, Rect::default()),
@@ -183,6 +184,11 @@ mod tests {
                 assert!(region.y >= area.y);
                 assert!(region.right() <= area.right());
                 assert!(region.bottom() <= area.bottom());
+            }
+            if plan.tier != LayoutTier::VerySmall {
+                assert_eq!(plan.status.bottom(), plan.keys.y);
+                assert_eq!(plan.status.height, 1);
+                assert_eq!(plan.keys.height, 1);
             }
         }
     }

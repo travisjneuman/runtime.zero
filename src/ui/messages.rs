@@ -1,4 +1,4 @@
-use super::model::{BoundedId, BoundedText, Route, UiModel};
+use super::model::{BoundedId, BoundedText, Route, UiActionRef, UiModel};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiIntent {
@@ -13,6 +13,7 @@ pub enum UiIntent {
     SelectIndex(usize),
     OpenDetail,
     ReviewSelected,
+    LoadProviderReview,
     ToggleHelp,
     Back,
     Refresh,
@@ -21,6 +22,12 @@ pub enum UiIntent {
     SearchBackspace,
     AcceptSearch,
     ReviewAction(BoundedId),
+    BeginConfirmation,
+    PrepareAction(BoundedId),
+    ConfirmationCharacter(char),
+    ConfirmationBackspace,
+    SubmitConfirmation,
+    CancelConfirmation,
     CancelJob,
 }
 
@@ -44,7 +51,7 @@ pub enum UiEvent {
         reason: BoundedText,
     },
     ActionReviewReady {
-        action_id: BoundedId,
+        action: UiActionRef,
     },
     ActionReviewUnavailable {
         action_id: BoundedId,
@@ -59,6 +66,10 @@ pub enum UiEvent {
         verification: BoundedId,
     },
     JobCancelled {
+        job_id: BoundedId,
+        reason: BoundedText,
+    },
+    JobFailed {
         job_id: BoundedId,
         reason: BoundedText,
     },

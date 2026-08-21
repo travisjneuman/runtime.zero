@@ -61,7 +61,7 @@ cell.
 | [`module-system.md`](module-system.md) | Module catalog, registry, manifests, enablement target, and core-versus-module ownership |
 | [`foundation-readiness.md`](foundation-readiness.md) | Current foundation maturity and prerequisites for broader module work |
 | [`tui.md`](tui.md) | Interactive routing, keys, layouts, rendering, accessibility, and TUI limitations |
-| [`tui-redesign.md`](tui-redesign.md) | Current task-first TUI product and acceptance contract |
+| [`tui-redesign.md`](tui-redesign.md) | Historical task-first TUI product decisions; see the active Dossier Queue guide |
 | [`tui-front-end-reset-rfc.md`](tui-front-end-reset-rfc.md) | Proposed Rust-first TUI product model, typed module UI boundary, visual direction, migration, and acceptance gates |
 | [`system-monitor.md`](system-monitor.md) | Native monitor schema, platform collectors, metric caveats, and no-remediation boundary |
 | [`inventory-schema.md`](inventory-schema.md) | Inventory report, collectors, privacy, validation, and remaining parity work |

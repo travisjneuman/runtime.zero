@@ -1,5 +1,7 @@
-use super::messages::UiIntent;
-use super::model::{BoundedId, BoundedText, JobState, Route, UiModel, ViewState};
+use super::messages::{UiEvent, UiIntent};
+use super::model::{
+    BoundedId, BoundedText, ConfirmationPrompt, JobState, Route, UiModel, ViewState,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FocusRegion {
@@ -29,6 +31,7 @@ pub enum Overlay {
     Search,
     Detail,
     ActionReview(BoundedId),
+    Confirmation(BoundedId),
     Recovery(BoundedId),
 }
 
@@ -43,6 +46,8 @@ pub struct UiState {
     pub search_active: bool,
     pub model: UiModel,
     pub job: JobState,
+    pub confirmation: Option<ConfirmationPrompt>,
+    pub confirmation_input: String,
 }
 
 impl UiState {
@@ -57,6 +62,8 @@ impl UiState {
             search_active: false,
             job: model.job.clone(),
             model,
+            confirmation: None,
+            confirmation_input: String::new(),
         }
     }
 
@@ -157,6 +164,40 @@ impl UiState {
                 }
                 None
             }
+            UiIntent::BeginConfirmation => {
+                if let Some(action) = self.selected_record().and_then(|record| {
+                    record.action_refs.iter().find(|action| {
+                        action.disposition == super::model::ActionDisposition::Reviewable
+                    })
+                }) {
+                    return Some(UiIntent::PrepareAction(action.action_id.clone()));
+                }
+                None
+            }
+            UiIntent::PrepareAction(_) => None,
+            UiIntent::LoadProviderReview => Some(UiIntent::LoadProviderReview),
+            UiIntent::ConfirmationCharacter(character) => {
+                if !character.is_control() && self.confirmation_input.chars().count() < 256 {
+                    self.confirmation_input.push(character);
+                }
+                None
+            }
+            UiIntent::ConfirmationBackspace => {
+                self.confirmation_input.pop();
+                None
+            }
+            UiIntent::SubmitConfirmation => Some(UiIntent::SubmitConfirmation),
+            UiIntent::CancelConfirmation => {
+                self.confirmation = None;
+                self.confirmation_input.clear();
+                self.overlay = Overlay::ActionReview(
+                    self.selected_record()
+                        .and_then(|record| record.action_refs.first())
+                        .map(|action| action.action_id.clone())
+                        .unwrap_or_else(|| BoundedId::try_new("review/unavailable").expect("id")),
+                );
+                Some(UiIntent::CancelConfirmation)
+            }
             UiIntent::ToggleHelp => {
                 self.overlay = if self.overlay == Overlay::Help {
                     Overlay::None
@@ -166,6 +207,12 @@ impl UiState {
                 None
             }
             UiIntent::Back => {
+                if self.confirmation.is_some() {
+                    self.confirmation = None;
+                    self.confirmation_input.clear();
+                    self.overlay = Overlay::None;
+                    return Some(UiIntent::CancelConfirmation);
+                }
                 if self.overlay != Overlay::None {
                     self.overlay = Overlay::None;
                 } else if self.focus != FocusRegion::Routes {
@@ -225,6 +272,115 @@ impl UiState {
         self.selected = 0;
     }
 
+    pub fn apply_event(&mut self, event: UiEvent) -> Option<UiIntent> {
+        match event {
+            UiEvent::Input(intent) => self.apply(intent),
+            UiEvent::Resize { .. } => None,
+            UiEvent::SnapshotReady { generation, model } => {
+                if generation >= self.model.generation {
+                    self.apply_model(model);
+                }
+                None
+            }
+            UiEvent::SnapshotUnavailable { generation, reason } => {
+                self.mark_snapshot_unavailable(generation, reason);
+                None
+            }
+            UiEvent::SnapshotCancelled { generation, reason } => {
+                if generation >= self.model.generation {
+                    self.mark_snapshot_unavailable(generation, reason.clone());
+                    self.set_job(JobState::Cancelled {
+                        job_id: BoundedId::try_new(format!("snapshot/{generation}"))
+                            .expect("snapshot id"),
+                        reason,
+                    });
+                }
+                None
+            }
+            UiEvent::ActionReviewReady { action } => {
+                self.overlay = Overlay::ActionReview(action.action_id);
+                self.set_job(JobState::Idle);
+                None
+            }
+            UiEvent::ActionReviewUnavailable { action_id, reason } => {
+                self.overlay = Overlay::ActionReview(action_id);
+                self.model.status = reason;
+                self.set_job(JobState::Failed {
+                    job_id: BoundedId::try_new("action-review").expect("id"),
+                    reason: self.model.status.clone(),
+                });
+                None
+            }
+            UiEvent::JobRunning { job_id, phase } => {
+                self.set_job(JobState::Running { job_id, phase });
+                None
+            }
+            UiEvent::JobSucceeded {
+                receipt,
+                verification,
+            } => {
+                self.set_job(JobState::Succeeded {
+                    receipt,
+                    verification,
+                });
+                self.mark_stale("action completed; refresh for new evidence");
+                None
+            }
+            UiEvent::JobCancelled { job_id, reason } => {
+                self.set_job(JobState::Cancelled { job_id, reason });
+                None
+            }
+            UiEvent::JobFailed { job_id, reason } => {
+                self.set_job(JobState::Failed {
+                    job_id,
+                    reason: reason.clone(),
+                });
+                self.model.state = ViewState::Failed {
+                    generation: self.model.generation,
+                    reason: reason.clone(),
+                };
+                None
+            }
+            UiEvent::RecoveryRequired {
+                transaction,
+                decision,
+            } => {
+                self.set_job(JobState::Recovery {
+                    transaction,
+                    decision,
+                });
+                None
+            }
+        }
+    }
+
+    pub fn set_confirmation(&mut self, prompt: ConfirmationPrompt) {
+        self.overlay = Overlay::Confirmation(prompt.action_id.clone());
+        self.confirmation_input.clear();
+        self.confirmation = Some(prompt);
+    }
+
+    pub fn clear_confirmation(&mut self) {
+        self.confirmation = None;
+        self.confirmation_input.clear();
+    }
+
+    pub fn mark_stale(&mut self, reason: impl Into<String>) {
+        let reason =
+            BoundedText::try_new(reason.into()).unwrap_or_else(|_| BoundedText::redacted());
+        self.model.state = ViewState::Stale {
+            generation: self.model.generation,
+            reason: reason.clone(),
+        };
+        for route in &mut self.model.routes {
+            route.state = ViewState::Stale {
+                generation: self.model.generation,
+                reason: reason.clone(),
+            };
+        }
+        self.model.status = reason;
+    }
+
     pub fn set_job(&mut self, job: JobState) {
         self.job = job.clone();
         self.model.job = job;
@@ -254,6 +410,10 @@ impl UiState {
                 None
             }
             UiIntent::Quit => Some(UiIntent::Quit),
+            UiIntent::CancelConfirmation
+            | UiIntent::BeginConfirmation
+            | UiIntent::PrepareAction(_)
+            | UiIntent::SubmitConfirmation => None,
             _ => None,
         }
     }
@@ -320,5 +480,65 @@ mod tests {
         state.apply(UiIntent::Back);
         assert_eq!(state.focus, FocusRegion::Routes);
         assert_eq!(state.apply(UiIntent::Back), Some(UiIntent::Quit));
+    }
+
+    #[test]
+    fn foundation_job_events_cover_success_stale_recovery_cancel_and_failure() {
+        let mut state = UiState::new(fixture_model());
+        state.apply_event(UiEvent::JobRunning {
+            job_id: BoundedId::try_new("job/1").expect("id"),
+            phase: BoundedText::try_new("preparing").expect("text"),
+        });
+        assert!(matches!(state.job, JobState::Running { .. }));
+        state.apply_event(UiEvent::JobSucceeded {
+            receipt: BoundedId::try_new("receipt/1").expect("id"),
+            verification: BoundedId::try_new("verify/1").expect("id"),
+        });
+        assert_eq!(state.view_state().label(), "stale");
+        state.apply_event(UiEvent::RecoveryRequired {
+            transaction: BoundedId::try_new("transaction/1").expect("id"),
+            decision: BoundedText::try_new("review required").expect("text"),
+        });
+        assert!(matches!(state.job, JobState::Recovery { .. }));
+        state.apply_event(UiEvent::JobCancelled {
+            job_id: BoundedId::try_new("job/1").expect("id"),
+            reason: BoundedText::try_new("user requested").expect("text"),
+        });
+        assert!(matches!(state.job, JobState::Cancelled { .. }));
+        state.apply_event(UiEvent::JobFailed {
+            job_id: BoundedId::try_new("job/1").expect("id"),
+            reason: BoundedText::try_new("foundation failure").expect("text"),
+        });
+        assert_eq!(state.view_state().label(), "failed");
+    }
+
+    #[test]
+    fn confirmation_input_is_local_and_submission_is_outbound() {
+        let mut state = UiState::new(fixture_model());
+        state.route = Route::Review;
+        state.apply(UiIntent::BeginConfirmation);
+        assert_eq!(
+            state
+                .selected_record()
+                .and_then(|record| record.action_refs.first()),
+            Some(&state.model.route(Route::Review).records[0].action_refs[0])
+        );
+        state.set_confirmation(ConfirmationPrompt {
+            action_id: BoundedId::try_new("fixture/review-action").expect("id"),
+            plan_id: BoundedId::try_new("fixture/plan").expect("id"),
+            plan_sha256: BoundedText::try_new("digest").expect("text"),
+            target: BoundedText::try_new("fixture").expect("text"),
+            expected_phrase: BoundedText::try_new("CONFIRM fixture").expect("text"),
+            risk: BoundedText::try_new("medium").expect("text"),
+            expires_unix_seconds: 1,
+            rollback_available: true,
+            manual_recovery_acknowledged: false,
+        });
+        state.apply(UiIntent::ConfirmationCharacter('C'));
+        assert_eq!(state.confirmation_input, "C");
+        assert_eq!(
+            state.apply(UiIntent::SubmitConfirmation),
+            Some(UiIntent::SubmitConfirmation)
+        );
     }
 }

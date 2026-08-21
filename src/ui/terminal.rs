@@ -21,13 +21,33 @@ use ratatui::layout::Rect;
 use super::foundation_adapter;
 use super::layout::LayoutPlan;
 use super::messages::UiIntent;
-use super::model::Route;
+use super::model::{BoundedId, BoundedText, JobState, Route};
 use super::screens;
 use super::state::{FocusRegion, UiState};
 use crate::launch_routing::LaunchRoutingReport;
 use crate::tui_dashboard;
+use crate::update_cli::TuiUpdateChallenge;
+use crate::update_execution::{UpdateExecutionReport, UpdateExecutionStatus};
+use crate::updates::{self, LiveUpdateReview};
 
-type SnapshotResult = (u64, Result<tui_dashboard::TuiDashboard, String>);
+type SnapshotResult = (u64, Result<SnapshotData, String>);
+
+struct SnapshotData {
+    dashboard: tui_dashboard::TuiDashboard,
+}
+
+type ReviewResult = (u64, Result<LiveUpdateReview, String>);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ActionPhase {
+    Prepare,
+    Execute,
+}
+
+enum ActionResult {
+    Challenge(Box<Result<TuiUpdateChallenge, String>>),
+    Execution(Result<UpdateExecutionReport, String>),
+}
 
 pub fn run_interactive_tui(_launch_context: &LaunchRoutingReport, color: bool) -> io::Result<()> {
     let mut stdout = io::stdout();
@@ -44,16 +64,25 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
     let mut generation = 0u64;
     let (mut controller, receiver) = start_snapshot_load(generation);
     let mut receiver = Some(receiver);
+    let mut dashboard: Option<tui_dashboard::TuiDashboard> = None;
+    let mut review_controller = None;
+    let mut review_receiver: Option<Receiver<ReviewResult>> = None;
     let mut state = UiState::new(foundation_adapter::loading_model(generation));
+    let mut action_controller = None;
+    let mut action_receiver = None;
+    let mut action_phase = None;
+    let mut pending_challenge: Option<TuiUpdateChallenge> = None;
     draw(terminal, &state, color)?;
 
     loop {
         if let Some((result_generation, result)) = poll_snapshot(&mut receiver, generation) {
             if result_generation == generation {
                 match result {
-                    Ok(dashboard) => {
+                    Ok(snapshot) => {
+                        dashboard = Some(snapshot.dashboard);
                         state.apply_model(foundation_adapter::model_from_dashboard(
-                            &dashboard, generation,
+                            dashboard.as_ref().expect("dashboard snapshot"),
+                            generation,
                         ));
                     }
                     Err(reason) => state.mark_snapshot_unavailable(
@@ -62,6 +91,31 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
                             .unwrap_or_else(|_| super::model::BoundedText::redacted()),
                     ),
                 }
+                draw(terminal, &state, color)?;
+            }
+        }
+
+        if let Some(result) = poll_action_result(&mut action_receiver, action_phase) {
+            finish_action_result(
+                &mut state,
+                result,
+                &mut action_controller,
+                &mut action_phase,
+                &mut pending_challenge,
+            );
+            draw(terminal, &state, color)?;
+        }
+
+        if let Some((review_generation, result)) =
+            poll_review_result(&mut review_receiver, generation)
+        {
+            if review_generation == generation {
+                finish_review_result(
+                    &mut state,
+                    dashboard.as_ref().expect("dashboard snapshot"),
+                    result,
+                    &mut review_controller,
+                );
                 draw(terminal, &state, color)?;
             }
         }
@@ -75,17 +129,46 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
         };
         if matches!(intent, UiIntent::Quit) {
             controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+            cancel_action(
+                &mut action_controller,
+                &mut action_receiver,
+                &mut action_phase,
+                &mut pending_challenge,
+                &mut state,
+            );
+            cancel_review(&mut review_controller, &mut review_receiver, &mut state);
             break;
         }
         if matches!(intent, UiIntent::Refresh) {
             controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+            cancel_action(
+                &mut action_controller,
+                &mut action_receiver,
+                &mut action_phase,
+                &mut pending_challenge,
+                &mut state,
+            );
+            cancel_review(&mut review_controller, &mut review_receiver, &mut state);
             generation = generation.wrapping_add(1);
             let (new_controller, new_receiver) = start_snapshot_load(generation);
             controller = new_controller;
             receiver = Some(new_receiver);
+            dashboard = None;
             state.apply_model(foundation_adapter::loading_model(generation));
         } else {
-            state.apply(intent);
+            let outward = state.apply(intent);
+            handle_outward_intent(
+                outward,
+                &mut state,
+                dashboard.as_ref(),
+                generation,
+                &mut review_controller,
+                &mut review_receiver,
+                &mut action_controller,
+                &mut action_receiver,
+                &mut action_phase,
+                &mut pending_challenge,
+            );
         }
         draw(terminal, &state, color)?;
     }
@@ -111,7 +194,8 @@ fn start_snapshot_load(
     let (controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
     let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
-        let result = tui_dashboard::dashboard_cancellable(&cancellation);
+        let result = tui_dashboard::dashboard_cancellable(&cancellation)
+            .map(|dashboard| SnapshotData { dashboard });
         let _ = sender.send((generation, result));
     });
     (controller, receiver)
@@ -134,6 +218,310 @@ fn poll_snapshot(
     }
 }
 
+fn poll_review_result(
+    receiver: &mut Option<Receiver<ReviewResult>>,
+    generation: u64,
+) -> Option<ReviewResult> {
+    match receiver.as_ref().map(Receiver::try_recv) {
+        Some(Ok(result)) => {
+            *receiver = None;
+            Some(result)
+        }
+        Some(Err(TryRecvError::Disconnected)) => {
+            *receiver = None;
+            Some((
+                generation,
+                Err("provider review worker disconnected".to_string()),
+            ))
+        }
+        Some(Err(TryRecvError::Empty)) | None => None,
+    }
+}
+
+fn start_review(
+    generation: u64,
+    dashboard: &tui_dashboard::TuiDashboard,
+    state: &mut UiState,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    receiver: &mut Option<Receiver<ReviewResult>>,
+) {
+    if receiver.is_some() {
+        return;
+    }
+    let Some(catalog) = dashboard.clone().start_update_check() else {
+        state.apply_event(super::messages::UiEvent::ActionReviewUnavailable {
+            action_id: bounded_id("provider-review/unavailable"),
+            reason: bounded("software evidence is unavailable"),
+        });
+        return;
+    };
+    state.set_job(JobState::Running {
+        job_id: bounded_id("provider-review"),
+        phase: bounded("reading provider evidence · no writes"),
+    });
+    let (new_controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+    let (sender, new_receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let result = updates::collect_live_update_review_cancellable(&catalog, Some(&cancellation));
+        let _ = sender.send((generation, result));
+    });
+    *controller = Some(new_controller);
+    *receiver = Some(new_receiver);
+}
+
+fn finish_review_result(
+    state: &mut UiState,
+    dashboard: &tui_dashboard::TuiDashboard,
+    result: Result<LiveUpdateReview, String>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+) {
+    *controller = None;
+    match result {
+        Ok(review) => {
+            let generation = state.model.generation;
+            state.apply_model(foundation_adapter::model_from_dashboard_and_review(
+                dashboard,
+                generation,
+                Some(&review),
+                None,
+            ));
+            state.set_job(JobState::Idle);
+        }
+        Err(reason) => {
+            state.apply_event(super::messages::UiEvent::ActionReviewUnavailable {
+                action_id: bounded_id("provider-review/unavailable"),
+                reason: bounded(reason),
+            });
+        }
+    }
+}
+
+fn cancel_review(
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    receiver: &mut Option<Receiver<ReviewResult>>,
+    state: &mut UiState,
+) {
+    if let Some(controller) = controller.take() {
+        controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+    }
+    if receiver.take().is_some() {
+        state.set_job(JobState::Cancelled {
+            job_id: bounded_id("provider-review"),
+            reason: bounded("user requested cancellation; no writes were attempted"),
+        });
+    }
+}
+
+fn poll_action_result(
+    receiver: &mut Option<Receiver<ActionResult>>,
+    phase: Option<ActionPhase>,
+) -> Option<ActionResult> {
+    match receiver.as_ref().map(Receiver::try_recv) {
+        Some(Ok(result)) => {
+            *receiver = None;
+            Some(result)
+        }
+        Some(Err(TryRecvError::Disconnected)) => {
+            *receiver = None;
+            Some(match phase {
+                Some(ActionPhase::Prepare) | None => ActionResult::Challenge(Box::new(Err(
+                    "foundation confirmation worker disconnected".to_string(),
+                ))),
+                Some(ActionPhase::Execute) => ActionResult::Execution(Err(
+                    "foundation execution worker disconnected".to_string(),
+                )),
+            })
+        }
+        Some(Err(TryRecvError::Empty)) | None => None,
+    }
+}
+
+fn start_action_prepare(
+    action_id: BoundedId,
+    state: &mut UiState,
+    receiver: &mut Option<Receiver<ActionResult>>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    phase: &mut Option<ActionPhase>,
+) {
+    if receiver.is_some() {
+        return;
+    }
+    let job_id = action_id.clone();
+    state.set_job(JobState::Running {
+        job_id,
+        phase: bounded("preparing exact foundation confirmation"),
+    });
+    let (new_controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+    let (sender, new_receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let result = crate::update_cli::prepare_tui_update(action_id.as_str(), Some(&cancellation));
+        let _ = sender.send(ActionResult::Challenge(Box::new(result)));
+    });
+    *controller = Some(new_controller);
+    *receiver = Some(new_receiver);
+    *phase = Some(ActionPhase::Prepare);
+}
+
+fn start_action_execution(
+    challenge: TuiUpdateChallenge,
+    phrase: String,
+    state: &mut UiState,
+    receiver: &mut Option<Receiver<ActionResult>>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    phase: &mut Option<ActionPhase>,
+) {
+    if receiver.is_some() {
+        return;
+    }
+    let job_id = bounded_id(challenge.action.action_id.clone());
+    state.clear_confirmation();
+    state.set_job(JobState::Running {
+        job_id,
+        phase: bounded("executing foundation transaction"),
+    });
+    let (new_controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+    let (sender, new_receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let result = crate::update_cli::execute_tui_update(challenge, &phrase, &cancellation);
+        let _ = sender.send(ActionResult::Execution(result));
+    });
+    *controller = Some(new_controller);
+    *receiver = Some(new_receiver);
+    *phase = Some(ActionPhase::Execute);
+}
+
+fn handle_outward_intent(
+    intent: Option<UiIntent>,
+    state: &mut UiState,
+    dashboard: Option<&tui_dashboard::TuiDashboard>,
+    generation: u64,
+    review_controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    review_receiver: &mut Option<Receiver<ReviewResult>>,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    receiver: &mut Option<Receiver<ActionResult>>,
+    phase: &mut Option<ActionPhase>,
+    pending_challenge: &mut Option<TuiUpdateChallenge>,
+) {
+    match intent {
+        Some(UiIntent::LoadProviderReview) => {
+            if let Some(dashboard) = dashboard {
+                start_review(
+                    generation,
+                    dashboard,
+                    state,
+                    review_controller,
+                    review_receiver,
+                );
+            }
+        }
+        Some(UiIntent::PrepareAction(action_id)) => {
+            start_action_prepare(action_id, state, receiver, controller, phase);
+        }
+        Some(UiIntent::SubmitConfirmation) => {
+            let Some(challenge) = pending_challenge.take() else {
+                return;
+            };
+            let phrase = state.confirmation_input.clone();
+            start_action_execution(challenge, phrase, state, receiver, controller, phase);
+        }
+        Some(UiIntent::CancelConfirmation) => {
+            cancel_action(controller, receiver, phase, pending_challenge, state);
+        }
+        Some(UiIntent::CancelJob) => {
+            cancel_action(controller, receiver, phase, pending_challenge, state);
+            cancel_review(review_controller, review_receiver, state);
+        }
+        _ => {}
+    }
+}
+
+fn finish_action_result(
+    state: &mut UiState,
+    result: ActionResult,
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    phase: &mut Option<ActionPhase>,
+    pending_challenge: &mut Option<TuiUpdateChallenge>,
+) {
+    *controller = None;
+    *phase = None;
+    match result {
+        ActionResult::Challenge(result) => match *result {
+            Ok(challenge) => {
+                let prompt = foundation_adapter::confirmation_prompt(&challenge);
+                state.set_confirmation(prompt);
+                state.set_job(JobState::Idle);
+                *pending_challenge = Some(challenge);
+            }
+            Err(reason) => {
+                let action_id = state
+                    .selected_record()
+                    .and_then(|record| record.action_refs.first())
+                    .map(|action| action.action_id.clone())
+                    .unwrap_or_else(|| bounded_id("action-review/unavailable"));
+                state.apply_event(super::messages::UiEvent::ActionReviewUnavailable {
+                    action_id,
+                    reason: bounded(reason),
+                });
+            }
+        },
+        ActionResult::Execution(result) => match result {
+            Ok(report) => match report.status {
+                UpdateExecutionStatus::Committed => {
+                    state.apply_event(super::messages::UiEvent::JobSucceeded {
+                        receipt: bounded_id(report.receipt_reference),
+                        verification: bounded_id(report.verification),
+                    });
+                }
+                UpdateExecutionStatus::RecoveryRequired => {
+                    state.apply_event(super::messages::UiEvent::RecoveryRequired {
+                        transaction: bounded_id(report.transaction_id),
+                        decision: bounded("foundation recovery evidence requires review"),
+                    });
+                }
+            },
+            Err(reason) => {
+                let job_id = state
+                    .selected_record()
+                    .and_then(|record| record.action_refs.first())
+                    .map(|action| action.action_id.clone())
+                    .unwrap_or_else(|| bounded_id("action/unknown"));
+                state.apply_event(super::messages::UiEvent::JobFailed {
+                    job_id,
+                    reason: bounded(reason),
+                });
+            }
+        },
+    }
+}
+
+fn cancel_action(
+    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
+    receiver: &mut Option<Receiver<ActionResult>>,
+    phase: &mut Option<ActionPhase>,
+    pending_challenge: &mut Option<TuiUpdateChallenge>,
+    state: &mut UiState,
+) {
+    if let Some(controller) = controller.take() {
+        controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+    }
+    receiver.take();
+    *phase = None;
+    *pending_challenge = None;
+    state.clear_confirmation();
+    state.set_job(JobState::Cancelled {
+        job_id: bounded_id("action/cancelled"),
+        reason: bounded("user requested cancellation; no rollback was attempted"),
+    });
+}
+
+fn bounded(value: impl Into<String>) -> BoundedText {
+    BoundedText::try_new(value).unwrap_or_else(|_| BoundedText::redacted())
+}
+
+fn bounded_id(value: impl Into<String>) -> BoundedId {
+    BoundedId::try_new(value).unwrap_or_else(|_| BoundedId::try_new("action/unknown").expect("id"))
+}
+
 fn intent_from_event(event: Event, area: Rect, state: &UiState) -> Option<UiIntent> {
     match event {
         Event::Key(key) if key.kind == KeyEventKind::Press => intent_from_key(key, state),
@@ -144,6 +532,17 @@ fn intent_from_event(event: Event, area: Rect, state: &UiState) -> Option<UiInte
 }
 
 fn intent_from_key(key: KeyEvent, state: &UiState) -> Option<UiIntent> {
+    if state.confirmation.is_some() {
+        return match key.code {
+            KeyCode::Esc => Some(UiIntent::Back),
+            KeyCode::Enter => Some(UiIntent::SubmitConfirmation),
+            KeyCode::Backspace => Some(UiIntent::ConfirmationBackspace),
+            KeyCode::Char(character) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                Some(UiIntent::ConfirmationCharacter(character))
+            }
+            _ => None,
+        };
+    }
     if state.search_active {
         return match key.code {
             KeyCode::Esc => Some(UiIntent::Back),
@@ -158,6 +557,7 @@ fn intent_from_key(key: KeyEvent, state: &UiState) -> Option<UiIntent> {
     match key.code {
         KeyCode::Char('q') | KeyCode::Char('Q') => Some(UiIntent::Quit),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Some(UiIntent::Quit),
+        KeyCode::Esc if matches!(state.job, JobState::Running { .. }) => Some(UiIntent::CancelJob),
         KeyCode::Esc => Some(UiIntent::Back),
         KeyCode::Tab => Some(UiIntent::FocusNext),
         KeyCode::BackTab => Some(UiIntent::FocusPrevious),
@@ -167,7 +567,8 @@ fn intent_from_key(key: KeyEvent, state: &UiState) -> Option<UiIntent> {
         KeyCode::End => Some(UiIntent::SelectLast),
         KeyCode::Enter if state.focus == FocusRegion::Detail => Some(UiIntent::ReviewSelected),
         KeyCode::Enter if state.focus == FocusRegion::Primary => Some(UiIntent::OpenDetail),
-        KeyCode::Char('u') | KeyCode::Char('U') => Some(UiIntent::ReviewSelected),
+        KeyCode::Char('u') | KeyCode::Char('U') => Some(UiIntent::LoadProviderReview),
+        KeyCode::Char('c') | KeyCode::Char('C') => Some(UiIntent::BeginConfirmation),
         KeyCode::Char('/') => Some(UiIntent::BeginSearch),
         KeyCode::Char('?') | KeyCode::Char('h') | KeyCode::Char('H') => Some(UiIntent::ToggleHelp),
         KeyCode::Char('r') | KeyCode::Char('R') => Some(UiIntent::Refresh),
@@ -197,7 +598,7 @@ fn intent_from_mouse(mouse: MouseEvent, area: Rect, _state: &UiState) -> Option<
                 return Some(UiIntent::SelectIndex(index));
             }
             if plan.detail.contains((x, y).into()) {
-                return Some(UiIntent::ReviewSelected);
+                return Some(UiIntent::OpenDetail);
             }
             None
         }
@@ -276,6 +677,34 @@ mod tests {
     }
 
     #[test]
+    fn confirmation_key_mapping_never_treats_phrase_input_as_navigation() {
+        let mut state = UiState::new(super::super::testkit::fixture_model());
+        state.set_confirmation(super::super::model::ConfirmationPrompt {
+            action_id: super::super::model::BoundedId::try_new("fixture/action").expect("id"),
+            plan_id: super::super::model::BoundedId::try_new("fixture/plan").expect("id"),
+            plan_sha256: super::super::model::BoundedText::try_new("digest").expect("text"),
+            target: super::super::model::BoundedText::try_new("fixture").expect("text"),
+            expected_phrase: super::super::model::BoundedText::try_new("CONFIRM").expect("text"),
+            risk: super::super::model::BoundedText::try_new("medium").expect("text"),
+            expires_unix_seconds: 1,
+            rollback_available: true,
+            manual_recovery_acknowledged: false,
+        });
+        assert_eq!(
+            intent_from_key(KeyEvent::from(KeyCode::Char('r')), &state),
+            Some(UiIntent::ConfirmationCharacter('r'))
+        );
+        assert_eq!(
+            intent_from_key(KeyEvent::from(KeyCode::Enter), &state),
+            Some(UiIntent::SubmitConfirmation)
+        );
+        assert_eq!(
+            intent_from_key(KeyEvent::from(KeyCode::Esc), &state),
+            Some(UiIntent::Back)
+        );
+    }
+
+    #[test]
     fn mouse_navigation_is_bounded_to_named_regions() {
         let state = UiState::new(super::super::testkit::fixture_model());
         let area = Rect::new(0, 0, 118, 30);
@@ -295,7 +724,12 @@ mod tests {
     #[test]
     fn published_snapshot_receiver_is_consumed_once_per_generation() {
         let (sender, receiver) = mpsc::channel();
-        let snapshot: SnapshotResult = (7, Ok(tui_dashboard::dashboard()));
+        let snapshot: SnapshotResult = (
+            7,
+            Ok(SnapshotData {
+                dashboard: tui_dashboard::dashboard(),
+            }),
+        );
         sender.send(snapshot).expect("snapshot");
         drop(sender);
         let mut receiver = Some(receiver);

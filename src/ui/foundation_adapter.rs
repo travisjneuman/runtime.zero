@@ -1,9 +1,13 @@
 use super::model::{
-    ActionDisposition, BoundedId, BoundedText, DetailField, EvidenceRef, EvidenceSource, Freshness,
-    RecordKind, RecordStatus, RedactionState, ReviewBoundary, Route, RouteProjection, SearchTerms,
+    ActionDisposition as UiActionDisposition, ActionReviewSummary, BoundedId, BoundedText,
+    ConfirmationPrompt, DetailField, EvidenceRef, EvidenceSource, Freshness, RecordKind,
+    RecordStatus, RedactionState, ReviewBoundary, Route, RouteProjection, SearchTerms, UiActionRef,
     UiModel, UiRecord, ViewState,
 };
 use crate::tui_dashboard::{TuiDashboard, TuiRow, TuiSection};
+use crate::update_cli::TuiUpdateChallenge;
+use crate::updates::LiveUpdateReview;
+use rz0_action_plan::{ActionDisposition, ActionKind, ActionPlan};
 
 pub fn loading_model(generation: u64) -> UiModel {
     UiModel::loading(generation)
@@ -13,7 +17,31 @@ pub fn unavailable_model(generation: u64, reason: &str) -> UiModel {
     UiModel::unavailable(generation, public_text(reason).as_str())
 }
 
+pub(crate) fn confirmation_prompt(challenge: &TuiUpdateChallenge) -> ConfirmationPrompt {
+    let view = &challenge.view;
+    ConfirmationPrompt {
+        action_id: bounded_id(view.action_id.clone()),
+        plan_id: bounded_id(view.plan_id.clone()),
+        plan_sha256: bounded(view.plan_sha256.clone()),
+        target: bounded(public_text(&view.target)),
+        expected_phrase: bounded(public_text(&view.expected_phrase)),
+        risk: bounded(format!("{:?}", view.risk).to_ascii_lowercase()),
+        expires_unix_seconds: view.expires_unix_seconds,
+        rollback_available: view.rollback_available,
+        manual_recovery_acknowledged: view.manual_recovery_acknowledged,
+    }
+}
+
 pub fn model_from_dashboard(dashboard: &TuiDashboard, generation: u64) -> UiModel {
+    model_from_dashboard_and_review(dashboard, generation, None, None)
+}
+
+pub(crate) fn model_from_dashboard_and_review(
+    dashboard: &TuiDashboard,
+    generation: u64,
+    review: Option<&LiveUpdateReview>,
+    review_error: Option<&str>,
+) -> UiModel {
     let mut model = UiModel::loading(generation);
     let ready = ViewState::Ready { generation };
     let overview = records_for_section(
@@ -27,7 +55,7 @@ pub fn model_from_dashboard(dashboard: &TuiDashboard, generation: u64) -> UiMode
         .iter()
         .flat_map(|section| records_from_section(section, Route::Explore, RecordKind::Inventory))
         .collect::<Vec<_>>();
-    let review = dashboard
+    let mut review_records = dashboard
         .sections
         .iter()
         .flat_map(|section| {
@@ -38,11 +66,14 @@ pub fn model_from_dashboard(dashboard: &TuiDashboard, generation: u64) -> UiMode
                         || record.status == RecordStatus::Warn
                         || record.status == RecordStatus::Blocked
                         || record.review_boundary.as_ref().is_some_and(|boundary| {
-                            boundary.disposition != ActionDisposition::Unavailable
+                            boundary.disposition != UiActionDisposition::Unavailable
                         })
                 })
         })
         .collect::<Vec<_>>();
+    if let Some(review) = review {
+        review_records.extend(action_records(review.plan.as_ref()));
+    }
     let activity = dashboard
         .sections
         .iter()
@@ -75,8 +106,29 @@ pub fn model_from_dashboard(dashboard: &TuiDashboard, generation: u64) -> UiMode
         Route::Review,
         ready.clone(),
         "plans, findings, and blocked boundaries",
-        review,
+        review_records,
     );
+    if let Some(reason) = review_error {
+        let projection = model.route_mut(Route::Review);
+        projection.state = ViewState::Unavailable {
+            generation,
+            reason: bounded(format!(
+                "provider review unavailable · {}",
+                public_text(reason)
+            )),
+        };
+        projection.summary = bounded(format!(
+            "provider review unavailable · {}",
+            public_text(reason)
+        ));
+    } else if review.is_some() {
+        model.route_mut(Route::Review).summary =
+            bounded("provider review complete · plans and blocked boundaries");
+        model.status = bounded(format!(
+            "{} software · {} modules · provider review complete",
+            dashboard.installed_software_count, dashboard.installed_module_count
+        ));
+    }
     set_route(
         &mut model,
         Route::Activity,
@@ -101,6 +153,154 @@ pub fn model_from_dashboard(dashboard: &TuiDashboard, generation: u64) -> UiMode
         .validate()
         .expect("foundation adapter creates a valid UI model");
     model
+}
+
+fn action_records(plan: Option<&ActionPlan>) -> Vec<UiRecord> {
+    let Some(plan) = plan else {
+        return Vec::new();
+    };
+    plan.actions
+        .iter()
+        .map(|action| {
+            let disposition = action_disposition(action.disposition);
+            let status = match action.disposition {
+                ActionDisposition::Planned => RecordStatus::Plan,
+                ActionDisposition::Blocked => RecordStatus::Blocked,
+                ActionDisposition::Unsupported => RecordStatus::Warn,
+            };
+            let mut fields = Vec::new();
+            push_text_field(&mut fields, "operation", action_kind_label(action.kind));
+            push_text_field(&mut fields, "target", public_text(&action.target));
+            push_text_field(&mut fields, "plan", plan.plan_id.clone());
+            push_text_field(&mut fields, "plan sha256", plan_digest(plan));
+            if let Some(manager) = action.manager.as_deref() {
+                push_text_field(&mut fields, "manager", public_text(manager));
+            }
+            push_text_field(
+                &mut fields,
+                "risk",
+                format!("{:?}", action.risk).to_ascii_lowercase(),
+            );
+            push_text_field(
+                &mut fields,
+                "confirmation",
+                if action.requires_confirmation {
+                    "required"
+                } else {
+                    "not required"
+                },
+            );
+            push_text_field(
+                &mut fields,
+                "elevation",
+                if action.requires_elevation {
+                    "required"
+                } else {
+                    "not required"
+                },
+            );
+            push_text_field(
+                &mut fields,
+                "network",
+                if action.network_required {
+                    "required"
+                } else {
+                    "not required"
+                },
+            );
+            push_text_field(
+                &mut fields,
+                "rollback",
+                public_text(&action.rollback.description),
+            );
+            UiRecord {
+                record_id: bounded_id(format!("action/{}", action.action_id)),
+                module_id: bounded_id("first-party.updater"),
+                kind: RecordKind::ActionReview,
+                title: bounded(public_text(&action.target)),
+                summary: bounded("foundation action plan · read-only review"),
+                status,
+                details: vec![super::model::UiDetailSection {
+                    title: bounded("Action plan"),
+                    fields,
+                }],
+                evidence: vec![EvidenceRef {
+                    source: EvidenceSource::ActionPlan,
+                    reference_id: bounded_id(plan.plan_id.clone()),
+                    freshness: Freshness::Fresh,
+                    redaction: RedactionState::SensitiveOmitted,
+                }],
+                action_refs: vec![UiActionRef {
+                    action_id: bounded_id(action.action_id.clone()),
+                    disposition,
+                    review: ActionReviewSummary {
+                        operation: bounded(action_kind_label(action.kind)),
+                        target: bounded(public_text(&action.target)),
+                        authority: bounded(
+                            "foundation action-plan / confirmation / transaction contracts",
+                        ),
+                        plan_id: bounded_id(plan.plan_id.clone()),
+                        plan_sha256: bounded(plan_digest(plan)),
+                        write_set_sha256: bounded(write_set_digest(plan)),
+                        risk: bounded(format!("{:?}", action.risk).to_ascii_lowercase()),
+                        requires_confirmation: action.requires_confirmation,
+                        requires_elevation: action.requires_elevation,
+                        network_required: action.network_required,
+                        capabilities: action
+                            .capabilities
+                            .iter()
+                            .map(|capability| {
+                                bounded(format!("{capability:?}").to_ascii_lowercase())
+                            })
+                            .collect(),
+                        rollback: bounded(public_text(&action.rollback.description)),
+                        executed: false,
+                    },
+                }],
+                review_boundary: None,
+                search_terms: SearchTerms(vec![
+                    bounded("action plan"),
+                    bounded(action_kind_label(action.kind)),
+                    bounded(public_text(&action.target)),
+                ]),
+            }
+        })
+        .collect()
+}
+
+fn action_disposition(disposition: ActionDisposition) -> UiActionDisposition {
+    match disposition {
+        ActionDisposition::Planned => UiActionDisposition::Reviewable,
+        ActionDisposition::Blocked | ActionDisposition::Unsupported => UiActionDisposition::Blocked,
+    }
+}
+
+fn action_kind_label(kind: ActionKind) -> &'static str {
+    match kind {
+        ActionKind::Update => "update",
+        ActionKind::Uninstall => "uninstall",
+        ActionKind::Quarantine => "quarantine",
+        ActionKind::Restore => "restore",
+        ActionKind::ModuleInstall => "module install",
+    }
+}
+
+fn plan_digest(plan: &ActionPlan) -> String {
+    rz0_action_plan::action_plan_digests(plan)
+        .map(|digests| digests.plan_sha256)
+        .unwrap_or_else(|_| "unsealed-plan".to_string())
+}
+
+fn write_set_digest(plan: &ActionPlan) -> String {
+    rz0_action_plan::action_plan_digests(plan)
+        .map(|digests| digests.write_set_sha256)
+        .unwrap_or_else(|_| "unsealed-write-set".to_string())
+}
+
+fn push_text_field(fields: &mut Vec<DetailField>, label: &str, value: impl Into<String>) {
+    if let Ok(field) = DetailField::text(label, public_text(&value.into())) {
+        fields.push(field);
+    }
 }
 
 fn set_route(
@@ -168,9 +368,9 @@ fn record_from_row(
     ));
     let module_id = bounded_id(format!("core.{}", section.title));
     let action_disposition = match status {
-        RecordStatus::Plan => ActionDisposition::Reviewable,
-        RecordStatus::Blocked | RecordStatus::Warn => ActionDisposition::Blocked,
-        _ => ActionDisposition::Unavailable,
+        RecordStatus::Plan => UiActionDisposition::Reviewable,
+        RecordStatus::Blocked | RecordStatus::Warn => UiActionDisposition::Blocked,
+        _ => UiActionDisposition::Unavailable,
     };
     let review_boundary = Some(ReviewBoundary {
         reference_id: bounded_id(format!(

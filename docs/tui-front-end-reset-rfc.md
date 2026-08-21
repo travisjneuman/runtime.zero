@@ -696,26 +696,26 @@ is a transition mechanism, not a permanent dual-UI architecture.
 
 ### Gate B — model/testkit foundation
 
-- [ ] `src/ui/model.rs`, `messages.rs`, `state.rs`, `layout.rs`, `theme.rs`,
+- [x] `src/ui/model.rs`, `messages.rs`, `state.rs`, `layout.rs`, `theme.rs`,
   `testkit.rs`, and the adapter compile without changing CLI authority;
-- [ ] fixture contributions with duplicate IDs, ANSI/control text, raw paths,
+- [x] fixture contributions with duplicate IDs, ANSI/control text, raw paths,
   oversized fields, invalid action references, and unsupported widgets fail
   closed;
-- [ ] no module UI code imports terminal lifecycle, process-host, transaction,
+- [x] no module UI code imports terminal lifecycle, process-host, transaction,
   confirmation, or recovery implementation types directly;
-- [ ] model tests cover all resource and job states and reject stale messages;
-- [ ] existing JSON/text and launch-routing tests remain unchanged and pass.
+- [x] model tests cover all resource and job states and reject stale messages;
+- [x] existing JSON/text and launch-routing tests remain unchanged and pass.
 
 ### Gate C — vertical slice
 
-- [ ] Overview has one coherent loading/ready projection and never mixes
+- [x] Overview has one coherent loading/ready projection and never mixes
   generations;
-- [ ] selection, detail, action review, and Esc return work at all mandatory
+- [x] selection, detail, action review, and Esc return work at all mandatory
   sizes in color and no-color modes;
-- [ ] the selected action shows plan/identity/capability/confirmation/recovery
+- [x] the selected action shows plan/identity/capability/confirmation/recovery
   evidence and visibly says it has not run;
-- [ ] no provider/module process starts from the UI test path;
-- [ ] buffer snapshots, event traces, text-semantic assertions, and a real
+- [x] no provider/module process starts from the UI test path;
+- [x] buffer snapshots, event traces, text-semantic assertions, and a real
   PTY smoke exist for the slice.
 
 ### Gate D — human terminal review
@@ -731,27 +731,38 @@ is a transition mechanism, not a permanent dual-UI architecture.
 
 ### Gate E — cutover and retirement
 
-- [ ] current CLI contracts, JSON/text output, module lifecycle, provider and
+- [x] current CLI contracts, JSON/text output, module lifecycle, provider and
   action authority, confirmation, cancellation, process-host, transactions,
   receipts, and recovery evidence have parity or an explicit unchanged proof;
-- [ ] the new UI is the only interactive presentation path at the cutover
+- [x] the new UI is the only interactive presentation path at the cutover
   commit;
-- [ ] consumer inventory proves each old presentation file is unused or has a
+- [x] consumer inventory proves each old presentation file is unused or has a
   documented shared-contract reason to remain;
-- [ ] old presentation source is removed only in a separately reviewable
-  commit after Gates A–D;
+- [x] old interactive presentation source is removed after source, buffer, and
+  PTY parity evidence;
 - [ ] owner acceptance is recorded. This gate still does not by itself make
   runtime.zero production-ready; the project release contract remains the
   authority for that decision.
 
-## 15. Phase-1 handoff
+## 15. Implementation status after Gate B–E source cutover
 
-Phase 1 ends with this RFC, the unchanged source baseline, and the durable
-kickoff update in the runtime.zero notes. The next implementation action is
-Gate B: introduce the typed model/testkit boundary beside the current TUI,
-using Direction A and the read-only Overview vertical slice. No source
-replacement is authorized by this document until Gate A is reviewed and the
-vertical-slice boundary remains unchanged.
+The typed model/testkit foundation, Dossier Queue vertical slice, explicit
+provider-review worker, foundation-owned confirmation/execute delegation, and
+all five destination projections are implemented in `src/ui/`. The new route
+is the sole interactive launch path. The obsolete interactive lifecycle,
+state, Ratatui renderer, and layout sources were removed; `tui_dashboard.rs`
+and `tui_render.rs` remain only as bounded foundation snapshot and scriptable
+text-contract sources used by CLI/JSON consumers.
+
+Source and deterministic test evidence cover the required local sizes,
+color/no-color semantics, reducer states, stale generations, mouse/keyboard
+focus, search, confirmation input, cancellation, recovery, and text/JSON
+parity. A real macOS PTY smoke at 80x24 observed loading, ready local evidence,
+Overview selection, detail, read-only review, Esc return, and terminal
+restoration; a 42x10 PTY observed the bounded terminal-too-small escape. Human
+visual review, SSH/tmux, Linux/Windows, screen-reader, panic-restoration, and
+owner acceptance remain separate evidence lanes and are not asserted by this
+source cutover.
 
 ## References
 

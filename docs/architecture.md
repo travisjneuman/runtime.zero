@@ -13,7 +13,7 @@ full product direction and next-shift work order are in
 ## Layers
 
 1. **CLI core** — argument parsing, launch routing, stable text/JSON output, exit codes, built-in inventory/monitor surfaces, and the explicit updater coordinator.
-2. **Interactive TUI** — Ratatui widgets over Crossterm terminal lifecycle, one canonical software/provider list, cached review controls, and direct entry into the shared updater execution contract.
+2. **Interactive TUI** — Rust-first Dossier Queue screens over Crossterm terminal lifecycle, typed foundation evidence projections, explicit provider review, and direct entry into the shared updater execution contract.
 3. **Module registry** — manifest model, local manifest validation, installed-module listing, and core-vs-module reporting.
 4. **Policy and contracts** — safety posture, validation, resources, privacy, capabilities, errors, confirmation, cancellation, transactions, and release evidence.
 5. **Action pipeline** — evidence, findings, dry-run plans, exact approval, transaction, and post-action verification. The updater and one exact leftovers-file lane consume narrowly bounded core execution paths; broader domains remain blocked.

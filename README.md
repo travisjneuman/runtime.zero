@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot (reviewed 2026-08-21):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a task-first five-workspace TUI, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The TUI now starts with a loading shell and groups Rust/AI/developer tools in a Toolchain workspace; the old command rail and six-section chrome are retired. The coordinator resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. Receipt-bound local recovery can complete only the final runtime.zero journal commit after a fresh explicit challenge; it never reruns a manager. `recovery --dry-run` now also reviews bounded immutable transaction journal heads and reports conservative per-transaction guidance without mutation authority. The project remains pre-alpha: Windows runtime/ACL/reparse proof, private/UI-only app channels, native rollback, third-party trust, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`TUI guide`](docs/tui.md), [`current status`](docs/project-status-and-resumption.md), [`engineering handoff`](docs/engineering-handoff.md), and [`documentation guide`](docs/documentation-index.md).
+> **Current pre-alpha snapshot (reviewed 2026-08-21):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a Rust-first Dossier Queue TUI with five stable destinations, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The TUI starts with a loading shell, keeps local readiness independent from explicit provider review, and projects real foundation action-plan metadata without taking authority. The coordinator resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. Receipt-bound local recovery can complete only the final runtime.zero journal commit after a fresh explicit challenge; it never reruns a manager. `recovery --dry-run` also reviews bounded immutable transaction journal heads and reports conservative per-transaction guidance without mutation authority. The project remains pre-alpha: Windows runtime/ACL/reparse proof, private/UI-only app channels, native rollback, third-party trust, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`TUI guide`](docs/tui.md), [`current status`](docs/project-status-and-resumption.md), [`engineering handoff`](docs/engineering-handoff.md), and [`documentation guide`](docs/documentation-index.md).
 
 ## The promise
 
@@ -85,27 +85,14 @@ rz0 updates --apply --all-providers --allow-network-read --allow-network-write -
 rz0 updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback --challenge-issued-unix-seconds <issued> --confirm '<exact-phrase>'
 ```
 
-Bare `rz0` opens the task-first five-workspace dashboard in an interactive
-terminal. It renders a loading shell before the full local snapshot, then uses
-raw key handling, mouse capture, visible selection, a separate selected-context
-panel, and direct review entry points. Enter opens selected-item details; the
-mouse wheel advances the list by a bounded increment; `m` selects the System
-workspace, which uses native macOS/Linux/Windows
-collectors and does not require a separate btop/top/task-manager install.
-`u` scans provider availability; visible Review action (`U` compatibility
-shortcut) targets the highlighted provider-backed
-update candidate, presents the exact manager command and confirmation phrase,
-and enters the shared confirmation-bound update lane. `r` refreshes the local
-snapshot. The dashboard does not silently execute destructive actions, and it
-does not present unavailable module or uninstall operations as implemented.
-The current Ratatui widget layer provides two-panel workspaces, semantic
-labels, section navigation, a live native system monitor, Home/End jumps,
-Tab/Shift+Tab focus cycling, arrow and
-`j`/`k` movement, `/` search, `f` filter cycling, `s` sort cycling, and
-wide/standard/compact layout tiers that keep the selected row visible. Esc
-closes details/help or backs out before quitting. Use `rz0 --no-tui` for the
-scriptable text dashboard, or `rz0 --json` for a machine-readable foundation
-dashboard.
+Bare `rz0` opens the Rust-first Dossier Queue TUI in an interactive terminal.
+It renders a loading shell before the local snapshot, then exposes stable
+Overview, Explore, Review, Activity, and Modules destinations with typed
+evidence, bounded selection/detail overlays, explicit provider review, and the
+foundation-owned confirmation/action lane. `r` refreshes local evidence and
+`u` explicitly reviews providers; neither silently retries or executes. Use
+`rz0 --no-tui` for the scriptable text dashboard, or `rz0 --json` for the
+machine-readable foundation dashboard.
 `rz0 <subcommand>` remains scriptable and never opens the TUI.
 `rz0 --tui` explicitly requests the full-screen TUI and fails clearly if the
 terminal is non-interactive or automation is detected; plain `rz0` falls back

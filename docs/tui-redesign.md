@@ -1,6 +1,9 @@
 # runtime.zero Task-First TUI
 
-Status: active implementation contract for the next public-facing interface.
+Status: historical product decisions retained for provenance. The active
+Rust-first implementation is the Dossier Queue described in [`tui.md`](tui.md)
+and [`tui-front-end-reset-rfc.md`](tui-front-end-reset-rfc.md), with source
+under `src/ui/`.
 
 The active TUI is a calm, task-first workspace built around one question:
 **what can I safely do next?** The previous six-section dashboard, persistent

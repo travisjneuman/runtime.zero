@@ -7,6 +7,7 @@ pub const MAX_UI_ID_CHARS: usize = 120;
 pub const MAX_UI_RECORDS_PER_CONTRIBUTION: usize = 256;
 pub const MAX_UI_DETAIL_FIELDS: usize = 64;
 pub const MAX_UI_ACTION_REFS: usize = 64;
+pub const MAX_UI_ACTION_CAPABILITIES: usize = 16;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BoundedText(String);
@@ -97,6 +98,7 @@ pub enum UiValidationError {
     TooManyRecords { max: usize },
     TooManyDetails { max: usize },
     TooManyActions { max: usize },
+    TooManyCapabilities { max: usize },
     DuplicateRecordId(String),
     DuplicateActionId(String),
     EmptyModuleId,
@@ -128,6 +130,9 @@ impl fmt::Display for UiValidationError {
             }
             Self::TooManyActions { max } => {
                 write!(formatter, "UI contribution exceeds {max} actions")
+            }
+            Self::TooManyCapabilities { max } => {
+                write!(formatter, "UI action review exceeds {max} capabilities")
             }
             Self::DuplicateRecordId(id) => write!(formatter, "duplicate UI record id {id}"),
             Self::DuplicateActionId(id) => write!(formatter, "duplicate UI action id {id}"),
@@ -202,6 +207,14 @@ pub enum ViewState {
         generation: u64,
         reason: BoundedText,
     },
+    Stale {
+        generation: u64,
+        reason: BoundedText,
+    },
+    Failed {
+        generation: u64,
+        reason: BoundedText,
+    },
 }
 
 impl ViewState {
@@ -211,7 +224,9 @@ impl ViewState {
             | Self::Ready { generation }
             | Self::Unavailable { generation, .. }
             | Self::Empty { generation }
-            | Self::Blocked { generation, .. } => *generation,
+            | Self::Blocked { generation, .. }
+            | Self::Stale { generation, .. }
+            | Self::Failed { generation, .. } => *generation,
         }
     }
 
@@ -222,6 +237,8 @@ impl ViewState {
             Self::Unavailable { .. } => "unavailable",
             Self::Empty { .. } => "empty",
             Self::Blocked { .. } => "blocked",
+            Self::Stale { .. } => "stale",
+            Self::Failed { .. } => "failed",
         }
     }
 }
@@ -244,6 +261,10 @@ pub enum JobState {
     Recovery {
         transaction: BoundedId,
         decision: BoundedText,
+    },
+    Failed {
+        job_id: BoundedId,
+        reason: BoundedText,
     },
 }
 
@@ -417,8 +438,29 @@ pub struct ActionReviewSummary {
     pub operation: BoundedText,
     pub target: BoundedText,
     pub authority: BoundedText,
+    pub plan_id: BoundedId,
+    pub plan_sha256: BoundedText,
+    pub write_set_sha256: BoundedText,
+    pub risk: BoundedText,
     pub requires_confirmation: bool,
+    pub requires_elevation: bool,
+    pub network_required: bool,
+    pub capabilities: Vec<BoundedText>,
+    pub rollback: BoundedText,
     pub executed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfirmationPrompt {
+    pub action_id: BoundedId,
+    pub plan_id: BoundedId,
+    pub plan_sha256: BoundedText,
+    pub target: BoundedText,
+    pub expected_phrase: BoundedText,
+    pub risk: BoundedText,
+    pub expires_unix_seconds: u64,
+    pub rollback_available: bool,
+    pub manual_recovery_acknowledged: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -546,6 +588,11 @@ fn validate_action_ref(action: &UiActionRef) -> Result<(), UiValidationError> {
         return Err(UiValidationError::ExecutionClaim(
             action.action_id.to_string(),
         ));
+    }
+    if action.review.capabilities.len() > MAX_UI_ACTION_CAPABILITIES {
+        return Err(UiValidationError::TooManyCapabilities {
+            max: MAX_UI_ACTION_CAPABILITIES,
+        });
     }
     Ok(())
 }
@@ -723,10 +770,26 @@ mod tests {
                 generation,
                 reason: BoundedText::redacted(),
             },
+            ViewState::Stale {
+                generation,
+                reason: BoundedText::redacted(),
+            },
+            ViewState::Failed {
+                generation,
+                reason: BoundedText::redacted(),
+            },
         ];
         assert_eq!(
             states.iter().map(ViewState::label).collect::<Vec<_>>(),
-            ["loading", "ready", "unavailable", "empty", "blocked"]
+            [
+                "loading",
+                "ready",
+                "unavailable",
+                "empty",
+                "blocked",
+                "stale",
+                "failed"
+            ]
         );
 
         let job_states = [
@@ -747,7 +810,11 @@ mod tests {
                 transaction: BoundedId::try_new("transaction/1").expect("id"),
                 decision: BoundedText::try_new("review required").expect("text"),
             },
+            JobState::Failed {
+                job_id: BoundedId::try_new("job/1").expect("id"),
+                reason: BoundedText::try_new("foundation rejected request").expect("text"),
+            },
         ];
-        assert_eq!(job_states.len(), 5);
+        assert_eq!(job_states.len(), 6);
     }
 }
