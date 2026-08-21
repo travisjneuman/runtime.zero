@@ -7,6 +7,9 @@ use runtime_zero::tui_dashboard;
 fn dashboard_does_not_claim_active_feature_modules() {
     let dashboard = tui_dashboard::dashboard();
     assert_eq!(dashboard.installed_module_count, 0);
+    assert_eq!(dashboard.inactive_module_count, 0);
+    assert_eq!(dashboard.degraded_module_count, 0);
+    assert!(!dashboard.module_lifecycle_execution_available);
     assert!(matches!(
         dashboard.registry_state,
         InstalledRegistryState::Absent | InstalledRegistryState::Valid
@@ -48,6 +51,12 @@ fn dashboard_does_not_claim_active_feature_modules() {
             .iter()
             .any(|row| row.value.contains("quarantine records")
                 || row.value.contains("quarantine recovery review"))
+    );
+    assert!(
+        diagnostics
+            .rows
+            .iter()
+            .any(|row| row.value.contains("module lifecycle execution unavailable"))
     );
     let monitor = dashboard
         .sections

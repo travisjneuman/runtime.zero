@@ -42,6 +42,12 @@ The dashboard has five stable destinations:
   bounded cache/leftovers evidence including cache age-threshold and active-use
   uncertainty, and integrity-baseline posture.
 
+The Diagnostics workspace derives module lifecycle counts from the same
+registry/receipt status contract as `rz0 modules status`: valid evidence is
+shown as installed-inactive, receipt or registry problems are shown as
+degraded, and the workspace explicitly says lifecycle execution is unavailable.
+It never renders an active-module claim or adds activation/invocation controls.
+
 The same two-panel shell is reused in every workspace. Home and the other
 workspaces do not expose a persistent command rail, duplicate status-card
 dashboard, or standalone Actions destination.
@@ -128,6 +134,9 @@ those gates.
 the same five sections, rows, visible labels, store/registry/receipt/module
 posture, provider-review status, and update counters used by the TUI. Terminal
 dimensions, color, raw mode, and Ratatui state must not affect the JSON shape.
+The dashboard JSON also exposes `inactive_module_count`,
+`degraded_module_count`, and `module_lifecycle_execution_available`; these are
+status fields only and do not authorize lifecycle actions.
 
 ## Validation contract
 

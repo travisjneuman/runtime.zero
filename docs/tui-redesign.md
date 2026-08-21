@@ -64,6 +64,9 @@ Rules:
   restore/mutation path. The TUI retains the bounded review-warning count as
   evidence; detailed warning text remains in the CLI/JSON review, never as
   recovery authority.
+- Diagnostics also derives installed-inactive and degraded module counts from
+  the same path-redacted registry/receipt contract as `rz0 modules status` and
+  keeps lifecycle execution visibly unavailable.
 - Diagnostics combines bounded leftovers evidence with the cache row so the
   shell does not grow a second command rail; it uses the same `leftovers_review`
   contract as `rz0 leftovers --dry-run` and remains report-only.

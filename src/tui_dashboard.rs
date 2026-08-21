@@ -11,6 +11,7 @@ use crate::install_receipt::ReceiptInventoryState;
 use crate::installed_registry::InstalledRegistryState;
 use crate::leftovers::{self, LeftoversReviewReport};
 use crate::module_registry::ModuleRegistryReport;
+use crate::module_status::{ModuleStatusReport, module_status_report_from_store};
 use crate::recovery_cli::{RecoverySummary, recovery_summary};
 use crate::store_init::{StoreInitMode, StoreInitOptions, StoreInitStatus, store_init_report};
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
@@ -41,6 +42,9 @@ pub struct TuiDashboard {
     pub receipt_state: ReceiptInventoryState,
     pub store_init_status: StoreInitStatus,
     pub installed_module_count: usize,
+    pub inactive_module_count: usize,
+    pub degraded_module_count: usize,
+    pub module_lifecycle_execution_available: bool,
     pub planned_module_family_count: usize,
     pub installed_software_count: usize,
     pub service_and_persistence_count: usize,
@@ -158,6 +162,7 @@ fn dashboard_with_inventory(include_software_names: bool) -> TuiDashboard {
         StoreInitOptions::new(StoreInitMode::DryRun),
     );
     let modules = ModuleRegistryReport::empty_installed();
+    let module_status = module_status_report_from_store(&store);
     let inventory = include_software_names.then(collect_app_catalog);
     let monitor = include_software_names.then(|| system_monitor::collect_snapshot(None));
     let cache = include_software_names.then(cache::live_report);
@@ -167,6 +172,7 @@ fn dashboard_with_inventory(include_software_names: bool) -> TuiDashboard {
         &store,
         init.status,
         &modules,
+        &module_status,
         DashboardEvidence {
             inventory,
             monitor,
@@ -181,6 +187,7 @@ fn build_dashboard(
     store: &StoreStatusReport,
     init_status: StoreInitStatus,
     modules: &ModuleRegistryReport,
+    module_status: &ModuleStatusReport,
     evidence: DashboardEvidence,
 ) -> TuiDashboard {
     let DashboardEvidence {
@@ -302,6 +309,9 @@ fn build_dashboard(
         receipt_state: store.receipts.overall_state,
         store_init_status: init_status,
         installed_module_count: store.registry.installed_module_count,
+        inactive_module_count: module_status.inactive_module_count,
+        degraded_module_count: module_status.degraded_module_count,
+        module_lifecycle_execution_available: module_status.lifecycle_execution_available,
         planned_module_family_count: modules.summary.planned_family_count,
         installed_software_count: catalog.as_ref().map_or(0, |catalog| catalog.app_count),
         service_and_persistence_count: catalog.as_ref().map_or(0, |catalog| catalog.service_count),
@@ -329,6 +339,7 @@ fn build_dashboard(
             store,
             init_status,
             modules,
+            module_status,
             catalog: catalog.as_ref(),
             inventory_error: inventory_error.as_deref(),
             cache: cache_value.as_ref(),
@@ -359,6 +370,7 @@ struct SectionContext<'a> {
     store: &'a StoreStatusReport,
     init_status: StoreInitStatus,
     modules: &'a ModuleRegistryReport,
+    module_status: &'a ModuleStatusReport,
     catalog: Option<&'a AppCatalog>,
     inventory_error: Option<&'a str>,
     cache: Option<&'a CacheReviewReport>,
@@ -394,6 +406,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
         store,
         init_status,
         modules,
+        module_status,
         catalog,
         inventory_error,
         cache,
@@ -439,6 +452,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
             store,
             init_status,
             modules,
+            module_status,
             inventory_error,
             update_action_status,
             EvidenceContext {
@@ -457,6 +471,7 @@ fn diagnostics_section(
     store: &StoreStatusReport,
     init_status: StoreInitStatus,
     modules: &ModuleRegistryReport,
+    module_status: &ModuleStatusReport,
     inventory_error: Option<&str>,
     update_action_status: &str,
     evidence: EvidenceContext<'_>,
@@ -490,9 +505,23 @@ fn diagnostics_section(
         ),
         row_count(
             tui_theme::LABEL_INFO,
-            modules.summary.installed_module_count,
-            "installed modules",
+            module_status.inactive_module_count,
+            "installed inactive modules",
             "info",
+        ),
+        row_count(
+            if module_status.degraded_module_count == 0 {
+                tui_theme::LABEL_INFO
+            } else {
+                tui_theme::LABEL_WARN
+            },
+            module_status.degraded_module_count,
+            "degraded modules",
+            if module_status.degraded_module_count == 0 {
+                "info"
+            } else {
+                "warn"
+            },
         ),
         row_count(
             tui_theme::LABEL_PLAN,
@@ -507,7 +536,7 @@ fn diagnostics_section(
         ),
         row(
             tui_theme::LABEL_INFO,
-            "module package checks and store status are available from the CLI",
+            "module lifecycle execution unavailable · use rz0 modules status for redacted detail",
             "info",
         ),
         match (cache, leftovers) {

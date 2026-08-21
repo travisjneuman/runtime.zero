@@ -52,6 +52,12 @@ pub fn module_status_report(args: &[String], store_root: Option<PathBuf>) -> Mod
         Some(root) => store_status_report_for_root(args, Some(root)),
         None => store_status_report(args),
     };
+    module_status_report_from_store(&store)
+}
+
+pub fn module_status_report_from_store(
+    store: &crate::store_status::StoreStatusReport,
+) -> ModuleStatusReport {
     let planned_module_family_count = module_registry::ModuleRegistryReport::empty_installed()
         .summary
         .planned_family_count;
@@ -77,7 +83,7 @@ pub fn module_status_report(args: &[String], store_root: Option<PathBuf>) -> Mod
         .iter()
         .filter(|module| module.state == ModuleLifecycleState::Degraded)
         .count();
-    let warnings = status_warnings(&store, &modules);
+    let warnings = status_warnings(store, &modules);
 
     ModuleStatusReport {
         schema_version: MODULE_STATUS_SCHEMA_VERSION,
