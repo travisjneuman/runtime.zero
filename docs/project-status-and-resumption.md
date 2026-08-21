@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `e3f4bd40c8b36acf6f68e1a0979e2d5dd05b84d2` (`fix: harden aiup provider evidence`).
+  `8b035bdf4b105ff0c6e5458486c35e45b0911823` (`fix: bind aiup review to executable inventory`).
 - **Current behavior implementation:**
-  `e3f4bd4` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `8b035bd` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -116,7 +116,10 @@
   first-class scriptable surface: it normalizes bounded local AI-tool identity,
   separates the standalone AIUP orchestrator from AIUP-managed tools, reports
   provider posture and next review boundary, and emits private JSON/text without
-  invoking AIUP or authorizing any provider action.
+  invoking AIUP or authorizing any provider action. It consumes the same bounded
+  installed-software and known-executable inventory as `rz0 scan`, recognizes an
+  exact PATH-bound AIUP orchestrator as observed-only, filters wrapper-like
+  executable names, and keeps executable paths out of the report.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -171,8 +174,9 @@ The bounded Zypper XML updater parser slice is `899b2a5`.
 The Rust-owned AIUP capability review slice is `687febf`.
 The TUI AIUP posture-parity slice is `80f10ac`.
 The strict AIUP provider-evidence slice is `e3f4bd4`.
+The AIUP executable-inventory binding and wrapper-filter slice is `8b035bd`.
 The current exact-head release evidence refresh is bound to
-`e3f4bd40c8b36acf6f68e1a0979e2d5dd05b84d2`.
+`8b035bdf4b105ff0c6e5458486c35e45b0911823`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -180,27 +184,28 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current universal2 package is
-`target/release-package-universal2-e3f4bd4/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+`target/release-package-universal2-8b035bd/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
 It has binary SHA-256
-`b4b270a8e3f070209ae583eb97b51c0fbdd505426dff193cc12ccfdd01d7be27`, ZIP
+`d45fcbe7c5bd663e7369ee936ca84dc22d6de7990e500e1929404b6ec6e04566`, ZIP
 SHA-256
-`6d26c56d0999d2de74e368039c43cb4202722a1b0a23c96310145118b6fd8267`, and
-3,981,322 bytes across 8 verified members. The embedded artifact manifest,
+`09b30439c50622f2440f82fe5b2b80bb92b77ae17c30dd6901d340f3e6a7c6cb`, and
+3,985,912 bytes across 8 verified members. The embedded artifact manifest,
 SBOM, and third-party notices have SHA-256 values
-`dfce34a1e39a5f8466e0c39a0e0c7c055e457051467260bfa0fcb05b2e42785d`,
-`7e445a5e8b9b936eaa59219e17107848a53e3d4991ff7bfd24f9469db216a478`, and
-`116227e7332b5c7d5712dd2d539a71d0668ad62e2ef162656fbbfc22aa98e1b5`; their
+`f9d595bba4326053f976bb5a78b2f1e89efef5a4de9391a91e4e804d9b158d53`,
+`d075b42fd435e323b825d74251c603c0f85404c630cea50f4aa15916db3506bc`, and
+`aa88c9826cd20d3df7a6bcc5780c75f3576850e924931c8c7e8d84943eba737f`; their
 embedded sizes are 980, 162,322, and 291,176 bytes respectively. The package
 verifier passed, and `file`/`lipo` confirmed arm64 plus x86_64 Mach-O slices.
 Both slices passed four PTY terminal smoke cases and ten-sample final-artifact
 performance evidence. The terminal evidence IDs are
-`terminal:universal2-apple-darwin-arm64-b4b270a8e3f0` and
-`terminal:universal2-apple-darwin-x86_64-b4b270a8e3f0`; the performance IDs are
-`perf:universal2-apple-darwin-arm64-b4b270a8e3f0` and
-`perf:universal2-apple-darwin-x86_64-b4b270a8e3f0`. Both slices passed
+`terminal:universal2-apple-darwin-arm64-d45fcbe7c5bd` and
+`terminal:universal2-apple-darwin-x86_64-d45fcbe7c5bd`; the performance IDs are
+`perf:universal2-apple-darwin-arm64-d45fcbe7c5bd` and
+`perf:universal2-apple-darwin-x86_64-d45fcbe7c5bd`. Both slices passed
 read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
 doctor reported 6 passing and 4 blocked policy checks, while scan reported 9
-sources, 325 tools, 273 apps, 895 services, and 22 warnings. The configuration
+sources, 325 tools, 273 apps, 895 services, and 22 warnings. AIUP reported the
+orchestrator as observed-only with 5 curated tools. The configuration
 digest is `b4d57157ae30be77f81a293bd49ddc2f939168377b20b9d9bb16a4ea1e40258f`.
 The artifact remains unsigned and unnotarized until an owner-led
 signing/notarization lane exists; it is not a public release.
@@ -659,16 +664,17 @@ Current source validation for
 - the TUI Toolchain workspace passed the full Ratatui/render/state/dashboard
   suites with the same AIUP posture summary and no second action authority;
 - the universal2 package was rebuilt from the exact source baseline above at
-  `target/release-package-universal2-e3f4bd4`, and the package verifier passed
+  `target/release-package-universal2-8b035bd`, and the package verifier passed
   with the archive SHA-256
-  `6d26c56d0999d2de74e368039c43cb4202722a1b0a23c96310145118b6fd8267`;
+  `09b30439c50622f2440f82fe5b2b80bb92b77ae17c30dd6901d340f3e6a7c6cb`;
 - the trust fixture review returned a valid package/signature result while
   retaining `test_key_only: true`, `execution_authorized: false`, and
   `writes_attempted: false`;
 - the universal2 ZIP was independently verified from this exact package source
   head; both arm64 and x86_64 slices passed four PTY cases and ten-sample
   final-artifact performance evidence, and both slices passed the AIUP
-  read-only JSON review. The package verifier reported 8 members and pass; the
+  read-only JSON review, including the observed-only orchestrator and five-tool
+  path-bound inventory. The package verifier reported 8 members and pass; the
   artifact remains unsigned and unnotarized.
 
 Historical earlier validation also recorded completion-source parity, Bash/Zsh
