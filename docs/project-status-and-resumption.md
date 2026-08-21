@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `3930a515693b960c7dc712f5d42febacee3787d1` (`feat: make dashboard loading cancellable`).
+  `5d0b8f728803f02f5c2a674603a8a9224310f1ff` (`feat: measure interactive TUI performance`).
 - **Current behavior implementation:**
-  `3930a51` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `5d0b8f7` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -135,7 +135,10 @@
   caller-owned token cover apply-time provider discovery, serial queue refresh,
   manager execution, post-action verification, and the underlying installed-
   software inventory/tool-version probes; a cancelled path fails closed before
-  it can publish an action receipt.
+  it can publish an action receipt. The interactive performance contract now
+  includes versioned PTY startup and refresh-request operations, and the TUI
+  exposes an explicit refreshing state so request responsiveness is measurable
+  even while the replacement inventory worker is still running.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -198,8 +201,9 @@ The documentation and WinGet-boundary follow-up is `476954d`.
 The cancellation-aware inventory and tool-probe slice is `081d92d`.
 The apply-time updater discovery cancellation slice is `f53c0e6`.
 The cancellable dashboard loading and stale-generation slice is `3930a51`.
+The versioned PTY TUI performance slice is `5d0b8f7`.
 The current exact-head release evidence refresh is bound to
-`3930a515693b960c7dc712f5d42febacee3787d1`.
+`5d0b8f728803f02f5c2a674603a8a9224310f1ff`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -259,6 +263,29 @@ doctor reported 6 passing and 4 blocked policy checks; scan reported 9 sources,
 observed-only orchestrator with 5 tools; Toolchain reported 17 tools including
 10 observed-only records; and configuration was valid but non-authorizing.
 The artifact remains unsigned and unnotarized and is not a public release.
+
+The current exact-head universal2 package is
+`target/release-package-universal2-5d0b8f7/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+The package verifier passed for source commit
+`5d0b8f728803f02f5c2a674603a8a9224310f1ff`, target `universal2-apple-darwin`,
+and 8 members. Its ZIP SHA-256 is
+`c7a3a156ef223248116036e2a98d7522e611e54c91c770ebd182946354ca34e9` and its
+size is 4,004,540 bytes; the universal binary SHA-256 is
+`166046a6c7bd5280309ff83980509cfb018b538155e54d6e3496a9a34fea7a36`. The
+embedded artifact manifest, SBOM, and third-party notices have SHA-256 values
+`242f25825a2d67ee1183e55712eb1c5d3f0f36bea18c69092477ec02ab133e2f`,
+`306ed93b318fd8539609c37ab606789648c473423a0f61dfd2f4e0dcc43f10e1`, and
+`9ab4dfbe47d494c17e8021ffc5400b7933ab8cd66e0b277c07170513915ce317`; their
+embedded sizes are 980, 162,322, and 291,176 bytes. `file` and `lipo`
+confirmed arm64 plus x86_64 Mach-O slices. Both slices passed four PTY smoke
+cases and ten-sample schema-3 final-artifact performance evidence, including
+TUI startup and refresh-request operations. The terminal evidence IDs are
+`terminal:universal2-apple-darwin-arm64-086d38d21759` and
+`terminal:universal2-apple-darwin-x86_64-03a02a5043e4`; the performance IDs are
+`perf:universal2-apple-darwin-arm64-086d38d21759` and
+`perf:universal2-apple-darwin-x86_64-03a02a5043e4`. Both slices passed
+read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
+the artifact remains unsigned and unnotarized and is not a public release.
 
 The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
