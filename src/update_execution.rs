@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rz0_action_plan::{
-    ActionDisposition, ActionExecutableIdentity, ActionKind, ActionPlan, PlanAction,
-    action_plan_digests,
+    ActionCapability, ActionDisposition, ActionExecutableIdentity, ActionKind, ActionPlan,
+    PlanAction, action_plan_digests,
 };
 use rz0_artifact_identity::{
     ArtifactExpectation, VerifiedArtifact, bind_verified_executable, open_observed_executable,
@@ -39,9 +39,19 @@ const MAX_EXECUTION_SECONDS: u64 = 30 * 60;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct UpdateChallengeView {
+    pub operation: TransactionOperation,
     pub plan_id: String,
     pub action_id: String,
     pub plan_sha256: String,
+    pub manager: Option<String>,
+    pub target: String,
+    pub arguments: Vec<String>,
+    pub risk: ConfirmationRisk,
+    pub requires_elevation: bool,
+    pub network_required: bool,
+    pub executable_sha256: Option<String>,
+    pub executable_size_bytes: Option<u64>,
+    pub capabilities: Vec<ActionCapability>,
     pub expected_phrase: String,
     pub issued_unix_seconds: u64,
     pub expires_unix_seconds: u64,
@@ -142,9 +152,25 @@ pub fn build_update_challenge(
     };
     seal_confirmation_challenge(&mut challenge);
     let view = UpdateChallengeView {
+        operation: operation_for_action(action)?,
         plan_id: challenge.plan_id.clone(),
         action_id: action.action_id.clone(),
         plan_sha256: challenge.plan_sha256.clone(),
+        manager: action.manager.clone(),
+        target: action.target.clone(),
+        arguments: action.arguments.clone(),
+        risk: challenge.risk,
+        requires_elevation: action.requires_elevation,
+        network_required: action.network_required,
+        executable_sha256: action
+            .executable_identity
+            .as_ref()
+            .map(|identity| identity.sha256.clone()),
+        executable_size_bytes: action
+            .executable_identity
+            .as_ref()
+            .map(|identity| identity.size_bytes),
+        capabilities: action.capabilities.clone(),
         expected_phrase: challenge.expected_phrase.clone(),
         issued_unix_seconds: challenge.issued_unix_seconds,
         expires_unix_seconds: challenge.expires_unix_seconds,
@@ -1912,8 +1938,24 @@ mod tests {
         }
         let (plan, action) = harmless_manager_uninstall_test_plan(executable);
         let now = unix_seconds();
-        let (challenge, _) = build_update_challenge(&plan, &action, true, now).expect("challenge");
+        let (challenge, view) =
+            build_update_challenge(&plan, &action, true, now).expect("challenge");
         assert_eq!(challenge.risk, ConfirmationRisk::Destructive);
+        assert_eq!(view.operation, TransactionOperation::Uninstall);
+        assert_eq!(view.manager.as_deref(), Some("homebrew"));
+        assert_eq!(view.target, action.target);
+        assert_eq!(view.arguments, action.arguments);
+        assert_eq!(view.risk, ConfirmationRisk::Destructive);
+        assert_eq!(
+            view.executable_size_bytes,
+            Some(
+                action
+                    .executable_identity
+                    .as_ref()
+                    .expect("identity")
+                    .size_bytes
+            )
+        );
         let response = validate_update_confirmation(&challenge, &challenge.expected_phrase, now)
             .expect("confirmation");
         let root = private_execution_root("uninstall-verified");

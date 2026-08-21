@@ -153,6 +153,13 @@ bundle semantics remain release gates.
 response, and single-use consumption evidence while remaining structurally
 unable to authorize execution.
 
+The shared challenge renderer exposes the action context before confirmation:
+operation, manager, target, bounded arguments, risk, elevation/network posture,
+sealed executable digest/size, capabilities, plan identity, expiry, rollback
+posture, and the exact phrase. This is review evidence, not authority; the
+executor still revalidates the plan, executable, confirmation, cancellation,
+and post-action state.
+
 The product-level `rz0 uninstall plan <installed-software-id>` command converts
 the selected live catalog record into a shared `classified_finding_report`.
 Manager-owned records can additionally produce a finding-bound

@@ -1161,7 +1161,18 @@ fn render_uninstall_challenge(
 ) -> String {
     match format {
         AppOutputFormat::Text => format!(
-            "runtime.zero uninstall confirmation\n\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\nrollback_available: {}\nmanual_recovery_acknowledged: {}\n\nType this exact phrase in a new command invocation and pass --challenge-issued-unix-seconds {}:\n{}\n\nNo manager command was executed.\n",
+            "runtime.zero uninstall confirmation\n\noperation: {:?}\nmanager: {}\ntarget: {}\ncommand_arguments: {:?}\nrisk: {:?}\nrequires_elevation: {}\nnetwork_required: {}\nexecutable_sha256: {}\nexecutable_size_bytes: {}\ncapabilities: {:?}\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\nrollback_available: {}\nmanual_recovery_acknowledged: {}\n\nType this exact phrase in a new command invocation and pass --challenge-issued-unix-seconds {}:\n{}\n\nNo manager command was executed.\n",
+            view.operation,
+            view.manager.as_deref().unwrap_or("unknown"),
+            view.target,
+            view.arguments,
+            view.risk,
+            view.requires_elevation,
+            view.network_required,
+            view.executable_sha256.as_deref().unwrap_or("unavailable"),
+            view.executable_size_bytes
+                .map_or_else(|| "unavailable".to_string(), |size| size.to_string()),
+            view.capabilities,
             view.plan_id,
             view.action_id,
             view.plan_sha256,
@@ -1339,7 +1350,7 @@ fn apps_usage() -> String {
 }
 
 fn uninstall_usage() -> String {
-    "Usage: rz0 uninstall plan <installed-software-id> [--executable <absolute-manager-path>] [--format text|json]\n       rz0 uninstall apply <installed-software-id> --executable <absolute-manager-path> --accept-no-rollback [--challenge-issued-unix-seconds <seconds>] [--confirm <exact-phrase>] [--format text|json]\n\n`plan` builds a live finding-bound, read-only uninstall review. `apply` is limited to manager-owned records, revalidates the exact manager executable, requires a short-lived destructive confirmation and explicit no-rollback acknowledgement, records the external effect through the shared transaction/receipt path, and verifies fresh installed-software inventory. It never recursively deletes files, handles user bundles, elevates implicitly, or authorizes automatic mutation.\n".to_string()
+    "Usage: rz0 uninstall plan <installed-software-id> [--executable <absolute-manager-path>] [--format text|json]\n       rz0 uninstall apply <installed-software-id> --executable <absolute-manager-path> --accept-no-rollback [--challenge-issued-unix-seconds <seconds>] [--confirm <exact-phrase>] [--format text|json]\n\n`plan` builds a live finding-bound, read-only uninstall review. `apply` is limited to manager-owned records, revalidates the exact manager executable, requires a short-lived destructive confirmation and explicit no-rollback acknowledgement, records the external effect through the shared transaction/receipt path, and verifies fresh installed-software inventory. It never recursively deletes files, handles user bundles, collects credentials, invokes interactive elevation, or authorizes automatic mutation.\n".to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -337,6 +337,12 @@ not recursively clean files, handle user bundles, collect credentials, or claim
 manager rollback; manager-required elevation is non-interactive and fail-closed.
 Protected, unknown, and ambiguous records remain blocked.
 
+The challenge output is the final review surface: it includes the operation,
+manager, target, bounded command arguments, destructive risk, elevation and
+network posture, sealed executable SHA-256/size identity, capabilities, plan
+digest, expiry, rollback posture, and exact phrase. No manager command runs until
+the phrase is re-entered with the challenge timestamp.
+
 ## Update review and execution boundary
 
 ### Review local or captured evidence

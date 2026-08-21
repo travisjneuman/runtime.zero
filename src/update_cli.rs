@@ -3163,7 +3163,18 @@ fn verify_candidate_absent(plan: &ActionPlan, finding_id: &str) -> Result<String
 fn render_challenge(view: &UpdateChallengeView, format: OutputFormat) -> String {
     match format {
         OutputFormat::Text => format!(
-            "runtime.zero update confirmation\n\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\nrollback_available: {}\nmanual_recovery_acknowledged: {}\n\nType this exact phrase in a new command invocation and pass --challenge-issued-unix-seconds {}:\n{}\n\nNo manager command was executed.\n",
+            "runtime.zero update confirmation\n\noperation: {:?}\nmanager: {}\ntarget: {}\ncommand_arguments: {:?}\nrisk: {:?}\nrequires_elevation: {}\nnetwork_required: {}\nexecutable_sha256: {}\nexecutable_size_bytes: {}\ncapabilities: {:?}\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\nrollback_available: {}\nmanual_recovery_acknowledged: {}\n\nType this exact phrase in a new command invocation and pass --challenge-issued-unix-seconds {}:\n{}\n\nNo manager command was executed.\n",
+            view.operation,
+            view.manager.as_deref().unwrap_or("unknown"),
+            view.target,
+            view.arguments,
+            view.risk,
+            view.requires_elevation,
+            view.network_required,
+            view.executable_sha256.as_deref().unwrap_or("unavailable"),
+            view.executable_size_bytes
+                .map_or_else(|| "unavailable".to_string(), |size| size.to_string()),
+            view.capabilities,
             view.plan_id,
             view.action_id,
             view.plan_sha256,
