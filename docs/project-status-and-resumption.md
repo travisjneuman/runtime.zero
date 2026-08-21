@@ -7,10 +7,10 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `26c1b44` (`Expose staged module status safely`); this status document
-  is refreshed in a follow-up documentation-only commit.
+  `fb95b455f1b520a9470a776db720721f632ce90b` (`Refresh staged status evidence`);
+  this status document is refreshed in a follow-up documentation-only commit.
 - **Current behavior implementation:**
-  `26c1b44` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `fb95b45` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -94,6 +94,7 @@ The attention-first TUI evidence presentation slice is `1f94241`.
 The installed-module-byte status hardening slice is `17dd2e2`.
 The developer-only signed module staging slice is `1e782c8`.
 The staged-receipt status and TUI count slice is `26c1b44`.
+The staged-status evidence refresh is `fb95b45`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -101,21 +102,20 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current local aarch64 Apple Silicon package from
-`17dd2e23235d83c8cc66e76c235d552d88a54210` has binary SHA-256
-`be0e6a3a89f9a22322f7b17bdd0c7fdf3af36d2793e5d3838b5ad7ce3f5b6d25`, ZIP
+`fb95b455f1b520a9470a776db720721f632ce90b` has binary SHA-256
+`ed506cd4caeff8df8fa45747426827468f6152144153e54e0e080705f456ae14`, ZIP
 SHA-256
-`da4fd5d03b5c3571f078d9909cf21eed500b98f12892058a9398508ec83d36b9`, and
-1,716,638 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`dc43021d0e9972a5b7579fe853effc7f342f32524efd0186cc5dafc0c5d8d061`, and
+1,791,854 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`3ad0a86c51ecb4582e0e7f774445b0b05a5128e21c324a773fbca57b41c278dd`,
-`405ae754bc83a4495f15410e9187a94b0f101903d317f85300b787065e82b02c`, and
-`34c3ac58425ad03db1ae82c00449c8d5ed505a2ad9f4f7362a048dae9d888d5f`.
-Independent verification, repeated byte-identical packaging, four PTY terminal
-smoke cases, and ten-sample final-artifact performance evidence passed. The
-artifact remains unsigned and unnotarized until an owner-led signing/
-notarization lane exists. That package is intentionally recorded as historical
-evidence for `17dd2e2`; it was not rebuilt for `1e782c8` or `26c1b44`, so no
-current-release package claim is made for the developer staging/status slices.
+`fba8b1be295c0f4f24b22fc0a0b71dde85a87c0a724b582d5eaef3585a797a1f`,
+`7a7cffad59fd6b8c5ec29b0b9947912a49847ba42a7b36c1aa1bf2829d075692`, and
+`f299d62ac591833f9f2e1586da9cb46a07dfdcb090144a67c38aa2c7890e32a9`; their
+embedded sizes are 158,365, 290,906, and 977 bytes respectively. Independent
+verification, four PTY terminal smoke cases, and ten-sample final-artifact
+performance evidence passed. The artifact remains unsigned and unnotarized
+until an owner-led signing/notarization lane exists. It is a local Apple Silicon
+artifact, not a public release or cross-platform runtime claim.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
@@ -520,7 +520,8 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current validation for `17dd2e23235d83c8cc66e76c235d552d88a54210` on `aarch64-apple-darwin`:
+Current source validation for `fb95b455f1b520a9470a776db720721f632ce90b` and
+the packaged artifact on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` and the full
@@ -542,10 +543,10 @@ Current validation for `17dd2e23235d83c8cc66e76c235d552d88a54210` on `aarch64-ap
 - the trust fixture review returned a valid package/signature result while
   retaining `test_key_only: true`, `execution_authorized: false`, and
   `writes_attempted: false`;
-- the Apple Silicon release ZIP was independently verified and reproduced
-  byte-for-byte from this exact source head; four PTY cases and ten-sample
-  final-artifact performance evidence passed, and its hashes/runtime evidence
-  are recorded in the private release-artifact note.
+- the Apple Silicon ZIP was independently verified from this exact package
+  source head; four PTY cases and ten-sample final-artifact performance evidence
+  passed, and its hashes/runtime evidence are recorded in the private
+  release-artifact note. The package verifier reported 8 members and pass.
 
 Historical earlier validation also recorded completion-source parity, Bash/Zsh
 syntax, PowerShell parsing, `mandoc`, Markdown-link checks, module-manifest
