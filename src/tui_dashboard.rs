@@ -1,6 +1,7 @@
 use rz0_action_plan::{ActionDisposition, ActionPlan, PlanAction};
 use serde::Serialize;
 
+use crate::aiup::report_from_catalog as aiup_report_from_catalog;
 use crate::apps::{
     AppCatalog, InstalledSoftware, SoftwareKind, SoftwareUpdate, SoftwareView, UninstallOption,
     collect_app_catalog,
@@ -870,6 +871,7 @@ fn overview_section(
                 .iter()
                 .filter(|app| is_toolchain_software(app))
                 .count();
+            let aiup = aiup_report_from_catalog(catalog);
             let (update_value, update_tone, update_preview) = match updates {
                 Some(updates) => (
                     format!(
@@ -917,11 +919,22 @@ fn overview_section(
             ));
             rows.push(row_with_preview(
                 tui_theme::LABEL_INFO,
-                &format!("{visible_count} software · {tool_count} toolchain records"),
+                &format!(
+                    "{visible_count} software · {tool_count} toolchain records · AIUP {}",
+                    aiup.orchestrator.state
+                ),
                 "info",
                 &format!(
-                    "{} software records match the current view; {} identity groups and {} service/persistence records are available in Software and Diagnostics.",
-                    visible_count, catalog.identity_group_count, catalog.service_count
+                    "{} software records match the current view; {} identity groups and {} service/persistence records are available in Software and Diagnostics. Rust-owned AIUP review sees {} AI tools and {} provider-review boundaries; run `rz0 aiup` for the scriptable report.",
+                    visible_count,
+                    catalog.identity_group_count,
+                    catalog.service_count,
+                    aiup.tools.len(),
+                    aiup
+                        .providers
+                        .iter()
+                        .filter(|provider| provider.state == "provider-review")
+                        .count()
                 ),
             ));
             if visible_count != catalog.app_count || !view.query().is_empty() {
@@ -982,12 +995,39 @@ fn installed_software_section(
                 .filter(|update| is_toolchain_update(update) == toolchain_only)
                 .collect::<Vec<_>>();
             let visible_count = visible.len() + visible_dynamic.len();
-            rows.push(row_count(
-                tui_theme::LABEL_OK,
-                visible_count,
-                "software records shown",
-                "safe",
-            ));
+            if toolchain_only {
+                let aiup = aiup_report_from_catalog(catalog);
+                let provider_review_count = aiup
+                    .providers
+                    .iter()
+                    .filter(|provider| provider.state == "provider-review")
+                    .count();
+                rows.push(row_with_preview(
+                    tui_theme::LABEL_OK,
+                    &format!(
+                        "{visible_count} toolchain records shown · AIUP {}",
+                        aiup.orchestrator.state
+                    ),
+                    "safe",
+                    &format!(
+                        "Rust-owned AIUP review: {} AI tools, {} provider-review boundaries, {} AIUP-managed records. The review is read-only; use `rz0 aiup` or `rz0 updates` for the next explicit boundary.",
+                        aiup.tools.len(),
+                        provider_review_count,
+                        aiup
+                            .tools
+                            .iter()
+                            .filter(|tool| tool.provider == "aiup")
+                            .count()
+                    ),
+                ));
+            } else {
+                rows.push(row_count(
+                    tui_theme::LABEL_OK,
+                    visible_count,
+                    "software records shown",
+                    "safe",
+                ));
+            }
             rows.push(TuiRow {
                 label: tui_theme::LABEL_INFO,
                 value: format!(

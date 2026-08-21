@@ -51,6 +51,10 @@ Rules:
   decision, toolchain/software counts, and only the reviews that need
   attention. Identity, service, cache, recovery, and policy detail opens from
   the selected pane instead of becoming permanent dashboard chrome.
+- Home and Toolchain include a compact Rust-owned AIUP posture summary from the
+  same catalog: orchestrator state, AI-tool count, and provider-review count.
+  The selected explanation points to `rz0 aiup` for the full read-only report;
+  it never invokes AIUP or creates a second update authority.
 - Primary rows use a short status summary. Dense evidence (load averages,
   journal counts, active-use uncertainty, and integrity posture) moves into
   the selected explanation instead of competing with the task list.

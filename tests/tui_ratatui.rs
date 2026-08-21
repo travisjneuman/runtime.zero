@@ -55,6 +55,21 @@ fn monitor_shortcut_renders_live_resource_rows() {
 }
 
 #[test]
+fn toolchain_workspace_exposes_the_rust_owned_aiup_boundary() {
+    let dashboard = runtime_zero::tui_dashboard::dashboard();
+    let mut state = TuiState::new(dashboard.sections.len());
+    state.selected_section = 1;
+    let text = render_text(118, 34, &state, false);
+    assert!(text.contains("Toolchain"));
+    assert!(text.contains("AIUP"));
+    assert!(dashboard.sections[1].rows.iter().any(|row| {
+        row.preview
+            .as_deref()
+            .is_some_and(|preview| preview.contains("Rust-owned AIUP review"))
+    }));
+}
+
+#[test]
 fn selected_section_changes_detail_panel() {
     let dashboard = runtime_zero::tui_dashboard::dashboard();
     let mut state = TuiState::new(dashboard.sections.len());

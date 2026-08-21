@@ -109,7 +109,7 @@ pub fn collect_aiup_report() -> Result<AiupReport, String> {
     Ok(report_from_catalog(&catalog))
 }
 
-fn report_from_catalog(catalog: &AppCatalog) -> AiupReport {
+pub(crate) fn report_from_catalog(catalog: &AppCatalog) -> AiupReport {
     let orchestrator = catalog
         .apps
         .iter()
