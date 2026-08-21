@@ -486,15 +486,22 @@ rz0 modules install --developer-trial --dry-run <package> --signature <envelope.
   --trusted-test-key <key.json> --store-root <path>
 rz0 modules lifecycle-plan invoke --dry-run --module-id first-party.inventory \
   --from-state active --to-state active --from-version 0.1.0 --to-version 0.1.0
+rz0 modules invoke --developer-trial --dry-run \
+  --module-id first-party.inventory --store-root path/to/store
 ```
 
 These commands parse, validate, hash, and plan. The developer-trial form is the
 exceptional bounded foundation test described above: it can stage verified
 read-only fixture bytes after explicit confirmation, but it does not publish a
-registry record or make those bytes discoverable, active, or executable. There
-is no supported production command to install, activate, invoke, repair,
-migrate, upgrade, deactivate, or uninstall module code. The seven first-party
-manifests remain planned.
+registry record or make those bytes discoverable, active, or executable. The
+only current process-backed command is the explicit developer-trial
+`first-party.inventory` invocation lane. It requires a promoted installed
+record, complete immutable package evidence, and exact challenge confirmation;
+it accepts only a path-redacted read-only response and does not activate,
+mutate registry state, invoke third-party code, or establish production
+execution authority. There is still no supported production command to install,
+activate, invoke, repair, migrate, upgrade, deactivate, or uninstall module
+code. The seven first-party manifests remain planned.
 
 Use `rz0 modules status` when you need the current module-store answer:
 valid registry-plus-receipt-plus-installed-byte evidence is

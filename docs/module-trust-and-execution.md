@@ -161,6 +161,15 @@ canonical artifact/capability/identity/process/runtime/transaction gate set; it
 has no authorization decision. See
 [`production-readiness.md`](production-readiness.md).
 
+The first explicit developer-trial process lane now consumes this foundation
+for one promoted `first-party.inventory` package. It requires a complete
+immutable package file set and a `receipts/install-*.json` test-key trial
+receipt, binds the declared Rust executable through the host, and accepts only
+the path-redacted read-only inventory response. It does not activate state,
+persist a lifecycle receipt, execute third-party code, or change the blocked
+production decision. The host's bounded transport and identity binding are
+evidence, not sandbox or production authorization.
+
 ## Transaction, receipt, and rollback rules
 
 Future writes must use a transaction with an immutable intent record:

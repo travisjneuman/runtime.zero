@@ -115,8 +115,9 @@ risk/disposition evidence and conservative protected-data policy for five module
 families; it cannot authorize an action. Updater and uninstall now turn selected
 live evidence into shared findings/plans, while leftovers/cache expose bounded
 read-only evidence and integrity remains caller-baseline-only with a bounded
-exact-file adapter; no non-updater execution
-exists. `crates/confirmation-contract/` owns
+exact-file adapter. The only current non-updater process execution is the
+explicit developer-trial first-party inventory lane; it is path-redacted,
+test-key-only, non-sandboxed, and non-authorizing. `crates/confirmation-contract/` owns
 exact short-lived interactive plan binding,
 response digests, and single-use consumption evidence without execution
 authority. `crates/error-contract/` owns stable machine codes and conservative privacy/retry

@@ -242,13 +242,16 @@ semantics must remain stable:
   compatibility, interruption handling, and rollback/recovery. Startup must
   never perform them implicitly.
 
-The target command shape is illustrative, not current CLI behavior:
+The enable/disable/configure command shape is illustrative, not current CLI
+behavior. The one current process-backed exception is the explicit
+developer-trial inventory invocation:
 
 ~~~text
 rz0 modules list --all
 rz0 modules inspect <module-id>
 rz0 modules install <package> --dry-run
 rz0 modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state>
+rz0 modules invoke --developer-trial --dry-run --module-id first-party.inventory --store-root <path>
 rz0 modules enable <module-id> --dry-run
 rz0 modules enable <module-id> --confirm <exact-phrase>
 rz0 modules disable <module-id> --dry-run
@@ -262,8 +265,13 @@ rz0 modules uninstall <module-id> --dry-run
 These commands must not be added as cosmetic aliases before the lifecycle
 runtime, registry publication, trust, configuration, receipts, recovery, and
 TUI flows can support them. The current repository exposes listing, validation,
-read-only lifecycle status, store inspection, and installation planning only; it
-does not yet expose these mutating module lifecycle commands. `modules status`
+read-only lifecycle status, store inspection, installation planning, and this
+one explicitly bounded developer-trial inventory invocation. It does not yet
+expose these mutating module lifecycle commands. The invocation lane revalidates
+complete package evidence, binds the Rust executable through the shared process
+host, and accepts only the path-redacted read-only inventory contract; it does
+not activate state, write a lifecycle receipt, execute third-party code, or
+grant production authority. `modules status`
 is deliberately not an enable/activate alias: it reports registry/receipt
 evidence and keeps execution unavailable.
 

@@ -828,6 +828,42 @@ fn updater_requires_explicit_dry_run_and_fixture() {
 }
 
 #[test]
+fn developer_module_invocation_requires_explicit_trial_and_fails_closed_for_unknown_store() {
+    let (code, out, err) = run([
+        "modules",
+        "invoke",
+        "--dry-run",
+        "--module-id",
+        "first-party.inventory",
+        "--store-root",
+        "target/nonexistent-developer-invocation-store",
+    ]);
+    assert_eq!(code, ExitCode::Usage);
+    assert!(out.is_empty());
+    assert!(err.contains("requires --developer-trial"));
+
+    let (code, out, err) = run([
+        "modules",
+        "invoke",
+        "--developer-trial",
+        "--dry-run",
+        "--module-id",
+        "first-party.inventory",
+        "--store-root",
+        "target/nonexistent-developer-invocation-store",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Usage);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("invocation JSON");
+    assert_eq!(value["contract"], "developer_module_invocation");
+    assert_eq!(value["developer_trial"], true);
+    assert_eq!(value["product_execution_authorized"], false);
+    assert_eq!(value["writes_attempted"], false);
+}
+
+#[test]
 fn privacy_reviewed_report_is_summary_only_and_never_authorizes_sharing() {
     let (code, out, err) = run(["report", "--format", "json"]);
     assert_eq!(code, ExitCode::Ok);

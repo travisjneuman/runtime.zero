@@ -36,6 +36,10 @@ enum ModulesAction {
         request: crate::module_stage::DeveloperStageRequest,
         format: OutputFormat,
     },
+    InvokeDeveloperTrial {
+        request: crate::module_invoke::DeveloperInvocationRequest,
+        format: OutputFormat,
+    },
     LifecyclePlan {
         operation: ModuleLifecycleOperation,
         module_id: String,
@@ -72,6 +76,9 @@ pub fn modules_command(args: &[String]) -> (ExitCode, String, String) {
         Ok(ModulesAction::InstallDryRun { path, format }) => render_install_plan(format, &path),
         Ok(ModulesAction::InstallDeveloperTrial { request, format }) => {
             render_developer_stage(format, &request)
+        }
+        Ok(ModulesAction::InvokeDeveloperTrial { request, format }) => {
+            render_developer_invocation(format, &request)
         }
         Ok(ModulesAction::LifecyclePlan {
             operation,
@@ -114,6 +121,7 @@ fn parse_modules_args(args: &[String]) -> Result<ModulesAction, String> {
         }
         Some("validate") => parse_validate_args(&args[1..]),
         Some("install") => parse_install_args(&args[1..]),
+        Some("invoke") => parse_invoke_args(&args[1..]),
         Some("status") => parse_status_args(&args[1..]),
         Some("lifecycle-plan") => parse_lifecycle_plan_args(&args[1..]),
         Some("trust") => Ok(ModulesAction::Trust {
@@ -359,6 +367,112 @@ fn parse_install_args(args: &[String]) -> Result<ModulesAction, String> {
     Ok(install_dry_run_action(&path, format))
 }
 
+fn parse_invoke_args(args: &[String]) -> Result<ModulesAction, String> {
+    let mut format = OutputFormat::Text;
+    let mut mode = None;
+    let mut developer_trial = false;
+    let mut module_id = None;
+    let mut store_root = None;
+    let mut challenge_issued_unix_seconds = None;
+    let mut confirmation = None;
+    let mut index = 0usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--developer-trial" if !developer_trial => developer_trial = true,
+            "--developer-trial" => return Err(invoke_usage()),
+            "--dry-run" if mode.is_none() => mode = Some(false),
+            "--dry-run" => return Err(invoke_usage()),
+            "--apply" if mode.is_none() => mode = Some(true),
+            "--apply" => return Err(invoke_usage()),
+            "--json" => format = OutputFormat::Json,
+            "--format" => format = parse_format(args, &mut index)?,
+            "--module-id" => set_option(&mut module_id, args, &mut index, "module ID")?,
+            "--store-root" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(invoke_usage());
+                };
+                if store_root.is_some() {
+                    return Err(
+                        "module invocation store root was provided more than once".to_string()
+                    );
+                }
+                store_root = Some(resolve_store_root(value)?);
+                index += 1;
+            }
+            "--challenge-issued-unix-seconds" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(invoke_usage());
+                };
+                if challenge_issued_unix_seconds.is_some() {
+                    return Err(
+                        "module invocation challenge time was provided more than once".to_string(),
+                    );
+                }
+                challenge_issued_unix_seconds =
+                    Some(value.parse::<u64>().map_err(|_| {
+                        "challenge-issued-unix-seconds must be an integer".to_string()
+                    })?);
+                index += 1;
+            }
+            "--confirm" => set_option(&mut confirmation, args, &mut index, "confirmation phrase")?,
+            _ => return Err(invoke_usage()),
+        }
+        index += 1;
+    }
+    if !developer_trial {
+        return Err("module invocation requires --developer-trial".to_string());
+    }
+    let Some(module_id) = module_id else {
+        return Err(format!(
+            "module invocation requires --module-id <id>\n\n{}",
+            invoke_usage()
+        ));
+    };
+    let Some(store_root) = store_root else {
+        return Err(format!(
+            "module invocation requires --store-root <path>\n\n{}",
+            invoke_usage()
+        ));
+    };
+    let Some(apply) = mode else {
+        return Err(invoke_usage());
+    };
+    let invocation_mode = if apply {
+        let Some(issued) = challenge_issued_unix_seconds else {
+            return Err(format!(
+                "module invocation apply requires --challenge-issued-unix-seconds <seconds>\n\n{}",
+                invoke_usage()
+            ));
+        };
+        let Some(confirmation) = confirmation else {
+            return Err(format!(
+                "module invocation apply requires --confirm <exact-phrase>\n\n{}",
+                invoke_usage()
+            ));
+        };
+        crate::module_invoke::DeveloperInvocationMode::Apply {
+            challenge_issued_unix_seconds: issued,
+            confirmation,
+        }
+    } else {
+        if challenge_issued_unix_seconds.is_some() || confirmation.is_some() {
+            return Err(
+                "module invocation dry-run does not accept apply confirmation arguments"
+                    .to_string(),
+            );
+        }
+        crate::module_invoke::DeveloperInvocationMode::DryRun
+    };
+    Ok(ModulesAction::InvokeDeveloperTrial {
+        request: crate::module_invoke::DeveloperInvocationRequest {
+            module_id,
+            store_root,
+            mode: invocation_mode,
+        },
+        format,
+    })
+}
+
 fn parse_lifecycle_plan_args(args: &[String]) -> Result<ModulesAction, String> {
     let mut operation = None;
     let mut module_id = None;
@@ -487,6 +601,14 @@ fn install_usage() -> String {
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
+        brand::COMMAND,
+        brand::COMMAND,
+    )
+}
+
+fn invoke_usage() -> String {
+    format!(
+        "developer module invocation is local and first-party-only\n\nUsage: {} modules invoke --developer-trial --dry-run --module-id first-party.inventory --store-root <path> [--format text|json]\n       {} modules invoke --developer-trial --apply --module-id first-party.inventory --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n\nThe dry-run resolves one promoted installed_inactive inventory module, revalidates its complete immutable package, and prints the exact short-lived confirmation phrase. Apply invokes only the path-redacted read-only Rust inventory module through the bounded process host. It never activates, mutates the registry, invokes third-party code, or establishes production execution authority. Process containment is not a sandbox.",
         brand::COMMAND,
         brand::COMMAND,
     )
@@ -667,6 +789,100 @@ fn developer_stage_text(report: &crate::module_stage::DeveloperStageReport) -> S
         }
     }
     let _ = writeln!(out, "safety: {}", report.safety_note);
+    out
+}
+
+fn render_developer_invocation(
+    format: OutputFormat,
+    request: &crate::module_invoke::DeveloperInvocationRequest,
+) -> (ExitCode, String, String) {
+    let report = crate::module_invoke::developer_invocation_report(request);
+    let code = if report.valid {
+        ExitCode::Ok
+    } else {
+        ExitCode::Usage
+    };
+    match format {
+        OutputFormat::Text => (code, developer_invocation_text(&report), String::new()),
+        OutputFormat::Json => match serde_json::to_string_pretty(&report) {
+            Ok(json) => (code, format!("{json}\n"), String::new()),
+            Err(error) => (ExitCode::Usage, String::new(), error.to_string()),
+        },
+    }
+}
+
+fn developer_invocation_text(report: &crate::module_invoke::DeveloperInvocationReport) -> String {
+    let mut out = format!("{} developer module invocation\n\n", brand::TITLE);
+    let _ = writeln!(out, "contract: {}", report.contract);
+    let _ = writeln!(out, "module: {}", report.module_id);
+    let _ = writeln!(
+        out,
+        "version: {}",
+        report.module_version.as_deref().unwrap_or("unknown")
+    );
+    let _ = writeln!(out, "status: {:?}", report.status);
+    let _ = writeln!(out, "dry_run: {}", report.dry_run);
+    let _ = writeln!(out, "execution_attempted: {}", report.execution_attempted);
+    let _ = writeln!(out, "writes_attempted: {}", report.writes_attempted);
+    let _ = writeln!(out, "product_execution_authorized: no");
+    if let Some(plan_id) = &report.plan_id {
+        let _ = writeln!(out, "plan_id: {plan_id}");
+    }
+    if let Some(plan_sha256) = &report.plan_sha256 {
+        let _ = writeln!(out, "plan_sha256: {plan_sha256}");
+    }
+    if let Some(challenge) = &report.challenge {
+        let _ = writeln!(
+            out,
+            "challenge_issued_unix_seconds: {}",
+            challenge.issued_unix_seconds
+        );
+        let _ = writeln!(
+            out,
+            "challenge_expires_unix_seconds: {}",
+            challenge.expires_unix_seconds
+        );
+        let _ = writeln!(out, "confirm_phrase: {}", challenge.expected_phrase);
+    }
+    if let Some(mechanism) = &report.binding_mechanism {
+        let _ = writeln!(out, "binding_mechanism: {mechanism}");
+    }
+    if let Some(inventory) = &report.inventory {
+        let _ = writeln!(out, "inventory_sources: {}", inventory.summary.source_count);
+        let _ = writeln!(
+            out,
+            "inventory_path_entries: {}",
+            inventory.summary.path_entry_count
+        );
+        let _ = writeln!(out, "inventory_tools: {}", inventory.summary.tool_count);
+        let _ = writeln!(out, "inventory_apps: {}", inventory.summary.app_count);
+        let _ = writeln!(
+            out,
+            "inventory_services: {}",
+            inventory.summary.service_count
+        );
+        let _ = writeln!(
+            out,
+            "inventory_warnings: {}",
+            inventory.summary.warning_count
+        );
+    }
+    if !report.errors.is_empty() {
+        let _ = writeln!(out, "errors:");
+        for error in &report.errors {
+            let _ = writeln!(out, "  - {error}");
+        }
+    }
+    if !report.warnings.is_empty() {
+        let _ = writeln!(out, "warnings:");
+        for warning in &report.warnings {
+            let _ = writeln!(out, "  - {warning}");
+        }
+    }
+    let _ = writeln!(
+        out,
+        "safety: developer trial only; no activation or registry mutation"
+    );
     out
 }
 
@@ -947,7 +1163,9 @@ fn usage_error(args: &[String]) -> String {
 
 fn modules_usage() -> String {
     format!(
-        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules status [--store-root <path>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules install --developer-trial --dry-run <package-dir-or-manifest> [--developer-promote] --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n       {} modules install --developer-trial --apply <package-dir-or-manifest> [--developer-promote] --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n       {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n\nSafety: module status is read-only; normal module installation and lifecycle planning remain dry-run only; --developer-trial is local, test-key-only; --developer-promote may publish only an installed_inactive record for local lifecycle testing; neither mode activates or invokes modules; local trust verification never authorizes module execution; modules are not executed or fetched. The product still never executes modules from this command surface.\n",
+        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules status [--store-root <path>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules install --developer-trial --dry-run <package-dir-or-manifest> [--developer-promote] --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n       {} modules install --developer-trial --apply <package-dir-or-manifest> [--developer-promote] --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n       {} modules invoke --developer-trial --dry-run --module-id first-party.inventory --store-root <path> [--format text|json]\n       {} modules invoke --developer-trial --apply --module-id first-party.inventory --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n       {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n\nSafety: module status is read-only; normal module installation and lifecycle planning remain dry-run only; --developer-trial is local, test-key-only; --developer-promote may publish only an installed_inactive record for local lifecycle testing; --developer-trial invoke may run only the promoted first-party.inventory read-only module through the bounded process host; no mode activates modules or grants production execution authority; local trust verification never authorizes module execution; third-party modules are not executed or fetched.\n",
+        brand::COMMAND,
+        brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,

@@ -148,6 +148,22 @@ pub fn run_bound_mutating_process(
     )
 }
 
+/// Runs a read-only process from a lease that binds the verified opened
+/// artifact to the platform launch primitive. The lease closes only the
+/// executable identity-to-spawn replacement window; it grants no module
+/// capability, trust, sandbox, or product execution authority.
+pub fn run_bound_read_only_process(
+    request: &ReadOnlyProcessRequest,
+    executable: &BoundExecutable<'_>,
+    cancellation: &CancellationToken,
+) -> Result<ReadOnlyProcessOutput, ProcessHostError> {
+    run_process_inner(
+        request,
+        ExecutableSelection::Bound(executable),
+        cancellation,
+    )
+}
+
 pub fn run_read_only_process(
     request: &ReadOnlyProcessRequest,
 ) -> Result<ReadOnlyProcessOutput, ProcessHostError> {

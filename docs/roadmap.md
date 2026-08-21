@@ -240,6 +240,11 @@ See [`action-planning.md`](action-planning.md).
 - [x] Move bounded pipe draining and descriptor/handle/test-containment
   primitives into a shared process-host foundation; production Windows launch
   uses an explicit inherited-handle list and pre-start Job Object assignment.
+- [x] Add the bounded developer-only first-party inventory invocation lane with
+  complete package revalidation, exact executable binding, cleared environment,
+  short-lived challenge, bounded process host, and read-only response validation;
+  production module execution, receipts, sandboxing, and third-party trust
+  remain blocked.
 - [x] Native Unix test-helper preflight for observed inheritable descriptors and
   process-group timeout teardown including a sleeping descendant.
 - [x] Windows-target test-helper Job Object assignment, kill-on-close, bounded

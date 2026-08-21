@@ -204,6 +204,24 @@ module ID, activate or invoke code, and does not establish production trust.
 Without that flag, the developer trial remains staged-only and leaves the
 installed registry unchanged.
 
+For the one current lifecycle execution fixture, a promoted inventory package
+may be reviewed and invoked through the explicit developer-only process lane:
+
+```bash
+rz0 modules invoke --developer-trial --dry-run \
+  --module-id first-party.inventory --store-root <path>
+rz0 modules invoke --developer-trial --apply \
+  --module-id first-party.inventory --store-root <path> \
+  --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase>
+```
+
+The lane requires a valid promoted registry/receipt, complete immutable
+package-file evidence, and a declared Rust inventory executable. It revalidates
+the executable through the shared process host and accepts only the
+path-redacted read-only inventory contract. It never activates state, writes a
+lifecycle receipt, invokes third-party code, or provides production sandbox or
+execution authority.
+
 `rz0 modules trust verify` is a separate local package-review command. It
 combines exact manifest-byte hashing, declared package-file integrity, and the
 detached Ed25519 test-key contract. It does not change the install planner's

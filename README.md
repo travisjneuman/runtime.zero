@@ -293,6 +293,19 @@ consumer, but only for one explicitly supplied module-store file after an
 exact short-lived confirmation; domain-wide ownership/action wiring remains
 separate. A separate schema-1 process protocol keeps module execution
 unauthorized.
+The first bounded outer exception is an explicit developer-trial invocation of
+a promoted `first-party.inventory` package:
+
+```bash
+rz0 modules invoke --developer-trial --dry-run \
+  --module-id first-party.inventory --store-root path/to/initialized-store
+```
+
+After the exact short-lived challenge is re-entered with `--apply`, runtime.zero
+binds the package's declared Rust executable to the shared process host and
+accepts only a path-redacted, read-only inventory response. This lane is
+test-key-only, does not activate or mutate registry state, does not execute
+third-party modules, and is not a production sandbox or public execution API.
 An explicit-feature integration lane executes only a Cargo-built test helper to
 exercise bounded JSON framing, environment clearing, output draining, timeout
 kill/reap, and fail-closed errors; it is not linked to the core or inventory

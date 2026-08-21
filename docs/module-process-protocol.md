@@ -89,6 +89,31 @@ synthetic proof for every gate cannot authorize product execution under schema
 protocol and prevents test-helper evidence from becoming production authority.
 See [`production-readiness.md`](production-readiness.md).
 
+## Developer-trial invocation boundary
+
+The foundation now has one explicit outer developer-trial lane for the
+promoted `first-party.inventory` package:
+
+```text
+rz0 modules invoke --developer-trial --dry-run --module-id first-party.inventory --store-root PATH
+rz0 modules invoke --developer-trial --apply --module-id first-party.inventory --store-root PATH --challenge-issued-unix-seconds SECONDS --confirm PHRASE
+```
+
+The dry-run requires a valid promoted `installed_inactive` record, a
+test-key-only `receipts/install-*.json` receipt, a supported installed manifest,
+complete package integrity, and a declared `bin/rz0-inventory` executable. The
+apply lane reopens and rehashes that exact executable, holds its identity through
+the shared Rust process host, clears the parent environment, passes no shell or
+user arguments, enforces the bounded timeout/output contract, and accepts only a
+path-redacted `inventory_report` with `read_only=true` and
+`writes_attempted=false`.
+
+This is deliberately not schema-1 production execution authorization. It does
+not activate the registry, write a lifecycle receipt, grant third-party trust,
+or enforce filesystem/network/privilege/syscall sandboxing. The report marks
+`developer_trial=true` and `product_execution_authorized=false`; absence of a
+complete immutable package or any response drift fails closed.
+
 ## Explicit-feature test-child transport
 
 `cargo test -p rz0-module-protocol --all-features` enables a private test lane.

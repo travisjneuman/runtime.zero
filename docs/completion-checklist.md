@@ -148,6 +148,12 @@ full platform/lifecycle acceptance cells.
 - [x] Add an explicit developer-only promotion path that publishes one
   test-key-only `installed_inactive` registry record and install receipt through
   the shared transaction coordinator; it does not activate or invoke code.
+- [x] Add the first bounded developer-only process lifecycle slice for promoted
+  `first-party.inventory`: exact complete-package revalidation, executable
+  identity-to-spawn binding, cleared environment, bounded process host, exact
+  challenge, and path-redacted read-only response validation; it does not
+  activate registry state, write a lifecycle receipt, or authorize production
+  or third-party execution.
 - [ ] Implement production immutable staging without reopening mutable source,
   with production trust roots, revocation, provenance, and platform proof
   paths after verification.

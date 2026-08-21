@@ -166,6 +166,14 @@ foundation commit coordinator. This is a lifecycle fixture path only: it
 refuses an existing module ID and never activates, invokes, fetches, replaces,
 or establishes production trust.
 .TP
+.B modules invoke --developer-trial --dry-run|--apply --module-id first-party.inventory --store-root PATH ...
+Review, then explicitly invoke, one promoted first-party inventory package.
+The apply lane revalidates the complete immutable package, binds the declared
+Rust executable through the bounded process host, and accepts only a
+path-redacted read-only inventory response. It never activates registry state,
+writes a lifecycle receipt, invokes third-party code, or establishes production
+execution authority. The process host is not a sandbox.
+.TP
 .B modules lifecycle-plan OPERATION --dry-run --module-id ID --from-state STATE --to-state STATE [--from-version VERSION] [--to-version VERSION] [--format text|json]
 Render one digest-bound schema-1 module lifecycle plan. This is a review-only
 surface; it does not publish registry state, execute code, or authorize a

@@ -58,9 +58,11 @@ rz0-cancellation-contract = { version = "0.1.0", path = "crates/cancellation-con
 rz0-capability-contract = { version = "0.1.0", path = "crates/capability-contract" }
 rz0-confirmation-contract = { version = "0.1.0", path = "crates/confirmation-contract" }
 rz0-diagnostics-contract = { version = "0.1.0", path = "crates/diagnostics-contract" }
+rz0-error-contract = { version = "0.1.0", path = "crates/error-contract" }
 rz0-finding-contract = { version = "0.1.0", path = "crates/finding-contract" }
 rz0-inventory-contract = { version = "0.1.0", path = "crates/inventory-contract" }
 rz0-module-lifecycle = { version = "0.1.0", path = "crates/module-lifecycle" }
+rz0-module-protocol = { version = "0.1.0", path = "crates/module-protocol" }
 rz0-module-trust = { version = "0.1.0", path = "crates/module-trust" }
 rz0-module-inventory = { version = "0.1.0", path = "modules/inventory" }
 rz0-module-cache = { version = "0.1.0", path = "modules/cache" }
