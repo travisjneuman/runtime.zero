@@ -32,6 +32,10 @@ enum ModulesAction {
         path: String,
         format: OutputFormat,
     },
+    InstallDeveloperTrial {
+        request: crate::module_stage::DeveloperStageRequest,
+        format: OutputFormat,
+    },
     LifecyclePlan {
         operation: ModuleLifecycleOperation,
         module_id: String,
@@ -66,6 +70,9 @@ pub fn modules_command(args: &[String]) -> (ExitCode, String, String) {
         }
         Ok(ModulesAction::Validate { path, format }) => render_validation(format, &path),
         Ok(ModulesAction::InstallDryRun { path, format }) => render_install_plan(format, &path),
+        Ok(ModulesAction::InstallDeveloperTrial { request, format }) => {
+            render_developer_stage(format, &request)
+        }
         Ok(ModulesAction::LifecyclePlan {
             operation,
             module_id,
@@ -209,26 +216,137 @@ fn parse_validate_args(args: &[String]) -> Result<ModulesAction, String> {
 
 fn parse_install_args(args: &[String]) -> Result<ModulesAction, String> {
     let mut format = OutputFormat::Text;
-    let mut dry_run = false;
+    let mut mode = None;
+    let mut developer_trial = false;
     let mut path = None;
+    let mut signature = None;
+    let mut trusted_test_key = None;
+    let mut store_root = None;
+    let mut challenge_issued_unix_seconds = None;
+    let mut confirmation = None;
     let mut index = 0usize;
     while index < args.len() {
         match args[index].as_str() {
-            "--dry-run" if !dry_run => dry_run = true,
-            "--dry-run" => return Err(install_dry_run_usage()),
+            "--developer-trial" if !developer_trial => developer_trial = true,
+            "--developer-trial" => return Err(install_usage()),
+            "--dry-run" if mode.is_none() => mode = Some(false),
+            "--dry-run" => return Err(install_usage()),
+            "--apply" if mode.is_none() => mode = Some(true),
+            "--apply" => return Err(install_usage()),
             "--json" => format = OutputFormat::Json,
             "--format" => format = parse_format(args, &mut index)?,
+            "--signature" => set_option(&mut signature, args, &mut index, "signature path")?,
+            "--trusted-test-key" => set_option(
+                &mut trusted_test_key,
+                args,
+                &mut index,
+                "trusted test key path",
+            )?,
+            "--store-root" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(install_usage());
+                };
+                if store_root.is_some() {
+                    return Err(
+                        "module developer trial store root was provided more than once".to_string(),
+                    );
+                }
+                store_root = Some(resolve_store_root(value)?);
+                index += 1;
+            }
+            "--challenge-issued-unix-seconds" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(install_usage());
+                };
+                if challenge_issued_unix_seconds.is_some() {
+                    return Err(
+                        "module developer trial challenge time was provided more than once"
+                            .to_string(),
+                    );
+                }
+                challenge_issued_unix_seconds =
+                    Some(value.parse::<u64>().map_err(|_| {
+                        "challenge-issued-unix-seconds must be an integer".to_string()
+                    })?);
+                index += 1;
+            }
+            "--confirm" => set_option(&mut confirmation, args, &mut index, "confirmation phrase")?,
             value if path.is_none() => path = Some(value.to_string()),
-            _ => return Err(install_dry_run_usage()),
+            _ => return Err(install_usage()),
         }
         index += 1;
     }
-    if !dry_run {
+    let Some(path) = path else {
+        return Err(install_usage());
+    };
+    if developer_trial {
+        let Some(apply) = mode else {
+            return Err(install_usage());
+        };
+        let Some(signature) = signature else {
+            return Err(format!(
+                "developer trial requires --signature <envelope.json>\n\n{}",
+                install_usage()
+            ));
+        };
+        let Some(trusted_test_key) = trusted_test_key else {
+            return Err(format!(
+                "developer trial requires --trusted-test-key <key.json>\n\n{}",
+                install_usage()
+            ));
+        };
+        let Some(store_root) = store_root else {
+            return Err(format!(
+                "developer trial requires --store-root <path>\n\n{}",
+                install_usage()
+            ));
+        };
+        let stage_mode = if apply {
+            let Some(issued) = challenge_issued_unix_seconds else {
+                return Err(format!(
+                    "developer trial apply requires --challenge-issued-unix-seconds <seconds>\n\n{}",
+                    install_usage()
+                ));
+            };
+            let Some(confirmation) = confirmation else {
+                return Err(format!(
+                    "developer trial apply requires --confirm <exact-phrase>\n\n{}",
+                    install_usage()
+                ));
+            };
+            crate::module_stage::DeveloperStageMode::Apply {
+                challenge_issued_unix_seconds: issued,
+                confirmation,
+            }
+        } else {
+            if challenge_issued_unix_seconds.is_some() || confirmation.is_some() {
+                return Err(
+                    "developer trial dry-run does not accept apply confirmation arguments"
+                        .to_string(),
+                );
+            }
+            crate::module_stage::DeveloperStageMode::DryRun
+        };
+        return Ok(ModulesAction::InstallDeveloperTrial {
+            request: crate::module_stage::DeveloperStageRequest {
+                package_path: PathBuf::from(path),
+                signature_path: PathBuf::from(signature),
+                trusted_key_path: PathBuf::from(trusted_test_key),
+                store_root,
+                mode: stage_mode,
+            },
+            format,
+        });
+    }
+    if mode != Some(false)
+        || signature.is_some()
+        || trusted_test_key.is_some()
+        || store_root.is_some()
+        || challenge_issued_unix_seconds.is_some()
+        || confirmation.is_some()
+    {
         return Err(install_dry_run_usage());
     }
-    let Some(path) = path else {
-        return Err(usage_error(args));
-    };
     Ok(install_dry_run_action(&path, format))
 }
 
@@ -354,6 +472,15 @@ fn install_dry_run_usage() -> String {
     )
 }
 
+fn install_usage() -> String {
+    format!(
+        "module installation remains blocked; the developer trial is local, signed-test-key-only staging\n\nUsage: {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules install --developer-trial --dry-run <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n       {} modules install --developer-trial --apply <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n\nThe developer trial stages only a locally selected read-only first-party package. It leaves the installed registry unchanged and never activates, invokes, fetches, replaces, or cleans module bytes. Production signing, revocation, sandboxing, and public distribution remain unavailable.\n",
+        brand::COMMAND,
+        brand::COMMAND,
+        brand::COMMAND,
+    )
+}
+
 fn lifecycle_plan_usage() -> String {
     format!(
         "module lifecycle planning is dry-run only\n\nUsage: {} modules lifecycle-plan <install|activate|invoke|deactivate|repair|migrate|upgrade|uninstall> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--transition-id <id>] [--format text|json]\n\nStates: absent, staged, installed_inactive, active, degraded, quarantined\nSafety: this command creates a digest-bound, non-authorizing plan; it does not write, execute, activate, disable, or uninstall a module.\n",
@@ -440,6 +567,96 @@ fn render_install_plan(format: OutputFormat, path: &str) -> (ExitCode, String, S
             Err(err) => (ExitCode::Usage, String::new(), err.to_string()),
         },
     }
+}
+
+fn render_developer_stage(
+    format: OutputFormat,
+    request: &crate::module_stage::DeveloperStageRequest,
+) -> (ExitCode, String, String) {
+    let report = crate::module_stage::developer_stage_report(request);
+    let code = if report.valid {
+        ExitCode::Ok
+    } else {
+        ExitCode::Usage
+    };
+    match format {
+        OutputFormat::Text => (code, developer_stage_text(&report), String::new()),
+        OutputFormat::Json => match serde_json::to_string_pretty(&report) {
+            Ok(json) => (code, format!("{json}\n"), String::new()),
+            Err(error) => (ExitCode::Usage, String::new(), error.to_string()),
+        },
+    }
+}
+
+fn developer_stage_text(report: &crate::module_stage::DeveloperStageReport) -> String {
+    let mut out = format!("{} developer module stage\n\n", brand::TITLE);
+    let _ = writeln!(
+        out,
+        "status: {}",
+        if report.valid { "valid" } else { "blocked" }
+    );
+    let _ = writeln!(
+        out,
+        "mode: {}",
+        if report.dry_run { "dry-run" } else { "apply" }
+    );
+    let _ = writeln!(out, "developer_only: yes");
+    let _ = writeln!(out, "test_key_only: yes");
+    let _ = writeln!(
+        out,
+        "writes_attempted: {}",
+        if report.writes_attempted { "yes" } else { "no" }
+    );
+    let _ = writeln!(out, "product_execution_authorized: no");
+    if let Some(id) = report.package_id.as_deref() {
+        let _ = writeln!(
+            out,
+            "package: {}@{}",
+            id,
+            report.package_version.as_deref().unwrap_or("unknown")
+        );
+    }
+    if let Some(destination) = report.destination_relative.as_deref() {
+        let _ = writeln!(out, "destination: {destination}");
+    }
+    if let Some(plan_id) = report.plan_id.as_deref() {
+        let _ = writeln!(out, "plan_id: {plan_id}");
+    }
+    if let Some(challenge) = &report.challenge {
+        let _ = writeln!(
+            out,
+            "challenge_issued_unix_seconds: {}",
+            challenge.issued_unix_seconds
+        );
+        let _ = writeln!(
+            out,
+            "challenge_expires_unix_seconds: {}",
+            challenge.expires_unix_seconds
+        );
+        let _ = writeln!(out, "confirm_phrase: {}", challenge.expected_phrase);
+    }
+    let _ = writeln!(out, "files: {}", report.files.len());
+    for file in &report.files {
+        let _ = writeln!(
+            out,
+            "  - {} ({} bytes, {})",
+            file.path, file.size_bytes, file.sha256
+        );
+    }
+    if !report.errors.is_empty() {
+        let _ = writeln!(out, "errors:");
+        for error in &report.errors {
+            let _ = writeln!(out, "  - {error}");
+        }
+    }
+    if !report.warnings.is_empty() {
+        let _ = writeln!(out, "warnings:");
+        for warning in &report.warnings {
+            let _ = writeln!(out, "  - {warning}");
+        }
+    }
+    let _ = writeln!(out, "safety: {}", report.safety_note);
+    out
 }
 
 fn render_lifecycle_plan(
@@ -719,7 +936,9 @@ fn usage_error(args: &[String]) -> String {
 
 fn modules_usage() -> String {
     format!(
-        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules status [--store-root <path>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n       {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n\nSafety: module status is read-only; module install and lifecycle planning are dry-run only; local trust verification is test-key-only and never authorizes module execution; modules are not executed or fetched.\n",
+        "Usage: {} modules [--from <dir>] [--format text|json]\n       {} modules status [--store-root <path>] [--format text|json]\n       {} modules validate <manifest.json> [--format text|json]\n       {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n       {} modules install --developer-trial --dry-run <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n       {} modules install --developer-trial --apply <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n       {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n       {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n\nSafety: module status is read-only; normal module installation and lifecycle planning remain dry-run only; the developer trial is local, test-key-only staging that leaves the installed registry unchanged; local trust verification never authorizes module execution; modules are not executed or fetched. The product still never executes modules from this command surface.\n",
+        brand::COMMAND,
+        brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,

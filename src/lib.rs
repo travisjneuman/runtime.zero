@@ -17,6 +17,7 @@ pub mod module_cli;
 pub mod module_install_plan;
 pub mod module_manifest;
 pub mod module_registry;
+pub mod module_stage;
 pub mod module_status;
 pub mod module_store;
 pub mod module_trust_cli;
@@ -184,6 +185,14 @@ pub fn help_text() -> String {
     );
     if let Some(index) = help.find("\n\nFoundation safety posture:") {
         help.insert_str(index, &format!("\n{module_trust_usage}"));
+    }
+    let module_developer_trial_usage = format!(
+        "  {} modules install --developer-trial --dry-run <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n  {} modules install --developer-trial --apply <package-dir-or-manifest> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n",
+        brand::COMMAND,
+        brand::COMMAND,
+    );
+    if let Some(index) = help.find("\n\nFoundation safety posture:") {
+        help.insert_str(index, &format!("\n{module_developer_trial_usage}"));
     }
     let release_usage = format!(
         "  {} release status --assessment <assessment.json> [--format text|json]\n",

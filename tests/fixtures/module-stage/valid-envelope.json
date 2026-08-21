@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "scheme": "ed25519",
+  "key_id": "test.rfc8032.1",
+  "package_id": "first-party.inventory-fixture",
+  "package_version": "0.1.0",
+  "manifest_sha256": "1e52314caaf997e7654318d261774422819a4d3fb027d7507b1864ce80876193",
+  "signature_hex": "cce6ffd6dd3a6d549767329c7033175184006d827b5a6b84f72149f56afa8d4db93d3dd9e9540683edcbd8c329d4eb0cdac0e4c372d527eed937291daea7f50b"
+}

@@ -191,8 +191,23 @@ rz0 modules install --dry-run path/to/module-package
 
 Module validation and installation planning remain local and bounded. The
 current module planner does not fetch, trust, activate, or run module code;
-module installation writes remain a separate lifecycle implementation and must
-not be confused with manager update execution. Target commands such as
+normal module installation writes remain a separate production lifecycle
+implementation and must not be confused with manager update execution. A
+developer-only trial can now stage one locally selected, read-only,
+first-party package after exact manifest/package-file verification and
+detached test-key verification:
+
+```bash
+rz0 modules install --developer-trial --dry-run path/to/module-package \
+  --signature path/to/envelope.json \
+  --trusted-test-key path/to/trusted-test-key.json \
+  --store-root path/to/initialized-runtime-zero-store
+```
+
+The explicit apply form requires the dry-run challenge phrase and stages only
+runtime.zero-owned bytes with transaction/receipt evidence. It leaves the
+installed registry unchanged, never activates or executes the module, and is
+not a production installer. Target commands such as
 `rz0 modules enable`, `disable`, `configure`, `repair`, and `uninstall` are not
 current commands until the foundation-owned lifecycle, registry publication,
 receipts, recovery, and TUI path are implemented together.
@@ -255,10 +270,13 @@ activation, or production support. See
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).
 
 A separate `crates/module-trust/` contract now verifies local detached Ed25519
-signatures with public test keys only. It does not provide signing, production
-keys, installation, activation, or module execution. Schema-1 staging plans and
-integration-test-only OS-temp helpers exercise atomic staging and
-quarantine/restore failure semantics; the foundation-owned `rz0-quarantine`
+signatures with public test keys only. The developer-trial module staging path
+uses that proof plus same-open-handle package reads, private store roots,
+explicit confirmation, immutable transaction snapshots, byte verification,
+and a stage receipt; it does not publish installed state, activate, or execute
+modules. Production signing, revocation, sandboxing, and release distribution
+remain open. Schema-1 staging plans and integration-test-only OS-temp helpers
+also exercise atomic staging and quarantine/restore failure semantics; the foundation-owned `rz0-quarantine`
 crate now provides a narrow receipt-bound mover with cancellation and
 post-move recovery classification. The leftovers CLI is the first non-updater
 consumer, but only for one explicitly supplied module-store file after an

@@ -82,6 +82,11 @@ rz0 modules status --store-root tests/fixtures/store-roots/valid-registry-valid-
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
+rz0 modules install --developer-trial --dry-run <package-dir-or-manifest> \
+  --signature <envelope.json> --trusted-test-key <key.json> --store-root <path>
+rz0 modules install --developer-trial --apply <package-dir-or-manifest> \
+  --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> \
+  --challenge-issued-unix-seconds <seconds> --confirm '<exact phrase>'
 rz0 modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json>
 rz0 modules lifecycle-plan install --dry-run --module-id first-party.inventory --from-state absent --to-state installed_inactive --to-version 0.1.0
 rz0 store plan
@@ -163,6 +168,26 @@ directory, verified files that would be copied later, and the manifest metadata
 that would be recorded later. Every planned action has `would_write: false` in
 JSON output. The command performs no writes and intentionally has no non-dry-run
 form.
+
+The bounded developer trial is the first local write path for module-shaped
+bytes, but it is not production installation:
+
+```bash
+rz0 modules install --developer-trial --dry-run <package-dir-or-manifest> \
+  --signature <envelope.json> --trusted-test-key <key.json> --store-root <path>
+```
+
+The dry-run reads a locally selected package, verifies the exact manifest and
+declared package files through held file identities, checks a detached public
+test-key signature, validates an initialized private store, and prints the
+short-lived confirmation phrase. Re-run it with the exact challenge values to
+apply. Apply copies only verified bytes into the runtime.zero-owned module
+store and records immutable transaction, commit, and developer-stage receipts.
+It does not publish `installed-modules.json`, activate or invoke code, fetch
+network content, replace an existing version, or establish production trust.
+It is a developer fixture lane for validating the foundation write boundary
+while production signing, revocation, provenance, sandboxing, upgrade, repair,
+rollback, and distribution remain open.
 
 `rz0 modules trust verify` is a separate local package-review command. It
 combines exact manifest-byte hashing, declared package-file integrity, and the

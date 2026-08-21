@@ -8,7 +8,13 @@ Today the core validates local JSON manifests, hashes explicitly listed local
 files, plans installation without writes, and inspects registry/receipt shapes.
 The first-party inventory package is separately buildable; the core embeds its
 library only as a bounded read adapter and does not install, activate, or execute
-its lifecycle package/development binary. The core-owned manager updater is a
+its lifecycle package/development binary. A developer-only staging trial now
+accepts one locally selected read-only first-party package after
+manifest/package-file verification and detached public test-key verification.
+It copies held, verified bytes into a private runtime.zero-owned module path,
+publishes a stage receipt and transaction evidence, and leaves the installed
+registry unchanged. It is not a production installer and does not authorize
+activation, invocation, or execution. The core-owned manager updater is a
 separate narrow execution lane and does not authorize module execution.
 
 This gate is the prerequisite for the end-state product described in
@@ -213,22 +219,29 @@ Implementation may proceed only in bounded stages:
    control, core module-host integration, and platform sandbox/capability
    isolation remain open. A separate schema-1 production assessment records the
    complete gate set but cannot authorize execution.
-6. Local developer-only signed artifact trial.
+6. **Implemented as a developer-only signed artifact trial:** the explicit
+   `modules install --developer-trial` path stages one local read-only
+   first-party package after test-key verification, held source identity
+   revalidation, private store checks, exact confirmation, transaction/receipt
+   publication, and post-copy byte verification. It leaves the installed
+   registry unchanged and grants no activation or execution authority. The
+   signed test key remains a fixture trust root only.
 7. Separately approved release/distribution work.
 8. Third-party threat model and governance last.
 
 See [`module-process-protocol.md`](module-process-protocol.md) for the schema-1
 preview and its no-execution response boundary.
 
-The stage-3/4 filesystem writes and stage-5 helper launch exist only in
+The stage-3/4 filesystem writes and stage-5 helper launch still exist only in
 integration-test support, require marked/prefixed direct OS-temp children, and
 are removed by test cleanup. The test-child model is compiled only under an
-explicit feature. No library/CLI/core production staging, module installation,
-or module-execution function was added. The separately reviewed leftovers
-exact-file lane is not module execution or staging: it only moves one
-runtime.zero-owned module-store file through the receipt-bound foundation
-quarantine executor after exact confirmation. Each stage must preserve a
-no-execution/no-write product mode and stop before the next gate. Destructive
-cleanup, credential/session handling, persistence, account actions, production
-deployment, and recurring automation remain outside this design without
-explicit approval.
+explicit feature. The developer trial is the first bounded core write path for
+module bytes, but it is deliberately not installed-registry publication,
+activation, module execution, production trust, or public distribution. The
+separately reviewed leftovers exact-file lane is not module execution or
+staging: it only moves one runtime.zero-owned module-store file through the
+receipt-bound foundation quarantine executor after exact confirmation. Each
+stage must preserve a no-execution product mode and stop before the next gate.
+Destructive cleanup, credential/session handling, persistence, account actions,
+production deployment, and recurring automation remain outside this design
+without explicit approval.

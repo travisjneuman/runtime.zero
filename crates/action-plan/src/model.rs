@@ -57,6 +57,7 @@ pub enum ActionKind {
     Uninstall,
     Quarantine,
     Restore,
+    ModuleInstall,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -113,6 +114,7 @@ pub struct WriteSetEntry {
 #[serde(rename_all = "snake_case")]
 pub enum WriteKind {
     RuntimeState,
+    ModulePayload,
     QuarantineRecord,
     QuarantinedPayload,
     RestoredPayload,

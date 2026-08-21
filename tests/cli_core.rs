@@ -181,6 +181,7 @@ fn subcommand_help_is_scriptable_and_successful() {
     assert_eq!(code, ExitCode::Ok);
     assert!(err.is_empty());
     assert!(out.contains("rz0 modules install --dry-run"));
+    assert!(out.contains("rz0 modules install --developer-trial --dry-run"));
     assert!(out.contains("rz0 modules status [--store-root <path>]"));
     assert!(out.contains("rz0 modules trust verify"));
     assert!(out.contains("rz0 modules lifecycle-plan"));

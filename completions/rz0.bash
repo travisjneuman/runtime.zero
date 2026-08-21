@@ -34,7 +34,7 @@ _rz0_complete() {
         recovery) COMPREPLY=( $(compgen -W '--dry-run --format --json --help' -- "$current") ) ;;
         integrity) COMPREPLY=( $(compgen -W '--dry-run --fixture --format --json --help' -- "$current") ) ;;
         uninstall) COMPREPLY=( $(compgen -W 'plan --executable --format --json --help' -- "$current") ) ;;
-        modules) COMPREPLY=( $(compgen -W 'status validate install lifecycle-plan --from --store-root --module-id --from-state --to-state --from-version --to-version --transition-id --dry-run --format --json --help' -- "$current") ) ;;
+        modules) COMPREPLY=( $(compgen -W 'status validate install lifecycle-plan trust --from --store-root --module-id --from-state --to-state --from-version --to-version --transition-id --developer-trial --signature --trusted-test-key --challenge-issued-unix-seconds --confirm --dry-run --apply --format --json --help' -- "$current") ) ;;
         store) COMPREPLY=( $(compgen -W 'plan status init --store-root --dry-run --yes --format --json --help' -- "$current") ) ;;
         scan) COMPREPLY=( $(compgen -W '--dry-run --include-raw-paths --format --json --help' -- "$current") ) ;;
         updates) COMPREPLY=( $(compgen -W '--dry-run --fixture --manager-output --manager --executable --probe --allow-network-read --plan --queue --apply --action --all --confirm --challenge-issued-unix-seconds --accept-no-rollback --allow-network-write --recovery-status --transaction --format --json --help' -- "$current") ) ;;

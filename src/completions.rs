@@ -65,6 +65,8 @@ mod tests {
             }
             assert!(output.contains("recovery-status"));
             assert!(output.contains("lifecycle-plan"));
+            assert!(output.contains("developer-trial"));
+            assert!(output.contains("trusted-test-key"));
             assert!(error.is_empty());
         }
     }

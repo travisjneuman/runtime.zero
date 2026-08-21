@@ -39,7 +39,7 @@ complete -c rz0 -n '__fish_seen_subcommand_from uninstall' -a plan
 complete -c rz0 -n '__fish_seen_subcommand_from uninstall' -l executable -rF
 complete -c rz0 -n '__fish_seen_subcommand_from uninstall' -l format -xa 'text json'
 complete -c rz0 -n '__fish_seen_subcommand_from uninstall' -l json
-complete -c rz0 -n '__fish_seen_subcommand_from modules' -a 'status validate install lifecycle-plan'
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -a 'status validate install lifecycle-plan trust'
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l from -rF
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l store-root -rF
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l module-id
@@ -48,7 +48,13 @@ complete -c rz0 -n '__fish_seen_subcommand_from modules' -l to-state -xa 'absent
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l from-version
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l to-version
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l transition-id
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l developer-trial -d 'bounded test-key-only module staging'
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l signature -rF -d 'detached signature envelope'
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l trusted-test-key -rF -d 'public test key'
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l challenge-issued-unix-seconds -r -d 'challenge timestamp'
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l confirm -r -d 'exact challenge phrase'
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l dry-run
+complete -c rz0 -n '__fish_seen_subcommand_from modules' -l apply -d 'developer staging apply'
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l format -xa 'text json'
 complete -c rz0 -n '__fish_seen_subcommand_from modules' -l json
 complete -c rz0 -n '__fish_seen_subcommand_from cache' -l dry-run

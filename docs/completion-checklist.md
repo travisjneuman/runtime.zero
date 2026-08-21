@@ -141,7 +141,12 @@ full platform/lifecycle acceptance cells.
   verification and rollback/freeze protection.
 - [ ] Bind package, manifest, every file, publisher, version, source release,
   capability declaration, and receipt into one reviewed trust decision.
-- [ ] Implement production immutable staging without reopening mutable source
+- [x] Implement a bounded developer-only signed staging trial with held source
+  identity, private runtime.zero roots, exact confirmation, transaction
+  snapshots, byte verification, and a stage receipt; this is not production
+  trust or public installation.
+- [ ] Implement production immutable staging without reopening mutable source,
+  with production trust roots, revocation, provenance, and platform proof
   paths after verification.
 - [ ] Implement foundation-owned install, activate, invoke, deactivate, repair,
   migrate, upgrade, and uninstall execution.

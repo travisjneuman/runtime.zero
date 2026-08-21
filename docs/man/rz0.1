@@ -146,6 +146,18 @@ module execution.
 .B modules install --dry-run PACKAGE [--format text|json]
 Build a non-authorizing module lifecycle installation plan.
 .TP
+.B modules install --developer-trial --dry-run PACKAGE --signature ENVELOPE --trusted-test-key KEY --store-root PATH [--format text|json]
+Review a locally selected read-only first-party package, its exact declared
+file bytes, and a detached public test-key signature. This is a developer-only
+staging trial and prints the explicit confirmation challenge without writing.
+.TP
+.B modules install --developer-trial --apply PACKAGE --signature ENVELOPE --trusted-test-key KEY --store-root PATH --challenge-issued-unix-seconds SECONDS --confirm PHRASE [--format text|json]
+Stage the verified package bytes into the private runtime.zero module store
+after the exact challenge is re-entered. The trial records transaction and
+stage receipts but does not publish the installed registry, replace existing
+bytes, activate or invoke code, fetch network content, or establish production
+trust.
+.TP
 .B modules lifecycle-plan OPERATION --dry-run --module-id ID --from-state STATE --to-state STATE [--from-version VERSION] [--to-version VERSION] [--format text|json]
 Render one digest-bound schema-1 module lifecycle plan. This is a review-only
 surface; it does not publish registry state, execute code, or authorize a
@@ -202,9 +214,10 @@ A normal broken output pipe exits successfully.
 Do not treat a plan, signature, executable lease, confirmation, receipt,
 finding, diagnostic, or release ledger as broader authority. Do not share raw
 inventory without review. Never edit the runtime.zero state store manually to
-bypass a recovery decision. Uninstall, recursive cleanup, module lifecycle
-execution, third-party execution, and permanent deletion are not implemented
-product actions. The leftovers apply lane is limited to one explicitly supplied
+bypass a recovery decision. Uninstall, recursive cleanup, production module
+lifecycle execution, third-party execution, and permanent deletion are not
+implemented product actions. The developer module trial is test-key-only
+staging and leaves staged bytes undiscoverable and inactive. The leftovers apply lane is limited to one explicitly supplied
 runtime.zero module-store file and remains subject to the exact confirmation,
 foundation recovery, retention, and platform gates.
 .SH FILES

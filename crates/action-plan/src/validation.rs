@@ -298,6 +298,17 @@ fn validate_transaction_shape(action: &PlanAction, validation: &mut ActionPlanVa
             }
         }
         ActionKind::Update | ActionKind::Uninstall => {}
+        ActionKind::ModuleInstall => {
+            if !capabilities.contains(&ActionCapability::RuntimeStateWrite)
+                || !write_kinds.contains(&WriteKind::ModulePayload)
+                || !action.rollback.supported
+            {
+                validation.fail(format!(
+                    "action '{}' lacks module staging capability, payload writes, or rollback posture",
+                    action.action_id
+                ));
+            }
+        }
     }
 }
 
@@ -326,6 +337,7 @@ fn validate_write_set(action: &PlanAction, validation: &mut ActionPlanValidation
 fn write_path_matches_kind(path: &str, kind: WriteKind) -> bool {
     match kind {
         WriteKind::RuntimeState => path.starts_with("state/"),
+        WriteKind::ModulePayload => path.starts_with("modules/"),
         WriteKind::QuarantineRecord | WriteKind::QuarantinedPayload => {
             path.starts_with("quarantine/")
         }

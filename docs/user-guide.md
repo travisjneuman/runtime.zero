@@ -446,6 +446,27 @@ currently enabled Unix paths. It refuses unsafe existing state and does not
 repair, overwrite, install, activate, or execute modules. Windows creation
 remains blocked pending ACL/runtime proof.
 
+## Module staging boundary
+
+The normal module installer is not available. `rz0 modules install --dry-run`
+only validates a local package and builds a non-authorizing plan. A separate
+developer trial can exercise the foundation's first bounded module-byte write
+with a local fixture:
+
+```bash
+rz0 modules install --developer-trial --dry-run <package-dir-or-manifest> \
+  --signature <envelope.json> --trusted-test-key <key.json> --store-root <path>
+```
+
+If the dry-run is valid, repeat the command as `--apply` with its exact
+`--challenge-issued-unix-seconds` value and `--confirm` phrase. The trial
+accepts only a read-only first-party package, a detached public test-key
+signature, and an initialized private store. It verifies source bytes before
+copying them, writes only runtime.zero-owned module/receipt state, refuses
+replacement, and leaves the installed registry unchanged. It never fetches,
+activates, invokes, or executes module code. This is a developer foundation
+test, not a public installer or a production trust decision.
+
 ## Module surfaces
 
 ```bash
@@ -454,13 +475,19 @@ rz0 modules status
 rz0 modules status --store-root path/to/store --format json
 rz0 modules validate modules/inventory/rz0-module.json
 rz0 modules install --dry-run modules/inventory
+rz0 modules install --developer-trial --dry-run <package> --signature <envelope.json> \
+  --trusted-test-key <key.json> --store-root <path>
 rz0 modules lifecycle-plan invoke --dry-run --module-id first-party.inventory \
   --from-state active --to-state active --from-version 0.1.0 --to-version 0.1.0
 ```
 
-These commands parse, validate, hash, and plan. They do not install, activate,
-invoke, repair, migrate, upgrade, deactivate, or uninstall module code. The
-seven first-party manifests remain planned.
+These commands parse, validate, hash, and plan. The developer-trial form is the
+exceptional bounded foundation test described above: it can stage verified
+read-only fixture bytes after explicit confirmation, but it does not publish a
+registry record or make those bytes discoverable, active, or executable. There
+is no supported production command to install, activate, invoke, repair,
+migrate, upgrade, deactivate, or uninstall module code. The seven first-party
+manifests remain planned.
 
 Use `rz0 modules status` when you need the current installed-module answer:
 valid registry-plus-receipt-plus-installed-byte evidence is

@@ -46,6 +46,7 @@ fn put(digest: &mut Sha256, value: &str) {
 fn write_kind_name(kind: WriteKind) -> &'static str {
     match kind {
         WriteKind::RuntimeState => "runtime_state",
+        WriteKind::ModulePayload => "module_payload",
         WriteKind::QuarantineRecord => "quarantine_record",
         WriteKind::QuarantinedPayload => "quarantined_payload",
         WriteKind::RestoredPayload => "restored_payload",
