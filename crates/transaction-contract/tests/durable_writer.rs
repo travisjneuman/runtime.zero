@@ -8,8 +8,8 @@ use std::{
 use rz0_transaction_contract::{
     DurabilityRequirements, DurableJournalErrorCode, SnapshotPublicationStatus,
     TRANSACTION_CONTRACT, TRANSACTION_SCHEMA_VERSION, TransactionEvent, TransactionEventKind,
-    TransactionJournal, TransactionOperation, TransactionState, publish_journal_snapshot,
-    recover_journal_head, seal_transaction_journal,
+    TransactionJournal, TransactionOperation, TransactionState, inspect_journal_head,
+    publish_journal_snapshot, recover_journal_head, seal_transaction_journal,
 };
 
 #[test]
@@ -38,6 +38,22 @@ fn publishes_recovers_and_idempotently_reuses_immutable_snapshots() {
         recovered.snapshot_name,
         snapshot_path(root.path(), &journal)
     );
+}
+
+#[test]
+fn read_only_journal_inspection_does_not_create_or_require_a_writer_lock() {
+    let root = TestRoot::new();
+    let journal = journal();
+    publish_journal_snapshot(root.path(), &journal).expect("publish prepared");
+    let lock_path = root
+        .path()
+        .join(format!(".{}.writer.lock", journal.transaction_id));
+    fs::remove_file(&lock_path).expect("remove test lock marker");
+
+    let inspected = inspect_journal_head(root.path(), &journal.transaction_id)
+        .expect("inspect without mutation");
+    assert_eq!(inspected.journal, journal);
+    assert!(!lock_path.exists());
 }
 
 #[test]

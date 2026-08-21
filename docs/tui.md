@@ -37,8 +37,10 @@ The dashboard has five stable destinations:
 - `SOFTWARE`: installed applications and packages outside the toolchain;
 - `SYSTEM`: bounded CPU, memory, disk, network, and process evidence;
 - `DIAGNOSTICS`: store, registry, receipt, module, bounded quarantine recovery
-  review, bounded cache/leftovers evidence including cache age-threshold and
-  active-use uncertainty, and integrity-baseline posture.
+  review including transaction-journal validity, action-required, and
+  incomplete-review warning counts,
+  bounded cache/leftovers evidence including cache age-threshold and active-use
+  uncertainty, and integrity-baseline posture.
 
 The same two-panel shell is reused in every workspace. Home and the other
 workspaces do not expose a persistent command rail, duplicate status-card

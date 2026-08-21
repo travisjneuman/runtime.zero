@@ -54,6 +54,10 @@ pub struct TuiDashboard {
     pub recovery_status: String,
     pub recovery_record_count: usize,
     pub recovery_restore_available_count: usize,
+    pub recovery_transaction_count: usize,
+    pub recovery_transaction_invalid_count: usize,
+    pub recovery_transaction_action_required_count: usize,
+    pub recovery_transaction_warning_count: usize,
     pub integrity_status: String,
     pub update_check_status: String,
     pub update_action_status: String,
@@ -254,8 +258,14 @@ fn build_dashboard(
         || "private summary".to_string(),
         |summary| {
             format!(
-                "{} · {} valid · {} restore-capable",
-                summary.quarantine_root_state, summary.valid_count, summary.restore_available_count
+                "{} · {} valid · {} restore-capable · journals {} · {} invalid · {} action-required · {} review warnings",
+                summary.quarantine_root_state,
+                summary.valid_count,
+                summary.restore_available_count,
+                summary.checked_transaction_count,
+                summary.invalid_transaction_count,
+                summary.transaction_action_required_count,
+                summary.transaction_warning_count,
             )
         },
     );
@@ -263,6 +273,18 @@ fn build_dashboard(
     let recovery_restore_available_count = recovery
         .as_ref()
         .map_or(0, |summary| summary.restore_available_count);
+    let recovery_transaction_count = recovery
+        .as_ref()
+        .map_or(0, |summary| summary.checked_transaction_count);
+    let recovery_transaction_invalid_count = recovery
+        .as_ref()
+        .map_or(0, |summary| summary.invalid_transaction_count);
+    let recovery_transaction_action_required_count = recovery
+        .as_ref()
+        .map_or(0, |summary| summary.transaction_action_required_count);
+    let recovery_transaction_warning_count = recovery
+        .as_ref()
+        .map_or(0, |summary| summary.transaction_warning_count);
     let integrity_status = "baseline unavailable · fixture or exact-file evidence".to_string();
     let default_view = SoftwareView::default();
     TuiDashboard {
@@ -293,6 +315,10 @@ fn build_dashboard(
         recovery_status,
         recovery_record_count,
         recovery_restore_available_count,
+        recovery_transaction_count,
+        recovery_transaction_invalid_count,
+        recovery_transaction_action_required_count,
+        recovery_transaction_warning_count,
         integrity_status: integrity_status.clone(),
         update_check_status: "not checked".to_string(),
         update_action_status: "idle · u scans providers · review action requires confirmation"
@@ -522,10 +548,20 @@ fn diagnostics_section(
                     tui_theme::LABEL_WARN
                 },
                 &format!(
-                    "quarantine records {} · {} valid · {} restore-capable",
-                    summary.checked_count, summary.valid_count, summary.restore_available_count
+                    "quarantine records {} · {} valid · {} restore-capable · journals {} · {} invalid · {} action-required · {} review warnings",
+                    summary.checked_count,
+                    summary.valid_count,
+                    summary.restore_available_count,
+                    summary.checked_transaction_count,
+                    summary.invalid_transaction_count,
+                    summary.transaction_action_required_count,
+                    summary.transaction_warning_count,
                 ),
-                if summary.invalid_count == 0 && summary.quarantine_root_state != "invalid" {
+                if summary.invalid_count == 0
+                    && summary.invalid_transaction_count == 0
+                    && summary.transaction_warning_count == 0
+                    && summary.quarantine_root_state != "invalid"
+                {
                     "info"
                 } else {
                     "warn"

@@ -58,9 +58,12 @@ Rules:
   contract as `rz0 cache --dry-run`; it never exposes a second cleanup or
   quarantine action path.
 - Diagnostics also shows the bounded quarantine-record count, valid-record
-  count, and exact-restore availability from the same read-only recovery review
-  contract as `rz0 recovery --dry-run`; it does not expose raw host paths or a
-  second restore/mutation path.
+  count, exact-restore availability, and bounded transaction-journal validity /
+  action-required counts from the same read-only recovery review contract as
+  `rz0 recovery --dry-run`; it does not expose raw host paths or a second
+  restore/mutation path. The TUI retains the bounded review-warning count as
+  evidence; detailed warning text remains in the CLI/JSON review, never as
+  recovery authority.
 - Diagnostics combines bounded leftovers evidence with the cache row so the
   shell does not grow a second command rail; it uses the same `leftovers_review`
   contract as `rz0 leftovers --dry-run` and remains report-only.

@@ -42,6 +42,22 @@ record is valid and restore-capable, use the separate exact `rz0 restore` flow
 described in [`user-guide.md`](user-guide.md); occupied, drifted, symlinked, or
 unsupported destinations remain blocked.
 
+The same review now inspects the private transaction-root journal directories
+through immutable snapshot heads. JSON and text output report the bounded number
+of checked, valid, invalid, and action-required journals, plus a stable
+per-transaction decision and operator guidance. Journal IDs, plan IDs, states,
+and decisions are logical evidence; absolute state-root paths and raw journal
+details are not exposed.
+
+Journal inspection is strictly report-only. It does not acquire a writer lock,
+create a lock file, publish a snapshot, complete a transaction, restore a
+payload, or authorize rollback. Persistent writer-lock markers are counted as
+evidence, but their presence alone does not prove that a writer is active; this
+read-only review does not determine lock ownership. A concurrent publication
+can likewise produce incomplete evidence, so preserve the state and repeat the
+review after writers have stopped when that can be established independently.
+It is never treated as permission to mutate.
+
 ## Durable transaction states
 
 | State | Meaning | Current safe response |
@@ -180,4 +196,4 @@ real store.
 - macOS exact executable binding and sandbox constraints;
 - locked-file, low-space, read-only, concurrent-writer, corrupt-disk, and
   cross-filesystem matrices;
-- TUI recovery review and independent security review.
+- detailed per-transaction TUI recovery review and independent security review.

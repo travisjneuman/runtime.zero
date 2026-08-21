@@ -187,6 +187,33 @@ pub fn recover_journal_head(
     })
 }
 
+/// Inspects one immutable journal head without acquiring the writer lock or
+/// creating any lock file. Callers must treat a concurrent publication as
+/// incomplete evidence and keep the result report-only; this API never
+/// authorizes recovery or mutation.
+pub fn inspect_journal_head(
+    transaction_root: &Path,
+    transaction_id: &str,
+) -> Result<RecoveredJournalHead, DurableJournalError> {
+    if !rz0_validation_contract::valid_ledger_id(transaction_id, 96) {
+        return Err(DurableJournalError::new(
+            DurableJournalErrorCode::UnsafeRoot,
+            "transaction ID is invalid",
+        ));
+    }
+    validate_root(transaction_root)?;
+    let transaction_directory = transaction_root.join(transaction_id);
+    verify_direct_directory(&transaction_directory)?;
+    let heads = transaction_directory.join(HEADS_DIRECTORY);
+    verify_direct_directory(&heads)?;
+    recover_locked(&heads, None)?.ok_or_else(|| {
+        DurableJournalError::new(
+            DurableJournalErrorCode::CorruptSnapshot,
+            "transaction has no journal snapshots",
+        )
+    })
+}
+
 fn validate_for_persistence(journal: &TransactionJournal) -> Result<(), DurableJournalError> {
     let validation = validate_transaction_journal(journal);
     if validation.valid {

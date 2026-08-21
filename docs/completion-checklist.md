@@ -122,6 +122,10 @@ full platform/lifecycle acceptance cells.
   corruption, partial sync, competing writer, tamper, and stale-lock recovery.
 - [ ] Provide CLI/JSON/TUI recovery status and operator guidance for every
   durable partial state.
+- [x] Add bounded read-only CLI/JSON recovery journal inspection and a TUI
+  summary of checked/invalid/action-required journals without creating writer
+  locks or adding rollback authority; this is evidence for the broader gate,
+  not proof of every platform or power-loss state.
 - [ ] Ensure credentials, sessions, browser profiles, projects, backups, user
   content, shared components, and unknown data remain blocked unless a future
   separately scoped workflow explicitly changes the 1.0 policy.

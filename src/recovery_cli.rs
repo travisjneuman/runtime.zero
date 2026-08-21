@@ -3,6 +3,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use rz0_quarantine::{QuarantineRecord, validate_quarantine_record};
+use rz0_transaction_contract::{
+    DurableJournalErrorCode, RecoveryDecision, TransactionOperation, TransactionState,
+    assess_recovery, inspect_journal_head,
+};
 use serde::Serialize;
 
 use crate::{
@@ -21,12 +25,19 @@ struct RecoveryReview {
     read_only: bool,
     writes_attempted: bool,
     quarantine_root_state: &'static str,
+    transaction_root_state: &'static str,
     checked_count: usize,
     valid_count: usize,
     invalid_count: usize,
     restore_available_count: usize,
+    checked_transaction_count: usize,
+    valid_transaction_count: usize,
+    invalid_transaction_count: usize,
+    transaction_action_required_count: usize,
+    transaction_warning_count: usize,
     warnings: Vec<String>,
     records: Vec<RecoveryRecordSummary>,
+    transactions: Vec<RecoveryTransactionSummary>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +47,10 @@ pub(crate) struct RecoverySummary {
     pub(crate) valid_count: usize,
     pub(crate) invalid_count: usize,
     pub(crate) restore_available_count: usize,
+    pub(crate) checked_transaction_count: usize,
+    pub(crate) invalid_transaction_count: usize,
+    pub(crate) transaction_action_required_count: usize,
+    pub(crate) transaction_warning_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -48,6 +63,23 @@ struct RecoveryRecordSummary {
     record_valid: bool,
     payload_present: bool,
     restore_available: bool,
+    errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct RecoveryTransactionSummary {
+    transaction_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    plan_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    operation: Option<TransactionOperation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    state: Option<TransactionState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recovery_decision: Option<RecoveryDecision>,
+    journal_valid: bool,
+    action_required: bool,
+    operator_guidance: &'static str,
     errors: Vec<String>,
 }
 
@@ -110,24 +142,58 @@ fn build_review(store: &ModuleStorePlan) -> RecoveryReview {
     let root = PathBuf::from(&store.quarantine_root);
     match fs::symlink_metadata(&root) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
-            return invalid_root_review("quarantine root is a symlink");
+            return finish_review(
+                store,
+                "invalid",
+                vec!["quarantine root is a symlink".to_string()],
+                Vec::new(),
+            );
         }
         Ok(metadata) if !metadata.is_dir() => {
-            return invalid_root_review("quarantine root is not a directory");
+            return finish_review(
+                store,
+                "invalid",
+                vec!["quarantine root is not a directory".to_string()],
+                Vec::new(),
+            );
         }
         Ok(metadata) if !private_directory(&metadata) => {
-            return invalid_root_review("quarantine root is not private");
+            return finish_review(
+                store,
+                "invalid",
+                vec!["quarantine root is not private".to_string()],
+                Vec::new(),
+            );
         }
         Ok(_) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return empty_review("absent", vec!["quarantine root is absent".to_string()]);
+            return finish_review(
+                store,
+                "absent",
+                vec!["quarantine root is absent".to_string()],
+                Vec::new(),
+            );
         }
-        Err(_) => return invalid_root_review("quarantine root could not be inspected"),
+        Err(_) => {
+            return finish_review(
+                store,
+                "invalid",
+                vec!["quarantine root could not be inspected".to_string()],
+                Vec::new(),
+            );
+        }
     }
 
     let mut entries = match fs::read_dir(&root) {
         Ok(entries) => entries.filter_map(Result::ok).collect::<Vec<_>>(),
-        Err(_) => return invalid_root_review("quarantine root could not be read"),
+        Err(_) => {
+            return finish_review(
+                store,
+                "invalid",
+                vec!["quarantine root could not be read".to_string()],
+                Vec::new(),
+            );
+        }
     };
     entries.sort_by_key(|entry| entry.file_name());
     let mut warnings = Vec::new();
@@ -141,6 +207,15 @@ fn build_review(store: &ModuleStorePlan) -> RecoveryReview {
         .iter()
         .map(|entry| inspect_entry(&root, entry))
         .collect::<Vec<_>>();
+    finish_review(store, "present", warnings, records)
+}
+
+fn finish_review(
+    store: &ModuleStorePlan,
+    quarantine_root_state: &'static str,
+    mut warnings: Vec<String>,
+    records: Vec<RecoveryRecordSummary>,
+) -> RecoveryReview {
     let checked_count = records.len();
     let valid_count = records.iter().filter(|record| record.record_valid).count();
     let invalid_count = checked_count.saturating_sub(valid_count);
@@ -148,18 +223,40 @@ fn build_review(store: &ModuleStorePlan) -> RecoveryReview {
         .iter()
         .filter(|record| record.restore_available)
         .count();
+    let (transaction_root_state, transaction_warnings, transactions) =
+        inspect_transactions(&PathBuf::from(&store.state_root).join("transactions"));
+    let transaction_warning_count = transaction_warnings.len();
+    let checked_transaction_count = transactions.len();
+    let valid_transaction_count = transactions
+        .iter()
+        .filter(|transaction| transaction.journal_valid)
+        .count();
+    let invalid_transaction_count =
+        checked_transaction_count.saturating_sub(valid_transaction_count);
+    let transaction_action_required_count = transactions
+        .iter()
+        .filter(|transaction| transaction.action_required)
+        .count();
+    warnings.extend(transaction_warnings);
     RecoveryReview {
         schema_version: 1,
         contract: RECOVERY_REVIEW_CONTRACT,
         read_only: true,
         writes_attempted: false,
-        quarantine_root_state: "present",
+        quarantine_root_state,
+        transaction_root_state,
         checked_count,
         valid_count,
         invalid_count,
         restore_available_count,
+        checked_transaction_count,
+        valid_transaction_count,
+        invalid_transaction_count,
+        transaction_action_required_count,
+        transaction_warning_count,
         warnings,
         records,
+        transactions,
     }
 }
 
@@ -171,6 +268,187 @@ pub(crate) fn recovery_summary(store: &ModuleStorePlan) -> RecoverySummary {
         valid_count: review.valid_count,
         invalid_count: review.invalid_count,
         restore_available_count: review.restore_available_count,
+        checked_transaction_count: review.checked_transaction_count,
+        invalid_transaction_count: review.invalid_transaction_count,
+        transaction_action_required_count: review.transaction_action_required_count,
+        transaction_warning_count: review.transaction_warning_count,
+    }
+}
+
+fn inspect_transactions(
+    root: &Path,
+) -> (&'static str, Vec<String>, Vec<RecoveryTransactionSummary>) {
+    match fs::symlink_metadata(root) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            return (
+                "invalid",
+                vec!["transaction root is a symlink".to_string()],
+                Vec::new(),
+            );
+        }
+        Ok(metadata) if !metadata.is_dir() => {
+            return (
+                "invalid",
+                vec!["transaction root is not a directory".to_string()],
+                Vec::new(),
+            );
+        }
+        Ok(metadata) if !private_directory(&metadata) => {
+            return (
+                "invalid",
+                vec!["transaction root is not private".to_string()],
+                Vec::new(),
+            );
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return ("absent", Vec::new(), Vec::new());
+        }
+        Err(_) => {
+            return (
+                "invalid",
+                vec!["transaction root could not be inspected".to_string()],
+                Vec::new(),
+            );
+        }
+    }
+
+    let mut entries = match fs::read_dir(root) {
+        Ok(entries) => entries.filter_map(Result::ok).collect::<Vec<_>>(),
+        Err(_) => {
+            return (
+                "invalid",
+                vec!["transaction root could not be read".to_string()],
+                Vec::new(),
+            );
+        }
+    };
+    entries.sort_by_key(|entry| entry.file_name());
+    let mut warnings = Vec::new();
+    if entries.len() > MAX_RECORDS {
+        warnings.push(format!(
+            "transaction count exceeded the bounded ceiling of {MAX_RECORDS}"
+        ));
+        entries.truncate(MAX_RECORDS);
+    }
+    let mut transaction_entries = Vec::new();
+    let mut writer_lock_marker_count = 0usize;
+    for entry in entries {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with('.') {
+            if name.ends_with(".writer.lock") {
+                writer_lock_marker_count += 1;
+            } else {
+                warnings.push("hidden transaction-root entry was ignored".to_string());
+            }
+            continue;
+        }
+        match entry.file_type() {
+            Ok(file_type) if file_type.is_dir() => transaction_entries.push(entry),
+            Ok(_) => warnings.push("non-directory transaction-root entry was ignored".to_string()),
+            Err(_) => {
+                warnings.push("transaction-root entry type could not be inspected".to_string())
+            }
+        }
+    }
+    if writer_lock_marker_count > 0 {
+        warnings.push(format!(
+            "{writer_lock_marker_count} transaction writer-lock marker(s) present; active writer state is not determined by this read-only review"
+        ));
+    }
+    let transactions = transaction_entries
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| inspect_transaction(root, entry, index))
+        .collect();
+    ("present", warnings, transactions)
+}
+
+fn inspect_transaction(
+    root: &Path,
+    entry: &fs::DirEntry,
+    index: usize,
+) -> RecoveryTransactionSummary {
+    let name = entry.file_name();
+    let Some(transaction_id) = name.to_str() else {
+        return invalid_transaction_summary(index, "transaction ID is not portable UTF-8");
+    };
+    if !rz0_validation_contract::valid_ledger_id(transaction_id, 96) {
+        return invalid_transaction_summary(index, "transaction ID is invalid");
+    }
+    match inspect_journal_head(root, transaction_id) {
+        Ok(recovered) => {
+            let assessment = assess_recovery(&recovered.journal);
+            let action_required = !matches!(assessment.decision, RecoveryDecision::NoAction);
+            RecoveryTransactionSummary {
+                transaction_id: transaction_id.to_string(),
+                plan_id: Some(recovered.journal.plan_id),
+                operation: Some(recovered.journal.operation),
+                state: Some(recovered.journal.state),
+                recovery_decision: Some(assessment.decision),
+                journal_valid: true,
+                action_required,
+                operator_guidance: recovery_guidance(assessment.decision),
+                errors: Vec::new(),
+            }
+        }
+        Err(error) => RecoveryTransactionSummary {
+            transaction_id: transaction_id.to_string(),
+            plan_id: None,
+            operation: None,
+            state: None,
+            recovery_decision: Some(RecoveryDecision::RefuseInvalidJournal),
+            journal_valid: false,
+            action_required: true,
+            operator_guidance: "preserve evidence; refuse automatic recovery",
+            errors: vec![journal_error_label(error.code).to_string()],
+        },
+    }
+}
+
+fn invalid_transaction_summary(index: usize, error: &'static str) -> RecoveryTransactionSummary {
+    RecoveryTransactionSummary {
+        transaction_id: format!("invalid-transaction-{index}"),
+        plan_id: None,
+        operation: None,
+        state: None,
+        recovery_decision: Some(RecoveryDecision::RefuseInvalidJournal),
+        journal_valid: false,
+        action_required: true,
+        operator_guidance: "preserve evidence; refuse automatic recovery",
+        errors: vec![error.to_string()],
+    }
+}
+
+fn journal_error_label(code: DurableJournalErrorCode) -> &'static str {
+    match code {
+        DurableJournalErrorCode::InvalidJournal => "journal_invalid",
+        DurableJournalErrorCode::UnsafeRoot => "journal_root_unsafe",
+        DurableJournalErrorCode::UnsafeFilesystemType => "journal_filesystem_type_unsafe",
+        DurableJournalErrorCode::WriterBusy => "journal_writer_busy_during_review",
+        DurableJournalErrorCode::HistoryConflict => "journal_history_conflict",
+        DurableJournalErrorCode::SnapshotLimitExceeded => "journal_snapshot_limit_exceeded",
+        DurableJournalErrorCode::CorruptSnapshot => "journal_snapshot_corrupt",
+        DurableJournalErrorCode::RecoveryRequired => "journal_recovery_required",
+        DurableJournalErrorCode::Io => "journal_io_unavailable",
+    }
+}
+
+fn recovery_guidance(decision: RecoveryDecision) -> &'static str {
+    match decision {
+        RecoveryDecision::AbortWithoutWrites => "preserve evidence; no writes were recorded",
+        RecoveryDecision::RollBackVerifiedWrites => {
+            "stop and perform separately approved rollback/recovery review"
+        }
+        RecoveryDecision::VerifyCommittedState => {
+            "verify committed state and receipt before proceeding"
+        }
+        RecoveryDecision::ResumeRollback => {
+            "resume rollback only through an explicit recovery workflow"
+        }
+        RecoveryDecision::NoAction => "no recovery action indicated",
+        RecoveryDecision::RefuseInvalidJournal => "preserve evidence; refuse automatic recovery",
     }
 }
 
@@ -306,26 +584,6 @@ fn private_file(_metadata: &fs::Metadata) -> bool {
     true
 }
 
-fn empty_review(state: &'static str, warnings: Vec<String>) -> RecoveryReview {
-    RecoveryReview {
-        schema_version: 1,
-        contract: RECOVERY_REVIEW_CONTRACT,
-        read_only: true,
-        writes_attempted: false,
-        quarantine_root_state: state,
-        checked_count: 0,
-        valid_count: 0,
-        invalid_count: 0,
-        restore_available_count: 0,
-        warnings,
-        records: Vec::new(),
-    }
-}
-
-fn invalid_root_review(detail: &'static str) -> RecoveryReview {
-    empty_review("invalid", vec![detail.to_string()])
-}
-
 fn render_review(review: &RecoveryReview, format: OutputFormat) -> (ExitCode, String, String) {
     match format {
         OutputFormat::Text => {
@@ -337,6 +595,11 @@ fn render_review(review: &RecoveryReview, format: OutputFormat) -> (ExitCode, St
                 "quarantine_root_state: {}",
                 review.quarantine_root_state
             );
+            let _ = writeln!(
+                output,
+                "transaction_root_state: {}",
+                review.transaction_root_state
+            );
             let _ = writeln!(output, "checked_records: {}", review.checked_count);
             let _ = writeln!(output, "valid_records: {}", review.valid_count);
             let _ = writeln!(output, "invalid_records: {}", review.invalid_count);
@@ -344,6 +607,26 @@ fn render_review(review: &RecoveryReview, format: OutputFormat) -> (ExitCode, St
                 output,
                 "restore_available: {}",
                 review.restore_available_count
+            );
+            let _ = writeln!(
+                output,
+                "checked_transactions: {}",
+                review.checked_transaction_count
+            );
+            let _ = writeln!(
+                output,
+                "valid_transactions: {}",
+                review.valid_transaction_count
+            );
+            let _ = writeln!(
+                output,
+                "invalid_transactions: {}",
+                review.invalid_transaction_count
+            );
+            let _ = writeln!(
+                output,
+                "transaction_action_required: {}",
+                review.transaction_action_required_count
             );
             let _ = writeln!(output, "writes_attempted: no");
             if !review.warnings.is_empty() {
@@ -369,6 +652,29 @@ fn render_review(review: &RecoveryReview, format: OutputFormat) -> (ExitCode, St
                         "blocked"
                     },
                 );
+            }
+            for transaction in &review.transactions {
+                let _ = writeln!(
+                    output,
+                    "transaction {} · valid {} · state {:?} · decision {:?} · action_required {}",
+                    transaction.transaction_id,
+                    if transaction.journal_valid {
+                        "yes"
+                    } else {
+                        "no"
+                    },
+                    transaction.state,
+                    transaction.recovery_decision,
+                    if transaction.action_required {
+                        "yes"
+                    } else {
+                        "no"
+                    },
+                );
+                let _ = writeln!(output, "  guidance: {}", transaction.operator_guidance);
+                for error in &transaction.errors {
+                    let _ = writeln!(output, "  error: {error}");
+                }
             }
             (ExitCode::Ok, output, String::new())
         }
@@ -425,6 +731,65 @@ mod tests {
         assert!(!review.writes_attempted);
         assert_eq!(review.quarantine_root_state, "absent");
         assert_eq!(review.checked_count, 0);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn recovery_reports_transaction_guidance_without_authorizing_mutation() {
+        static SEQUENCE: AtomicU64 = AtomicU64::new(100);
+        let root = std::env::temp_dir().join(format!(
+            "runtime-zero-recovery-journal-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let transactions = root.join("transactions");
+        fs::create_dir_all(&transactions).expect("transaction root");
+        #[cfg(unix)]
+        fs::set_permissions(&transactions, fs::Permissions::from_mode(0o700))
+            .expect("private transaction root");
+        let mut journal = rz0_transaction_contract::TransactionJournal {
+            schema_version: rz0_transaction_contract::TRANSACTION_SCHEMA_VERSION,
+            contract: rz0_transaction_contract::TRANSACTION_CONTRACT.to_string(),
+            transaction_id: "rz0tx-recovery-review".to_string(),
+            plan_id: "rz0plan-recovery-review".to_string(),
+            operation: rz0_transaction_contract::TransactionOperation::Quarantine,
+            state: rz0_transaction_contract::TransactionState::Prepared,
+            durability: rz0_transaction_contract::DurabilityRequirements::schema_one(),
+            events: vec![rz0_transaction_contract::TransactionEvent {
+                sequence: 0,
+                kind: rz0_transaction_contract::TransactionEventKind::Prepared,
+                action_id: None,
+                path: None,
+                before_sha256: None,
+                after_sha256: None,
+                previous_event_sha256: String::new(),
+                event_sha256: String::new(),
+            }],
+        };
+        rz0_transaction_contract::seal_transaction_journal(&mut journal);
+        rz0_transaction_contract::publish_journal_snapshot(&transactions, &journal)
+            .expect("publish journal");
+        let lock = transactions.join(format!(".{}.writer.lock", journal.transaction_id));
+        fs::write(&lock, b"review fixture lock").expect("writer lock fixture");
+        #[cfg(unix)]
+        fs::set_permissions(&lock, fs::Permissions::from_mode(0o600)).expect("private writer lock");
+
+        let (state, warnings, summaries) = inspect_transactions(&transactions);
+        assert_eq!(state, "present");
+        assert!(
+            warnings
+                .iter()
+                .any(|warning| warning.contains("writer-lock"))
+        );
+        assert_eq!(summaries.len(), 1);
+        assert!(summaries[0].journal_valid);
+        assert!(summaries[0].action_required);
+        assert_eq!(
+            summaries[0].recovery_decision,
+            Some(rz0_transaction_contract::RecoveryDecision::AbortWithoutWrites)
+        );
+        assert!(!summaries[0].errors.iter().any(|error| error.contains("/")));
+        assert!(lock.exists());
         let _ = fs::remove_dir_all(root);
     }
 
