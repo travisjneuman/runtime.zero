@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `63f7d8d` (`Validate module provenance metadata`).
+  `481831b` (`Refresh provenance status evidence`).
 - **Current behavior implementation:**
-  `63f7d8d` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `481831b` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -32,10 +32,11 @@ updater/receipt slices at `d5e5153`, `ee1a1eb`, and `ad999c3`, the compact TUI
 posture update at `8132b4e`, the exact-file integrity slice at `47c6f9f`, and
 the Windows process-host/probe slice at `39adb92`, the module trust review
 slice at `a6664d6`, the complete-file-set slice at `3012176`, and provenance
-validation at `63f7d8d`. Local
+validation at `63f7d8d`, with status/evidence refresh at `481831b`. Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
-`cargo fmt --all -- --check`, `cargo test --workspace --locked`, strict
+`cargo fmt --all -- --check`, `cargo test --workspace --locked`, the full
+`cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC cross-target `cargo check`, and
 `git diff --check`. A current aarch64 Apple Silicon artifact was independently
 verified and reproduced byte-for-byte; its hash is recorded in the private

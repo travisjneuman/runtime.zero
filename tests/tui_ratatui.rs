@@ -7,9 +7,19 @@ use runtime_zero::tui_theme;
 
 fn render_text(width: u16, height: u16, state: &TuiState, color: bool) -> String {
     let dashboard = runtime_zero::tui_dashboard::dashboard();
+    render_dashboard_text(width, height, state, color, &dashboard)
+}
+
+fn render_dashboard_text(
+    width: u16,
+    height: u16,
+    state: &TuiState,
+    color: bool,
+    dashboard: &runtime_zero::tui_dashboard::TuiDashboard,
+) -> String {
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");
-    draw_dashboard(&mut terminal, &dashboard, state, color).expect("draw");
+    draw_dashboard(&mut terminal, dashboard, state, color).expect("draw");
     let buffer = terminal.backend().buffer();
     let area = buffer.area;
     let mut text = String::new();
@@ -183,6 +193,34 @@ fn ratatui_frame_keeps_terminal_boundaries_across_sizes() {
         assert_eq!(text.lines().count(), usize::from(height));
         for line in text.lines() {
             assert!(line.chars().count() <= usize::from(width));
+        }
+    }
+}
+
+#[test]
+fn every_workspace_keeps_the_same_shell_at_documented_sizes() {
+    let dashboard = runtime_zero::tui_dashboard::dashboard();
+    let sizes = [(58, 16), (80, 24), (118, 30), (160, 50)];
+
+    for selected_section in 0..dashboard.sections.len() {
+        for (width, height) in sizes {
+            for color in [false, true] {
+                let mut state = TuiState::new(dashboard.sections.len());
+                state.selected_section = selected_section;
+                let text = render_dashboard_text(width, height, &state, color, &dashboard);
+                assert_eq!(text.lines().count(), usize::from(height));
+                for line in text.lines() {
+                    assert!(line.chars().count() <= usize::from(width));
+                }
+                assert!(text.contains("runtime.zero"));
+                assert!(text.contains("SELECTED"));
+                let title = if dashboard.sections[selected_section].title == "overview" {
+                    "HOME / NEXT STEP".to_string()
+                } else {
+                    dashboard.sections[selected_section].title.to_uppercase()
+                };
+                assert!(text.contains(&title));
+            }
         }
     }
 }
