@@ -223,8 +223,12 @@ preview and its no-execution response boundary.
 The stage-3/4 filesystem writes and stage-5 helper launch exist only in
 integration-test support, require marked/prefixed direct OS-temp children, and
 are removed by test cleanup. The test-child model is compiled only under an
-explicit feature. No library/CLI/core production staging, quarantine, restore,
-installation, or module-execution function was added. Each stage must preserve a
-no-execution/no-write product mode and stop before the next gate. Destructive cleanup, credential/session handling, persistence, account
-actions, production deployment, and recurring automation remain outside this
-design without explicit approval.
+explicit feature. No library/CLI/core production staging, module installation,
+or module-execution function was added. The separately reviewed leftovers
+exact-file lane is not module execution or staging: it only moves one
+runtime.zero-owned module-store file through the receipt-bound foundation
+quarantine executor after exact confirmation. Each stage must preserve a
+no-execution/no-write product mode and stop before the next gate. Destructive
+cleanup, credential/session handling, persistence, account actions, production
+deployment, and recurring automation remain outside this design without
+explicit approval.

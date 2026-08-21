@@ -21,12 +21,19 @@ unavailable rather than guessing. It rejects root symlinks, skips descendant
 symlinks and special files, caps entries and aggregate bytes, deduplicates
 warnings, and emits metadata evidence without treating it as an action-ready
 file identity. It does not scan broad package-manager receipts, shims,
-services, launch entries, or PATH; neither live nor fixture mode writes, plans,
-quarantines, restores, or deletes anything. Its manifest remains `planned`.
+services, launch entries, or PATH. The separate core CLI lane can build and,
+after an exact confirmation, execute one explicitly supplied regular file
+quarantine plan; that lane re-reads the file, binds its digest/size and logical
+path, and uses the foundation journal/receipt executor. The module classifier
+itself never grants authority, recurses, deletes, elevates, or uses the
+network. Its manifest remains `planned`.
 
 Before 1.0 it needs exact ownership/provenance and stale-state proof,
 adversarial/partial-evidence fixtures, finding-bound plans, receipt-scoped
-quarantine/restore, retention and conflict policy, cancellation/recovery,
-platform parity, and all release-ledger cells. Broad recursive leftover scans
-remain out of scope. The TUI Diagnostics workspace shows the same bounded
-observation and warning state; it does not add a second action path.
+quarantine/restore for every supported domain, retention and conflict policy,
+metadata/platform bundle fidelity, cancellation/recovery proof across target
+platforms, and all release-ledger cells. The current exact-file lane is not
+uninstall, recursive cleanup, package-manager mutation, or broad leftover
+execution. Broad recursive leftover scans remain out of scope. The TUI
+Diagnostics workspace shows the same bounded observation and warning state;
+it does not add a second action path.

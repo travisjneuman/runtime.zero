@@ -148,7 +148,18 @@ Receipt ownership is checked only when the installed-module registry is valid;
 ambiguous registry state is reported as unavailable. Symlinks and special files
 are skipped, entry/byte ceilings are enforced, and metadata evidence is
 report-only because it does not prove stale ownership or a safe exact-file
-transaction. No cleanup, quarantine, restore, or deletion is authorized.
+transaction. For an explicitly known regular file inside the runtime.zero
+module store, the separate plan/apply lane can bind a digest and size, print a
+short-lived challenge, and quarantine only that file after the exact phrase is
+re-entered. It never performs recursive cleanup, deletion, elevation, or
+network access; broad domain quarantine and restore remain unavailable.
+
+```bash
+rz0 leftovers --dry-run --plan --path /absolute/path/to/runtime-zero-module-file
+rz0 leftovers --apply --path /absolute/path/to/runtime-zero-module-file
+rz0 leftovers --apply --path /absolute/path/to/runtime-zero-module-file \
+  --challenge-issued-unix-seconds <issued> --confirm '<exact phrase>'
+```
 
 ### Integrity evidence
 

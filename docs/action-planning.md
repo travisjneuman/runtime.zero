@@ -2,9 +2,10 @@
 
 Inventory evidence must become a reviewable plan before any updater, uninstall,
 leftover, cleanup, quarantine, or restore module can mutate a system. This
-contract defines the shared boundary; the updater's explicit `--apply` lane is
-the first production-shaped mutation consumer, while uninstall, cleanup, and
-module lifecycle consumers remain gated.
+contract defines the shared boundary; the updater's explicit `--apply` lane and
+the leftovers exact-file quarantine lane are the only production-shaped
+mutation consumers, while uninstall, recursive cleanup, and module lifecycle
+consumers remain gated.
 
 ## Pipeline
 
@@ -75,7 +76,10 @@ Uninstall modules must:
 
 ## Leftovers and cleanup
 
-Post-uninstall findings must be classified before any action:
+Post-uninstall findings must be classified before any action. The current
+leftovers exception is restricted to a caller-supplied regular file already
+inside the runtime.zero module store; it is not a general post-uninstall
+cleanup mechanism:
 
 | Category | Default posture |
 | --- | --- |
@@ -132,11 +136,13 @@ destination bytes, requires the quarantine record for restore, and publishes
 append-only journal snapshots plus a filesystem-effect receipt. Its tests still
 use disposable OS-temp roots; no user or repository path is touched by tests.
 The executor does not discover ownership, create candidate plans, or add a
-public cleanup command. The leftovers module now provides one bounded planning
-entry point, `rz0 leftovers --dry-run --plan --path <absolute-module-file>`;
-it re-reads one explicitly selected regular file inside the private module
-store, emits a logical-path plan, and remains non-authorizing. Domain
-confirmation/invocation, cross-filesystem behavior, and platform-specific
+permanent-deletion or recursive-cleanup command. The leftovers module now
+provides one bounded planning entry point,
+`rz0 leftovers --dry-run --plan --path <absolute-module-file>`, and one
+confirmation-bound exact quarantine lane. Both re-read one explicitly selected
+regular file inside the private module store; only the `--apply` lane invokes
+the receipt-bound mover, and it never deletes, recurses, elevates, or uses the
+network. Cross-filesystem behavior, metadata fidelity, and platform-specific
 bundle semantics remain release gates.
 
 `crates/confirmation-contract/` adds exact short-lived CLI/TUI challenge,

@@ -16,10 +16,10 @@ full product direction and next-shift work order are in
 2. **Interactive TUI** — Ratatui widgets over Crossterm terminal lifecycle, one canonical software/provider list, cached review controls, and direct entry into the shared updater execution contract.
 3. **Module registry** — manifest model, local manifest validation, installed-module listing, and core-vs-module reporting.
 4. **Policy and contracts** — safety posture, validation, resources, privacy, capabilities, errors, confirmation, cancellation, transactions, and release evidence.
-5. **Action pipeline** — evidence, findings, dry-run plans, exact approval, transaction, and post-action verification. The updater consumes the first bounded core execution lane; other domains remain blocked.
+5. **Action pipeline** — evidence, findings, dry-run plans, exact approval, transaction, and post-action verification. The updater and one exact leftovers-file lane consume narrowly bounded core execution paths; broader domains remain blocked.
 6. **Platform adapters** — Windows, macOS, and Linux-specific discovery, monitoring, filesystem, process, manager, and future mutation primitives.
 7. **Modules** — separately built domain packages that require explicit lifecycle/trust before core execution. The inventory library is embedded only as a bounded read adapter.
-8. **Quarantine/restore** — test-proven semantics for future timestamped local quarantine instead of hard delete; no product mover exists yet.
+8. **Quarantine/restore** — receipt-bound foundation semantics plus one narrow exact leftovers-file mover; broad domain/platform coverage and permanent deletion remain absent.
 
 ## End-state module platform
 
@@ -143,9 +143,12 @@ read-only modules trust verify review adapter, without adding a signer, key
 store, installer, execution path, or production trust root. Schema-1
 staging plans and OS-temp integration tests exercise immutable publication
 failure semantics. crates/quarantine/ now supplies a narrow receipt-bound
-production filesystem mover for one exact quarantine/restore action; domain
-ownership, CLI/TUI action wiring, cross-filesystem behavior, and platform
-bundle semantics remain gated.
+production filesystem mover for one exact quarantine/restore action. The
+leftovers CLI can bind one explicit module-store file to that executor after a
+short-lived confirmation; the classifier remains non-authorizing and the TUI
+does not expose a second mutation path. Domain ownership, cross-filesystem
+behavior, retention, metadata fidelity, and platform bundle semantics remain
+gated.
 `crates/transaction-contract/` owns the bounded hash-chained transaction state
 machine, exclusive immutable snapshot publication/recovery, exact confirmation-
 aware commit-receipt binding, single-use consumption publication, atomic registry-
@@ -191,8 +194,10 @@ The current exceptions and blocks are:
   Linux native-ELF identity binding, SIGINT cancellation, external-effect
   receipts, and recovery status exist, while macOS/Windows binding, OS isolation,
   full cancellation, rollback, manager-specific recovery, and platform proof remain;
-- no uninstall, cleanup, permanent deletion, module install/activation, repair,
-  quarantine/restore, or arbitrary module execution;
+- no uninstall, recursive cleanup, permanent deletion, module
+  install/activation, repair, broad quarantine/restore, or arbitrary module
+  execution; the sole narrow exception is the exact confirmation-bound
+  leftovers module-store file lane described above;
 - no malware-removal or unsupported security assurance claims;
 - no remote module execution or third-party trust;
 - no public direct-run bootstrap command before release verification is complete;

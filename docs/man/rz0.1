@@ -55,6 +55,20 @@ quarantine, restore, or deletion.
 Review bounded runtime.zero-owned module/log and unreferenced-receipt evidence or one local fixture. This
 is read-only and never authorizes cleanup, quarantine, restore, or deletion.
 .TP
+.B leftovers --dry-run --plan --path ABSOLUTE_MODULE_FILE [--format text|json]
+Build one exact, path-redacted, digest- and size-bound quarantine plan for an
+explicit runtime.zero module-store file. The plan is dry-run evidence and does
+not move the file.
+.TP
+.B leftovers --apply --path ABSOLUTE_MODULE_FILE [--challenge-issued-unix-seconds SECONDS] [--confirm PHRASE] [--format text|json]
+Without
+.B --confirm,
+print a short-lived challenge without writing. With the exact challenge phrase
+from a prior invocation, execute only that one confirmation-bound quarantine
+move through the durable foundation journal and receipt path. It never deletes,
+recurses, elevates, or uses network access; platform, retention, rollback, and
+recovery gates still apply.
+.TP
 .B integrity --dry-run --fixture PATH [--format text|json]
 .br
 .B integrity --dry-run --path ABSOLUTE_FILE --sha256 DIGEST [--format text|json]
@@ -153,9 +167,11 @@ A normal broken output pipe exits successfully.
 Do not treat a plan, signature, executable lease, confirmation, receipt,
 finding, diagnostic, or release ledger as broader authority. Do not share raw
 inventory without review. Never edit the runtime.zero state store manually to
-bypass a recovery decision. Uninstall, cleanup, quarantine/restore, module
-lifecycle execution, third-party execution, and permanent deletion are not
-implemented product actions.
+bypass a recovery decision. Uninstall, recursive cleanup, module lifecycle
+execution, third-party execution, and permanent deletion are not implemented
+product actions. The leftovers apply lane is limited to one explicitly supplied
+runtime.zero module-store file and remains subject to the exact confirmation,
+foundation recovery, retention, and platform gates.
 .SH FILES
 Runtime paths are platform-specific user-local paths shown by
 .B rz0 store plan .

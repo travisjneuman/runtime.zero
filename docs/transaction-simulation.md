@@ -67,8 +67,11 @@ Its integration tests use the same disposable-root discipline while exercising
 the real foundation path: durable confirmation consumption, private
 opened-directory roots, no-replace moves, quarantine record binding,
 append-only journals, and filesystem-effect receipts. This does not imply that
-leftovers or cache modules have permission to invoke it; candidate ownership
-and CLI/TUI action wiring remain separate gates.
+every domain has permission to invoke it. The leftovers CLI has a deliberately
+narrow exception for one explicitly supplied module-store file: it recomputes
+the exact plan, requires the short-lived confirmation phrase, and invokes the
+same executor. Candidate ownership, TUI wiring, retention, and all broader
+domain action paths remain separate gates.
 
 The production-shaped executor also consumes the shared cancellation token at
 transaction boundaries. Cancellation before the move is typed and write-free;
@@ -93,7 +96,7 @@ cross-process ownership and exact one-event durable prefixes. See
 The simulations do not establish crash durability, ACL/ownership fidelity,
 locked-file handling, cross-filesystem behavior, Windows reparse semantics,
 platform sandboxing, privileged operations, or safe recovery after process/power
-loss. They add no installer, registry writer, public cleanup command, module
+loss. They add no installer, registry writer, recursive cleanup command, module
 execution, or permanent deletion path. The narrow production mover in
 crates/quarantine/ has its own disposable-root integration tests and remains
 blocked from domain invocation until those platform and recovery gates close.

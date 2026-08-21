@@ -207,7 +207,7 @@ pub fn execute_filesystem_effect(
         )
     })?;
     let operation = operation_for(request.action.kind);
-    let transaction_id = transaction_id(
+    let transaction_id = filesystem_effect_transaction_id(
         request.action.kind,
         &request.plan.plan_id,
         request.now_unix_seconds,
@@ -1134,7 +1134,7 @@ fn valid_logical_path(value: &str) -> bool {
     !path.is_absolute() && normal_components(path).is_ok()
 }
 
-fn transaction_id(kind: ActionKind, plan_id: &str, now: u64) -> String {
+pub fn filesystem_effect_transaction_id(kind: ActionKind, plan_id: &str, now: u64) -> String {
     let operation = match kind {
         ActionKind::Quarantine => "quarantine",
         ActionKind::Restore => "restore",

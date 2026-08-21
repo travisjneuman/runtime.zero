@@ -102,7 +102,9 @@ The current foundation does not authorize:
 - module installation, activation, invocation, repair, migration, upgrade,
   deactivation, or uninstall;
 - arbitrary first- or third-party process execution;
-- uninstall, leftover, cache, permanent-delete, or integrity remediation writes;
+- uninstall, broad leftover/cache, permanent-delete, or integrity remediation
+  writes; the only narrow exception is the confirmation-bound quarantine of one
+  explicitly supplied runtime.zero module-store file;
 - broad or domain-discovered quarantine/restore writes. The narrow executor
   requires a caller-provided exact plan and receipt-bound confirmation and does
   not make any module action-ready by itself;

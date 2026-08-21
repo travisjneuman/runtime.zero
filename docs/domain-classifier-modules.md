@@ -9,7 +9,7 @@ Five first-party packages consume the shared
 | --- | --- | --- |
 | `modules/updater/` | Classifies installed/manager-owned update evidence, parses selected manager output, builds finding-bound action plans and serial queues | Fixture, captured-output, and explicit live-probe paths exist; core owns the separate explicit apply lane |
 | `modules/uninstall/` | Classifies synthetic or live installed-software evidence and builds optional finding-bound dry-run manager plans | Core `uninstall plan` uses this shared producer; no uninstall execution |
-| `modules/leftovers/` | Classifies bounded runtime.zero-owned module/log and unreferenced-receipt evidence for conservative post-uninstall review | Core `rz0 leftovers --dry-run` live adapter, strict fixture path, and exact module-file dry-run quarantine plan; no quarantine invocation |
+| `modules/leftovers/` | Classifies bounded runtime.zero-owned module/log and unreferenced-receipt evidence for conservative post-uninstall review | Core `rz0 leftovers --dry-run` live adapter, strict fixture path, exact module-file plan, and confirmation-bound exact quarantine; no recursive cleanup |
 | `modules/cache/` | Classifies bounded known-root cache evidence while preserving conservative ownership policy | Core `rz0 cache --dry-run` live adapter plus strict fixture path; no cleanup |
 | `modules/security-integrity/` | Classifies exact digest match/mismatch observations | Core `rz0 integrity --dry-run --fixture` and bounded exact-file path; report-only and no trusted baseline |
 
@@ -44,14 +44,15 @@ Uninstall now receives one selected live catalog record from core and can build
 a sealed manager action plan, but it still has no process, elevation, dependent-
 package review, quarantine, rollback, or execution lane. Leftovers now has
 bounded runtime-owned read-only discovery plus an explicit exact-module-file
-dry-run quarantine plan, while security/integrity has a bounded exact-file
-read adapter and cache has bounded known-root read-only discovery. Across
+dry-run plan and confirmation-bound exact quarantine lane, while
+security/integrity has a bounded exact-file read adapter and cache has bounded
+known-root read-only discovery. Across
 these four families there is:
 
 - no independent complete live Windows/macOS/Linux adapter;
 - no authorized binary/process protocol or host write permission;
-- no package-manager/filesystem mutation or network action;
-- no execution-capable action pipeline;
+- no package-manager mutation or network action;
+- no execution-capable manager action pipeline;
 - no signed lifecycle artifact or installation/activation path;
 - no direct TUI mutation flow.
 

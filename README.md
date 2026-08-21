@@ -49,6 +49,8 @@ rz0 cache --dry-run
 rz0 cache --dry-run --format json
 rz0 leftovers --dry-run
 rz0 leftovers --dry-run --format json
+rz0 leftovers --dry-run --plan --path /absolute/path/to/runtime-zero-module-file
+rz0 leftovers --apply --path /absolute/path/to/runtime-zero-module-file
 rz0 integrity --dry-run --fixture tests/fixtures/integrity/valid.json
 rz0 integrity --dry-run --path /absolute/path/to/file --sha256 <sha256>
 rz0 uninstall plan <installed-software-id>
@@ -227,9 +229,9 @@ software evidence to produce a non-authorizing finding and optional sealed dry-
 run manager action plan. Cache now has a bounded read-only adapter over known
 manager/runtime roots; leftovers now has bounded runtime.zero-owned module/log
 and unreferenced-receipt evidence plus an explicit exact-module-file dry-run
-quarantine plan, while integrity has a bounded exact-file adapter that remains
-caller-baseline only. None of these surfaces provides uninstall/cleanup
-execution, elevation, signed lifecycle
+plan and confirmation-bound exact quarantine lane, while integrity has a
+bounded exact-file adapter that remains caller-baseline only. None of these
+surfaces provides uninstall execution, recursive cleanup, elevation, signed lifecycle
 activation, or production support. See
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).
 
@@ -239,8 +241,11 @@ keys, installation, activation, or module execution. Schema-1 staging plans and
 integration-test-only OS-temp helpers exercise atomic staging and
 quarantine/restore failure semantics; the foundation-owned `rz0-quarantine`
 crate now provides a narrow receipt-bound mover with cancellation and
-post-move recovery classification, while domain ownership/action wiring remains
-separate. A separate schema-1 process protocol keeps module execution unauthorized.
+post-move recovery classification. The leftovers CLI is the first non-updater
+consumer, but only for one explicitly supplied module-store file after an
+exact short-lived confirmation; domain-wide ownership/action wiring remains
+separate. A separate schema-1 process protocol keeps module execution
+unauthorized.
 An explicit-feature integration lane executes only a Cargo-built test helper to
 exercise bounded JSON framing, environment clearing, output draining, timeout
 kill/reap, and fail-closed errors; it is not linked to the core or inventory

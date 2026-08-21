@@ -29,7 +29,7 @@ _rz0_complete() {
         doctor|apps|monitor|toolchain|report) COMPREPLY=( $(compgen -W '--format --json --help' -- "$current") ) ;;
         release) COMPREPLY=( $(compgen -W 'status --assessment --format --json --help' -- "$current") ) ;;
         cache) COMPREPLY=( $(compgen -W '--dry-run --fixture --format --json --help' -- "$current") ) ;;
-        leftovers) COMPREPLY=( $(compgen -W '--dry-run --fixture --plan --path --format --json --help' -- "$current") ) ;;
+        leftovers) COMPREPLY=( $(compgen -W '--dry-run --fixture --plan --apply --path --challenge-issued-unix-seconds --confirm --format --json --help' -- "$current") ) ;;
         integrity) COMPREPLY=( $(compgen -W '--dry-run --fixture --format --json --help' -- "$current") ) ;;
         uninstall) COMPREPLY=( $(compgen -W 'plan --executable --format --json --help' -- "$current") ) ;;
         modules) COMPREPLY=( $(compgen -W 'validate install lifecycle-plan --from --module-id --from-state --to-state --from-version --to-version --transition-id --dry-run --format --json --help' -- "$current") ) ;;

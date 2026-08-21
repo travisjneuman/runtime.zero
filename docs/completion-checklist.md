@@ -220,6 +220,9 @@ full platform/lifecycle acceptance cells.
   receipt files when the installed-module registry is valid.
 - [x] Add one exact module-store file dry-run quarantine plan with re-read
   digest/size evidence, logical paths, and no absolute source-root disclosure.
+- [x] Bind that exact plan to a short-lived confirmation challenge and the
+  receipt-bound foundation quarantine executor; challenge-only mode remains
+  write-free and the apply lane moves only one revalidated file.
 - [ ] Implement the remaining bounded post-uninstall ownership adapters for shims,
   launch/service entries, exact runtime-owned files, and approved roots.
 - [ ] Prove stale versus user-valued/shared/config/log/backup evidence and keep

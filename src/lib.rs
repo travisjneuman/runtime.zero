@@ -125,7 +125,8 @@ pub fn help_text() -> String {
         help.insert_str(index, &cache_usage);
     }
     let leftovers_usage = format!(
-        "  {} leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n  {} leftovers --dry-run --plan --path <absolute-module-file> [--format text|json]\n",
+        "  {} leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n  {} leftovers --dry-run --plan --path <absolute-module-file> [--format text|json]\n  {} leftovers --apply --path <absolute-module-file> [--challenge-issued-unix-seconds <seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
+        brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
     );

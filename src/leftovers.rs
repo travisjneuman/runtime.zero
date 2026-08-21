@@ -2,10 +2,16 @@ use std::collections::{BTreeSet, VecDeque};
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rz0_action_plan::{
     ActionCapability, ActionDisposition, ActionKind, ActionPlan, ActionRisk, ActionSource,
     RollbackPlan, WriteKind, WriteSetEntry, action_plan_digests, validate_action_plan,
+};
+use rz0_confirmation_contract::{
+    ConfirmationChallenge, ConfirmationConsumption, ConfirmationResponse, ConfirmationRisk,
+    ConfirmationSurface, confirmation_response_sha256, seal_confirmation_challenge,
+    seal_confirmation_consumption, validate_confirmation,
 };
 use rz0_finding_contract::FindingReport;
 use rz0_module_leftovers::{
@@ -19,6 +25,10 @@ use crate::{
     ExitCode, brand,
     installed_registry::{InstalledRegistryState, installed_registry_report},
     module_store::{ModuleStorePlan, REGISTRY_FILE, module_store_plan},
+    quarantine::{
+        FilesystemEffectReport, FilesystemEffectRequest, execute_filesystem_effect,
+        filesystem_effect_transaction_id,
+    },
 };
 
 pub const LEFTOVERS_REVIEW_CONTRACT: &str = "leftovers_review";
@@ -39,6 +49,20 @@ pub struct LeftoversReviewReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action_plan: Option<ActionPlan>,
     pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct LeftoversChallengeView {
+    schema_version: u16,
+    contract: &'static str,
+    plan_id: String,
+    action_id: String,
+    plan_sha256: String,
+    issued_unix_seconds: u64,
+    expires_unix_seconds: u64,
+    expected_phrase: String,
+    writes_attempted: bool,
+    execution_authorized: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -75,7 +99,104 @@ pub fn leftovers_command(args: &[String]) -> (ExitCode, String, String) {
             );
         }
     };
-    let (mut report, action_plan) = if options.plan {
+    let (mut report, action_plan) = if options.apply {
+        let Some(path) = options.path.as_deref() else {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("leftovers --apply requires --path\n\n{}", usage()),
+            );
+        };
+        let (_finding_report, action_plan) = match exact_quarantine_plan(Path::new(path)) {
+            Ok(value) => value,
+            Err(error) => {
+                return (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!("leftovers action plan failed closed: {error}\n"),
+                );
+            }
+        };
+        let now = options
+            .challenge_issued_unix_seconds
+            .unwrap_or_else(unix_seconds);
+        let challenge = match build_leftover_challenge(&action_plan, now) {
+            Ok(challenge) => challenge,
+            Err(error) => {
+                return (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!("leftovers confirmation challenge failed closed: {error}\n"),
+                );
+            }
+        };
+        let Some(phrase) = options.confirm.as_deref() else {
+            return (
+                ExitCode::Ok,
+                render_leftover_challenge(
+                    &challenge,
+                    &action_plan.actions[0].action_id,
+                    options.format,
+                ),
+                String::new(),
+            );
+        };
+        let response = match validate_leftover_confirmation(&challenge, phrase, unix_seconds()) {
+            Ok(response) => response,
+            Err(error) => {
+                return (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!("leftovers confirmation rejected: {error}\n"),
+                );
+            }
+        };
+        let store = module_store_plan(None, None, "leftovers exact plan");
+        let transaction_id = filesystem_effect_transaction_id(
+            ActionKind::Quarantine,
+            &action_plan.plan_id,
+            challenge.issued_unix_seconds,
+        );
+        let response_sha256 = confirmation_response_sha256(&response);
+        let mut consumption = ConfirmationConsumption {
+            schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
+            contract: rz0_confirmation_contract::CONFIRMATION_CONSUMPTION_CONTRACT.to_string(),
+            transaction_id,
+            plan_id: action_plan.plan_id.clone(),
+            challenge_sha256: challenge.challenge_sha256.clone(),
+            response_sha256,
+            consumed_unix_seconds: unix_seconds(),
+            single_use_consumed: true,
+            execution_authorized: false,
+            binding_sha256: String::new(),
+        };
+        seal_confirmation_consumption(&mut consumption);
+        let effect = match execute_filesystem_effect(FilesystemEffectRequest {
+            state_root: Path::new(&store.state_root),
+            source_root: Path::new(&store.data_root),
+            quarantine_root: Path::new(&store.quarantine_root),
+            plan: &action_plan,
+            action: &action_plan.actions[0],
+            challenge: &challenge,
+            response: &response,
+            consumption: &consumption,
+            cancellation: None,
+            now_unix_seconds: challenge.issued_unix_seconds,
+        }) {
+            Ok(effect) => effect,
+            Err(error) => {
+                return (
+                    ExitCode::Usage,
+                    String::new(),
+                    format!(
+                        "leftovers filesystem effect failed closed [{:?}]: {error}\n",
+                        error.code
+                    ),
+                );
+            }
+        };
+        return render_leftovers_effect(&effect, options.format);
+    } else if options.plan {
         let Some(path) = options.path.as_deref() else {
             return (
                 ExitCode::Usage,
@@ -144,7 +265,10 @@ struct Options {
     format: OutputFormat,
     fixture: Option<String>,
     plan: bool,
+    apply: bool,
     path: Option<String>,
+    confirm: Option<String>,
+    challenge_issued_unix_seconds: Option<u64>,
 }
 
 fn parse_args(args: &[String]) -> Result<Options, String> {
@@ -152,7 +276,10 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
     let mut format = OutputFormat::Text;
     let mut fixture = None;
     let mut plan = false;
+    let mut apply = false;
     let mut path = None;
+    let mut confirm = None;
+    let mut challenge_issued_unix_seconds = None;
     let mut index = 0usize;
     while index < args.len() {
         match args[index].as_str() {
@@ -183,6 +310,8 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
             }
             "--plan" if !plan => plan = true,
             "--plan" => return Err("leftovers --plan was provided more than once".to_string()),
+            "--apply" if !apply => apply = true,
+            "--apply" => return Err("leftovers --apply was provided more than once".to_string()),
             "--path" => {
                 let Some(value) = args.get(index + 1) else {
                     return Err("leftovers --path requires one absolute file path".to_string());
@@ -192,12 +321,55 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
                 }
                 index += 1;
             }
+            "--confirm" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(
+                        "leftovers --confirm requires the exact challenge phrase".to_string()
+                    );
+                };
+                if confirm.replace(value.clone()).is_some() {
+                    return Err("leftovers --confirm was provided more than once".to_string());
+                }
+                index += 1;
+            }
+            "--challenge-issued-unix-seconds" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(
+                        "leftovers --challenge-issued-unix-seconds requires an integer".to_string(),
+                    );
+                };
+                if challenge_issued_unix_seconds.is_some() {
+                    return Err(
+                        "leftovers --challenge-issued-unix-seconds was provided more than once"
+                            .to_string(),
+                    );
+                }
+                challenge_issued_unix_seconds = Some(value.parse().map_err(|_| {
+                    "leftovers --challenge-issued-unix-seconds must be an integer".to_string()
+                })?);
+                index += 1;
+            }
             value => return Err(format!("unsupported leftovers option '{value}'")),
         }
         index += 1;
     }
-    if !dry_run {
+    if !dry_run && !apply {
         return Err("leftovers review is dry-run only; pass --dry-run".to_string());
+    }
+    if dry_run && apply {
+        return Err("leftovers --dry-run and --apply are mutually exclusive".to_string());
+    }
+    if apply && path.is_none() {
+        return Err("leftovers --apply requires --path".to_string());
+    }
+    if apply && plan {
+        return Err("leftovers --apply and --plan are mutually exclusive".to_string());
+    }
+    if !apply && confirm.is_some() {
+        return Err("leftovers --confirm requires --apply".to_string());
+    }
+    if !apply && challenge_issued_unix_seconds.is_some() {
+        return Err("leftovers --challenge-issued-unix-seconds requires --apply".to_string());
     }
     if plan && path.is_none() {
         return Err("leftovers --plan requires --path".to_string());
@@ -209,7 +381,10 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
         format,
         fixture,
         plan,
+        apply,
         path,
+        confirm,
+        challenge_issued_unix_seconds,
     })
 }
 
@@ -332,7 +507,7 @@ fn exact_quarantine_plan_for_store(
         return Err("exact leftover file changed while reading".to_string());
     }
     let source_sha256 = format!("{:x}", Sha256::digest(&bytes));
-    let source_path = format!("workspace/{logical_relative}");
+    let source_path = format!("workspace/modules/{logical_relative}");
     let finding_id = format!("leftover.exact.{}", &source_sha256[..24]);
     let source_evidence_sha256 =
         exact_evidence_digest(&source_path, &source_sha256, metadata.len());
@@ -471,6 +646,160 @@ fn exact_evidence_digest(path: &str, sha256: &str, size_bytes: u64) -> String {
     digest.update(sha256.as_bytes());
     digest.update(size_bytes.to_be_bytes());
     format!("{:x}", digest.finalize())
+}
+
+fn build_leftover_challenge(
+    plan: &ActionPlan,
+    issued_unix_seconds: u64,
+) -> Result<ConfirmationChallenge, String> {
+    let digests = action_plan_digests(plan).map_err(|errors| errors.join("; "))?;
+    let action = plan
+        .actions
+        .first()
+        .ok_or_else(|| "leftovers plan contains no action".to_string())?;
+    let capabilities = action
+        .capabilities
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let mut challenge = ConfirmationChallenge {
+        schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
+        contract: rz0_confirmation_contract::CONFIRMATION_CHALLENGE_CONTRACT.to_string(),
+        challenge_id: format!(
+            "challenge.quarantine.{}",
+            short_digest(plan.plan_id.as_bytes())
+        ),
+        plan_id: plan.plan_id.clone(),
+        plan_sha256: digests.plan_sha256.clone(),
+        dry_run_sha256: digests.plan_sha256,
+        write_set_sha256: digests.write_set_sha256,
+        before_state_sha256: Some(digest_text(&format!("{}\0before", action.action_id))),
+        expected_after_state_sha256: digest_text(&format!("{}\0after", action.action_id)),
+        risk: ConfirmationRisk::Mutating,
+        action_count: 1,
+        capabilities,
+        issued_unix_seconds,
+        expires_unix_seconds: issued_unix_seconds.saturating_add(300),
+        dry_run_completed: true,
+        dry_run_writes_attempted: false,
+        rollback_available: action.rollback.supported,
+        quarantine_available: true,
+        manual_recovery_acknowledged: false,
+        expected_phrase: String::new(),
+        challenge_sha256: String::new(),
+    };
+    seal_confirmation_challenge(&mut challenge);
+    Ok(challenge)
+}
+
+fn validate_leftover_confirmation(
+    challenge: &ConfirmationChallenge,
+    phrase: &str,
+    now_unix_seconds: u64,
+) -> Result<ConfirmationResponse, String> {
+    let response = ConfirmationResponse {
+        schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
+        contract: rz0_confirmation_contract::CONFIRMATION_RESPONSE_CONTRACT.to_string(),
+        challenge_id: challenge.challenge_id.clone(),
+        challenge_sha256: challenge.challenge_sha256.clone(),
+        confirmed_unix_seconds: now_unix_seconds,
+        surface: ConfirmationSurface::Cli,
+        phrase: phrase.to_string(),
+        interactive: true,
+        single_use: true,
+        execution_authorized: false,
+    };
+    let assessment = validate_confirmation(challenge, &response, now_unix_seconds);
+    if assessment.valid {
+        Ok(response)
+    } else {
+        Err(assessment.errors.join("; "))
+    }
+}
+
+fn render_leftover_challenge(
+    challenge: &ConfirmationChallenge,
+    action_id: &str,
+    format: OutputFormat,
+) -> String {
+    let view = LeftoversChallengeView {
+        schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
+        contract: rz0_confirmation_contract::CONFIRMATION_CHALLENGE_CONTRACT,
+        plan_id: challenge.plan_id.clone(),
+        action_id: action_id.to_string(),
+        plan_sha256: challenge.plan_sha256.clone(),
+        issued_unix_seconds: challenge.issued_unix_seconds,
+        expires_unix_seconds: challenge.expires_unix_seconds,
+        expected_phrase: challenge.expected_phrase.clone(),
+        writes_attempted: false,
+        execution_authorized: false,
+    };
+    match format {
+        OutputFormat::Text => format!(
+            "runtime.zero leftovers confirmation\n\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\n\nType this exact phrase in a new command invocation with --challenge-issued-unix-seconds {} and --confirm:\n{}\n\nNo file was moved.\n",
+            view.plan_id,
+            view.action_id,
+            view.plan_sha256,
+            view.issued_unix_seconds,
+            view.expires_unix_seconds,
+            view.issued_unix_seconds,
+            view.expected_phrase,
+        ),
+        OutputFormat::Json => serde_json::to_string_pretty(&view).map_or_else(
+            |error| format!("challenge serialization failed: {error}\n"),
+            |json| format!("{json}\n"),
+        ),
+    }
+}
+
+fn render_leftovers_effect(
+    effect: &FilesystemEffectReport,
+    format: OutputFormat,
+) -> (ExitCode, String, String) {
+    match format {
+        OutputFormat::Text => (
+            ExitCode::Ok,
+            format!(
+                "runtime.zero leftovers execution\n\ntransaction_id: {}\naction_id: {}\nstatus: {:?}\nsource_sha256: {}\nsource_size_bytes: {}\nsource_removed: {}\ndestination_verified: {}\nreceipt_reference: {}\nwrites_attempted: {}\nproduct_execution_authorized: {}\n",
+                effect.transaction_id,
+                effect.action_id,
+                effect.status,
+                effect.source_sha256,
+                effect.source_size_bytes,
+                effect.source_removed,
+                effect.destination_verified,
+                effect.receipt_reference,
+                effect.writes_attempted,
+                effect.product_execution_authorized,
+            ),
+            String::new(),
+        ),
+        OutputFormat::Json => match serde_json::to_string_pretty(effect) {
+            Ok(json) => (ExitCode::Ok, format!("{json}\n"), String::new()),
+            Err(error) => (
+                ExitCode::Usage,
+                String::new(),
+                format!("leftovers execution JSON rendering failed: {error}\n"),
+            ),
+        },
+    }
+}
+
+fn digest_text(value: &str) -> String {
+    format!("{:x}", Sha256::digest(value.as_bytes()))
+}
+
+fn short_digest(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!("{:x}", digest)[..16].to_string()
+}
+
+fn unix_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_secs())
 }
 
 fn inspect_root(
@@ -772,7 +1101,7 @@ fn render_text(report: &LeftoversReviewReport) -> String {
 }
 
 fn usage() -> String {
-    "Usage: rz0 leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n       rz0 leftovers --dry-run --plan --path <absolute-module-file> [--format text|json]\n\nReports bounded runtime.zero-owned module/log and unreferenced-receipt evidence. The explicit plan form seals one exact runtime-owned module-file quarantine plan but remains dry-run only; no cleanup, quarantine, restore, or deletion is invoked.\n".to_string()
+    "Usage: rz0 leftovers --dry-run [--format text|json] [--fixture <leftover-input.json>]\n       rz0 leftovers --dry-run --plan --path <absolute-module-file> [--format text|json]\n       rz0 leftovers --apply --path <absolute-module-file> [--challenge-issued-unix-seconds <seconds>] [--confirm <exact-phrase>] [--format text|json]\n\nReports bounded runtime.zero-owned module/log and unreferenced-receipt evidence. The explicit plan form seals one exact runtime-owned module-file quarantine plan. Apply is a separate confirmation-bound quarantine lane; it never deletes, recurses, elevates, or uses network access.\n".to_string()
 }
 
 fn disposition_label(disposition: rz0_finding_contract::FindingDisposition) -> &'static str {
@@ -800,6 +1129,9 @@ fn ownership_label(ownership: rz0_finding_contract::FindingOwnership) -> &'stati
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
 
     use super::*;
     use rz0_finding_contract::{FindingDataClass, FindingOwnership};
@@ -867,7 +1199,7 @@ mod tests {
         assert_eq!(action_plan.actions.len(), 1);
         assert_eq!(
             action_plan.actions[0].source.as_ref().expect("source").path,
-            "workspace/first-party.leftovers/0.1.0/old-shim"
+            "workspace/modules/first-party.leftovers/0.1.0/old-shim"
         );
         assert!(
             !serde_json::to_string(&action_plan)
@@ -876,6 +1208,15 @@ mod tests {
         );
         assert!(!action_plan.writes_attempted);
         assert!(action_plan.actions[0].requires_confirmation);
+        let challenge = build_leftover_challenge(&action_plan, 1_000).expect("challenge");
+        assert_eq!(challenge.action_count, 1);
+        assert!(!challenge.dry_run_writes_attempted);
+        assert!(!challenge.manual_recovery_acknowledged);
+        let response =
+            validate_leftover_confirmation(&challenge, &challenge.expected_phrase, 1_100)
+                .expect("confirmation");
+        assert_eq!(response.challenge_sha256, challenge.challenge_sha256);
+        assert!(!response.execution_authorized);
         let _ = fs::remove_dir_all(root);
     }
 
@@ -898,6 +1239,85 @@ mod tests {
         );
         let error = exact_quarantine_plan_for_store(&store, &outside).expect_err("log rejection");
         assert!(error.contains("module store"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn exact_plan_binds_module_store_path_to_foundation_quarantine() {
+        static SEQUENCE: AtomicU64 = AtomicU64::new(2000);
+        let root = std::env::temp_dir().join(format!(
+            "runtime-zero-leftovers-apply-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let module_file = root.join("modules/first-party.leftovers/0.1.0/old-shim");
+        fs::create_dir_all(module_file.parent().expect("module parent")).expect("module root");
+        for directory in [
+            root.clone(),
+            root.join("modules"),
+            root.join("modules/first-party.leftovers"),
+            root.join("modules/first-party.leftovers/0.1.0"),
+            root.join("state"),
+            root.join("state/transactions"),
+            root.join("state/receipts"),
+            root.join("quarantine"),
+        ] {
+            fs::create_dir_all(&directory).expect("effect directory");
+            fs::set_permissions(directory, fs::Permissions::from_mode(0o700))
+                .expect("private effect directory");
+        }
+        fs::write(&module_file, b"old shim\n").expect("module artifact");
+        fs::set_permissions(&module_file, fs::Permissions::from_mode(0o600))
+            .expect("private module artifact");
+        let store = crate::module_store::module_store_plan_for_data_root(
+            root.clone(),
+            None,
+            None,
+            "test exact apply",
+        );
+        let (_, action_plan) =
+            exact_quarantine_plan_for_store(&store, &module_file).expect("exact plan");
+        let challenge = build_leftover_challenge(&action_plan, 1_000).expect("challenge");
+        let response =
+            validate_leftover_confirmation(&challenge, &challenge.expected_phrase, 1_100)
+                .expect("confirmation");
+        let mut consumption = ConfirmationConsumption {
+            schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
+            contract: rz0_confirmation_contract::CONFIRMATION_CONSUMPTION_CONTRACT.to_string(),
+            transaction_id: filesystem_effect_transaction_id(
+                ActionKind::Quarantine,
+                &action_plan.plan_id,
+                challenge.issued_unix_seconds,
+            ),
+            plan_id: action_plan.plan_id.clone(),
+            challenge_sha256: challenge.challenge_sha256.clone(),
+            response_sha256: confirmation_response_sha256(&response),
+            consumed_unix_seconds: 1_100,
+            single_use_consumed: true,
+            execution_authorized: false,
+            binding_sha256: String::new(),
+        };
+        seal_confirmation_consumption(&mut consumption);
+        let effect = execute_filesystem_effect(FilesystemEffectRequest {
+            state_root: Path::new(&store.state_root),
+            source_root: Path::new(&store.data_root),
+            quarantine_root: Path::new(&store.quarantine_root),
+            plan: &action_plan,
+            action: &action_plan.actions[0],
+            challenge: &challenge,
+            response: &response,
+            consumption: &consumption,
+            cancellation: None,
+            now_unix_seconds: challenge.issued_unix_seconds,
+        })
+        .expect("exact quarantine effect");
+        assert!(effect.source_removed);
+        assert!(!module_file.exists());
+        assert!(
+            root.join(format!("quarantine/{}/payload.bin", action_plan.plan_id))
+                .is_file()
+        );
         let _ = fs::remove_dir_all(root);
     }
 
