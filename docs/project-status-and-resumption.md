@@ -41,8 +41,8 @@ posture update at `8132b4e`, the exact-file integrity slice at `47c6f9f`, and
 the Windows process-host/probe slice at `39adb92`, the module trust review
 slice at `a6664d6`, the complete-file-set slice at `3012176`, provenance
 validation at `63f7d8d`, and the exact leftovers plan/apply lane at `22c3619`.
-The status refresh is `ea4593a`, with the final pointer correction at
-`da5c5a0`.
+The status refreshes are `ea4593a`, `da5c5a0`, and `7602a3f`; package
+provenance was finally bound at `7d0ed91`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -50,11 +50,11 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC cross-target `cargo check`, and
 `git diff --check`. The final local aarch64 Apple Silicon package from
-`7602a3f` has binary SHA-256
+`7d0ed91` has binary SHA-256
 `4503eca1e57f6d0260dbbde311d208f7fc5593bf12d4e9e95363d3d2c4c0f9a2`, ZIP
 SHA-256
-`334ffbaad31ed454d42a977667492179f528f525580268193f559bb821dbf6cd`, and
-1,662,493 bytes across 8 verified members. Independent verification, repeated
+`bd10dbfbc77582884b47b1ef4bc8354d948c432b932471d0320cf47521a94668`, and
+1,662,494 bytes across 8 verified members. Independent verification, repeated
 byte-identical packaging, four PTY terminal smoke cases, and ten-sample final
 artifact performance evidence passed. The artifact remains unsigned and
 unnotarized until an owner-led signing/notarization lane exists.
