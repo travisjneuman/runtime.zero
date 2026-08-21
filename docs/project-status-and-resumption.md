@@ -7,8 +7,7 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `ee1a1eb` (`Exercise committed updater receipt path`) plus the current
-  uncommitted exact-file integrity slice.
+  `47c6f9f` (`Add bounded live integrity evidence`).
 - **Current behavior implementation:**
   `8132b4e` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
@@ -24,9 +23,9 @@
   third-party execution remain unavailable.
 
 The cache slice is pushed at `f50eb5b`, the leftovers slice at `87aef29`, the
-updater/receipt slices at `d5e5153` and `ee1a1eb`, and the compact TUI posture
-update at `8132b4e`; the exact-file integrity slice is the current working
-change. Local `main` and `origin/main` matched after publication. The
+updater/receipt slices at `d5e5153` and `ee1a1eb`, the compact TUI posture
+update at `8132b4e`, and the exact-file integrity slice at `47c6f9f`. Local
+`main` and `origin/main` matched after publication. The
 source validation baseline passes `cargo fmt --all -- --check`,
 `cargo test --workspace --locked`, strict workspace Clippy, Linux/Windows
 cross-target `cargo check`, and `git diff --check`. The final release artifact
