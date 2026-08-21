@@ -109,6 +109,12 @@ workspace checks for x86 and x86-64; linked EXEs still require the Windows build
 runner. Other targets still require link-capable build runners and artifact-only runtime hosts; `cargo check` is not
 an executable artifact.
 
+The DMG builder keeps its commit-scoped staging directory under the repository
+`target/` tree (`target/release-dmg-work-<commit>`). It refuses an occupied or
+symlinked staging path and removes only that exact task-created directory on
+completion, so portable package/build staging does not spill into the system
+temporary directory.
+
 The DMG builder first creates and checksum-verifies the canonical portable ZIP,
 then rejects missing/extra/duplicate/traversal/symlink/oversized entries before
 preparing fixed-metadata content. SBOM and third-party notices are mandatory

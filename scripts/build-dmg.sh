@@ -35,10 +35,15 @@ if [[ -e "$final" || -L "$final" || -e "$checksum" || -L "$checksum" ]]; then
   exit 2
 fi
 
-work="$(mktemp -d "${TMPDIR:-/tmp}/rz0-dmg-build.XXXXXXXX")"
+work="$repo/target/release-dmg-work-$commit"
+if [[ -e "$work" || -L "$work" ]]; then
+  echo "refusing occupied DMG staging directory: $work" >&2
+  exit 2
+fi
+mkdir -p "$work"
 pending="$output/.${name}.pending-$$.dmg"
 cleanup() {
-  rm -rf "$work"
+  rm -rf -- "$work"
   rm -f "$pending"
 }
 trap cleanup EXIT INT TERM
