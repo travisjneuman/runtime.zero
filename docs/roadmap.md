@@ -207,6 +207,8 @@ See [`action-planning.md`](action-planning.md).
   deny, disabled execution/automation, one-process concurrency, dry-run,
   confirmation, quarantine, and no implicit lifecycle work; diagnostics bind the
   canonical configuration digest.
+- [x] Expose the effective immutable foundation configuration as a path-free,
+  non-authorizing `rz0 config` text/JSON review surface.
 - [x] Strict privacy-safe text/JSON foundation diagnostics with exact typed checks
   and no host, user, current-directory, environment-value, or raw-path output.
 - [x] Add a deterministic foundation support-report contract, a separate

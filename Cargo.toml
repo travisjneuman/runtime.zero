@@ -57,6 +57,7 @@ rz0-artifact-identity = { version = "0.1.0", path = "crates/artifact-identity" }
 rz0-cancellation-contract = { version = "0.1.0", path = "crates/cancellation-contract" }
 rz0-capability-contract = { version = "0.1.0", path = "crates/capability-contract" }
 rz0-confirmation-contract = { version = "0.1.0", path = "crates/confirmation-contract" }
+rz0-configuration-contract = { version = "0.1.0", path = "crates/configuration-contract" }
 rz0-diagnostics-contract = { version = "0.1.0", path = "crates/diagnostics-contract" }
 rz0-error-contract = { version = "0.1.0", path = "crates/error-contract" }
 rz0-finding-contract = { version = "0.1.0", path = "crates/finding-contract" }

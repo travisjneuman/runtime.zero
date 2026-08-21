@@ -303,6 +303,8 @@ full platform/lifecycle acceptance cells.
   codes, additive compatibility rules, and deprecation policy.
 - [ ] Complete action, confirmation, progress, cancellation, recovery,
   rollback, unsupported, and partial-evidence UX in CLI and TUI.
+- [x] Expose the effective immutable foundation configuration as a
+  path-free, non-authorizing `rz0 config` text/JSON review surface.
 - [ ] Add shell completions, manual pages, examples, troubleshooting, migration,
   repair, rollback, uninstall, privacy/sharing, and support guides.
 - [ ] Decide localization policy and prove locale-independent machine output and

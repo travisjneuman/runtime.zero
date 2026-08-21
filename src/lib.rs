@@ -3,6 +3,7 @@ pub mod brand;
 pub mod cache;
 pub mod color_mode;
 pub mod completions;
+pub mod configuration_cli;
 pub mod dashboard_cli;
 mod exact_quarantine;
 pub mod install_receipt;
@@ -82,6 +83,7 @@ where
         Some("--help" | "-h" | "help") => (ExitCode::Ok, help_text(), String::new()),
         Some("--version" | "-V" | "version") => (ExitCode::Ok, version_text(), String::new()),
         Some("doctor") => doctor_command(&args[1..]),
+        Some("config") => configuration_cli::configuration_command(&args[1..]),
         Some("apps") => apps::apps_command(&args[1..]),
         Some("cache") => cache::cache_command(&args[1..]),
         Some("leftovers") => leftovers::leftovers_command(&args[1..]),
@@ -122,6 +124,10 @@ pub fn help_text() -> String {
         safety = brand::SAFETY_POSTURE
     );
     let toolchain_usage = format!("  {} toolchain [--format text|json]\n", brand::COMMAND);
+    let configuration_usage = format!("  {} config [--format text|json]\n", brand::COMMAND);
+    if let Some(index) = help.find(&format!("  {} apps", brand::COMMAND)) {
+        help.insert_str(index, &configuration_usage);
+    }
     if let Some(index) = help.find(&format!("  {} report", brand::COMMAND)) {
         help.insert_str(index, &toolchain_usage);
     }

@@ -176,6 +176,35 @@ fn doctor_json_is_versioned_and_private_by_default() {
 }
 
 #[test]
+fn configuration_review_is_versioned_private_and_non_authorizing() {
+    let (code, out, err) = run(["config", "--format", "json"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("configuration JSON");
+    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["contract"], "configuration_review");
+    assert_eq!(value["valid"], true);
+    assert_eq!(value["read_only"], true);
+    assert_eq!(value["writes_attempted"], false);
+    assert_eq!(value["configuration_authorizes_execution"], false);
+    assert_eq!(
+        value["configuration"]["execution"]["network_default"],
+        "deny"
+    );
+    assert_eq!(
+        value["configuration"]["privacy"]["telemetry_enabled"],
+        false
+    );
+    assert!(!out.contains("/Users/"));
+
+    let (code, out, err) = run(["config"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("runtime.zero effective configuration"));
+    assert!(out.contains("configuration_authorizes_execution: false"));
+}
+
+#[test]
 fn subcommand_help_is_scriptable_and_successful() {
     let (code, out, err) = run(["modules", "--help"]);
     assert_eq!(code, ExitCode::Ok);

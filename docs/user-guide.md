@@ -62,6 +62,19 @@ posture. On macOS, manager apply is available as a pre-alpha path-revalidated
 lane; Windows uses pre-start Job Object/handle-list containment but remains
 pre-alpha pending runtime and ACL/reparse evidence.
 
+The effective foundation safeguards are available separately:
+
+```bash
+rz0 config
+rz0 config --format json
+```
+
+`config` reports the immutable schema-one built-in defaults for privacy,
+network, module-process, mutation, and lifecycle policy. It never loads user
+configuration, writes state, enables modules, or authorizes execution. A
+configuration digest is evidence of the policy in force, not an authorization
+token.
+
 ### Installed software and source identity
 
 ```bash

@@ -102,7 +102,8 @@ plans and exact foundation gate sets. `crates/privacy-contract/` owns bounded,
 report-local redaction without retaining raw sensitive strings.
 `crates/configuration-contract/` owns immutable fail-closed schema-1 defaults;
 `crates/diagnostics-contract/` binds their digest into the strict privacy-safe
-`rz0 doctor` report. `crates/support-contract/` validates private inventory and
+`rz0 doctor` report, while `rz0 config` exposes the same effective policy as a
+read-only review. `crates/support-contract/` validates private inventory and
 diagnostics inputs and emits only deterministic summary counts/statuses and
 domain-separated digests; both `rz0 report` and the separate report/export
 module call it without sharing authority. `crates/performance-contract/` owns

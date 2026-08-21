@@ -45,6 +45,7 @@ mod tests {
             assert_eq!(code, ExitCode::Ok, "{shell}: {error}");
             for command in [
                 "doctor",
+                "config",
                 "apps",
                 "cache",
                 "leftovers",

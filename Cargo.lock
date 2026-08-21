@@ -734,6 +734,7 @@ dependencies = [
  "rz0-artifact-identity",
  "rz0-cancellation-contract",
  "rz0-capability-contract",
+ "rz0-configuration-contract",
  "rz0-confirmation-contract",
  "rz0-diagnostics-contract",
  "rz0-error-contract",

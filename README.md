@@ -28,6 +28,8 @@ rz0 --no-tui
 rz0 --color auto|always|never
 rz0 doctor
 rz0 doctor --format json
+rz0 config
+rz0 config --format json
 rz0 modules
 rz0 modules --format json
 rz0 modules status
