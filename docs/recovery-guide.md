@@ -30,6 +30,18 @@ rollback support.
 6. Preserve the state root and manager-native history/logs. Review them locally;
    do not publish raw evidence.
 
+For runtime.zero-owned quarantine evidence, use the bounded read-only inventory
+before considering an exact restore:
+
+```bash
+rz0 recovery --dry-run --format json
+```
+
+This command does not repair malformed records or remove stale payloads. If a
+record is valid and restore-capable, use the separate exact `rz0 restore` flow
+described in [`user-guide.md`](user-guide.md); occupied, drifted, symlinked, or
+unsupported destinations remain blocked.
+
 ## Durable transaction states
 
 | State | Meaning | Current safe response |

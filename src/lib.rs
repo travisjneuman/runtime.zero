@@ -23,6 +23,7 @@ pub mod module_validation;
 pub mod package_integrity;
 mod package_integrity_io;
 pub use rz0_quarantine as quarantine;
+pub mod recovery_cli;
 pub mod release_cli;
 pub mod report;
 pub mod restore_cli;
@@ -81,6 +82,7 @@ where
         Some("apps") => apps::apps_command(&args[1..]),
         Some("cache") => cache::cache_command(&args[1..]),
         Some("leftovers") => leftovers::leftovers_command(&args[1..]),
+        Some("recovery") => recovery_cli::recovery_command(&args[1..]),
         Some("restore") => restore_cli::restore_command(&args[1..]),
         Some("integrity") => integrity::integrity_command(&args[1..]),
         Some("uninstall") => apps::uninstall_command(&args[1..]),
@@ -153,6 +155,13 @@ pub fn help_text() -> String {
     );
     if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {
         help.insert_str(index, &restore_usage);
+    }
+    let recovery_usage = format!(
+        "  {} recovery --dry-run [--format text|json]\n",
+        brand::COMMAND,
+    );
+    if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {
+        help.insert_str(index, &recovery_usage);
     }
     let lifecycle_usage = format!(
         "  {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n",

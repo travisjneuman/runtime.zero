@@ -53,6 +53,7 @@ rz0 leftovers --dry-run
 rz0 leftovers --dry-run --format json
 rz0 leftovers --dry-run --plan --path /absolute/path/to/runtime-zero-module-file
 rz0 leftovers --apply --path /absolute/path/to/runtime-zero-module-file
+rz0 recovery --dry-run
 rz0 restore --dry-run --plan-id <exact-quarantine-plan-id>
 rz0 restore --apply --plan-id <exact-quarantine-plan-id>
 rz0 integrity --dry-run --fixture tests/fixtures/integrity/valid.json

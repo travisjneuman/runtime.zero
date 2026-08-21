@@ -94,6 +94,11 @@ only the one validated payload to an unoccupied original path through the
 durable filesystem-effect journal and receipt path. It never overwrites,
 recurses, deletes, elevates, or uses network access.
 .TP
+.B recovery --dry-run [--format text|json]
+Review a bounded inventory of runtime.zero quarantine records without writing,
+deleting, restoring, or exposing absolute host paths. The output reports record
+validity, payload presence, digest/size evidence, and exact-restore availability.
+.TP
 .B integrity --dry-run --fixture PATH [--format text|json]
 .br
 .B integrity --dry-run --path ABSOLUTE_FILE --sha256 DIGEST [--format text|json]

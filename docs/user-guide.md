@@ -176,6 +176,19 @@ rz0 leftovers --apply --path /absolute/path/to/runtime-zero-module-file \
 
 ### Exact quarantine restore
 
+Before restoring, inspect the bounded quarantine inventory without exposing
+absolute host paths or writing state:
+
+```bash
+rz0 recovery --dry-run
+rz0 recovery --dry-run --format json
+```
+
+The review reports only logical plan/action identity, digest/size evidence,
+record validity, payload presence, and whether the narrow restore lane can use
+the record. It is capped, skips unsafe record entries, and never deletes,
+restores, or repairs evidence.
+
 Restore is intentionally separate from cache and leftovers discovery. It reads
 one existing runtime.zero quarantine record, validates the record binding,
 recomputes the original cache/module destination, and refuses symlinked,

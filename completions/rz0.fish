@@ -5,6 +5,7 @@ complete -c rz0 -n '__fish_use_subcommand' -a apps -d 'List path-free installed 
 complete -c rz0 -n '__fish_use_subcommand' -a cache -d 'Review bounded cache evidence without mutation'
 complete -c rz0 -n '__fish_use_subcommand' -a leftovers -d 'Review bounded runtime.zero-owned evidence without mutation'
 complete -c rz0 -n '__fish_use_subcommand' -a restore -d 'Restore one exact quarantine record after confirmation'
+complete -c rz0 -n '__fish_use_subcommand' -a recovery -d 'Review bounded quarantine and restore evidence'
 complete -c rz0 -n '__fish_use_subcommand' -a integrity -d 'Review explicit digest evidence without remediation'
 complete -c rz0 -n '__fish_use_subcommand' -a uninstall -d 'Build a read-only uninstall plan'
 complete -c rz0 -n '__fish_use_subcommand' -a modules -d 'Inspect module manifests and plans'
@@ -74,6 +75,9 @@ complete -c rz0 -n '__fish_seen_subcommand_from restore' -l challenge-issued-uni
 complete -c rz0 -n '__fish_seen_subcommand_from restore' -l confirm -r
 complete -c rz0 -n '__fish_seen_subcommand_from restore' -l format -xa 'text json'
 complete -c rz0 -n '__fish_seen_subcommand_from restore' -l json
+complete -c rz0 -n '__fish_seen_subcommand_from recovery' -l dry-run
+complete -c rz0 -n '__fish_seen_subcommand_from recovery' -l format -xa 'text json'
+complete -c rz0 -n '__fish_seen_subcommand_from recovery' -l json
 complete -c rz0 -n '__fish_seen_subcommand_from integrity' -l dry-run
 complete -c rz0 -n '__fish_seen_subcommand_from integrity' -l fixture -rF
 complete -c rz0 -n '__fish_seen_subcommand_from integrity' -l format -xa 'text json'

@@ -8,6 +8,7 @@ _rz0() {
     'cache:review bounded cache evidence without mutation'
     'leftovers:review bounded runtime.zero-owned evidence without mutation'
     'restore:restore one exact quarantine record after confirmation'
+    'recovery:review bounded quarantine and restore evidence'
     'integrity:review explicit digest evidence without remediation'
     'uninstall:build a read-only finding-bound uninstall plan'
     'modules:list, validate, or plan module installation'
@@ -44,6 +45,7 @@ _rz0() {
     cache) _arguments '--dry-run[required report-only mode]' '*--fixture[local cache evidence JSON]:path:_files' '--plan[seal one exact dry-run quarantine plan]' '--apply[explicit quarantine apply lane]' '--path[absolute cache file]:path:_files' '--challenge-issued-unix-seconds[challenge timestamp]:timestamp:' '--confirm[exact challenge phrase]:phrase:' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     leftovers) _arguments '--dry-run[required report-only mode]' '*--fixture[local leftover evidence JSON]:path:_files' '--plan[seal one exact dry-run quarantine plan]' '--apply[explicit quarantine apply lane]' '--path[absolute module-store file]:path:_files' '--challenge-issued-unix-seconds[challenge timestamp]:timestamp:' '--confirm[exact challenge phrase]:phrase:' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     restore) _arguments '--dry-run[read-only exact restore plan]' '--apply[explicit restore apply lane]' '--plan-id[exact quarantine plan id]:' '--challenge-issued-unix-seconds[challenge timestamp]:timestamp:' '--confirm[exact challenge phrase]:phrase:' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
+    recovery) _arguments '--dry-run[required read-only mode]' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     integrity) _arguments '--dry-run[required report-only mode]' '*--fixture[local integrity evidence JSON]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     scan) _arguments '--dry-run[required report-only mode]' '--include-raw-paths[local private paths]' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
     uninstall) _arguments '1:operation:(plan)' '2:installed software id:' '--executable[exact manager path]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' ;;
