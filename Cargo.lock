@@ -747,6 +747,7 @@ dependencies = [
  "rz0-module-uninstall",
  "rz0-module-updater",
  "rz0-process-host",
+ "rz0-quarantine",
  "rz0-registry-contract",
  "rz0-resource-contract",
  "rz0-secure-fs",
@@ -1041,6 +1042,22 @@ dependencies = [
  "rz0-error-contract",
  "rz0-resource-contract",
  "windows-sys",
+]
+
+[[package]]
+name = "rz0-quarantine"
+version = "0.1.0"
+dependencies = [
+ "rz0-action-plan",
+ "rz0-confirmation-contract",
+ "rz0-error-contract",
+ "rz0-resource-contract",
+ "rz0-secure-fs",
+ "rz0-transaction-contract",
+ "rz0-validation-contract",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]

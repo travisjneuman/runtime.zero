@@ -196,9 +196,11 @@ Implementation may proceed only in bounded stages:
    only; no signer, private key, production trust root, or installer integration.
 3. **Implemented as tests only:** immutable staging-plan validation and atomic
    publication simulation under a marked direct child of the OS temp root.
-4. **Implemented as tests only:** receipt-bound quarantine/restore fixture
-   execution with verified-copy-before-remove, injected failure, symlink/tamper
-   rejection, and occupied-restore refusal.
+4. **Implemented as a gated foundation API:** receipt-bound quarantine/restore
+   execution with exact private roots, no-replace moves, record verification,
+   journal/receipt publication, and tamper/conflict rejection. Its tests use
+   disposable roots; domain invocation and cross-platform recovery remain
+   blocked.
 5. **Implemented as a native test-helper slice:** fixture-only first-party
    invocation/not-executed module contract plus an explicit-feature Cargo helper
    transport. The helper slice proves bounded JSON framing, exact cleared

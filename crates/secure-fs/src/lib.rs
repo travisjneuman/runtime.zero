@@ -111,6 +111,18 @@ impl SecureOpenedFile {
 }
 
 impl SecureDirectory {
+    /// Duplicates the held directory handle without re-resolving its path.
+    ///
+    /// Callers use this when walking separate root-relative paths. The clone
+    /// preserves the no-follow and opened-directory guarantees of the
+    /// original handle.
+    pub fn try_clone(&self) -> Result<Self, SecureFsError> {
+        self.file
+            .try_clone()
+            .map(|file| Self { file })
+            .map_err(|error| io_error("clone held directory handle", error))
+    }
+
     pub fn open(path: &Path) -> Result<Self, SecureFsError> {
         platform::open_directory(path).map(|file| Self { file })
     }
@@ -140,6 +152,26 @@ impl SecureDirectory {
         let opened = self.open_child_directory(name)?;
         self.sync()?;
         Ok(opened)
+    }
+
+    /// Opens a normal child directory, creating it privately when absent.
+    ///
+    /// The create-first ordering preserves a useful distinction on platforms
+    /// whose no-follow directory-open primitive reports a missing child as a
+    /// generic unsafe-directory error.
+    pub fn open_or_create_child_directory(&self, name: &OsStr) -> Result<Self, SecureFsError> {
+        validate_child_name(name)?;
+        match platform::create_child_directory(&self.file, name) {
+            Ok(()) => {
+                let opened = self.open_child_directory(name)?;
+                self.sync()?;
+                Ok(opened)
+            }
+            Err(error) if error.code == SecureFsErrorCode::AlreadyExists => {
+                self.open_child_directory(name)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub fn write_new_child(

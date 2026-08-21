@@ -31,6 +31,7 @@ members = [
     "crates/performance-contract",
     "crates/privacy-contract",
     "crates/process-host",
+    "crates/quarantine",
     "crates/release-contract",
     "crates/registry-contract",
     "crates/resource-contract",
@@ -68,6 +69,7 @@ rz0-module-security-integrity = { version = "0.1.0", path = "modules/security-in
 rz0-module-uninstall = { version = "0.1.0", path = "modules/uninstall" }
 rz0-module-updater = { version = "0.1.0", path = "modules/updater" }
 rz0-process-host = { version = "0.1.0", path = "crates/process-host" }
+rz0-quarantine = { version = "0.1.0", path = "crates/quarantine" }
 rz0-registry-contract = { version = "0.1.0", path = "crates/registry-contract" }
 rz0-resource-contract = { version = "0.1.0", path = "crates/resource-contract" }
 rz0-secure-fs = { version = "0.1.0", path = "crates/secure-fs" }

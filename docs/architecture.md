@@ -141,8 +141,11 @@ Windows binding remains a later gate. `crates/module-trust/` supplies a
 test-key-only detached Ed25519 verification contract, now exposed through the
 read-only modules trust verify review adapter, without adding a signer, key
 store, installer, execution path, or production trust root. Schema-1
-staging plans and OS-temp integration tests also exercise immutable publication
-and quarantine/restore failure semantics without a production mover.
+staging plans and OS-temp integration tests exercise immutable publication
+failure semantics. crates/quarantine/ now supplies a narrow receipt-bound
+production filesystem mover for one exact quarantine/restore action; domain
+ownership, CLI/TUI action wiring, cross-filesystem behavior, and platform
+bundle semantics remain gated.
 `crates/transaction-contract/` owns the bounded hash-chained transaction state
 machine, exclusive immutable snapshot publication/recovery, exact confirmation-
 aware commit-receipt binding, single-use consumption publication, atomic registry-

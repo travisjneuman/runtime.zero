@@ -28,6 +28,10 @@ Current feature work may reuse:
   registry, transaction, performance, and release-ledger libraries;
 - public-test-key signature verification and guarded immutable staging,
   quarantine, restore, and module-transport tests;
+- receipt-bound quarantine/restore execution for one exact action, including
+  private opened-directory roots, no-replace moves, source/record verification,
+  append-only journal snapshots, and filesystem-effect receipts; this is a
+  foundation primitive, not a candidate-discovery or public cleanup command.
 - built-in bounded inventory reads plus separate first-party module source
   packages;
 - live/captured updater evidence, finding-bound plans, serial queue review, and
@@ -98,8 +102,10 @@ The current foundation does not authorize:
 - module installation, activation, invocation, repair, migration, upgrade,
   deactivation, or uninstall;
 - arbitrary first- or third-party process execution;
-- uninstall, leftover, cache, quarantine/restore, permanent-delete, or integrity
-  remediation writes;
+- uninstall, leftover, cache, permanent-delete, or integrity remediation writes;
+- broad or domain-discovered quarantine/restore writes. The narrow executor
+  requires a caller-provided exact plan and receipt-bound confirmation and does
+  not make any module action-ready by itself;
 - credential/session/browser-profile/project/backup/unknown-data actions;
 - hidden shell/PATH execution, automatic retry, background service, persistence,
   telemetry, or automatic update;

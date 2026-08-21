@@ -481,8 +481,8 @@ behavior, rendering boundaries, and brand/theme structure. See
 and collector contract. Module execution/trust prerequisites are in
 [`docs/module-trust-and-execution.md`](docs/module-trust-and-execution.md), with
 the bounded test-key contract in
-[`docs/signature-verification.md`](docs/signature-verification.md). Test-only
-staging/quarantine/restore behavior is documented in
+[`docs/signature-verification.md`](docs/signature-verification.md). Foundation
+staging and receipt-bound quarantine/restore behavior is documented in
 [`docs/transaction-simulation.md`](docs/transaction-simulation.md), and the
 no-execution module contract and explicit-feature test-helper transport in
 [`docs/module-process-protocol.md`](docs/module-process-protocol.md). Update/uninstall/quarantine boundaries are in

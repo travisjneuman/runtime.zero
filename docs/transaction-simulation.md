@@ -1,4 +1,4 @@
-# Test-Only Transaction Simulation
+# Transaction Simulation and Filesystem Effects
 
 `runtime.zero` exercises immutable staging, quarantine, and restore semantics in
 integration tests before exposing any product mutation path. These simulations
@@ -61,6 +61,15 @@ symlinked source, and occupied restore destinations. Credentials, sessions,
 browser profiles, projects, backups, shared data, and unknown data remain blocked
 by the action-plan policy and are not simulation inputs.
 
+The former simulation helper remains a narrow contract regression suite.
+Production-shaped quarantine/restore execution now lives in crates/quarantine/.
+Its integration tests use the same disposable-root discipline while exercising
+the real foundation path: durable confirmation consumption, private
+opened-directory roots, no-replace moves, quarantine record binding,
+append-only journals, and filesystem-effect receipts. This does not imply that
+leftovers or cache modules have permission to invoke it; candidate ownership
+and CLI/TUI action wiring remain separate gates.
+
 ## Shared journal contract
 
 `crates/transaction-contract/` now defines the shared bounded state machine,
@@ -77,8 +86,10 @@ cross-process ownership and exact one-event durable prefixes. See
 The simulations do not establish crash durability, ACL/ownership fidelity,
 locked-file handling, cross-filesystem behavior, Windows reparse semantics,
 platform sandboxing, privileged operations, or safe recovery after process/power
-loss. They add no production mover, installer, registry writer, cleanup command,
-module execution, or permanent deletion path.
+loss. They add no installer, registry writer, public cleanup command, module
+execution, or permanent deletion path. The narrow production mover in
+crates/quarantine/ has its own disposable-root integration tests and remains
+blocked from domain invocation until those platform and recovery gates close.
 
 A fixture-only invocation/not-executed response protocol now defines exact
 receipt binding, least-privilege read grants, and host/child I/O ceilings. An

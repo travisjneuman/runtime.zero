@@ -104,9 +104,12 @@ full platform/lifecycle acceptance cells.
   retention for every mutation class.
 - [ ] Implement exact rollback execution from verified prior evidence, including
   interrupted rollback continuation and mismatch refusal.
-- [ ] Promote quarantine/restore from test helpers to receipt-scoped production
-  APIs with metadata fidelity, verified-copy-before-remove, retention policy,
-  capacity limits, and occupied-destination refusal.
+- [x] Promote quarantine/restore from test helpers to receipt-scoped foundation
+  APIs with exact roots, no-replace moves, record verification, journal
+  snapshots, and filesystem-effect receipts.
+- [ ] Bind the executor to each domain's ownership/provenance findings and
+  expose the reviewed action through the shared CLI/TUI confirmation workflow;
+  complete retention, metadata fidelity, capacity, and cross-filesystem policy.
 - [ ] Keep permanent deletion a separate exact-confirmation action with no
   implicit retention expiry.
 - [ ] Prove abrupt process termination, kernel/host reboot, power loss, disk

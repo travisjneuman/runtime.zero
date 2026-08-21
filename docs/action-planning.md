@@ -124,12 +124,16 @@ capabilities and write-set kinds. Every valid fixture is dry-run-only with
 Validated plans can now produce domain-separated deterministic plan and write-set
 digests for confirmation, transaction, and receipt binding; invalid plans cannot.
 
-Integration-test helpers now exercise quarantine/restore only under a marked,
-prefixed direct child of the OS temporary root. Tests prove verified-copy-before-
-remove, durable fixture record creation, restore without consuming quarantine,
-occupied-destination refusal, tamper/symlink rejection, and a failure after copy
-that retains both source and verified copy. Test cleanup removes only that
-isolated root.
+The foundation crates/quarantine package now provides the narrow production
+executor behind this contract. It accepts only one exact planned action, a
+durable plan-bound confirmation consumption, and explicit private roots. It
+uses opened-directory-relative no-replace moves, verifies source and
+destination bytes, requires the quarantine record for restore, and publishes
+append-only journal snapshots plus a filesystem-effect receipt. Its tests still
+use disposable OS-temp roots; no user or repository path is touched by tests.
+The executor does not discover ownership, create candidate plans, or add a
+public cleanup command. Domain integration, cross-filesystem behavior, and
+platform-specific bundle semantics remain release gates.
 
 `crates/confirmation-contract/` adds exact short-lived CLI/TUI challenge,
 response, and single-use consumption evidence while remaining structurally
