@@ -7,10 +7,10 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `7a120fd71dc8d5b193bf8d1530ee2e0a2ba53096` (`Show AIUP ownership posture in TUI`);
+  `c036f560c4222be07266922d27c3db021276cf90` (`Fail closed on malformed AIUP catalog output`);
   this status document is refreshed in a follow-up documentation-only commit.
 - **Current behavior implementation:**
-  `7a120fd` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `c036f56` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -69,7 +69,10 @@
   review, so invalid staged evidence is not visually mixed with valid staging.
   AIUP-managed toolchain records remain explicitly `observed-only` in both the
   Rust report and TUI rows; provider availability review remains a separate
-  plan/confirmation path.
+  plan/confirmation path. The Rust AIUP dry-run adapter now rejects output with
+  no recognized tool or detected-version catalog section, so arbitrary success
+  text and malformed tool labels cannot silently become an empty successful
+  provider review.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -105,6 +108,7 @@ The staged-status evidence refresh is `fb95b45`.
 The staged transaction-evidence cross-check slice is `f9e28cb`.
 The staged-review TUI warning slice is `b818e54`.
 The AIUP ownership-posture parity slice is `7a120fd`.
+The AIUP malformed-catalog fail-closed slice is `c036f56`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -530,7 +534,7 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current source validation for `7a120fd71dc8d5b193bf8d1530ee2e0a2ba53096` and
+Current source validation for `c036f560c4222be07266922d27c3db021276cf90` and
 the packaged artifact on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
