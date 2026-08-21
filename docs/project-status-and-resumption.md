@@ -127,7 +127,11 @@
   evidence cannot push the key explanation panel off-screen. Home now derives
   its toolchain total from that same de-duplicated app-plus-executable merge,
   so the summary cannot disagree with the Toolchain workspace or scriptable
-  report.
+  report. The execution coordinator now passes its shared cancellation token
+  into post-action verification callbacks; updater verification uses the
+  cancellable provider-review path for its fresh evidence, and uninstall
+  verification checks cancellation around its fresh catalog snapshot before
+  any receipt commit.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -185,6 +189,8 @@ The strict AIUP provider-evidence slice is `e3f4bd4`.
 The AIUP executable-inventory binding and wrapper-filter slice is `8b035bd`.
 The shared Toolchain/TUI executable-evidence slice is `3961200`.
 The Home/Toolchain parity slice is `4a8960d`.
+The post-action cancellation propagation slice is pending on the current
+working tree and will be recorded with its exact commit after publication.
 The current exact-head release evidence refresh is bound to
 `4a8960d3637b3e7411d424d07b1af8c3e12bdb6d`.
 Local

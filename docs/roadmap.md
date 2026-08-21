@@ -116,6 +116,13 @@ See [`inventory-schema.md`](inventory-schema.md).
   Winget specifications currently fail closed at parsing; Zypper uses a strict
   XML package-row parser; Snap uses a strict five-column table parser; Flatpak
   uses a strict JSON, ref/commit-bound parser.
+  WinGet remains intentionally unavailable because the documented
+  `list --upgrade-available` surface is a human table, while documented JSON
+  output belongs to `export` and does not carry available-update fields; the
+  official client request for `list --json` is closed as not planned. See
+  [Microsoft's list command](https://learn.microsoft.com/en-us/windows/package-manager/winget/list),
+  [export command](https://learn.microsoft.com/en-us/windows/package-manager/winget/export),
+  and the [upstream JSON-output issue](https://github.com/microsoft/winget-cli/issues/4965).
 - [x] Provider-driven all-source review for installed system managers, language
   environments, known self-updaters, multiple npm prefixes, and declared app
   metadata, with explicit missing/observed-only/unsupported-source warnings;
@@ -130,7 +137,8 @@ See [`inventory-schema.md`](inventory-schema.md).
   and deterministic read-only recovery assessment.
 - [ ] Propagate caller cancellation through remaining discovery, verification,
   receipt, and write boundaries; confirmed Unix execution now bridges SIGINT
-  through bounded process-group teardown.
+  through bounded process-group teardown, and post-action updater verification
+  now receives the shared token and uses cancellable fresh provider discovery.
 - [ ] Native rollback, Windows runtime/ACL/reparse proof, manager-specific locale/
   source-agreement/offline/runtime proof, manager-specific recovery beyond the
   local journal completion lane, real
