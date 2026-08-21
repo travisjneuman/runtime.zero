@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `1faffa42c895936d7faaf13cb4bf6b3815d582f3` (`feat: add exact manager uninstall execution boundary`).
+  `4266ae568827db90cfbdcfc86fdbcab9184dc4f8` (`docs: bind release evidence to current source head`).
 - **Current behavior implementation:**
-  `1faffa4` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `4266ae5` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -135,6 +135,7 @@ The developer-only first-party inventory process invocation slice is
 `8f9f3c7`.
 The effective configuration review slice is `c6118ad`.
 The exact manager-native uninstall execution slice is `1faffa4`.
+The exact-head release evidence refresh is `4266ae5`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -142,15 +143,15 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The local aarch64 Apple Silicon package from
-`9835bfb296d8f2408790d330bf390f3b5f5b7f5d` has binary SHA-256
+`4266ae568827db90cfbdcfc86fdbcab9184dc4f8` has binary SHA-256
 `453b6630f5574b63a78114bf44c2c95e9f2ff0858ea8f13c2ed4273295c7c746`, ZIP
 SHA-256
-`25072d38315e1b38f285d1e65d8901a74c464bf6de5b951fc470058780b83eaa`, and
-1,901,151 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`c18b75997d8d07066358e5a0811051ef80b6cabf0a6be22c5bf90c07b8e1ffdb`, and
+1,901,154 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`3ca687a09d62aa48179921e10eb955113af43552a15af60d65f391225fce24b4`,
-`92e02092840e4e69c00e3022a6bd5e96abaa7e7e3df983b1e8e3920cc2030465`, and
-`2464a6ca438fba8ab8e4f4ffc56563e6a512113bf13a8314c34de9228e6786d8`; their
+`66f437e2e3b44559012713ffb25944adc25245ddb91b55c8639f73d29271569e`,
+`a18289fcbc4f3a40f566c3eb381dca006f997bbc7d02708194d1d4a2d40ccf8f`, and
+`5c3e355d92954913177fdab25a32ace6c4f15fd217304de36886df4e6ff5caee`; their
 embedded sizes are 160,426, 290,906, and 977 bytes respectively. Independent
 ZIP verification, four PTY terminal smoke cases, and ten-sample final-artifact
 performance evidence passed against this exact source head. The artifact remains
