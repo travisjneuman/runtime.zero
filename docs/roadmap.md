@@ -249,6 +249,9 @@ See [`action-planning.md`](action-planning.md).
 - [x] Add compile-checked exact-owner and bounded DACL inspection that accepts
   allow ACEs only for the user, SYSTEM, or Administrators and rejects unknown
   ACE shapes/principals.
+- [x] Apply a protected user/SYSTEM/Administrators DACL and current-user owner
+  to newly created Windows secure-fs children through the held handle before
+  privacy verification; this closes inherited-ACL drift in the creation path.
 - [ ] Prove Windows owner/DACL privacy, inherited ACLs, reparse/File-ID behavior,
   atomicity, and directory flush on real client/server filesystems.
 - [x] Read-only manifest permission schema with default-versus-explicit grants.

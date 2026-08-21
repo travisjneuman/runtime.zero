@@ -415,6 +415,11 @@ The largest immediate risks are:
   control bridge for Ctrl+C/Ctrl+Break, including duplicate-registration
   protection and clean handler teardown; target-native event delivery remains
   unverified here;
+- Windows secure-fs creation now requests the required handle rights and applies
+  a protected current-user/SYSTEM/Administrators DACL plus current-user owner
+  before the existing strict privacy verifier runs. This is source and MSVC
+  compile evidence only; real client/server filesystem, inherited-ACL, reparse,
+  owner, and flush acceptance remains open.
 - Unix process groups are containment aids, not syscall/filesystem/network/
   privilege sandboxes, and a hostile child may attempt session escape;
 - cancellation now covers confirmed updater discovery, serial refresh,

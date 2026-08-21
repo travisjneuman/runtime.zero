@@ -639,9 +639,14 @@ mod platform {
             },
             Security::{
                 ACCESS_ALLOWED_ACE, ACL, ACL_SIZE_INFORMATION, AclSizeInformation,
-                Authorization::{GetSecurityInfo, SE_FILE_OBJECT},
+                Authorization::{
+                    EXPLICIT_ACCESS_W, GRANT_ACCESS, GetSecurityInfo, NO_MULTIPLE_TRUSTEE,
+                    SE_FILE_OBJECT, SetEntriesInAclW, SetSecurityInfo, TRUSTEE_IS_SID,
+                    TRUSTEE_IS_USER, TRUSTEE_IS_WELL_KNOWN_GROUP, TRUSTEE_W,
+                },
                 CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, GetAce, GetAclInformation,
-                GetTokenInformation, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
+                GetTokenInformation, OWNER_SECURITY_INFORMATION,
+                PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
                 SECURITY_MAX_SID_SIZE, TOKEN_QUERY, TOKEN_USER, TokenUser,
                 WinBuiltinAdministratorsSid, WinLocalSystemSid,
             },
@@ -650,7 +655,7 @@ mod platform {
                 FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_READ,
                 FILE_GENERIC_WRITE, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
                 GetFileInformationByHandle, LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY,
-                LockFileEx, UnlockFileEx,
+                LockFileEx, UnlockFileEx, WRITE_DAC, WRITE_OWNER,
             },
             System::{
                 IO::IO_STATUS_BLOCK,
@@ -748,23 +753,26 @@ mod platform {
         let file = nt_open_child(
             parent,
             name,
-            FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE,
+            FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE | WRITE_DAC | WRITE_OWNER,
             FILE_CREATE,
             DIRECTORY_OPTIONS,
             "create Windows child directory relative to held parent",
         )?;
+        set_private_security(&file)?;
         validate_directory(&file)
     }
 
     pub fn create_new_child_file(parent: &File, name: &OsStr) -> Result<File, SecureFsError> {
-        nt_open_child(
+        let file = nt_open_child(
             parent,
             name,
-            FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE,
+            FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE | WRITE_DAC | WRITE_OWNER,
             FILE_CREATE,
             FILE_OPTIONS,
             "create Windows child file relative to held parent",
-        )
+        )?;
+        set_private_security(&file)?;
+        Ok(file)
     }
 
     pub fn open_child_file(parent: &File, name: &OsStr) -> Result<File, SecureFsError> {
@@ -1009,6 +1017,131 @@ mod platform {
             ));
         }
         Ok(())
+    }
+
+    fn set_private_security(file: &File) -> Result<(), SecureFsError> {
+        let token = current_process_token()?;
+        let mut required = 0u32;
+        // SAFETY: the null probe requests only the required byte length.
+        let _ = unsafe {
+            GetTokenInformation(
+                token.as_raw_handle(),
+                TokenUser,
+                null_mut(),
+                0,
+                &raw mut required,
+            )
+        };
+        if required == 0 {
+            return Err(io_error(
+                "size Windows token user information for private creation",
+                std::io::Error::last_os_error(),
+            ));
+        }
+        let token_words = (required as usize).div_ceil(size_of::<usize>());
+        let mut token_buffer = vec![0usize; token_words];
+        // SAFETY: the aligned buffer is at least the byte count returned by the
+        // sizing call and remains live while its embedded SID is inspected.
+        if unsafe {
+            GetTokenInformation(
+                token.as_raw_handle(),
+                TokenUser,
+                token_buffer.as_mut_ptr().cast(),
+                required,
+                &raw mut required,
+            )
+        } == 0
+        {
+            return Err(io_error(
+                "read Windows token user information for private creation",
+                std::io::Error::last_os_error(),
+            ));
+        }
+        // SAFETY: successful TokenUser output begins with TOKEN_USER.
+        let user_sid = unsafe { (*(token_buffer.as_ptr().cast::<TOKEN_USER>())).User.Sid };
+        if user_sid.is_null() {
+            return Err(private_policy_error(
+                "Windows token user SID is absent during private creation",
+            ));
+        }
+        let system_sid = well_known_sid(WinLocalSystemSid)?;
+        let administrators_sid = well_known_sid(WinBuiltinAdministratorsSid)?;
+        let entries = [
+            private_access_entry(user_sid, TRUSTEE_IS_USER),
+            private_access_entry(
+                system_sid.as_ptr().cast_mut().cast(),
+                TRUSTEE_IS_WELL_KNOWN_GROUP,
+            ),
+            private_access_entry(
+                administrators_sid.as_ptr().cast_mut().cast(),
+                TRUSTEE_IS_WELL_KNOWN_GROUP,
+            ),
+        ];
+        let mut dacl: *mut ACL = null_mut();
+        // SAFETY: each trustee SID and the entry array remain live through the
+        // synchronous ACL construction call; oldacl is null because creation
+        // intentionally replaces inherited permissions.
+        let status = unsafe {
+            SetEntriesInAclW(
+                entries.len() as u32,
+                entries.as_ptr(),
+                null(),
+                &raw mut dacl,
+            )
+        };
+        if status != 0 {
+            return Err(io_error(
+                "construct Windows private DACL",
+                std::io::Error::from_raw_os_error(status as i32),
+            ));
+        }
+        if dacl.is_null() {
+            return Err(private_policy_error(
+                "Windows private DACL construction returned no ACL",
+            ));
+        }
+        // SAFETY: dacl is a LocalAlloc-owned ACL returned by SetEntriesInAclW
+        // and is released after the synchronous SetSecurityInfo call.
+        let status = unsafe {
+            SetSecurityInfo(
+                file.as_raw_handle(),
+                SE_FILE_OBJECT,
+                OWNER_SECURITY_INFORMATION
+                    | DACL_SECURITY_INFORMATION
+                    | PROTECTED_DACL_SECURITY_INFORMATION,
+                user_sid,
+                null_mut(),
+                dacl,
+                null_mut(),
+            )
+        };
+        // SAFETY: SetEntriesInAclW allocated this ACL with the Windows local
+        // allocator, and no pointer escapes this function.
+        unsafe {
+            let _ = LocalFree(dacl.cast());
+        }
+        if status != 0 {
+            return Err(io_error(
+                "apply Windows private owner and DACL",
+                std::io::Error::from_raw_os_error(status as i32),
+            ));
+        }
+        Ok(())
+    }
+
+    fn private_access_entry(sid: PSID, trustee_type: i32) -> EXPLICIT_ACCESS_W {
+        EXPLICIT_ACCESS_W {
+            grfAccessPermissions: windows_sys::Win32::Foundation::GENERIC_ALL,
+            grfAccessMode: GRANT_ACCESS,
+            grfInheritance: windows_sys::Win32::Security::NO_INHERITANCE,
+            Trustee: TRUSTEE_W {
+                pMultipleTrustee: null_mut(),
+                MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
+                TrusteeForm: TRUSTEE_IS_SID,
+                TrusteeType: trustee_type,
+                ptstrName: sid.cast(),
+            },
+        }
     }
 
     fn current_process_token() -> Result<OwnedHandle, SecureFsError> {
