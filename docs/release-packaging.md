@@ -70,6 +70,25 @@ It reports `decision: pass` only when the manifest is bound to the requested
 source commit and target. This validates package integrity; it does not create
 signatures, notarize, publish, install, or authorize a release.
 
+For a macOS DMG, use an existing empty direct mountpoint under the repository's
+ignored `target/` tree and verify the image, mounted nine-file contract,
+source-ZIP binding, manifest content digest, and read-only smoke commands:
+
+```bash
+python3 scripts/verify_macos_dmg.py \
+  --dmg target/release-dmg-<commit>/runtime-zero-0.1.0-universal2-apple-darwin.dmg \
+  --checksum target/release-dmg-<commit>/runtime-zero-0.1.0-universal2-apple-darwin.dmg.sha256 \
+  --mountpoint target/dmg-mount-<commit> \
+  --target universal2-apple-darwin \
+  --source-commit <full-commit> \
+  --source-zip target/release-package-<commit>/runtime-zero-0.1.0-universal2-apple-darwin.zip
+```
+
+The DMG verifier attaches read-only, runs `--version`, `doctor`, and
+`scan --dry-run`, then detaches before returning. It never installs, signs,
+notarizes, publishes, or authorizes the image. The mountpoint must be empty and
+is intentionally not created or removed by the verifier.
+
 `scripts/generate_release_metadata.py` traverses the Cargo metadata graph from
 only the `runtime-zero` package, excludes dev-only edges, filters the selected
 target, binds the exact final binary, and emits deterministic SPDX and notice

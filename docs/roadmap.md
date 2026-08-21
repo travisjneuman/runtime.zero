@@ -6,7 +6,7 @@ path, production support, or permission to cross a later gate. Windows, macOS,
 Linux, and every frozen 1.0 module family are equal release requirements; see
 [`production-readiness.md`](production-readiness.md).
 
-> **Reviewed 2026-08-17.** The 2026-07-30 pause was superseded by the
+> **Reviewed 2026-08-21.** The 2026-07-30 pause was superseded by the
 > 2026-08-01 TUI, updater, and native-monitor continuation. Resume with
 > [`project-status-and-resumption.md`](project-status-and-resumption.md), which
 > records the current implementation boundary, validation totals, known debts,
@@ -317,7 +317,8 @@ See [`module-trust-and-execution.md`](module-trust-and-execution.md).
   contract with deterministic IDs and blocked-only schema-1 release posture.
 - [x] Freeze initial final-artifact command ceilings and a strict bounded
   performance evidence schema for version/doctor/scan/apps/monitor/report/
-  dashboard paths; interactive TUI first-frame/refresh timing remains open.
+  dashboard paths plus versioned PTY TUI first-frame/refresh-request timing;
+  refresh-completion and target-native evidence remain open.
 - [ ] Freeze the exact RC target snapshot and target-specific measured/narrower
   budgets, then populate every acceptance ID with reviewed evidence or evidence-
   backed not-applicable.

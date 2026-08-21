@@ -287,6 +287,22 @@ TUI startup and refresh-request operations. The terminal evidence IDs are
 read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
 the artifact remains unsigned and unnotarized and is not a public release.
 
+A current docs-head unsigned macOS DMG was also built from source commit
+`1693654e6140866d8ba9348188f55925f61ce560` at
+`target/release-dmg-universal2-1693654/runtime-zero-0.1.0-universal2-apple-darwin.dmg`.
+Its SHA-256 is
+`da069d18ef2e0f85b2291175f7b33c7896bf10c0970e8dc098878f5fb82b5c10` and its
+size is 4,036,312 bytes. The mounted DMG manifest had SHA-256
+`51ed98d4e92e81a361509d29445b3b78541483adc638c10c4860cd990ca9fe77`, bound
+the source portable ZIP SHA-256
+`127cfb52e52c06f1c42173a140bbb9c4546277bdbacb28dc71fc6df829f8dd15`, and
+declared `container_reproducible: false`, `signature_posture: unsigned`, and
+`notarized: false`. `hdiutil` verified the image checksums; the mounted
+contents exposed the exact nine-file DMG contract, and its `rz0 --version`,
+`doctor`, and `scan --dry-run` checks passed before clean detachment. This is
+local unsigned packaging evidence, not publication, signing, notarization, or
+clean-host acceptance.
+
 The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
 with no writes; and the final artifact passed the bounded terminal and

@@ -480,10 +480,10 @@ cargo run -p rz0-module-inventory -- --format json
 cargo run -p rz0-module-inventory -- --include-apps --format json
 cargo run -p rz0-module-report-export -- --format json < report-export-input.json
 python3 -m unittest scripts.tests.test_prepare_macos_dmg
-scripts/build-package.sh aarch64-apple-darwin /tmp/runtime-zero-package
-scripts/build-dmg.sh aarch64-apple-darwin /tmp/runtime-zero-dmg
-scripts/benchmark_final_artifact.py --binary /path/to/rz0 --target aarch64-apple-darwin --source-commit <commit> --output /tmp/rz0-performance.json
-scripts/smoke_terminal_artifact.py --binary /path/to/rz0 --target aarch64-apple-darwin --source-commit <commit> --output /tmp/rz0-terminal.json
+scripts/build-package.sh aarch64-apple-darwin target/local-release-package
+scripts/build-dmg.sh aarch64-apple-darwin target/local-release-dmg
+scripts/benchmark_final_artifact.py --binary /path/to/rz0 --target aarch64-apple-darwin --source-commit <commit> --output target/rz0-performance.json
+scripts/smoke_terminal_artifact.py --binary /path/to/rz0 --target aarch64-apple-darwin --source-commit <commit> --output target/rz0-terminal.json
 python3 scripts/verify_release_package.py --archive target/release-package-<commit>/runtime-zero-0.1.0-aarch64-apple-darwin.zip --checksum-file target/release-package-<commit>/runtime-zero-0.1.0-aarch64-apple-darwin.zip.sha256 --source-commit <commit> --target aarch64-apple-darwin
 cargo deny check
 ```
