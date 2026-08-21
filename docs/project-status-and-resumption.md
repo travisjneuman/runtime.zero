@@ -113,8 +113,7 @@ The staged transaction-evidence cross-check slice is `f9e28cb`.
 The staged-review TUI warning slice is `b818e54`.
 The AIUP ownership-posture parity slice is `7a120fd`.
 The AIUP malformed-catalog fail-closed slice is `c036f56`.
-The developer-only installed-inactive promotion slice is in the current
-working change and must be recorded with its published commit after validation.
+The developer-only installed-inactive promotion slice is `0fe633f`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -122,18 +121,18 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current local aarch64 Apple Silicon package from
-`3105a52553055c1b7a2d9900db0acc3049ff6391` has binary SHA-256
-`698a7e9b7a532aa1a3ab634baf137d3b0781924c7b33178d63fed59637a609ef`, ZIP
+`0fe633fbe5920415e92b6b63e2306dc3b5b994e6` has binary SHA-256
+`1def68e9f82df39eaae67fd38dbb4ceff55c25d8cb6b70eb60a7d21f2997ff2a`, ZIP
 SHA-256
-`7494163acf869affe0f79a8c10b1f41e284d8d9538d5092e4d96b105bb68a184`, and
-1,801,902 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`9f8c949a6f195baca19e3579a4bae6c8963bbe206960ecf623fb74da26ceea5f`, and
+1,813,551 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`d0b8affaa4f7993a9d102c703b0415e029e563ab177b47769f0a95856a4a1e5a`,
-`248955b5677891d1f40126ac86f29bb1291577b8796b6c605410411c3b1a4dea`, and
-`e4bf662f4adcd868457c1fefc7b0ba7991952bc90d600f9c15ae7da4ee6c6fac`; their
+`06b9d46ee41e7c2db8579340fca8320cfec923e8ef00a781ad0e0481a2c0864e`,
+`fe21f161088743722947bc49bf6be485a1ea5771678a7c828a7fd9721859bbbd`, and
+`0506143c54f4066eb9cbf8be097d1d92485f0f1d067cff66f552496a2b68b0d9`; their
 embedded sizes are 158,365, 290,906, and 977 bytes respectively. Independent
 verification, four PTY terminal smoke cases, and ten-sample final-artifact
-performance evidence passed. The artifact remains unsigned and unnotarized
+performance evidence passed against the new source head. The artifact remains unsigned and unnotarized
 until an owner-led signing/notarization lane exists. It is a local Apple Silicon
 artifact, not a public release or cross-platform runtime claim.
 
