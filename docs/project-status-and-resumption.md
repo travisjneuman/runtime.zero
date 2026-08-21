@@ -41,7 +41,7 @@ posture update at `8132b4e`, the exact-file integrity slice at `47c6f9f`, and
 the Windows process-host/probe slice at `39adb92`, the module trust review
 slice at `a6664d6`, the complete-file-set slice at `3012176`, provenance
 validation at `63f7d8d`, and the exact leftovers plan/apply lane at `22c3619`.
-The status refresh itself is being refreshed after `77d389a`.
+The status refresh itself is `ea4593a`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
