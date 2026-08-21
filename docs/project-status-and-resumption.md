@@ -7,10 +7,10 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `17dd2e23235d83c8cc66e76c235d552d88a54210` (`Validate installed module bytes in status`);
-  the status document is refreshed in a follow-up documentation-only commit.
+  `1e782c8` (`Add developer-only signed module staging`); this status document
+  is refreshed in a follow-up documentation-only commit.
 - **Current behavior implementation:**
-  `17dd2e23235d83c8cc66e76c235d552d88a54210` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `1e782c8` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -52,15 +52,23 @@
   Module status now also checks the installed manifest and declared package
   files, so a valid registry-plus-receipt with missing or tampered module bytes
   is `degraded` rather than a false `installed_inactive` result.
+  The bounded developer-only staging trial now verifies a locally selected
+  read-only first-party package through held artifact identities and a detached
+  public test-key envelope, requires an initialized private store and exact
+  confirmation, stages verified bytes with transaction/commit/stage receipts,
+  and leaves the installed registry unchanged. Its source path is redacted in
+  reports; it never activates, invokes, executes, fetches, replaces, or grants
+  production trust to module bytes.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
 - **Current writes:** explicit user-local Unix/Windows-guarded store scaffolding
   and a working macOS/Linux/Windows-pre-alpha manager-update executor exist,
   with Windows runtime evidence still absent. Uninstall, recursive cleanup,
-  broad quarantine/restore, module lifecycle execution, and third-party
-  execution remain unavailable; only the narrow exact-file leftovers and
-  runtime-cache quarantine lanes plus exact-record restore are present.
+  broad quarantine/restore, production module lifecycle execution, and
+  third-party execution remain unavailable; the narrow exact-file leftovers and
+  runtime-cache quarantine lanes, exact-record restore, and developer-only
+  signed module staging are the only module-adjacent write paths.
 
 The exact cache quarantine slice is pushed at `77d389a`, the leftovers slice at
 `87aef29`, the
@@ -80,6 +88,7 @@ The path-redacted module lifecycle status slice is `baa7e61`.
 The TUI lifecycle-status parity slice is `9b7e01d`.
 The attention-first TUI evidence presentation slice is `1f94241`.
 The installed-module-byte status hardening slice is `17dd2e2`.
+The developer-only signed module staging slice is `1e782c8`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -99,8 +108,9 @@ and artifact-manifest SHA-256 values are
 Independent verification, repeated byte-identical packaging, four PTY terminal
 smoke cases, and ten-sample final-artifact performance evidence passed. The
 artifact remains unsigned and unnotarized until an owner-led signing/
-notarization lane exists. The later status commit is documentation-only and
-does not change the package source.
+notarization lane exists. That package is intentionally recorded as historical
+evidence for `17dd2e2`; it was not rebuilt for `1e782c8`, so no current-release
+package claim is made for the developer staging slice.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
