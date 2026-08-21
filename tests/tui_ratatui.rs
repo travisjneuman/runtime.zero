@@ -184,6 +184,44 @@ fn color_mode_does_not_change_required_text_labels() {
 }
 
 #[test]
+fn widget_renderer_keeps_loading_unavailable_empty_and_blocked_states_contextual() {
+    let state = TuiState::new(5);
+
+    let loading = runtime_zero::tui_dashboard::loading_dashboard();
+    let loading_text = render_dashboard_text(110, 32, &state, false, &loading);
+    assert!(loading_text.contains("loading local snapshot"));
+    assert!(loading_text.contains("loading local inventory"));
+
+    let mut unavailable = runtime_zero::tui_dashboard::dashboard();
+    runtime_zero::tui_dashboard::mark_startup_load_failed(&mut unavailable, "fixture load failure");
+    let unavailable_text = render_dashboard_text(110, 32, &state, false, &unavailable);
+    assert!(unavailable_text.contains("inventory unavailable"));
+    assert!(unavailable_text.contains("no automatic retry"));
+
+    let mut empty = runtime_zero::tui_dashboard::dashboard();
+    empty.sections[0].rows.clear();
+    let empty_text = render_dashboard_text(110, 32, &state, false, &empty);
+    assert!(empty_text.contains("No records are available in this workspace."));
+
+    let mut blocked = runtime_zero::tui_dashboard::dashboard();
+    blocked.update_action_status =
+        "update blocked · executable identity could not be verified".to_string();
+    blocked.sections[0]
+        .rows
+        .push(runtime_zero::tui_dashboard::TuiRow {
+            label: runtime_zero::tui_theme::LABEL_BLOCKED,
+            value: "one action needs review before it can be planned".to_string(),
+            tone: "warn",
+            preview: Some("blocked until executable identity is verified".to_string()),
+        });
+    let mut blocked_state = TuiState::new(5);
+    blocked_state.selected_detail_row = blocked.sections[0].rows.len() - 1;
+    let blocked_text = render_dashboard_text(110, 32, &blocked_state, false, &blocked);
+    assert!(blocked_text.contains("[BLOCKED]"));
+    assert!(blocked_text.contains("update blocked"));
+}
+
+#[test]
 fn bottom_selection_stays_visible_and_enter_opens_details() {
     let dashboard = runtime_zero::tui_dashboard::dashboard();
     let mut state = TuiState::new(dashboard.sections.len());

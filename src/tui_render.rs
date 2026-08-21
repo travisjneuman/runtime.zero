@@ -50,11 +50,7 @@ fn render_dashboard_frame(
     lines.push(line(
         &format!(
             "{} · {} software · {} modules · review first",
-            if dashboard.inventory_status == "loading" {
-                "loading local snapshot"
-            } else {
-                "local snapshot"
-            },
+            snapshot_heading(dashboard),
             dashboard.installed_software_count,
             dashboard.installed_module_count
         ),
@@ -132,6 +128,16 @@ fn render_dashboard_frame(
     lines.extend(tail);
     lines.push(border_bottom(width));
     lines.join("\n") + "\n"
+}
+
+fn snapshot_heading(dashboard: &TuiDashboard) -> &str {
+    if dashboard.inventory_status == "loading" {
+        "loading local snapshot"
+    } else if dashboard.inventory_status.starts_with("unavailable") {
+        "local snapshot unavailable"
+    } else {
+        "local snapshot"
+    }
 }
 
 fn workspace_tabs(dashboard: &TuiDashboard, state: &TuiState) -> String {

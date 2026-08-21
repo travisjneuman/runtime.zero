@@ -143,16 +143,18 @@ promotes an unsupported provider into a planned action.
 - [x] A first-time user can identify the next safe action from the first frame.
 - [x] The first frame has no persistent command rail or repeated architecture
   summary.
-- [ ] Every workspace renders through the same shell at 58x16, 80x24, 118x30,
+- [x] Every workspace renders through the same shell at 58x16, 80x24, 118x30,
   and 160x50 without overflow.
 - [x] Home, Toolchain, Software, System, and Diagnostics have distinct useful content and selected
   explanations.
 - [x] Shared navigation uses quiet title-case labels and removes bracketed
   all-caps chrome from the primary path.
-- [ ] Help, search, confirmation, blocked, unavailable, loading, and empty
+- [x] Help, search, confirmation, blocked, unavailable, loading, and empty
   states are modal or contextual rather than appended into a crowded footer.
-- [ ] Plain and colorized frames have identical text semantics.
-- [ ] The same behavior is documented in the CLI/TUI guide and covered by
-  buffer, reducer, PTY, and human terminal review.
+- [x] Plain and colorized frames have identical text semantics.
+- [x] The same behavior is documented in the CLI/TUI guide and covered by
+  buffer, reducer, and PTY automation.
+- [ ] Human terminal review remains open for supported terminal, SSH/tmux,
+  Windows, accessibility, and compact-size sessions.
 - [ ] The AI toolchain golden path is demonstrable from discovery through fresh
   verification and receipt without a second TUI-only authority path.

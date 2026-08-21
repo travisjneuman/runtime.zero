@@ -170,11 +170,11 @@ without exposing host paths or loading user configuration.
 
 ## Validation contract
 
-Automated coverage must include reducer focus/navigation behavior, loading and
-failed-closed states, plain/color text parity, JSON ANSI exclusion, Ratatui
-buffer bounds, all five workspaces, help/search/confirmation overlays, PTY
-restoration, and the shared update plan/action IDs. The required local checks
-are:
+Automated coverage includes reducer focus/navigation behavior, loading,
+unavailable, empty, and blocked failed-closed states, plain/color text parity,
+JSON ANSI exclusion, Ratatui buffer bounds, all five workspaces,
+help/search/confirmation overlays, PTY restoration, and the shared update
+plan/action IDs. The required local checks are:
 
 ```bash
 cargo fmt --all -- --check

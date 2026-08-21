@@ -239,3 +239,40 @@ fn colorized_frames_preserve_plain_text_contract() {
     assert!(plain.contains("[INFO]"));
     assert!(plain.contains("[PLAN]"));
 }
+
+#[test]
+fn loading_unavailable_empty_and_blocked_states_are_explicit() {
+    let state = TuiState::new(5);
+
+    let loading = tui_dashboard::loading_dashboard();
+    let loading_frame = render_dashboard_with_state(&loading, false, 118, 30, &state);
+    assert!(loading_frame.contains("loading local snapshot"));
+    assert!(loading_frame.contains("loading local inventory"));
+
+    let mut unavailable = tui_dashboard::dashboard();
+    tui_dashboard::mark_startup_load_failed(&mut unavailable, "fixture load failure");
+    let unavailable_frame = render_dashboard_with_state(&unavailable, false, 118, 30, &state);
+    assert!(unavailable_frame.contains("unavailable"));
+    assert!(unavailable_frame.contains("startup load failed"));
+    assert!(unavailable_frame.contains("no automatic retry"));
+
+    let mut empty = tui_dashboard::dashboard();
+    empty.sections[0].rows.clear();
+    let empty_frame = render_dashboard_with_state(&empty, false, 118, 30, &state);
+    assert!(empty_frame.contains("No records are available in this workspace."));
+
+    let mut blocked = tui_dashboard::dashboard();
+    blocked.update_action_status =
+        "update blocked · executable identity could not be verified".to_string();
+    blocked.sections[0].rows.push(tui_dashboard::TuiRow {
+        label: runtime_zero::tui_theme::LABEL_BLOCKED,
+        value: "one action needs review before it can be planned".to_string(),
+        tone: "warn",
+        preview: Some("blocked until executable identity is verified".to_string()),
+    });
+    let mut blocked_state = TuiState::new(5);
+    blocked_state.selected_detail_row = blocked.sections[0].rows.len() - 1;
+    let blocked_frame = render_dashboard_with_state(&blocked, false, 118, 30, &blocked_state);
+    assert!(blocked_frame.contains("[BLOCKED]"));
+    assert!(blocked_frame.contains("update blocked"));
+}
