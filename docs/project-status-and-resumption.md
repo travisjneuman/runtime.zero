@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `4266ae568827db90cfbdcfc86fdbcab9184dc4f8` (`docs: bind release evidence to current source head`).
+  `7ce8932` (`feat: expose manager context in confirmation challenges`).
 - **Current behavior implementation:**
-  `4266ae5` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `7ce8932` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -93,6 +93,11 @@
   evidence after the manager returns. It does not provide dependent-package
   review, recursive cleanup, user-bundle handling, rollback, or production
   lifecycle authority.
+  The shared update/uninstall challenge view now exposes the operation, manager,
+  target, bounded command arguments, risk, elevation/network posture, sealed
+  executable digest/size, capabilities, plan identity, expiry, rollback posture,
+  and exact phrase before confirmation. Paths remain intentionally undisclosed;
+  the executor still revalidates every bound input.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -123,6 +128,7 @@ The path-redacted module lifecycle status slice is `baa7e61`.
 The TUI lifecycle-status parity slice is `9b7e01d`.
 The attention-first TUI evidence presentation slice is `1f94241`.
 The installed-module-byte status hardening slice is `17dd2e2`.
+The shared manager challenge-context slice is `7ce8932`.
 The developer-only signed module staging slice is `1e782c8`.
 The staged-receipt status and TUI count slice is `26c1b44`.
 The staged-status evidence refresh is `fb95b45`.

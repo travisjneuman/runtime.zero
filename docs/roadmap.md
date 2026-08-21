@@ -149,8 +149,12 @@ See [`inventory-schema.md`](inventory-schema.md).
   dry-run action plans while protected/unknown/local bundles remain blocked.
 - [ ] Platform-specific manager, ownership, ACL, reparse/symlink, locked-file,
   cross-filesystem, and partial-failure proof.
-- [ ] Mutation remains blocked pending exact macOS manager-spawn/bundle-move
-  primitives and disposable-host runtime proof.
+- [x] One narrow exact manager-owned uninstall apply boundary now reuses the
+  shared identity-bound external-effect executor, destructive confirmation,
+  cancellation, receipt, and fresh installed-software verification.
+- [ ] Broad uninstall mutation remains blocked pending dependent/shared-
+  component review, platform manager/ownership proof, rollback/manual recovery,
+  and disposable-host runtime evidence.
 
 See [`action-planning.md`](action-planning.md).
 
@@ -164,7 +168,8 @@ See [`action-planning.md`](action-planning.md).
 - [ ] Linux/macOS terminal-emulator, SSH/tmux/screen, Unicode, no-color,
   accessibility, and restoration smoke on final artifacts.
 - [ ] Direct TUI confirmation/recovery flows for actions that become production-
-  supported; current update rows hand off to CLI.
+  supported; update `U` uses the shared updater path, while uninstall and
+  recovery remain CLI-only until their separate gates close.
 - [x] Add parser-covered Bash/Zsh/Fish/PowerShell completion output and a
   committed `rz0(1)` manual page.
 - [ ] Complete localization policy, direct TUI recovery UX, migration/repair
