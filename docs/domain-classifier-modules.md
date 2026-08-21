@@ -29,9 +29,12 @@ The updater package now contains more than a synthetic classifier:
 - a separate stdin/stdout development binary;
 - core integration for fixture, captured-output, and explicit live probes.
 
-Winget and Zypper parsers currently fail closed as not yet locale-safe. Snap
-now accepts only the exact five-column `snap refresh --list` table under the
-forced `C` locale, with bounded row validation and fail-closed drift handling.
+Winget parsing currently fails closed because its documented list surface is
+still human-readable. Zypper now accepts only exact package rows from its
+`--xmlout list-updates` stream with `--no-refresh`; malformed XML, patches,
+missing identity, and attribute drift fail closed. Snap accepts only the exact
+five-column `snap refresh --list` table under the forced `C` locale, with
+bounded row validation and fail-closed drift handling.
 The Flatpak parser requires the forced `C` locale, strict JSON columns, and a
 12-character remote commit for each exact app/architecture/branch ref. Manager
 probes and action plans do not independently authorize a write. The core's explicitly confirmed manager-update lane remains a narrow

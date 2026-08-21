@@ -91,10 +91,12 @@ other npm-owned CLIs when their actual npm prefix is present; it also checks
 native Grok and OMP channels and reports Hermes when installed. It does not
 invent an update command for a direct installer, a private vendor service, an
 unknown bundle, or an app whose channel is only available inside its UI.
-Winget and Zypper parsing currently fail closed as not yet locale-safe. Snap
-uses the exact five-column `snap refresh --list` table under the updater's
-forced `C` locale; header, row shape, and bounded field validation all fail
-closed on drift.
+Winget parsing currently fails closed because its documented list surface is
+still human-readable. Zypper uses `--xmlout list-updates` with `--no-refresh`
+and accepts only exact package rows from the `update-list`; malformed XML,
+patches, missing identity, and attribute drift fail closed. Snap uses the exact
+five-column `snap refresh --list` table under the updater's forced `C` locale;
+header, row shape, and bounded field validation all fail closed on drift.
 Flatpak uses the explicit `remote-ls --updates --app --json` column contract
 under the updater's forced `C` locale and binds each candidate to its exact
 app/architecture/branch ref plus the remote commit. The human-readable version

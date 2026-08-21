@@ -214,8 +214,8 @@ full platform/lifecycle acceptance cells.
 - [x] Add safe Flatpak JSON/ref/commit parsing with forced `C` locale and
   strict identity fixtures; its network, manager, and target-runtime gates
   remain separate.
-- [ ] Finish safe Winget and Zypper parsing or mark exact cells unsupported;
-  expand Homebrew/APT/DNF/Pacman/MacPorts/Snap runtime proof.
+- [ ] Finish safe Winget parsing or mark exact cells unsupported; expand
+  Homebrew/APT/DNF/Pacman/MacPorts/Zypper/Snap runtime proof.
 - [ ] Prove manager executable discovery, version compatibility, offline mode,
   source agreements, network behavior, lock contention, privilege, and
   no-surprise-install semantics.

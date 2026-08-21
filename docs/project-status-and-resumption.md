@@ -162,6 +162,7 @@ The bounded Flatpak updater parser slice is `6f64415`.
 The quiet task-first TUI slice is `d82c60f`.
 The bounded Snap updater parser slice is `5285173`.
 The portable provider-locale binding slice is `dabc8ec`.
+The bounded Zypper XML updater parser slice is pending publication.
 The current exact-head release evidence refresh is bound to
 `6d158b7e522a35d599a15f16ecee1b5bea12e05e`.
 Local
@@ -476,15 +477,16 @@ live probe. Homebrew JSON and bounded APT/DNF/Pacman/MacPorts parser slices exis
 The all-provider lane also has native update adapters for Homebrew,
 Apple Software Update, npm prefixes, language tools, AIUP-managed tools,
 crates.io Cargo installs, Warp's standalone CLI store, and declared
-Electron/Squirrel releases. Winget and Zypper specifications fail closed
-where parsers are not accepted; Flatpak has a strict JSON, ref/commit-bound
-parser and Snap has a strict five-column table parser. Findings, action plans, and queue plans
+Electron/Squirrel releases. Winget remains fail-closed because its documented
+list surface is human-readable; Zypper has a strict XML package-row parser;
+Flatpak has a strict JSON, ref/commit-bound parser and Snap has a strict
+five-column table parser. Findings, action plans, and queue plans
 remain non-authorizing until the apply lane consumes an exact confirmation.
 
 Live discovery observes the exact manager artifact and seals its SHA-256, size,
 and platform identity into each plan. Replacement invalidates plan/confirmation
-identity. Winget and Zypper remain explicitly unavailable until stable,
-locale-safe machine interfaces are proven.
+identity. Winget remains explicitly unavailable until a stable, locale-safe
+machine interface is proven.
 
 ### Confirmed execution sequence
 

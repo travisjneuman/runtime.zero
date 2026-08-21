@@ -10,6 +10,7 @@ rust-version = "1.96"
 publish = false
 
 [dependencies]
+quick-xml = "0.41"
 rz0-action-plan = { version = "0.1.0", path = "../../crates/action-plan" }
 rz0-capability-contract = { version = "0.1.0", path = "../../crates/capability-contract" }
 rz0-finding-contract = { version = "0.1.0", path = "../../crates/finding-contract" }

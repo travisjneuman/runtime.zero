@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use quick_xml::{Reader, events::Event};
 use serde::{Deserialize, Serialize};
 
 use crate::UpdateRecord;
@@ -109,7 +110,14 @@ impl ManagerKind {
             Self::Apt => &["list", "--upgradable"],
             Self::Dnf => &["check-update"],
             Self::Pacman => &["-Qu"],
-            Self::Zypper => &["list-updates"],
+            Self::Zypper => &[
+                "--no-color",
+                "--no-abbrev",
+                "--non-interactive",
+                "--no-refresh",
+                "--xmlout",
+                "list-updates",
+            ],
             Self::Snap => &["refresh", "--list"],
             Self::Flatpak => &[
                 "remote-ls",
@@ -866,7 +874,8 @@ pub fn parse_manager_output(
         ManagerKind::CargoInstall => Ok(Vec::new()),
         ManagerKind::Flatpak => parse_flatpak(context, text),
         ManagerKind::Snap => parse_snap(context, text),
-        ManagerKind::Winget | ManagerKind::Zypper => Err(format!(
+        ManagerKind::Zypper => parse_zypper(context, text),
+        ManagerKind::Winget => Err(format!(
             "{} output parser is not yet locale-safe; source remains unavailable",
             context.manager.id()
         )),
@@ -952,6 +961,106 @@ fn valid_snap_notes(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+}
+
+/// Zypper's `--xmlout list-updates` stream is the machine-readable provider
+/// contract. Only package updates in the exact `update-list` are actionable;
+/// patches, malformed XML, missing identity attributes, and schema drift stay
+/// unavailable instead of becoming guessed manager records.
+fn parse_zypper(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    let mut reader = Reader::from_str(text);
+    reader.config_mut().trim_text(true);
+    let mut buffer = Vec::new();
+    let mut saw_stream = false;
+    let mut saw_update_list = false;
+    let mut inside_update_list = false;
+    let mut records = Vec::new();
+    loop {
+        match reader
+            .read_event_into(&mut buffer)
+            .map_err(|error| format!("parse zypper XML output: {error}"))?
+        {
+            Event::Start(element) => match element.name().as_ref() {
+                b"stream" if !saw_stream => saw_stream = true,
+                b"update-list" if saw_stream && !inside_update_list => {
+                    saw_update_list = true;
+                    inside_update_list = true;
+                }
+                b"update" if inside_update_list => {
+                    let element = element.into_owned();
+                    let record = parse_zypper_update(context, &element)?;
+                    push_record(&mut records, record, context.manager)?;
+                    reader
+                        .read_to_end_into(element.name(), &mut buffer)
+                        .map_err(|error| format!("read zypper update element: {error}"))?;
+                }
+                _ => {}
+            },
+            Event::Empty(element) => match element.name().as_ref() {
+                b"stream" if !saw_stream => saw_stream = true,
+                b"update-list" if saw_stream && !inside_update_list => {
+                    saw_update_list = true;
+                }
+                b"update" if inside_update_list => {
+                    let record = parse_zypper_update(context, &element)?;
+                    push_record(&mut records, record, context.manager)?;
+                }
+                _ => {}
+            },
+            Event::End(element) if element.name().as_ref() == b"update-list" => {
+                inside_update_list = false;
+            }
+            Event::Eof => break,
+            _ => {}
+        }
+        buffer.clear();
+    }
+    if !saw_stream || !saw_update_list || inside_update_list {
+        return Err("zypper XML output has an invalid stream/update-list envelope".to_string());
+    }
+    Ok(records)
+}
+
+fn parse_zypper_update(
+    context: &ManagerParseContext,
+    element: &quick_xml::events::BytesStart<'_>,
+) -> Result<UpdateRecord, String> {
+    let mut name = None;
+    let mut edition = None;
+    let mut kind = None;
+    for attribute in element.attributes() {
+        let attribute =
+            attribute.map_err(|error| format!("parse zypper update attribute: {error}"))?;
+        let key = attribute.key.as_ref();
+        let value = std::str::from_utf8(&attribute.value)
+            .map_err(|error| format!("decode zypper update attribute: {error}"))?
+            .to_string();
+        match key {
+            b"name" => name = Some(value),
+            b"edition" => edition = Some(value),
+            b"kind" => kind = Some(value),
+            b"arch" | b"repo" | b"repository" | b"status" => {}
+            _ => return Err("zypper update contains an unrecognized attribute".to_string()),
+        }
+    }
+    if kind.as_deref() != Some("package") {
+        return Err("zypper update is not an exact package update row".to_string());
+    }
+    let name = name.ok_or_else(|| "zypper update has no package name".to_string())?;
+    let edition = edition.ok_or_else(|| "zypper update has no package edition".to_string())?;
+    if !valid_zypper_field(&name, 240) || !valid_zypper_field(&edition, 160) {
+        return Err("zypper update has an unsafe package identity".to_string());
+    }
+    make_record(context, &name, None, edition)
+}
+
+fn valid_zypper_field(value: &str, maximum: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= maximum
+        && value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric()
+                || matches!(byte, b'.' | b'-' | b'_' | b'+' | b':' | b'/' | b'~' | b'@')
+        })
 }
 
 #[derive(Debug, Deserialize)]
@@ -1923,6 +2032,37 @@ antigravity 1.1.12\n",
                 "All snaps up to date.".as_bytes()
             )
             .is_ok()
+        );
+    }
+
+    #[test]
+    fn parses_zypper_xml_package_updates_with_exact_identity() {
+        let records = parse_manager_output(
+            &context(ManagerKind::Zypper),
+            r#"<?xml version='1.0'?><stream><message type='info'>Loading repository data...</message><update-list><update name='zypper' edition='1.14.42-1.2' arch='x86_64' kind='package' repo='repo-update'/></update-list></stream>"#.as_bytes(),
+        )
+        .expect("zypper XML update stream");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].subject_reference, "package:zypper:zypper");
+        assert_eq!(records[0].available_version.as_deref(), Some("1.14.42-1.2"));
+        assert_eq!(records[0].arguments, ["update", "zypper"]);
+    }
+
+    #[test]
+    fn zypper_xml_parser_rejects_non_package_or_schema_drift() {
+        assert!(parse_manager_output(
+            &context(ManagerKind::Zypper),
+            r#"<stream><update-list><update name='test' edition='1.0' kind='patch'/></update-list></stream>"#.as_bytes(),
+        )
+        .is_err());
+        assert!(parse_manager_output(
+            &context(ManagerKind::Zypper),
+            r#"<stream><update-list><update name='test' edition='1.0' kind='package' unexpected='x'/></update-list></stream>"#.as_bytes(),
+        )
+        .is_err());
+        assert!(
+            parse_manager_output(&context(ManagerKind::Zypper), b"localized table output",)
+                .is_err()
         );
     }
 
