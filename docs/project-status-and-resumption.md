@@ -50,11 +50,11 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC cross-target `cargo check`, and
 `git diff --check`. The final local aarch64 Apple Silicon package from
-`da5c5a0` has binary SHA-256
+`7602a3f` has binary SHA-256
 `4503eca1e57f6d0260dbbde311d208f7fc5593bf12d4e9e95363d3d2c4c0f9a2`, ZIP
 SHA-256
-`b0f6debc22298116cce891d4f32635b2a847b5547257a4cb51971592f0467923`, and
-1,662,491 bytes across 8 verified members. Independent verification, repeated
+`334ffbaad31ed454d42a977667492179f528f525580268193f559bb821dbf6cd`, and
+1,662,493 bytes across 8 verified members. Independent verification, repeated
 byte-identical packaging, four PTY terminal smoke cases, and ten-sample final
 artifact performance evidence passed. The artifact remains unsigned and
 unnotarized until an owner-led signing/notarization lane exists.
