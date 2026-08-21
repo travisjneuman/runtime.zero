@@ -49,6 +49,9 @@ pub fn updates_command(args: &[String]) -> (ExitCode, String, String) {
     if command.recovery_complete {
         return recovery_completion_command(&command);
     }
+    if command.apply {
+        return apply_update_command_with_cancellation(&command);
+    }
     let built_input = match build_input(&command) {
         Ok(input) => input,
         Err(error) => return (ExitCode::Usage, String::new(), format!("{error}\n")),
@@ -64,9 +67,6 @@ pub fn updates_command(args: &[String]) -> (ExitCode, String, String) {
             );
         }
     };
-    if command.apply {
-        return apply_update_command(&command, input, &report);
-    }
     let output = if command.queue {
         let plan = match build_update_action_plan(input, &report) {
             Ok(plan) => plan,
@@ -2813,16 +2813,47 @@ fn apply_update_command(
     command: &ParsedArgs,
     input: &UpdaterFindingInput,
     report: &rz0_finding_contract::FindingReport,
+    cancellation: &CancellationToken,
 ) -> (ExitCode, String, String) {
     if command.all || (command.all_providers && command.action.is_none()) {
-        return apply_all_update_command(command, input, report);
+        return apply_all_update_command(command, input, report, cancellation);
     }
     apply_one_update_command(
         command,
         input,
         report,
         command.action.as_deref().unwrap_or_default(),
+        cancellation,
     )
+}
+
+fn apply_update_command_with_cancellation(command: &ParsedArgs) -> (ExitCode, String, String) {
+    let (controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+    let _interrupt = match InterruptBridge::install(controller) {
+        Ok(bridge) => bridge,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("install update cancellation bridge: {error}\n"),
+            );
+        }
+    };
+    let built_input = match build_input_with_cancellation(command, Some(&cancellation)) {
+        Ok(input) => input,
+        Err(error) => return (ExitCode::Usage, String::new(), format!("{error}\n")),
+    };
+    let report = match classify_updates(&built_input.input) {
+        Ok(report) => report,
+        Err(error) => {
+            return (
+                ExitCode::Usage,
+                String::new(),
+                format!("updater evidence failed closed: {error}\n"),
+            );
+        }
+    };
+    apply_update_command(command, &built_input.input, &report, &cancellation)
 }
 
 fn build_update_plan_if_candidates(
@@ -2844,7 +2875,11 @@ fn apply_one_update_command(
     input: &UpdaterFindingInput,
     report: &rz0_finding_contract::FindingReport,
     action_id: &str,
+    cancellation: &CancellationToken,
 ) -> (ExitCode, String, String) {
+    if let Err(error) = check_cancellation(Some(cancellation)) {
+        return (ExitCode::Usage, String::new(), format!("{error}\n"));
+    }
     let plan = match build_update_action_plan(input, report) {
         Ok(plan) => plan,
         Err(error) => {
@@ -2936,17 +2971,6 @@ fn apply_one_update_command(
         );
     }
     let finding_id = single_action.finding_id.clone();
-    let (controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
-    let _interrupt = match InterruptBridge::install(controller) {
-        Ok(bridge) => bridge,
-        Err(error) => {
-            return (
-                ExitCode::Usage,
-                String::new(),
-                format!("install update cancellation bridge: {error}\n"),
-            );
-        }
-    };
     let execution = execute_update_action(UpdateExecutionRequest {
         state_root: &state_root,
         plan: &single_plan,
@@ -2955,7 +2979,7 @@ fn apply_one_update_command(
         response: &response,
         now_unix_seconds: unix_seconds(),
         environment: probe_environment(),
-        cancellation: &cancellation,
+        cancellation,
         verify_after: |cancellation| verify_update_after(command, &finding_id, cancellation),
     });
     match execution {
@@ -2972,6 +2996,7 @@ fn apply_all_update_command(
     command: &ParsedArgs,
     input: &UpdaterFindingInput,
     report: &rz0_finding_contract::FindingReport,
+    cancellation: &CancellationToken,
 ) -> (ExitCode, String, String) {
     if command.format == OutputFormat::Json
         || !io::stdin().is_terminal()
@@ -3002,6 +3027,9 @@ fn apply_all_update_command(
             );
         }
     };
+    if let Err(error) = check_cancellation(Some(cancellation)) {
+        return (ExitCode::Usage, String::new(), format!("{error}\n"));
+    }
     let action_ids = plan
         .actions
         .iter()
@@ -3017,7 +3045,10 @@ fn apply_all_update_command(
     }
     let mut output = String::new();
     for action_id in action_ids {
-        let fresh_built = match build_input(command) {
+        if let Err(error) = check_cancellation(Some(cancellation)) {
+            return (ExitCode::Usage, output, format!("{error}\n"));
+        }
+        let fresh_built = match build_input_with_cancellation(command, Some(cancellation)) {
             Ok(input) => input,
             Err(error) => return (ExitCode::Usage, output, format!("{error}\n")),
         };
@@ -3098,6 +3129,7 @@ fn apply_all_update_command(
             fresh_input,
             &fresh_report,
             per_item.action.as_deref().unwrap_or_default(),
+            cancellation,
         );
         output.push_str(&stdout);
         if !stderr.is_empty() {
