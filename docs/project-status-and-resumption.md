@@ -339,6 +339,22 @@ staging under `target/` instead of the system temporary directory. Signing,
 notarization, clean-host acceptance, target-native runtime, and public release
 remain blocked.
 
+The later secure-fs-head artifact is bound to source commit
+`a7db57472584c675f5235bbadc6d43d229fd8ab1`. Its universal2 ZIP is
+`target/release-package-universal2-a7db574/runtime-zero-0.1.0-universal2-apple-darwin.zip`
+with package-verifier decision `pass`, 8 members, and ZIP SHA-256
+`cc4d7549f9b3423aa77656feb837cadcdc4e807fa5af4f17440fa38c84c947d2`. The
+matching unsigned DMG is
+`target/release-dmg-universal2-a7db574/runtime-zero-0.1.0-universal2-apple-darwin.dmg`
+with SHA-256
+`32cb95e2401b5b56aa5577e2f52087ebe1901f34ed297a4c195dcfbc30175163`; the
+independent verifier passed its exact 9-member mounted contract with
+`writes_attempted: false` and `release_authorized: false`. Both slices passed
+PTY smoke, package command smoke, and schema-3 performance; TUI startup and
+refresh-request p95 were 6,747/747 microseconds on ARM64 and 13,339/1,026
+microseconds on x86_64. This remains local unsigned evidence, not a public
+release.
+
 The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
 with no writes; and the final artifact passed the bounded terminal and
