@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `4f90dd52a5ac7f29defad8c9b62c96cffff21a24` (`feat: bind inactive posture into install receipts`).
+  `27b4adfe39142a3838ca54908b0bdc78f1c589ca` (`feat: add bounded flatpak inventory evidence`).
 - **Current behavior implementation:**
-  `4f90dd5` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `27b4adf` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -26,7 +26,10 @@
   `restore` command derives a fresh restore plan from one validated quarantine
   record and reuses the receipt-bound executor for an unoccupied original
   cache/module path; it does not provide recursive cleanup, uninstall,
-  deletion, elevation, or module authority. The read-only `recovery --dry-run`
+  deletion, elevation, or module authority. Built-in Linux inventory also reads
+  bounded Flatpak `active/metadata` records and preserves exact app
+  ID/architecture/branch identity without granting action authority. The
+  read-only `recovery --dry-run`
   command inventories bounded quarantine records and reports restore
   eligibility without exposing absolute host paths or adding a second mutation
   authority. It now also inspects bounded immutable transaction journal heads
@@ -149,7 +152,8 @@ The effective configuration review slice is `c6118ad`.
 The exact manager-native uninstall execution slice is `1faffa4`.
 The persisted inactive lifecycle-state slice is `1186c3d`.
 The inactive install-receipt authority slice is `4f90dd5`.
-The current exact-head release evidence refresh is bound to `4f90dd5`.
+The bounded Flatpak inventory slice is `27b4adf`.
+The current exact-head release evidence refresh is bound to `27b4adf`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -157,15 +161,15 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The local aarch64 Apple Silicon package from
-`4f90dd52a5ac7f29defad8c9b62c96cffff21a24` has binary SHA-256
-`5d825139a277e961bba129211e88c4becad75eac989ccfcdcbd4ce61a5f53c12`, ZIP
+`27b4adfe39142a3838ca54908b0bdc78f1c589ca` has binary SHA-256
+`455b66ede069f31840e40920455e5993ffd6e0c31f647a045ceefa02fadef011`, ZIP
 SHA-256
-`ab54b409a1a9001a6b419b922ff7bb5f3a76460e9459bab64220994ec35a126d`, and
-1,907,677 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`89347dbf3fa9d580013f1ece9077f71bc8ce41185d0b4d3ca73efc0c0384f9ba`, and
+1,907,682 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`2477b8f8b582d87bc3e21f6d203a5df63bbd98fcd4b020b27312805a3b93a039`,
-`1287d422f8e44d6973aea1e6f93bc1ff35fc5203b32809bffe47e2084875cf8a`, and
-`2270040153381c33972f271d36cfc00e5869657b4f1e81e28085f8b8ca6483dc`; their
+`4ff106d01e48aea178f73a8669d6685ad135e1da72030438de82f1fa21850b96`,
+`e68850955ae61329ccaa46803f8a925a0610b7559c63f94317c3811c3dce9ef4`, and
+`45e33c30580c9d885cf5046b16e75b7ebacbb50c633ce88d3315f4579a723618`; their
 embedded sizes are 160,426, 290,906, and 977 bytes respectively. Independent
 ZIP verification, four PTY terminal smoke cases, and ten-sample final-artifact
 performance evidence passed against this exact source head. The artifact remains
@@ -173,8 +177,8 @@ unsigned and unnotarized until an owner-led signing/notarization lane exists.
 It is a local Apple Silicon artifact, not a public release or cross-platform
 runtime claim. The developer invocation process path is separately bounded and
 does not change this release posture.
-The terminal evidence ID is `terminal:aarch64-apple-darwin-5d825139a277` and
-the performance evidence ID is `perf:aarch64-apple-darwin-5d825139a277`. The
+The terminal evidence ID is `terminal:aarch64-apple-darwin-455b66ede069` and
+the performance evidence ID is `perf:aarch64-apple-darwin-455b66ede069`. The
 packaged `config --format json` review also passed with configuration digest
 `b4d57157ae30be77f81a293bd49ddc2f939168377b20b9d9bb16a4ea1e40258f`.
 
@@ -597,8 +601,8 @@ and module-host execution.
 
 ## Validation baseline
 
-Current source validation for `4f90dd52a5ac7f29defad8c9b62c96cffff21a24` and
-the previously recorded packaged artifact on `aarch64-apple-darwin`:
+Current source validation for `27b4adfe39142a3838ca54908b0bdc78f1c589ca` and
+the packaged artifact on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` and the full
