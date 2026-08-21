@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `366153f` (`Add bounded recovery inventory review`).
+  `08635e6` (`Surface recovery evidence in TUI diagnostics`).
 - **Current behavior implementation:**
-  `77d389a` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `08635e6` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -29,7 +29,9 @@
   deletion, elevation, or module authority. The read-only `recovery --dry-run`
   command inventories bounded quarantine records and reports restore
   eligibility without exposing absolute host paths or adding a second mutation
-  authority.
+  authority. The redesigned TUI Diagnostics workspace now shows the same
+  recovery record/valid/restore-capable counts without exposing record paths or
+  adding a second mutation route.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -47,8 +49,8 @@ posture update at `8132b4e`, the exact-file integrity slice at `47c6f9f`, and
 the Windows process-host/probe slice at `39adb92`, the module trust review
 slice at `a6664d6`, the complete-file-set slice at `3012176`, provenance
 validation at `63f7d8d`, the exact leftovers plan/apply lane at `22c3619`, and
-the cache-root/restore slice at `0ce2cc6`, and the bounded recovery inventory at
-`366153f`.
+the cache-root/restore slice at `0ce2cc6`, the bounded recovery inventory at
+`366153f`, and the TUI recovery evidence slice at `08635e6`.
 The status refreshes are `ea4593a`, `da5c5a0`, and `7602a3f`; package
 provenance was finally bound at `7d0ed91`.
 Local
@@ -67,8 +69,8 @@ byte-identical packaging, four PTY terminal smoke cases, and ten-sample final
 artifact performance evidence passed. The artifact remains unsigned and
 unnotarized until an owner-led signing/notarization lane exists. That package
 was built from `7d0ed91`, before the `0ce2cc6` cache-root/restore and
-`366153f` recovery-inventory changes; the release package must be rebuilt before
-it can represent the current source.
+`366153f` recovery-inventory, and `08635e6` TUI evidence changes; the release
+package must be rebuilt before it can represent the current source.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
