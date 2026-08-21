@@ -29,6 +29,15 @@ struct RecoveryReview {
     records: Vec<RecoveryRecordSummary>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RecoverySummary {
+    pub(crate) quarantine_root_state: &'static str,
+    pub(crate) checked_count: usize,
+    pub(crate) valid_count: usize,
+    pub(crate) invalid_count: usize,
+    pub(crate) restore_available_count: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct RecoveryRecordSummary {
     plan_id: String,
@@ -151,6 +160,17 @@ fn build_review(store: &ModuleStorePlan) -> RecoveryReview {
         restore_available_count,
         warnings,
         records,
+    }
+}
+
+pub(crate) fn recovery_summary(store: &ModuleStorePlan) -> RecoverySummary {
+    let review = build_review(store);
+    RecoverySummary {
+        quarantine_root_state: review.quarantine_root_state,
+        checked_count: review.checked_count,
+        valid_count: review.valid_count,
+        invalid_count: review.invalid_count,
+        restore_available_count: review.restore_available_count,
     }
 }
 

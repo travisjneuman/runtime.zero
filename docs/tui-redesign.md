@@ -56,6 +56,10 @@ Rules:
 - Diagnostics includes the bounded cache observation count and warning state
   from the same `cache_review` contract as `rz0 cache --dry-run`; it never
   exposes a second cleanup or quarantine action path.
+- Diagnostics also shows the bounded quarantine-record count, valid-record
+  count, and exact-restore availability from the same read-only recovery review
+  contract as `rz0 recovery --dry-run`; it does not expose raw host paths or a
+  second restore/mutation path.
 - Diagnostics combines bounded leftovers evidence with the cache row so the
   shell does not grow a second command rail; it uses the same `leftovers_review`
   contract as `rz0 leftovers --dry-run` and remains report-only.

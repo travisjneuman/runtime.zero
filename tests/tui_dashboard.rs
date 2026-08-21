@@ -27,6 +27,8 @@ fn dashboard_does_not_claim_active_feature_modules() {
         dashboard.leftovers_status.starts_with("live")
             || dashboard.leftovers_status == "unavailable"
     );
+    assert!(dashboard.recovery_status.contains("valid"));
+    assert!(dashboard.recovery_record_count >= dashboard.recovery_restore_available_count);
     assert!(dashboard.integrity_status.contains("baseline unavailable"));
     let diagnostics = dashboard
         .sections
@@ -39,6 +41,13 @@ fn dashboard_does_not_claim_active_feature_modules() {
             .iter()
             .any(|row| row.value.contains("bounded evidence")
                 || row.value.contains("cache/leftovers evidence unavailable"))
+    );
+    assert!(
+        diagnostics
+            .rows
+            .iter()
+            .any(|row| row.value.contains("quarantine records")
+                || row.value.contains("quarantine recovery review"))
     );
     let monitor = dashboard
         .sections

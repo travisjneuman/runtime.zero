@@ -11,6 +11,7 @@ use crate::install_receipt::ReceiptInventoryState;
 use crate::installed_registry::InstalledRegistryState;
 use crate::leftovers::{self, LeftoversReviewReport};
 use crate::module_registry::ModuleRegistryReport;
+use crate::recovery_cli::{RecoverySummary, recovery_summary};
 use crate::store_init::{StoreInitMode, StoreInitOptions, StoreInitStatus, store_init_report};
 use crate::store_status::{StoreOverallState, StoreStatusReport, store_status_report};
 use crate::system_monitor::{self, SystemSnapshot};
@@ -50,6 +51,9 @@ pub struct TuiDashboard {
     pub leftovers_status: String,
     pub leftover_finding_count: usize,
     pub leftover_warning_count: usize,
+    pub recovery_status: String,
+    pub recovery_record_count: usize,
+    pub recovery_restore_available_count: usize,
     pub integrity_status: String,
     pub update_check_status: String,
     pub update_action_status: String,
@@ -154,14 +158,18 @@ fn dashboard_with_inventory(include_software_names: bool) -> TuiDashboard {
     let monitor = include_software_names.then(|| system_monitor::collect_snapshot(None));
     let cache = include_software_names.then(cache::live_report);
     let leftovers = include_software_names.then(leftovers::live_report);
+    let recovery = include_software_names.then(|| recovery_summary(&store.store));
     build_dashboard(
         &store,
         init.status,
         &modules,
-        inventory,
-        monitor,
-        cache,
-        leftovers,
+        DashboardEvidence {
+            inventory,
+            monitor,
+            cache,
+            leftovers,
+            recovery,
+        },
     )
 }
 
@@ -169,11 +177,15 @@ fn build_dashboard(
     store: &StoreStatusReport,
     init_status: StoreInitStatus,
     modules: &ModuleRegistryReport,
-    inventory: Option<Result<AppCatalog, String>>,
-    monitor: Option<SystemSnapshot>,
-    cache: Option<Result<CacheReviewReport, String>>,
-    leftovers: Option<Result<LeftoversReviewReport, String>>,
+    evidence: DashboardEvidence,
 ) -> TuiDashboard {
+    let DashboardEvidence {
+        inventory,
+        monitor,
+        cache,
+        leftovers,
+        recovery,
+    } = evidence;
     let catalog = inventory
         .as_ref()
         .and_then(|result| result.as_ref().ok())
@@ -222,6 +234,19 @@ fn build_dashboard(
     let leftover_warning_count = leftovers_value
         .as_ref()
         .map_or(0, |report| report.warnings.len());
+    let recovery_status = recovery.as_ref().map_or_else(
+        || "private summary".to_string(),
+        |summary| {
+            format!(
+                "{} · {} valid · {} restore-capable",
+                summary.quarantine_root_state, summary.valid_count, summary.restore_available_count
+            )
+        },
+    );
+    let recovery_record_count = recovery.as_ref().map_or(0, |summary| summary.checked_count);
+    let recovery_restore_available_count = recovery
+        .as_ref()
+        .map_or(0, |summary| summary.restore_available_count);
     let integrity_status = "baseline unavailable · fixture or exact-file evidence".to_string();
     let default_view = SoftwareView::default();
     TuiDashboard {
@@ -249,6 +274,9 @@ fn build_dashboard(
         leftovers_status,
         leftover_finding_count,
         leftover_warning_count,
+        recovery_status,
+        recovery_record_count,
+        recovery_restore_available_count,
         integrity_status: integrity_status.clone(),
         update_check_status: "not checked".to_string(),
         update_action_status: "idle · u scans providers · review action requires confirmation"
@@ -263,6 +291,7 @@ fn build_dashboard(
             inventory_error: inventory_error.as_deref(),
             cache: cache_value.as_ref(),
             leftovers: leftovers_value.as_ref(),
+            recovery: recovery.as_ref(),
             integrity_status: &integrity_status,
             view: &default_view,
             updates: None,
@@ -292,6 +321,7 @@ struct SectionContext<'a> {
     inventory_error: Option<&'a str>,
     cache: Option<&'a CacheReviewReport>,
     leftovers: Option<&'a LeftoversReviewReport>,
+    recovery: Option<&'a RecoverySummary>,
     integrity_status: &'a str,
     view: &'a SoftwareView,
     updates: Option<&'a LiveUpdateCatalog>,
@@ -302,9 +332,18 @@ struct SectionContext<'a> {
     monitor: Option<&'a SystemSnapshot>,
 }
 
+struct DashboardEvidence {
+    inventory: Option<Result<AppCatalog, String>>,
+    monitor: Option<SystemSnapshot>,
+    cache: Option<Result<CacheReviewReport, String>>,
+    leftovers: Option<Result<LeftoversReviewReport, String>>,
+    recovery: Option<RecoverySummary>,
+}
+
 struct EvidenceContext<'a> {
     cache: Option<&'a CacheReviewReport>,
     leftovers: Option<&'a LeftoversReviewReport>,
+    recovery: Option<&'a RecoverySummary>,
     integrity_status: &'a str,
 }
 
@@ -317,6 +356,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
         inventory_error,
         cache,
         leftovers,
+        recovery,
         integrity_status,
         view,
         updates,
@@ -362,6 +402,7 @@ fn sections(context: SectionContext<'_>) -> Vec<TuiSection> {
             EvidenceContext {
                 cache,
                 leftovers,
+                recovery,
                 integrity_status,
             },
         ),
@@ -381,6 +422,7 @@ fn diagnostics_section(
     let EvidenceContext {
         cache,
         leftovers,
+        recovery,
         integrity_status,
     } = evidence;
     let mut rows = vec![
@@ -449,6 +491,29 @@ fn diagnostics_section(
                 tui_theme::LABEL_WARN,
                 "bounded cache/leftovers evidence unavailable",
                 "warn",
+            ),
+        },
+        match recovery {
+            Some(summary) => row(
+                if summary.invalid_count == 0 && summary.quarantine_root_state != "invalid" {
+                    tui_theme::LABEL_INFO
+                } else {
+                    tui_theme::LABEL_WARN
+                },
+                &format!(
+                    "quarantine records {} · {} valid · {} restore-capable",
+                    summary.checked_count, summary.valid_count, summary.restore_available_count
+                ),
+                if summary.invalid_count == 0 && summary.quarantine_root_state != "invalid" {
+                    "info"
+                } else {
+                    "warn"
+                },
+            ),
+            None => row(
+                tui_theme::LABEL_INFO,
+                "quarantine recovery review available from the CLI",
+                "info",
             ),
         },
         row(tui_theme::LABEL_INFO, update_action_status, "info"),

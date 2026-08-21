@@ -36,8 +36,8 @@ The dashboard has five stable destinations:
   AIUP-managed candidates when the provider evidence identifies them;
 - `SOFTWARE`: installed applications and packages outside the toolchain;
 - `SYSTEM`: bounded CPU, memory, disk, network, and process evidence;
-- `DIAGNOSTICS`: store, registry, receipt, module, recovery, bounded cache/
-  leftovers evidence, and integrity-baseline posture.
+- `DIAGNOSTICS`: store, registry, receipt, module, bounded quarantine recovery
+  review, bounded cache/leftovers evidence, and integrity-baseline posture.
 
 The same two-panel shell is reused in every workspace. Home and the other
 workspaces do not expose a persistent command rail, duplicate status-card
