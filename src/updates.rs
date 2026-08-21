@@ -193,6 +193,7 @@ mod tests {
                 scope: InstallScope::Manager,
                 uninstall_option: UninstallOption::ManagerReview,
             }],
+            known_tools: Vec::new(),
             warnings: Vec::new(),
         };
         let result = LiveUpdateCatalog {

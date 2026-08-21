@@ -3,7 +3,7 @@ use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rz0_inventory_contract::{AppRecord, SoftwareIdentifier};
+use rz0_inventory_contract::{AppRecord, SoftwareIdentifier, ToolRecord};
 use rz0_module_inventory::{InventoryOptions, collect_inventory};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -26,6 +26,8 @@ pub struct AppCatalog {
     pub identity_group_count: usize,
     pub identity_groups: Vec<SoftwareIdentityGroup>,
     pub apps: Vec<InstalledSoftware>,
+    #[serde(skip)]
+    pub(crate) known_tools: Vec<ToolRecord>,
     pub warnings: Vec<String>,
 }
 
@@ -336,6 +338,7 @@ pub fn collect_app_catalog() -> Result<AppCatalog, String> {
         identity_group_count: identity_groups.len(),
         identity_groups,
         apps,
+        known_tools: report.tools,
         warnings,
     })
 }

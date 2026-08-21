@@ -12,6 +12,7 @@ use serde::Serialize;
 use crate::apps::{AppCatalog, InstalledSoftware, collect_app_catalog};
 use crate::toolchain::toolchain_provider_id;
 use crate::{ExitCode, brand};
+use rz0_inventory_contract::ToolRecord;
 
 pub const AIUP_CONTRACT: &str = "ai_toolchain_snapshot";
 pub const AIUP_CAPABILITY_ID: &str = "first-party.updater.ai-toolchain";
@@ -119,6 +120,17 @@ pub(crate) fn report_from_catalog(catalog: &AppCatalog) -> AiupReport {
             version: app.version.clone(),
             source_id: Some(app.source_id.clone()),
         })
+        .or_else(|| {
+            catalog
+                .known_tools
+                .iter()
+                .find(|tool| is_aiup_orchestrator_tool(tool))
+                .map(|tool| AiupOrchestrator {
+                    state: "observed-only",
+                    version: tool.version.clone(),
+                    source_id: tool.source_ids.first().cloned(),
+                })
+        })
         .unwrap_or(AiupOrchestrator {
             state: "not-observed",
             version: None,
@@ -131,6 +143,19 @@ pub(crate) fn report_from_catalog(catalog: &AppCatalog) -> AiupReport {
         .filter(|app| is_ai_tool_software(app))
         .map(aiup_tool_from_app)
         .collect::<Vec<_>>();
+    for tool in catalog
+        .known_tools
+        .iter()
+        .filter(|tool| is_ai_tool_record(tool) && !is_aiup_orchestrator_tool(tool))
+        .map(aiup_tool_from_record)
+    {
+        if !tools
+            .iter()
+            .any(|existing| existing.id == tool.id && existing.source_id == tool.source_id)
+        {
+            tools.push(tool);
+        }
+    }
     tools.sort_by(|left, right| {
         left.provider
             .cmp(right.provider)
@@ -235,6 +260,35 @@ fn aiup_tool_from_app(app: &InstalledSoftware) -> AiupTool {
     }
 }
 
+fn aiup_tool_from_record(tool: &ToolRecord) -> AiupTool {
+    let source_id = tool
+        .source_ids
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "known.executables".to_string());
+    let provider = toolchain_provider_id(&format!(
+        "{} {} {} {:?}",
+        tool.id, tool.display_name, source_id, tool.source_ids
+    ));
+    let (state, next_step) = match provider {
+        "npm-prefix" | "homebrew" => ("observed", "review provider availability with rz0 updates"),
+        "aiup" => ("observed-only", "review AIUP evidence through rz0 updates"),
+        _ => (
+            "observed-only",
+            "provider-specific action is not established",
+        ),
+    };
+    AiupTool {
+        id: tool.id.clone(),
+        name: tool.display_name.clone(),
+        version: tool.version.clone(),
+        source_id,
+        provider,
+        state,
+        next_step,
+    }
+}
+
 pub fn is_ai_tool_software(app: &InstalledSoftware) -> bool {
     is_ai_tool_text(&format!(
         "{} {} {} {:?}",
@@ -248,6 +302,22 @@ pub fn is_ai_tool_text(value: &str) -> bool {
 
 fn is_aiup_orchestrator(app: &InstalledSoftware) -> bool {
     app.id.eq_ignore_ascii_case("aiup") || app.name.eq_ignore_ascii_case("aiup")
+}
+
+fn is_aiup_orchestrator_tool(tool: &ToolRecord) -> bool {
+    tool.id.eq_ignore_ascii_case("aiup") || tool.display_name.eq_ignore_ascii_case("aiup")
+}
+
+fn is_ai_tool_record(tool: &ToolRecord) -> bool {
+    if tool.category == "ai_tool" {
+        return true;
+    }
+    if tool.category == "path_executable" {
+        return AI_TOOL_SPECS
+            .iter()
+            .any(|id| tool.display_name.eq_ignore_ascii_case(id));
+    }
+    is_ai_tool_text(&format!("{} {}", tool.id, tool.display_name))
 }
 
 fn bounded_match(value: &str, needle: &str) -> bool {
@@ -395,6 +465,7 @@ mod tests {
                 app("package:npm-global:codex", "Codex", "npm.global"),
                 app("aiup-managed:hermes", "Hermes", "aiup.catalog"),
             ],
+            known_tools: Vec::new(),
             warnings: Vec::new(),
         };
         let report = report_from_catalog(&catalog);
@@ -404,6 +475,67 @@ mod tests {
         assert_eq!(report.tools[1].provider, "npm-prefix");
         assert!(report.read_only);
         assert!(!report.writes_attempted);
+    }
+
+    #[test]
+    fn report_uses_path_bound_inventory_for_orchestrator_and_ai_tools() {
+        let catalog = AppCatalog {
+            schema_version: 1,
+            contract: crate::apps::APP_CATALOG_CONTRACT,
+            read_only: true,
+            writes_attempted: false,
+            platform: "test",
+            source_count: 1,
+            app_count: 0,
+            service_count: 0,
+            identity_group_count: 0,
+            identity_groups: Vec::new(),
+            apps: Vec::new(),
+            known_tools: vec![
+                ToolRecord {
+                    id: "aiup".to_string(),
+                    display_name: "AIUP".to_string(),
+                    category: "utility".to_string(),
+                    executable_path: Some("/private/user/bin/aiup".to_string()),
+                    version: Some("0.1.0".to_string()),
+                    source_ids: vec!["process.path".to_string()],
+                    confidence: "exact_path_match".to_string(),
+                    warnings: Vec::new(),
+                },
+                ToolRecord {
+                    id: "codex".to_string(),
+                    display_name: "Codex".to_string(),
+                    category: "ai_tool".to_string(),
+                    executable_path: Some("/private/user/bin/codex".to_string()),
+                    version: Some("1.0.0".to_string()),
+                    source_ids: vec!["process.path".to_string()],
+                    confidence: "exact_path_match".to_string(),
+                    warnings: Vec::new(),
+                },
+                ToolRecord {
+                    id: "path.wrapper".to_string(),
+                    display_name: "codex-execve-wrapper".to_string(),
+                    category: "path_executable".to_string(),
+                    executable_path: Some("/private/user/bin/codex-execve-wrapper".to_string()),
+                    version: None,
+                    source_ids: vec!["known.executables".to_string()],
+                    confidence: "observed_path".to_string(),
+                    warnings: Vec::new(),
+                },
+            ],
+            warnings: Vec::new(),
+        };
+        let report = report_from_catalog(&catalog);
+        assert_eq!(report.orchestrator.state, "observed-only");
+        assert_eq!(
+            report.orchestrator.source_id.as_deref(),
+            Some("process.path")
+        );
+        assert_eq!(report.tools.len(), 1);
+        assert_eq!(report.tools[0].id, "codex");
+        assert_eq!(report.tools[0].source_id, "process.path");
+        let json = serde_json::to_string(&report).expect("AIUP report JSON");
+        assert!(!json.contains("/private/user/bin"));
     }
 
     #[test]

@@ -132,6 +132,9 @@ which provider boundary needs review. It is intentionally read-only: it does
 not invoke the standalone `aiup` command, install or update tools, configure a
 provider, or write state. Provider actions remain in the shared `rz0 updates`
 plan, confirmation, transaction, and verification path.
+The review consumes the same bounded installed-software and known-executable
+inventory used by `rz0 scan`; exact PATH matches are retained as internal
+evidence and never expose executable paths in this report.
 
 The updater’s AIUP text adapter is fail-closed: it accepts only bounded UTF-8
 dry-run evidence with matching tool boundaries, unique identities, and
