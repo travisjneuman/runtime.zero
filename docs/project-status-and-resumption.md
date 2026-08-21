@@ -7,10 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `c036f560c4222be07266922d27c3db021276cf90` (`Fail closed on malformed AIUP catalog output`);
-  this status document is refreshed in a follow-up documentation-only commit.
+  `8f9f3c7557ac2c5fc50274a23384ef7b25936cdc` (`feat: add developer-only module invocation boundary`).
 - **Current behavior implementation:**
-  `c036f56` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `8f9f3c7` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -119,6 +118,8 @@ The staged-review TUI warning slice is `b818e54`.
 The AIUP ownership-posture parity slice is `7a120fd`.
 The AIUP malformed-catalog fail-closed slice is `c036f56`.
 The developer-only installed-inactive promotion slice is `0fe633f`.
+The developer-only first-party inventory process invocation slice is
+`8f9f3c7`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -126,20 +127,24 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current local aarch64 Apple Silicon package from
-`0fe633fbe5920415e92b6b63e2306dc3b5b994e6` has binary SHA-256
-`1def68e9f82df39eaae67fd38dbb4ceff55c25d8cb6b70eb60a7d21f2997ff2a`, ZIP
+`8f9f3c7557ac2c5fc50274a23384ef7b25936cdc` has binary SHA-256
+`3c42f75962ce5ed8ec2f0387746561d256c98611549f60f644901e01e56c6eaa`, ZIP
 SHA-256
-`9f8c949a6f195baca19e3579a4bae6c8963bbe206960ecf623fb74da26ceea5f`, and
-1,813,551 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`b44a2de22e8321c490b91492eb01a4af8808d966db27139896b8ddcc49d1b4ff`, and
+1,886,967 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`06b9d46ee41e7c2db8579340fca8320cfec923e8ef00a781ad0e0481a2c0864e`,
-`fe21f161088743722947bc49bf6be485a1ea5771678a7c828a7fd9721859bbbd`, and
-`0506143c54f4066eb9cbf8be097d1d92485f0f1d067cff66f552496a2b68b0d9`; their
-embedded sizes are 158,365, 290,906, and 977 bytes respectively. Independent
+`6d03ca22261253deb9b8ca2f38bd3f9064454764c42dc2454d51af48331de712`,
+`aa4b3c5e12db562d5ccc3e0d5ee7f9c5360be7b39f4b3a29e01039ec0f636368`, and
+`0ad25643478e7af2f9954376201585ed461453e4cf015ad1f5930adf221d79db`; their
+embedded sizes are 160,233, 290,906, and 977 bytes respectively. Independent
 verification, four PTY terminal smoke cases, and ten-sample final-artifact
-performance evidence passed against the new source head. The artifact remains unsigned and unnotarized
-until an owner-led signing/notarization lane exists. It is a local Apple Silicon
-artifact, not a public release or cross-platform runtime claim.
+performance evidence passed against this source head. The artifact remains
+unsigned and unnotarized until an owner-led signing/notarization lane exists.
+It is a local Apple Silicon artifact, not a public release or cross-platform
+runtime claim. The developer invocation process path is separately bounded and
+does not change this release posture.
+The terminal evidence IDs are `terminal:aarch64-apple-darwin-arm64-3c42f75962ce`
+and `perf:aarch64-apple-darwin-arm64-3c42f75962ce`.
 
 The current release decision remains blocked. Fresh `doctor --format json`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
@@ -285,6 +290,8 @@ rz0 modules validate <manifest.json> [--format text|json]
 rz0 modules install --dry-run <package> [--format text|json]
 rz0 modules install --developer-trial --dry-run <package> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]
 rz0 modules install --developer-trial --apply <package> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]
+rz0 modules invoke --developer-trial --dry-run --module-id first-party.inventory --store-root <path> [--format text|json]
+rz0 modules invoke --developer-trial --apply --module-id first-party.inventory --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]
 rz0 modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]
 rz0 modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]
 rz0 store plan [--format text|json]
@@ -547,7 +554,7 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current source validation for `c036f560c4222be07266922d27c3db021276cf90` and
+Current source validation for `8f9f3c7557ac2c5fc50274a23384ef7b25936cdc` and
 the packaged artifact on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
