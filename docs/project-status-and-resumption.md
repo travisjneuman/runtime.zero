@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `1186c3d3c633fc9e3852bfd3131221d282e343b1` (`feat: persist inactive module lifecycle state`).
+  `4f90dd52a5ac7f29defad8c9b62c96cffff21a24` (`feat: bind inactive posture into install receipts`).
 - **Current behavior implementation:**
-  `1186c3d` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `4f90dd5` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -101,6 +101,9 @@
   Installed registry records now persist the foundation-owned
   `lifecycle_state: "installed_inactive"`; schema 1 rejects any other explicit
   state, and status consumes the persisted value without exposing activation.
+  Newly generated install receipts carry the same state plus explicit false
+  activation/invocation authority flags; an explicit active receipt is invalid
+  evidence.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -145,7 +148,8 @@ The developer-only first-party inventory process invocation slice is
 The effective configuration review slice is `c6118ad`.
 The exact manager-native uninstall execution slice is `1faffa4`.
 The persisted inactive lifecycle-state slice is `1186c3d`.
-The current exact-head release evidence refresh is bound to `1186c3d`.
+The inactive install-receipt authority slice is `4f90dd5`.
+The current exact-head release evidence refresh is bound to `4f90dd5`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -153,15 +157,15 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The local aarch64 Apple Silicon package from
-`1186c3d3c633fc9e3852bfd3131221d282e343b1` has binary SHA-256
-`0546be54266086d797703c34aa02a00df2fc29243de763de662593b99cb7c09b`, ZIP
+`4f90dd52a5ac7f29defad8c9b62c96cffff21a24` has binary SHA-256
+`5d825139a277e961bba129211e88c4becad75eac989ccfcdcbd4ce61a5f53c12`, ZIP
 SHA-256
-`37f7d518fb17449694194eb29c6949146960493f6ea788987798603bcf42aa4f`, and
-1,905,514 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`ab54b409a1a9001a6b419b922ff7bb5f3a76460e9459bab64220994ec35a126d`, and
+1,907,677 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`61871a71e78d5d2f517306c729b49bcf9374f3473ca8eb664002884ba4399270`,
-`e98d33a1678e35241b7e48ab475064ff3dd6a73ee8e2ebdf895efcf9c85a8c4b`, and
-`f4451a051ec07a735d447760486521a8b8776c6bb7c215c1e1063ab6d59afe44`; their
+`2477b8f8b582d87bc3e21f6d203a5df63bbd98fcd4b020b27312805a3b93a039`,
+`1287d422f8e44d6973aea1e6f93bc1ff35fc5203b32809bffe47e2084875cf8a`, and
+`2270040153381c33972f271d36cfc00e5869657b4f1e81e28085f8b8ca6483dc`; their
 embedded sizes are 160,426, 290,906, and 977 bytes respectively. Independent
 ZIP verification, four PTY terminal smoke cases, and ten-sample final-artifact
 performance evidence passed against this exact source head. The artifact remains
@@ -169,8 +173,8 @@ unsigned and unnotarized until an owner-led signing/notarization lane exists.
 It is a local Apple Silicon artifact, not a public release or cross-platform
 runtime claim. The developer invocation process path is separately bounded and
 does not change this release posture.
-The terminal evidence ID is `terminal:aarch64-apple-darwin-0546be542660` and
-the performance evidence ID is `perf:aarch64-apple-darwin-0546be542660`. The
+The terminal evidence ID is `terminal:aarch64-apple-darwin-5d825139a277` and
+the performance evidence ID is `perf:aarch64-apple-darwin-5d825139a277`. The
 packaged `config --format json` review also passed with configuration digest
 `b4d57157ae30be77f81a293bd49ddc2f939168377b20b9d9bb16a4ea1e40258f`.
 
@@ -593,7 +597,7 @@ and module-host execution.
 
 ## Validation baseline
 
-Current source validation for `1186c3d3c633fc9e3852bfd3131221d282e343b1` and
+Current source validation for `4f90dd52a5ac7f29defad8c9b62c96cffff21a24` and
 the previously recorded packaged artifact on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
