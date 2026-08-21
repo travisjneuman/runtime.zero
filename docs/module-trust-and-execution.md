@@ -14,7 +14,10 @@ manifest/package-file verification and detached public test-key verification.
 It copies held, verified bytes into a private runtime.zero-owned module path,
 publishes a stage receipt and transaction evidence, and leaves the installed
 registry unchanged. It is not a production installer and does not authorize
-activation, invocation, or execution. The core-owned manager updater is a
+activation, invocation, or execution. The read-only module-status review binds
+that stage receipt back to the immutable committed transaction journal head and
+commit receipt, degrading the entry if evidence is missing or tampered. The
+core-owned manager updater is a
 separate narrow execution lane and does not authorize module execution.
 
 This gate is the prerequisite for the end-state product described in

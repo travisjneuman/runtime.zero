@@ -73,6 +73,56 @@ fn developer_trial_stages_verified_bytes_without_publishing_installation() {
         rz0_module_lifecycle::ModuleLifecycleState::Staged
     );
     assert!(status.staged_modules[0].valid);
+    assert!(status.staged_modules[0].errors.is_empty());
+
+    remove_owned_root(&root);
+}
+
+#[test]
+fn staged_status_degrades_when_commit_evidence_is_tampered() {
+    let root = temp_root("developer-trial-tamper");
+    let init = store_init_report(
+        &["store".to_string(), "init".to_string()],
+        StoreInitOptions::with_store_root(StoreInitMode::Apply, root.clone()),
+    );
+    assert!(!init.status.is_blocked(), "{:?}", init.steps);
+
+    let request = request(&root, DeveloperStageMode::DryRun);
+    let dry_run = developer_stage_report(&request);
+    let challenge = dry_run.challenge.expect("dry-run challenge");
+    let applied = developer_stage_report(&request_with_mode(
+        &root,
+        DeveloperStageMode::Apply {
+            challenge_issued_unix_seconds: challenge.issued_unix_seconds,
+            confirmation: challenge.expected_phrase,
+        },
+    ));
+    assert!(applied.valid, "{:?}", applied.errors);
+
+    let commit_receipt_path = root
+        .join("state/receipts")
+        .join(format!("{}.json", applied.plan_id.expect("plan ID")));
+    let mut commit_receipt: serde_json::Value =
+        serde_json::from_slice(&fs::read(&commit_receipt_path).expect("commit receipt bytes"))
+            .expect("commit receipt JSON");
+    commit_receipt["binding_sha256"] = serde_json::Value::String("0".repeat(64));
+    fs::write(
+        &commit_receipt_path,
+        serde_json::to_vec(&commit_receipt).expect("tampered receipt JSON"),
+    )
+    .expect("tamper test receipt");
+
+    let status = runtime_zero::module_status::module_status_report(
+        &["modules status".to_string()],
+        Some(root.clone()),
+    );
+    assert_eq!(status.staged_module_count, 1);
+    assert_eq!(status.invalid_staged_module_count, 1);
+    assert!(
+        status.staged_modules[0]
+            .errors
+            .contains(&"staging_commit_receipt_invalid")
+    );
 
     remove_owned_root(&root);
 }

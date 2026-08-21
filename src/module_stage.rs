@@ -37,8 +37,9 @@ use rz0_secure_fs::SecureDirectory;
 use rz0_transaction_contract::{
     CommitCoordinatorInput, DurabilityRequirements, TransactionCommitReceipt, TransactionEvent,
     TransactionEventKind, TransactionJournal, TransactionOperation, TransactionState,
-    publish_committed_state, publish_confirmation_consumption, publish_journal_snapshot,
-    seal_commit_receipt, seal_transaction_journal,
+    inspect_journal_head, publish_committed_state, publish_confirmation_consumption,
+    publish_journal_snapshot, seal_commit_receipt, seal_transaction_journal,
+    validate_commit_receipt,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -50,6 +51,8 @@ use crate::module_validation::{ManifestValidationReport, load_manifest_file};
 const MODULE_MANIFEST_FILE: &str = "rz0-module.json";
 const STORE_INIT_MARKER: &str = "store-init.json";
 const STAGING_RECEIPTS_DIRECTORY: &str = "staging-receipts";
+const TRANSACTIONS_DIRECTORY: &str = "transactions";
+const RECEIPTS_DIRECTORY: &str = "receipts";
 const MAX_TRUST_DOCUMENT_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
 const STAGE_SAFETY_NOTE: &str = "Developer-only local staging; test-key trust, activation, invocation, registry installation, network fetch, and production release authority remain disabled.";
 const REDACTED_SOURCE_MANIFEST: &str = "<local-package>/rz0-module.json";
@@ -1139,7 +1142,12 @@ pub fn developer_staging_inventory(store: &ModuleStorePlan) -> DeveloperStagingI
                 continue;
             }
         };
-        modules.push(review_staged_module(&receipt, store));
+        let expected_receipt_name = format!("{}.json", receipt.plan_id);
+        let receipt_name_matches = path
+            .file_name()
+            .and_then(OsStr::to_str)
+            .is_some_and(|name| name == expected_receipt_name);
+        modules.push(review_staged_module(&receipt, store, receipt_name_matches));
     }
     DeveloperStagingInventory { modules, warnings }
 }
@@ -1147,6 +1155,7 @@ pub fn developer_staging_inventory(store: &ModuleStorePlan) -> DeveloperStagingI
 fn review_staged_module(
     receipt: &DeveloperStageReceipt,
     store: &ModuleStorePlan,
+    receipt_name_matches: bool,
 ) -> DeveloperStagedModuleStatus {
     let id_is_valid = rz0_validation_contract::valid_module_id(&receipt.module_id);
     let version_is_valid = rz0_validation_contract::valid_version(&receipt.module_version);
@@ -1171,6 +1180,15 @@ fn review_staged_module(
     }
     if receipt.contract != "developer_module_stage_receipt" {
         errors.push("staging_receipt_contract_invalid");
+    }
+    if !rz0_validation_contract::valid_ledger_id(&receipt.transaction_id, 96) {
+        errors.push("staging_transaction_id_invalid");
+    }
+    if !rz0_validation_contract::valid_ledger_id(&receipt.plan_id, 96) {
+        errors.push("staging_plan_id_invalid");
+    }
+    if !receipt_name_matches {
+        errors.push("staging_receipt_filename_invalid");
     }
     if !id_is_valid {
         errors.push("staging_module_id_invalid");
@@ -1266,6 +1284,10 @@ fn review_staged_module(
         }
     }
 
+    if errors.is_empty() {
+        review_staging_transaction_evidence(receipt, store, &mut errors);
+    }
+
     DeveloperStagedModuleStatus {
         id,
         version,
@@ -1290,6 +1312,69 @@ fn review_staged_module(
         },
         destination_relative,
         errors: errors.into_iter().collect(),
+    }
+}
+
+fn review_staging_transaction_evidence(
+    receipt: &DeveloperStageReceipt,
+    store: &ModuleStorePlan,
+    errors: &mut Vec<&'static str>,
+) {
+    let transactions_root = Path::new(&store.state_root).join(TRANSACTIONS_DIRECTORY);
+    let recovered = match inspect_journal_head(&transactions_root, &receipt.transaction_id) {
+        Ok(recovered) => recovered,
+        Err(_) => {
+            errors.push("staging_transaction_journal_invalid");
+            return;
+        }
+    };
+    let journal = recovered.journal;
+    let committed = journal.state == TransactionState::Committed
+        && journal.operation == TransactionOperation::ModuleInstall
+        && journal.transaction_id == receipt.transaction_id
+        && journal.plan_id == receipt.plan_id
+        && journal
+            .events
+            .last()
+            .is_some_and(|event| event.kind == TransactionEventKind::Committed);
+    if !committed {
+        errors.push("staging_transaction_commit_state_invalid");
+        return;
+    }
+
+    let commit_receipt_path = Path::new(&store.state_root)
+        .join(RECEIPTS_DIRECTORY)
+        .join(format!("{}.json", receipt.plan_id));
+    let metadata = match fs::symlink_metadata(&commit_receipt_path) {
+        Ok(metadata) => metadata,
+        Err(_) => {
+            errors.push("staging_commit_receipt_missing");
+            return;
+        }
+    };
+    if metadata.file_type().is_symlink()
+        || !metadata.is_file()
+        || metadata.len() > MAX_TRUST_DOCUMENT_BYTES
+    {
+        errors.push("staging_commit_receipt_invalid");
+        return;
+    }
+    let bytes = match fs::read(&commit_receipt_path) {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            errors.push("staging_commit_receipt_unreadable");
+            return;
+        }
+    };
+    let commit_receipt = match serde_json::from_slice::<TransactionCommitReceipt>(&bytes) {
+        Ok(receipt) => receipt,
+        Err(_) => {
+            errors.push("staging_commit_receipt_invalid");
+            return;
+        }
+    };
+    if !validate_commit_receipt(&commit_receipt, &journal).valid {
+        errors.push("staging_commit_receipt_invalid");
     }
 }
 

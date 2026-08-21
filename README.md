@@ -217,9 +217,11 @@ reports installed records as `installed_inactive` only when registry, receipt,
 manifest, and declared package-file evidence is valid, reports missing or
 invalid evidence as `degraded`. It separately reports valid developer-stage
 receipts and verified staged bytes as `staged`; staged bytes are not installed,
-active, discoverable, or executable. It never claims `active` or authorizes
-module execution. `--store-root` accepts a local fixture/store root for bounded
-support review and does not initialize or modify it.
+active, discoverable, or executable. The staged review also binds each stage
+receipt to its immutable committed transaction journal and commit receipt;
+missing or tampered transaction evidence is `degraded`. It never claims
+`active` or authorizes module execution. `--store-root` accepts a local fixture
+store root for bounded support review and does not initialize or modify it.
 
 The dry-run planner also reports future local store and CLI/TUI routing
 contract metadata in JSON output. These fields describe where future state would

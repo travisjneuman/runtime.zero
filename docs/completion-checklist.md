@@ -158,7 +158,9 @@ full platform/lifecycle acceptance cells.
 - [x] Add a path-redacted, read-only `modules status` surface that composes
   registry, receipt, manifest, and declared-package-byte evidence and reports
   `installed_inactive` or `degraded`
-  without claiming activation or execution authority.
+  without claiming activation or execution authority; include developer-stage
+  receipt, immutable transaction-journal-head, commit-receipt, and staged-byte
+  integrity review with degraded evidence on drift.
 - [ ] Build and validate signed first-party artifacts for all seven module
   families and supported targets.
 - [ ] Keep third-party packages blocked until publisher governance, review,

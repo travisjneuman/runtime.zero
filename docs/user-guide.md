@@ -493,9 +493,11 @@ Use `rz0 modules status` when you need the current module-store answer:
 valid registry-plus-receipt-plus-installed-byte evidence is
 `installed_inactive`; missing or invalid receipt, manifest, or declared package
 file evidence is `degraded`; a valid developer-stage receipt and staged byte
-set is reported separately as `staged`; no module is reported `active` because
-the lifecycle execution gate remains unavailable. The output is read-only and
-path-redacted by default.
+set is reported separately as `staged`; the staged receipt must also match its
+immutable committed transaction journal and commit receipt, otherwise it is
+degraded for review. No module is reported `active` because the lifecycle
+execution gate remains unavailable. The output is read-only and path-redacted
+by default.
 
 The product direction is broader than this current planning surface: every
 feature family or provider should eventually be an independently manageable
