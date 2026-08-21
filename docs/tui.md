@@ -46,7 +46,10 @@ The Diagnostics workspace derives module lifecycle counts from the same
 registry/receipt status contract as `rz0 modules status`: valid evidence is
 shown as installed-inactive, receipt or registry problems are shown as
 degraded, valid developer-stage evidence is shown as staged, and the workspace
-explicitly says lifecycle execution is unavailable.
+explicitly says lifecycle execution is unavailable. Staged evidence that fails
+the receipt, immutable transaction-journal, commit-receipt, or byte checks is
+counted separately as requiring review rather than being shown as valid staged
+material.
 It never renders an active-module claim or adds activation/invocation controls.
 
 The same two-panel shell is reused in every workspace. Home and the other

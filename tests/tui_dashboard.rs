@@ -10,6 +10,7 @@ fn dashboard_does_not_claim_active_feature_modules() {
     assert_eq!(dashboard.inactive_module_count, 0);
     assert_eq!(dashboard.degraded_module_count, 0);
     assert_eq!(dashboard.staged_module_count, 0);
+    assert_eq!(dashboard.invalid_staged_module_count, 0);
     assert!(!dashboard.module_lifecycle_execution_available);
     assert!(matches!(
         dashboard.registry_state,

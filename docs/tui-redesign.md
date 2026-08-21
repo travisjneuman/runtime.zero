@@ -69,7 +69,9 @@ Rules:
   recovery authority.
 - Diagnostics also derives installed-inactive and degraded module counts from
   the same path-redacted registry/receipt contract as `rz0 modules status` and
-  keeps lifecycle execution visibly unavailable.
+  keeps lifecycle execution visibly unavailable. Developer-staged entries that
+  fail receipt, immutable transaction-journal, commit-receipt, or byte review
+  appear in a separate review-needed count.
 - Diagnostics combines bounded leftovers evidence with the cache row so the
   shell does not grow a second command rail; it uses the same `leftovers_review`
   contract as `rz0 leftovers --dry-run` and remains report-only.

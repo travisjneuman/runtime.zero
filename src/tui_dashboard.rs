@@ -46,6 +46,7 @@ pub struct TuiDashboard {
     pub inactive_module_count: usize,
     pub degraded_module_count: usize,
     pub staged_module_count: usize,
+    pub invalid_staged_module_count: usize,
     pub module_lifecycle_execution_available: bool,
     pub planned_module_family_count: usize,
     pub installed_software_count: usize,
@@ -314,6 +315,7 @@ fn build_dashboard(
         inactive_module_count: module_status.inactive_module_count,
         degraded_module_count: module_status.degraded_module_count,
         staged_module_count: module_status.staged_module_count,
+        invalid_staged_module_count: module_status.invalid_staged_module_count,
         module_lifecycle_execution_available: module_status.lifecycle_execution_available,
         planned_module_family_count: modules.summary.planned_family_count,
         installed_software_count: catalog.as_ref().map_or(0, |catalog| catalog.app_count),
@@ -527,10 +529,32 @@ fn diagnostics_section(
             },
         ),
         row_count(
-            tui_theme::LABEL_INFO,
+            if module_status.invalid_staged_module_count == 0 {
+                tui_theme::LABEL_INFO
+            } else {
+                tui_theme::LABEL_WARN
+            },
             module_status.staged_module_count,
             "developer-staged modules",
-            "info",
+            if module_status.invalid_staged_module_count == 0 {
+                "info"
+            } else {
+                "warn"
+            },
+        ),
+        row_count(
+            if module_status.invalid_staged_module_count == 0 {
+                tui_theme::LABEL_INFO
+            } else {
+                tui_theme::LABEL_WARN
+            },
+            module_status.invalid_staged_module_count,
+            "staged modules requiring review",
+            if module_status.invalid_staged_module_count == 0 {
+                "info"
+            } else {
+                "warn"
+            },
         ),
         row_count(
             tui_theme::LABEL_PLAN,
