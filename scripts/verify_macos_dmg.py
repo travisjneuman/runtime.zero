@@ -152,6 +152,18 @@ def verify(args: argparse.Namespace) -> dict[str, object]:
             or artifact_manifest.get("binary", {}).get("size_bytes") != len(files["rz0"])
         ):
             raise ValueError("portable artifact manifest is inconsistent with the DMG")
+        for label, expected_name in (
+            ("sbom", "SBOM.spdx.json"),
+            ("third_party_notices", "THIRD-PARTY-NOTICES.txt"),
+        ):
+            descriptor = artifact_manifest.get(label)
+            if (
+                not isinstance(descriptor, dict)
+                or descriptor.get("path") != expected_name
+                or descriptor.get("sha256") != digest(files[expected_name])
+                or descriptor.get("size_bytes") != len(files[expected_name])
+            ):
+                raise ValueError(f"portable artifact manifest {label} is inconsistent")
 
         dmg_manifest = json.loads(files["dmg-manifest.json"])
         if (
