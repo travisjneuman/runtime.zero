@@ -21,6 +21,7 @@ pub mod module_trust_cli;
 pub mod module_validation;
 pub mod package_integrity;
 mod package_integrity_io;
+pub use rz0_quarantine as quarantine;
 pub mod report;
 pub mod store_cli;
 pub mod store_init;
