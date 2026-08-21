@@ -1137,8 +1137,18 @@ fn uninstall_apply_command(
             now_unix_seconds: unix_seconds(),
             environment: crate::update_cli::probe_environment(),
             cancellation: &cancellation,
-            verify_after: || {
+            verify_after: |cancellation| {
+                if let Some(reason) = cancellation.reason() {
+                    return Err(format!(
+                        "uninstall verification cancelled before fresh inventory: {reason:?}"
+                    ));
+                }
                 let fresh = collect_app_catalog()?;
+                if let Some(reason) = cancellation.reason() {
+                    return Err(format!(
+                        "uninstall verification cancelled after fresh inventory: {reason:?}"
+                    ));
+                }
                 if fresh.apps.iter().any(|candidate| candidate.id == app_id) {
                     Err(
                         "fresh installed-software inventory still reports the exact target"

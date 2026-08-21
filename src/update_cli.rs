@@ -754,7 +754,7 @@ pub(crate) fn execute_tui_update(
         now_unix_seconds: unix_seconds(),
         environment: probe_environment(),
         cancellation,
-        verify_after: || verify_update_after(&command, &finding_id),
+        verify_after: |cancellation| verify_update_after(&command, &finding_id, cancellation),
     })
 }
 
@@ -2956,7 +2956,7 @@ fn apply_one_update_command(
         now_unix_seconds: unix_seconds(),
         environment: probe_environment(),
         cancellation: &cancellation,
-        verify_after: || verify_update_after(command, &finding_id),
+        verify_after: |cancellation| verify_update_after(command, &finding_id, cancellation),
     });
     match execution {
         Ok(report) => (
@@ -3115,9 +3115,15 @@ fn apply_all_update_command(
     (ExitCode::Ok, output, String::new())
 }
 
-fn verify_update_after(command: &ParsedArgs, finding_id: &str) -> Result<String, String> {
+fn verify_update_after(
+    command: &ParsedArgs,
+    finding_id: &str,
+    cancellation: &CancellationToken,
+) -> Result<String, String> {
+    check_cancellation(Some(cancellation))?;
     if finding_id.starts_with("update.aiup.") {
-        let fresh_built = build_input(command)?;
+        let fresh_built = build_input_with_cancellation(command, Some(cancellation))?;
+        check_cancellation(Some(cancellation))?;
         let aiup_source = fresh_built
             .sources
             .iter()
@@ -3134,7 +3140,8 @@ fn verify_update_after(command: &ParsedArgs, finding_id: &str) -> Result<String,
             aiup_source.candidate_count
         ));
     }
-    let fresh_built = build_input(command)?;
+    let fresh_built = build_input_with_cancellation(command, Some(cancellation))?;
+    check_cancellation(Some(cancellation))?;
     let fresh_input = &fresh_built.input;
     let fresh_report = classify_updates(fresh_input)?;
     let Some(fresh_plan) = build_update_plan_if_candidates(fresh_input, &fresh_report)
@@ -3816,6 +3823,16 @@ mod tests {
         controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
         let error = collect_universal_update_plan_cancellable(true, Some(&token))
             .expect_err("cancelled provider review must not begin discovery");
+        assert!(error.contains("provider review cancelled"));
+    }
+
+    #[test]
+    fn post_update_verification_honors_cancellation_before_fresh_probe() {
+        let command = universal_provider_command(true);
+        let (controller, cancellation) = rz0_cancellation_contract::cancellation_pair();
+        controller.cancel(rz0_cancellation_contract::CancellationReason::UserRequested);
+        let error = verify_update_after(&command, "update.test.cancelled", &cancellation)
+            .expect_err("cancelled verification must not begin a fresh probe");
         assert!(error.contains("provider review cancelled"));
     }
 

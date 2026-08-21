@@ -234,7 +234,7 @@ fn validate_update_confirmation_on_surface(
 
 pub struct UpdateExecutionRequest<'a, F>
 where
-    F: FnOnce() -> Result<String, String>,
+    F: FnOnce(&CancellationToken) -> Result<String, String>,
 {
     pub state_root: &'a Path,
     pub plan: &'a ActionPlan,
@@ -251,7 +251,7 @@ pub fn execute_update_action<F>(
     request: UpdateExecutionRequest<'_, F>,
 ) -> Result<UpdateExecutionReport, String>
 where
-    F: FnOnce() -> Result<String, String>,
+    F: FnOnce(&CancellationToken) -> Result<String, String>,
 {
     execute_manager_action(request)
 }
@@ -260,7 +260,7 @@ pub fn execute_uninstall_action<F>(
     request: UpdateExecutionRequest<'_, F>,
 ) -> Result<UpdateExecutionReport, String>
 where
-    F: FnOnce() -> Result<String, String>,
+    F: FnOnce(&CancellationToken) -> Result<String, String>,
 {
     execute_manager_action(request)
 }
@@ -269,7 +269,7 @@ fn execute_manager_action<F>(
     request: UpdateExecutionRequest<'_, F>,
 ) -> Result<UpdateExecutionReport, String>
 where
-    F: FnOnce() -> Result<String, String>,
+    F: FnOnce(&CancellationToken) -> Result<String, String>,
 {
     let UpdateExecutionRequest {
         state_root,
@@ -547,7 +547,7 @@ where
         let _ = publish_journal_snapshot(&transactions_root, &recovery);
         format!("{error}; recovery is required")
     })?;
-    let verification = match verify_after() {
+    let verification = match verify_after(cancellation) {
         Ok(verification) => verification,
         Err(error) => {
             let recovery = append(&intent, event(TransactionEventKind::RecoveryRequired));
@@ -1861,7 +1861,7 @@ mod tests {
                 ("HOME".to_string(), "/Users/tjn".to_string()),
             ],
             cancellation: &cancellation,
-            verify_after: || Err("test stops before committing the external effect".to_string()),
+            verify_after: |_| Err("test stops before committing the external effect".to_string()),
         })
         .expect_err("test verification should force recovery");
         assert!(
@@ -1912,7 +1912,7 @@ mod tests {
                 ("HOME".to_string(), "/Users/tjn".to_string()),
             ],
             cancellation: &cancellation,
-            verify_after: || Ok("harmless manager invocation verified".to_string()),
+            verify_after: |_| Ok("harmless manager invocation verified".to_string()),
         })
         .expect("committed receipt");
         assert_eq!(report.status, UpdateExecutionStatus::Committed);
@@ -1975,7 +1975,7 @@ mod tests {
                 ("HOME".to_string(), "/Users/tjn".to_string()),
             ],
             cancellation: &cancellation,
-            verify_after: || Ok("harmless manager uninstall invocation verified".to_string()),
+            verify_after: |_| Ok("harmless manager uninstall invocation verified".to_string()),
         })
         .expect("committed uninstall receipt");
         assert_eq!(report.operation, TransactionOperation::Uninstall);
