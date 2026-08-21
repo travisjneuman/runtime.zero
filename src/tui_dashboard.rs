@@ -1009,7 +1009,12 @@ fn installed_software_section(
                     app.id, app.name, app.source_id, app.identifiers
                 ));
                 if toolchain_only {
-                    options = format!("provider {provider} · {options}");
+                    let provider_state = if provider == "aiup" {
+                        "observed-only"
+                    } else {
+                        "ready"
+                    };
+                    options = format!("provider {provider} · {provider_state} · {options}");
                 }
                 if let Some(update) = updates.and_then(|updates| {
                     updates
