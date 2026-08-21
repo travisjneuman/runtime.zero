@@ -381,6 +381,34 @@ fn modules_status_reports_valid_installed_modules_as_inactive() {
 }
 
 #[test]
+fn modules_status_degrades_valid_receipt_when_module_manifest_is_missing() {
+    let store_root = format!(
+        "{}/tests/fixtures/store-roots/valid-receipt-missing-module",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let (code, out, err) = run([
+        "modules",
+        "status",
+        "--store-root",
+        &store_root,
+        "--format",
+        "json",
+    ]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    let value: serde_json::Value = serde_json::from_str(&out).expect("module status JSON");
+    assert_eq!(value["receipt_state"], "valid");
+    assert_eq!(value["inactive_module_count"], 0);
+    assert_eq!(value["degraded_module_count"], 1);
+    assert_eq!(value["modules"][0]["state"], "degraded");
+    assert_eq!(value["modules"][0]["errors"][0], "module_manifest_missing");
+    assert_eq!(value["product_execution_authorized"], false);
+    assert_eq!(value["writes_attempted"], false);
+    assert!(!out.contains("/Users/"));
+    assert!(!out.contains(&store_root));
+}
+
+#[test]
 fn modules_status_reports_missing_receipt_as_degraded() {
     let store_root = format!(
         "{}/tests/fixtures/store-roots/missing-receipt",

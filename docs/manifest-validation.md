@@ -175,9 +175,10 @@ installed modules; invalid manifests remain validation reports. Duplicate
 installed module IDs are treated as validation errors so the registry never has
 to choose between competing manifests silently.
 
-`rz0 modules status` reads the installed registry and receipt inventory through
-the same bounded validators. It is the status surface for deciding whether an
-installed record is `installed_inactive` or `degraded`; it never claims
+`rz0 modules status` reads the installed registry, receipt inventory, and
+installed manifest/package integrity evidence through the same bounded
+validators. It is the status surface for deciding whether an installed record
+is `installed_inactive` or `degraded`; it never claims
 `active`, executes a module, or changes registry/receipt state. Its optional
 `--store-root` argument is a local read-only inspection override.
 

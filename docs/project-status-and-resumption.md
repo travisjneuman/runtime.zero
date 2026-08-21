@@ -40,8 +40,8 @@
   age-threshold, scan-completeness, and conservative lock-marker evidence; the
   TUI renders the observation and age-threshold state without creating a second
   action route. The read-only `modules status` surface now composes registry and
-  receipt evidence, reports valid records as `installed_inactive`, reports
-  missing or invalid receipt evidence as `degraded`, redacts unsafe registry
+  receipt, manifest, and declared package-file evidence, reports valid records
+  as `installed_inactive`, reports missing or invalid evidence as `degraded`, redacts unsafe registry
   identifiers, and never claims activation or invocation authority.
   The TUI Diagnostics workspace now renders the same inactive/degraded counts
   and explicit lifecycle-unavailable state, while the JSON dashboard exposes

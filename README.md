@@ -198,9 +198,10 @@ current commands until the foundation-owned lifecycle, registry publication,
 receipts, recovery, and TUI path are implemented together.
 
 `rz0 modules status` is the path-redacted read-only lifecycle surface. It
-reports valid installed records as `installed_inactive`, records with missing
-or invalid receipts as `degraded`, and never claims `active` or authorizes
-module execution. `--store-root` accepts a local fixture/store root for
+reports installed records as `installed_inactive` only when registry, receipt,
+manifest, and declared package-file evidence is valid, reports missing or
+invalid evidence as `degraded`, and never claims `active` or authorizes module
+execution. `--store-root` accepts a local fixture/store root for
 bounded support review and does not initialize or modify it.
 
 The dry-run planner also reports future local store and CLI/TUI routing

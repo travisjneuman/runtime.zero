@@ -292,9 +292,10 @@ renders a digest-bound schema-1 lifecycle plan and never initializes the store,
 publishes a registry, or launches a module.
 
 `rz0 modules status` is the complementary path-redacted read-only operator
-surface. It composes the installed registry and receipt validators, reports a
-valid record as `installed_inactive` and a record with missing or invalid receipt
-evidence as `degraded`, and never authorizes activation or invocation. Its
+surface. It composes the installed registry, receipt, manifest, and declared
+package-file integrity validators, reports a record as `installed_inactive`
+only when those checks are valid, reports missing or invalid evidence as
+`degraded`, and never authorizes activation or invocation. Its
 `--store-root` override is limited to local inspection and does not initialize
 or modify the selected root.
 

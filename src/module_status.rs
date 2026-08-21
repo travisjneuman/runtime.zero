@@ -1,10 +1,12 @@
 use std::fmt::Write as FmtWrite;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use crate::brand;
 use crate::install_receipt::{InstallReceiptState, ReceiptInventoryState};
 use crate::installed_registry::{InstalledRegistryRecordStatus, InstalledRegistryState};
 use crate::module_registry;
+use crate::module_validation::load_manifest_file;
 use crate::store_status::{StoreOverallState, store_status_report, store_status_report_for_root};
 use rz0_module_lifecycle::ModuleLifecycleState;
 use serde::Serialize;
@@ -72,7 +74,8 @@ pub fn module_status_report_from_store(
 
         let receipt = store.receipts.receipts.get(receipt_index);
         receipt_index += 1;
-        modules.push(valid_record_status(record, receipt));
+        let module_files = module_file_assessment(store, record);
+        modules.push(valid_record_status(record, receipt, module_files));
     }
 
     let inactive_module_count = modules
@@ -104,7 +107,7 @@ pub fn module_status_report_from_store(
         guidance: vec![
             "module status does not install, activate, invoke, repair, migrate, upgrade, or uninstall modules",
             "lifecycle execution remains unavailable until production trust, capability, isolation, rollback, transaction, and platform gates are implemented",
-            "use the registry and receipt findings as review inputs; do not infer active runtime execution from an installed record",
+            "use registry, receipt, and module-byte findings as review inputs; do not infer active runtime execution from an installed record",
         ],
         safety_note: SAFETY_NOTE,
     }
@@ -197,17 +200,28 @@ pub fn module_status_text(report: &ModuleStatusReport) -> String {
 fn valid_record_status(
     record: &InstalledRegistryRecordStatus,
     receipt: Option<&crate::install_receipt::InstallReceiptReport>,
+    module_files: ModuleFileAssessment,
 ) -> ModuleStatusEntry {
     match receipt.map(|report| report.status) {
-        Some(InstallReceiptState::Valid) => ModuleStatusEntry {
+        Some(InstallReceiptState::Valid) if module_files.valid => ModuleStatusEntry {
             id: record.id.clone(),
             version: record.version.clone(),
             state: ModuleLifecycleState::InstalledInactive,
             receipt_state: Some(InstallReceiptState::Valid),
             activation_supported: false,
             invocation_supported: false,
-            reason: "installed record and receipt are valid; execution is disabled",
+            reason: "installed record, receipt, and module bytes are valid; execution is disabled",
             errors: Vec::new(),
+        },
+        Some(InstallReceiptState::Valid) => ModuleStatusEntry {
+            id: record.id.clone(),
+            version: record.version.clone(),
+            state: ModuleLifecycleState::Degraded,
+            receipt_state: Some(InstallReceiptState::Valid),
+            activation_supported: false,
+            invocation_supported: false,
+            reason: "receipt is valid but installed module bytes require review",
+            errors: vec![module_files.error],
         },
         Some(status) => ModuleStatusEntry {
             id: record.id.clone(),
@@ -229,6 +243,58 @@ fn valid_record_status(
             reason: "installed record has no receipt assessment",
             errors: vec!["receipt_assessment_missing"],
         },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ModuleFileAssessment {
+    valid: bool,
+    error: &'static str,
+}
+
+fn module_file_assessment(
+    store: &crate::store_status::StoreStatusReport,
+    record: &InstalledRegistryRecordStatus,
+) -> ModuleFileAssessment {
+    let manifest_path = Path::new(&store.store.data_root).join(&record.manifest_path);
+    match fs::symlink_metadata(&manifest_path) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => {
+            return ModuleFileAssessment {
+                valid: false,
+                error: "module_manifest_not_a_regular_file",
+            };
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return ModuleFileAssessment {
+                valid: false,
+                error: "module_manifest_missing",
+            };
+        }
+        Err(_) => {
+            return ModuleFileAssessment {
+                valid: false,
+                error: "module_manifest_unreadable",
+            };
+        }
+    }
+
+    let validation = load_manifest_file(&manifest_path);
+    let Some(manifest) = validation.manifest else {
+        return ModuleFileAssessment {
+            valid: false,
+            error: "module_manifest_invalid",
+        };
+    };
+    if !validation.valid || manifest.id != record.id || manifest.version != record.version {
+        return ModuleFileAssessment {
+            valid: false,
+            error: "module_package_integrity_invalid",
+        };
+    }
+    ModuleFileAssessment {
+        valid: true,
+        error: "none",
     }
 }
 

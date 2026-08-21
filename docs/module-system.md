@@ -113,9 +113,10 @@ catalog: inventory/environment, updater, uninstall, leftovers, cache management,
 security/integrity, and report/export. Planned entries are not implementations.
 
 `rz0 modules status` is the operator-facing, path-redacted lifecycle view. It
-composes the installed registry and receipt validators and reports each
-installed record as `installed_inactive` only when its receipt is valid;
-missing, invalid, unreadable, or unsupported receipts produce `degraded`.
+composes the installed registry, receipt, manifest, and declared package-file
+integrity validators and reports each installed record as `installed_inactive`
+only when the receipt and installed module bytes are valid; missing, invalid,
+unreadable, or unsupported evidence produces `degraded`.
 It never reports `active` because module activation and invocation are not
 available in the current product. The command is read-only, does not execute
 module code, and does not treat an installed record as execution authority.

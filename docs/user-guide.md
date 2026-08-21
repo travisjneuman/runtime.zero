@@ -463,8 +463,9 @@ invoke, repair, migrate, upgrade, deactivate, or uninstall module code. The
 seven first-party manifests remain planned.
 
 Use `rz0 modules status` when you need the current installed-module answer:
-valid registry-plus-receipt evidence is `installed_inactive`; missing or
-invalid receipt evidence is `degraded`; no module is reported `active` because
+valid registry-plus-receipt-plus-installed-byte evidence is
+`installed_inactive`; missing or invalid receipt, manifest, or declared package
+file evidence is `degraded`; no module is reported `active` because
 the lifecycle execution gate remains unavailable. The output is read-only and
 path-redacted by default.
 
