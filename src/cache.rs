@@ -915,12 +915,13 @@ mod tests {
             std::process::id(),
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
-        let cache_file = root.join("cache/first-party-cache/old-entry");
+        let cache_root = root.join("external-cache");
+        let cache_file = cache_root.join("first-party-cache/old-entry");
         fs::create_dir_all(cache_file.parent().expect("cache parent")).expect("cache root");
         for directory in [
             root.clone(),
-            root.join("cache"),
-            root.join("cache/first-party-cache"),
+            cache_root.clone(),
+            cache_root.join("first-party-cache"),
             root.join("state"),
             root.join("state/transactions"),
             root.join("state/receipts"),
@@ -933,12 +934,13 @@ mod tests {
         fs::write(&cache_file, b"old cache\n").expect("cache entry");
         fs::set_permissions(&cache_file, fs::Permissions::from_mode(0o600))
             .expect("private cache entry");
-        let store = crate::module_store::module_store_plan_for_data_root(
+        let mut store = crate::module_store::module_store_plan_for_data_root(
             root.clone(),
             None,
             None,
             "test exact cache apply",
         );
+        store.cache_root = cache_root.display().to_string();
         let (_, action_plan) =
             exact_cache_plan_for_store(&store, &cache_file).expect("exact cache plan");
         let challenge = build_exact_quarantine_challenge(&action_plan, 1_000).expect("challenge");

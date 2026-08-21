@@ -3,9 +3,9 @@
 Inventory evidence must become a reviewable plan before any updater, uninstall,
 leftover, cleanup, quarantine, or restore module can mutate a system. This
 contract defines the shared boundary; the updater's explicit `--apply` lane and
-the leftovers exact-file quarantine lane are the only production-shaped
-mutation consumers, while uninstall, recursive cleanup, and module lifecycle
-consumers remain gated.
+the leftovers/cache exact-file quarantine lanes and the exact restore lane are
+the only production-shaped filesystem mutation consumers, while uninstall,
+recursive cleanup, and module lifecycle consumers remain gated.
 
 ## Pipeline
 
@@ -127,6 +127,10 @@ capabilities and write-set kinds. Every valid fixture is dry-run-only with
 `writes_attempted: false` and every action has `would_write: false`.
 Validated plans can now produce domain-separated deterministic plan and write-set
 digests for confirmation, transaction, and receipt binding; invalid plans cannot.
+The receipt-bound filesystem executor is consumed by exact runtime-owned cache
+and module quarantine plus a separate restore command that derives one restore
+plan from a validated quarantine record. Restore is still exact-only and does
+not grant retention, recursive cleanup, or permanent deletion authority.
 
 The foundation crates/quarantine package now provides the narrow production
 executor behind this contract. It accepts only one exact planned action, a

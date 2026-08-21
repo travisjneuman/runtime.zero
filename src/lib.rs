@@ -25,6 +25,7 @@ mod package_integrity_io;
 pub use rz0_quarantine as quarantine;
 pub mod release_cli;
 pub mod report;
+pub mod restore_cli;
 pub mod store_cli;
 pub mod store_init;
 mod store_init_model;
@@ -80,6 +81,7 @@ where
         Some("apps") => apps::apps_command(&args[1..]),
         Some("cache") => cache::cache_command(&args[1..]),
         Some("leftovers") => leftovers::leftovers_command(&args[1..]),
+        Some("restore") => restore_cli::restore_command(&args[1..]),
         Some("integrity") => integrity::integrity_command(&args[1..]),
         Some("uninstall") => apps::uninstall_command(&args[1..]),
         Some("completions") => completions::completions_command(&args[1..]),
@@ -143,6 +145,14 @@ pub fn help_text() -> String {
     );
     if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {
         help.insert_str(index, &integrity_usage);
+    }
+    let restore_usage = format!(
+        "  {} restore --dry-run --plan-id <exact-quarantine-plan-id> [--format text|json]\n  {} restore --apply --plan-id <exact-quarantine-plan-id> [--challenge-issued-unix-seconds <seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
+        brand::COMMAND,
+        brand::COMMAND,
+    );
+    if let Some(index) = help.find(&format!("  {} uninstall", brand::COMMAND)) {
+        help.insert_str(index, &restore_usage);
     }
     let lifecycle_usage = format!(
         "  {} modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>] [--format text|json]\n",

@@ -48,6 +48,7 @@ mod tests {
                 "apps",
                 "cache",
                 "leftovers",
+                "restore",
                 "integrity",
                 "uninstall",
                 "modules",

@@ -22,7 +22,7 @@ _rz0_complete() {
     esac
 
     if [[ $COMP_CWORD -eq 1 ]]; then
-        COMPREPLY=( $(compgen -W 'doctor apps cache leftovers integrity uninstall modules store scan monitor toolchain report release updates completions help version --tui --no-tui --json --color --version --help' -- "$current") )
+        COMPREPLY=( $(compgen -W 'doctor apps cache leftovers restore integrity uninstall modules store scan monitor toolchain report release updates completions help version --tui --no-tui --json --color --version --help' -- "$current") )
         return
     fi
     case "$command" in
@@ -30,6 +30,7 @@ _rz0_complete() {
         release) COMPREPLY=( $(compgen -W 'status --assessment --format --json --help' -- "$current") ) ;;
         cache) COMPREPLY=( $(compgen -W '--dry-run --fixture --plan --apply --path --challenge-issued-unix-seconds --confirm --format --json --help' -- "$current") ) ;;
         leftovers) COMPREPLY=( $(compgen -W '--dry-run --fixture --plan --apply --path --challenge-issued-unix-seconds --confirm --format --json --help' -- "$current") ) ;;
+        restore) COMPREPLY=( $(compgen -W '--dry-run --apply --plan-id --challenge-issued-unix-seconds --confirm --format --json --help' -- "$current") ) ;;
         integrity) COMPREPLY=( $(compgen -W '--dry-run --fixture --format --json --help' -- "$current") ) ;;
         uninstall) COMPREPLY=( $(compgen -W 'plan --executable --format --json --help' -- "$current") ) ;;
         modules) COMPREPLY=( $(compgen -W 'validate install lifecycle-plan --from --module-id --from-state --to-state --from-version --to-version --transition-id --dry-run --format --json --help' -- "$current") ) ;;

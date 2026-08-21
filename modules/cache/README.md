@@ -22,7 +22,9 @@ document for deterministic support/testing. The classifier never writes,
 invokes a manager, contacts a network source, or grants cleanup authority. The
 separate core CLI lane can plan and, after exact confirmation, quarantine one
 explicit regular file inside the runtime.zero cache root through the foundation
-receipt/journal executor; it never recurses or deletes.
+receipt/journal executor; it never recurses or deletes. `rz0 restore` can later
+restore that one validated quarantine record to its original unoccupied cache
+path after a fresh exact confirmation; it is not cache discovery or retention.
 
 Before 1.0 it needs stronger platform-specific ownership and active-use proof,
 age/resource policy, retention and conflict policy, full quarantine/restore

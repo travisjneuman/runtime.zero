@@ -226,7 +226,9 @@ pub(crate) fn build_exact_quarantine_consumption(
         schema_version: rz0_confirmation_contract::CONFIRMATION_SCHEMA_VERSION,
         contract: rz0_confirmation_contract::CONFIRMATION_CONSUMPTION_CONTRACT.to_string(),
         transaction_id: filesystem_effect_transaction_id(
-            ActionKind::Quarantine,
+            plan.actions
+                .first()
+                .map_or(ActionKind::Quarantine, |action| action.kind),
             &plan.plan_id,
             challenge.issued_unix_seconds,
         ),
@@ -251,23 +253,70 @@ pub(crate) fn execute_exact_quarantine(
 ) -> Result<FilesystemEffectReport, FilesystemEffectError> {
     let consumption =
         build_exact_quarantine_consumption(plan, challenge, response, consumed_unix_seconds);
+    let workspace_namespace =
+        workspace_namespace(plan).map_err(rz0_quarantine::FilesystemEffectError::invalid_plan)?;
+    let workspace_root = if workspace_namespace == "workspace/cache" {
+        std::path::Path::new(&store.cache_root)
+    } else {
+        std::path::Path::new(&store.data_root)
+    };
     execute_filesystem_effect(FilesystemEffectRequest {
         state_root: std::path::Path::new(&store.state_root),
-        source_root: std::path::Path::new(&store.data_root),
+        source_root: workspace_root,
         quarantine_root: std::path::Path::new(&store.quarantine_root),
         plan,
         action: &plan.actions[0],
         challenge,
         response,
         consumption: &consumption,
+        workspace_namespace: Some(workspace_namespace),
         cancellation: None,
         now_unix_seconds: challenge.issued_unix_seconds,
     })
 }
 
+fn workspace_namespace(plan: &ActionPlan) -> Result<&'static str, String> {
+    let action = plan
+        .actions
+        .first()
+        .ok_or_else(|| "exact filesystem plan contains no action".to_string())?;
+    let path = match action.kind {
+        ActionKind::Quarantine => action
+            .source
+            .as_ref()
+            .map(|source| source.path.as_str())
+            .ok_or_else(|| "exact quarantine action contains no source".to_string())?,
+        ActionKind::Restore => action
+            .write_set
+            .iter()
+            .find(|entry| entry.kind == WriteKind::RestoredPayload)
+            .map(|entry| entry.path.as_str())
+            .ok_or_else(|| "exact restore action contains no destination".to_string())?,
+        _ => {
+            return Err("exact filesystem action must be quarantine or restore".to_string());
+        }
+    };
+    if path.starts_with("workspace/cache/") {
+        Ok("workspace/cache")
+    } else if path.starts_with("workspace/") {
+        Ok("workspace")
+    } else {
+        Err("exact filesystem action must remain under workspace".to_string())
+    }
+}
+
 pub(crate) fn render_exact_quarantine_challenge(
     challenge: &ConfirmationChallenge,
     action_id: &str,
+    json: bool,
+) -> String {
+    render_exact_filesystem_challenge(challenge, action_id, "quarantine", json)
+}
+
+pub(crate) fn render_exact_filesystem_challenge(
+    challenge: &ConfirmationChallenge,
+    action_id: &str,
+    operation: &str,
     json: bool,
 ) -> String {
     let view = ExactQuarantineChallengeView {
@@ -289,7 +338,7 @@ pub(crate) fn render_exact_quarantine_challenge(
         )
     } else {
         format!(
-            "runtime.zero quarantine confirmation\n\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\n\nType this exact phrase in a new command invocation with --challenge-issued-unix-seconds {} and --confirm:\n{}\n\nNo file was moved.\n",
+            "runtime.zero {operation} confirmation\n\nplan_id: {}\naction_id: {}\nplan_sha256: {}\nissued_unix_seconds: {}\nexpires_unix_seconds: {}\n\nType this exact phrase in a new command invocation with --challenge-issued-unix-seconds {} and --confirm:\n{}\n\nNo file was moved.\n",
             view.plan_id,
             view.action_id,
             view.plan_sha256,

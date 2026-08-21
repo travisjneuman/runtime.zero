@@ -26,7 +26,9 @@ after an exact confirmation, execute one explicitly supplied regular file
 quarantine plan; that lane re-reads the file, binds its digest/size and logical
 path, and uses the foundation journal/receipt executor. The module classifier
 itself never grants authority, recurses, deletes, elevates, or uses the
-network. Its manifest remains `planned`.
+network. The separate core `rz0 restore` command can restore one validated
+quarantine record to its original unoccupied module path, but does not add
+broad cleanup or retention authority. Its manifest remains `planned`.
 
 Before 1.0 it needs exact ownership/provenance and stale-state proof,
 adversarial/partial-evidence fixtures, finding-bound plans, receipt-scoped

@@ -174,6 +174,30 @@ rz0 leftovers --apply --path /absolute/path/to/runtime-zero-module-file \
   --challenge-issued-unix-seconds <issued> --confirm '<exact phrase>'
 ```
 
+### Exact quarantine restore
+
+Restore is intentionally separate from cache and leftovers discovery. It reads
+one existing runtime.zero quarantine record, validates the record binding,
+recomputes the original cache/module destination, and refuses symlinked,
+occupied, or drifted paths. The dry-run is read-only:
+
+```bash
+rz0 restore --dry-run --plan-id <exact-quarantine-plan-id>
+```
+
+The apply invocation first prints a five-minute challenge. Re-enter its exact
+phrase with the issued timestamp to restore only that payload:
+
+```bash
+rz0 restore --apply --plan-id <exact-quarantine-plan-id> \
+  --challenge-issued-unix-seconds <issued> --confirm '<exact phrase>'
+```
+
+Restore uses the durable filesystem-effect journal and receipt path. It never
+overwrites an occupied destination, deletes quarantine data recursively,
+elevates, fetches network content, or turns a broad cache/leftover review into
+an action. Retention and permanent deletion remain separate product gates.
+
 ### Integrity evidence
 
 ```bash

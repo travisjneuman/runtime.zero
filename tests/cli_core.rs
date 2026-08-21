@@ -201,6 +201,12 @@ fn subcommand_help_is_scriptable_and_successful() {
     assert!(err.is_empty());
     assert!(out.contains("--recovery-status --transaction"));
     assert!(out.contains("--all-providers --allow-network-read"));
+
+    let (code, out, err) = run(["restore", "--help"]);
+    assert_eq!(code, ExitCode::Ok);
+    assert!(err.is_empty());
+    assert!(out.contains("rz0 restore --dry-run --plan-id"));
+    assert!(out.contains("never overwrites"));
 }
 
 #[test]
@@ -264,6 +270,7 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("rz0 --tui"));
     assert!(out.contains("rz0 apps [--format text|json]"));
     assert!(out.contains("rz0 uninstall plan <installed-software-id>"));
+    assert!(out.contains("rz0 restore --dry-run --plan-id"));
     assert!(out.contains("rz0 report [--format text|json]"));
     assert!(out.contains("rz0 completions <bash|zsh|fish|powershell>"));
     assert!(out.contains("rz0 updates --dry-run --fixture"));

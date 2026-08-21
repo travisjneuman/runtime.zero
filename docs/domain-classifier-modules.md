@@ -46,7 +46,10 @@ package review, quarantine, rollback, or execution lane. Leftovers now has
 bounded runtime-owned read-only discovery plus an explicit exact-module-file
 dry-run plan and confirmation-bound exact quarantine lane, while
 security/integrity has a bounded exact-file read adapter and cache has bounded
-known-root read-only discovery. Across
+known-root read-only discovery. The core `restore` command is deliberately
+outside discovery: it accepts only one validated runtime.zero quarantine record
+and restores only its exact original cache/module path after fresh confirmation.
+Across
 these four families there is:
 
 - no independent complete live Windows/macOS/Linux adapter;

@@ -53,6 +53,8 @@ rz0 leftovers --dry-run
 rz0 leftovers --dry-run --format json
 rz0 leftovers --dry-run --plan --path /absolute/path/to/runtime-zero-module-file
 rz0 leftovers --apply --path /absolute/path/to/runtime-zero-module-file
+rz0 restore --dry-run --plan-id <exact-quarantine-plan-id>
+rz0 restore --apply --plan-id <exact-quarantine-plan-id>
 rz0 integrity --dry-run --fixture tests/fixtures/integrity/valid.json
 rz0 integrity --dry-run --path /absolute/path/to/file --sha256 <sha256>
 rz0 uninstall plan <installed-software-id>
@@ -232,7 +234,10 @@ run manager action plan. Cache now has a bounded read-only adapter over known
 manager/runtime roots; cache now has one exact runtime-cache-file plan/apply
 lane, while leftovers has bounded runtime.zero-owned module/log
 and unreferenced-receipt evidence plus an explicit exact-module-file dry-run
-plan and confirmation-bound exact quarantine lane, while integrity has a
+plan and confirmation-bound exact quarantine lane. The separate `restore`
+command restores one existing validated quarantine record to its original
+unoccupied cache/module path after a fresh exact confirmation; it never
+overwrites, deletes, recurses, elevates, or uses network access. Integrity has a
 bounded exact-file adapter that remains caller-baseline only. None of these
 surfaces provides uninstall execution, recursive cleanup, elevation, signed lifecycle
 activation, or production support. See

@@ -39,6 +39,7 @@ fn quarantine_and_restore_round_trip_is_receipt_bound() {
         challenge: &quarantine_evidence.challenge,
         response: &quarantine_evidence.response,
         consumption: &quarantine_evidence.consumption,
+        workspace_namespace: None,
         cancellation: None,
         now_unix_seconds: 1_100,
     })
@@ -84,6 +85,7 @@ fn quarantine_and_restore_round_trip_is_receipt_bound() {
         challenge: &restore_evidence.challenge,
         response: &restore_evidence.response,
         consumption: &restore_evidence.consumption,
+        workspace_namespace: None,
         cancellation: None,
         now_unix_seconds: 2_100,
     })
@@ -116,6 +118,7 @@ fn source_drift_is_rejected_before_any_destination_is_created() {
         challenge: &evidence.challenge,
         response: &evidence.response,
         consumption: &evidence.consumption,
+        workspace_namespace: None,
         cancellation: None,
         now_unix_seconds: 1_100,
     })
@@ -159,6 +162,7 @@ fn occupied_destination_fails_closed_without_removing_source() {
         challenge: &evidence.challenge,
         response: &evidence.response,
         consumption: &evidence.consumption,
+        workspace_namespace: None,
         cancellation: None,
         now_unix_seconds: 1_100,
     })
@@ -198,6 +202,7 @@ fn invalid_confirmation_is_rejected_before_transaction_creation() {
         challenge: &evidence.challenge,
         response: &evidence.response,
         consumption: &evidence.consumption,
+        workspace_namespace: None,
         cancellation: None,
         now_unix_seconds: 1_100,
     })
@@ -243,6 +248,7 @@ fn quarantine_record_failure_is_marked_for_recovery_after_payload_move() {
         challenge: &evidence.challenge,
         response: &evidence.response,
         consumption: &evidence.consumption,
+        workspace_namespace: None,
         cancellation: None,
         now_unix_seconds: 1_100,
     })
@@ -294,6 +300,7 @@ fn receipt_publication_failure_keeps_committed_journal_for_manual_verification()
         challenge: &evidence.challenge,
         response: &evidence.response,
         consumption: &evidence.consumption,
+        workspace_namespace: None,
         cancellation: None,
         now_unix_seconds: 1_100,
     })
@@ -340,6 +347,7 @@ fn cancellation_before_transaction_creation_is_typed_and_write_free() {
         challenge: &evidence.challenge,
         response: &evidence.response,
         consumption: &evidence.consumption,
+        workspace_namespace: None,
         cancellation: Some(&token),
         now_unix_seconds: 1_100,
     })

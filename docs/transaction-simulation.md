@@ -67,11 +67,13 @@ Its integration tests use the same disposable-root discipline while exercising
 the real foundation path: durable confirmation consumption, private
 opened-directory roots, no-replace moves, quarantine record binding,
 append-only journals, and filesystem-effect receipts. This does not imply that
-every domain has permission to invoke it. The leftovers CLI has a deliberately
-narrow exception for one explicitly supplied module-store file: it recomputes
-the exact plan, requires the short-lived confirmation phrase, and invokes the
-same executor. Candidate ownership, TUI wiring, retention, and all broader
-domain action paths remain separate gates.
+every domain has permission to invoke it. The leftovers and cache CLIs have a
+deliberately narrow exception for one explicitly supplied module-store or
+runtime-cache file: each recomputes the exact plan, requires the short-lived
+confirmation phrase, and invokes the same executor. The restore CLI consumes
+one validated quarantine record and invokes that executor only for its exact
+original unoccupied path. Candidate ownership, TUI wiring, retention, and all
+broader domain action paths remain separate gates.
 
 The production-shaped executor also consumes the shared cancellation token at
 transaction boundaries. Cancellation before the move is typed and write-free;

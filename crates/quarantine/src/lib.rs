@@ -65,6 +65,14 @@ impl FilesystemEffectError {
         }
     }
 
+    pub fn invalid_plan(detail: impl Into<String>) -> Self {
+        Self::new(FilesystemEffectErrorCode::InvalidPlan, detail)
+    }
+
+    pub fn unsafe_path(detail: impl Into<String>) -> Self {
+        Self::new(FilesystemEffectErrorCode::UnsafePath, detail)
+    }
+
     pub const fn foundation_code(&self) -> rz0_error_contract::FoundationErrorCode {
         match self.code {
             FilesystemEffectErrorCode::InvalidEvidence | FilesystemEffectErrorCode::InvalidPlan => {
@@ -187,6 +195,10 @@ pub struct FilesystemEffectRequest<'a> {
     pub challenge: &'a ConfirmationChallenge,
     pub response: &'a ConfirmationResponse,
     pub consumption: &'a ConfirmationConsumption,
+    /// Logical namespace prefix for the non-quarantine side of the effect.
+    /// `None` preserves the schema-one `workspace/` default. A cache-backed
+    /// caller may bind `workspace/cache` to a separate physical root.
+    pub workspace_namespace: Option<&'a str>,
     pub cancellation: Option<&'a CancellationToken>,
     pub now_unix_seconds: u64,
 }
@@ -252,7 +264,15 @@ pub fn execute_filesystem_effect(
         )
     })?;
     let destination = write_path(request.action, destination_kind(request.action.kind))?;
-    let (source_namespace, destination_namespace) = namespace_pair(request.action.kind);
+    let default_workspace_namespace = "workspace";
+    let workspace_namespace = request
+        .workspace_namespace
+        .unwrap_or(default_workspace_namespace);
+    let (source_namespace, destination_namespace) = match request.action.kind {
+        ActionKind::Quarantine => (workspace_namespace, "quarantine"),
+        ActionKind::Restore => ("quarantine", workspace_namespace),
+        _ => unreachable!("validated filesystem effect kind"),
+    };
     let source_relative = strip_namespace(&source.path, source_namespace)?;
     let destination_relative = strip_namespace(destination, destination_namespace)?;
     let source_display = source.path.clone();
@@ -1110,14 +1130,6 @@ fn destination_kind(kind: ActionKind) -> WriteKind {
     match kind {
         ActionKind::Quarantine => WriteKind::QuarantinedPayload,
         ActionKind::Restore => WriteKind::RestoredPayload,
-        _ => unreachable!("validated filesystem effect kind"),
-    }
-}
-
-fn namespace_pair(kind: ActionKind) -> (&'static str, &'static str) {
-    match kind {
-        ActionKind::Quarantine => ("workspace", "quarantine"),
-        ActionKind::Restore => ("quarantine", "workspace"),
         _ => unreachable!("validated filesystem effect kind"),
     }
 }

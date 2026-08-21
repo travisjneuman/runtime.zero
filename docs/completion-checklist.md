@@ -110,6 +110,9 @@ full platform/lifecycle acceptance cells.
 - [x] Observe cancellation through the receipt-bound quarantine/restore
   transaction boundaries and classify post-move cancellation as recovery
   required.
+- [x] Add an exact CLI restore lane that derives a fresh restore plan from one
+  validated quarantine record and reuses the receipt-bound executor; occupied,
+  symlinked, drifted, and unsupported destinations fail closed.
 - [ ] Bind the executor to each domain's ownership/provenance findings and
   expose the reviewed action through the shared CLI/TUI confirmation workflow;
   complete retention, metadata fidelity, capacity, and cross-filesystem policy.
