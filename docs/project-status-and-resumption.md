@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `dabc8ec` (`fix: force portable provider locale`).
+  `6d158b7e522a35d599a15f16ecee1b5bea12e05e` (`docs: refresh runtime status`).
 - **Current behavior implementation:**
-  `dabc8ec` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `6d158b7` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -162,34 +162,39 @@ The bounded Flatpak updater parser slice is `6f64415`.
 The quiet task-first TUI slice is `d82c60f`.
 The bounded Snap updater parser slice is `5285173`.
 The portable provider-locale binding slice is `dabc8ec`.
-The current exact-head release evidence refresh is pending for `dabc8ec`.
+The current exact-head release evidence refresh is bound to
+`6d158b7e522a35d599a15f16ecee1b5bea12e05e`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
 `cargo fmt --all -- --check`, `cargo test --workspace --locked`, the full
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
-`git diff --check`. The local aarch64 Apple Silicon package from
-`6f644153dd357512853dcd2d7c93a38e56872301` has binary SHA-256
-`09fed09559c89b407886ec856260d8e493b92eccf8c8d6f163f8594257b8f5d8`, ZIP
+`git diff --check`. The current universal2 package is
+`target/release-package-universal2-6d158b7/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+It has binary SHA-256
+`b5e556315259084d87b3b6b9729f4b60ae415e837a107bb5d6ea946410c769a3`, ZIP
 SHA-256
-`ef25e44e7b4fdb4ceaf7d47607889fdc48d27f87143aa940d155f897e6eaff88`, and
-1,915,891 bytes across 8 verified members. Embedded SBOM, third-party notices,
-and artifact-manifest SHA-256 values are
-`62d1b4571cd2448e05efdc1d5240726c642a403431c6c8e7bddd83bbefb8d76c`,
-`6d139e4b49437b81606fa2b6842e75ff0ccf91255a8fae010755abab2f8fa7d9`, and
-`34bc7f11eb18874c7dfe1e4fe5ab63c0ddaafa7168cd817b77a5cd41de2612dc`; their
-embedded sizes are 160,426, 290,906, and 977 bytes respectively. Independent
-ZIP verification, four PTY terminal smoke cases, and ten-sample final-artifact
-performance evidence passed against this exact source head. The artifact remains
-unsigned and unnotarized until an owner-led signing/notarization lane exists.
-It is a local Apple Silicon artifact, not a public release or cross-platform
-runtime claim. The developer invocation process path is separately bounded and
-does not change this release posture.
-The terminal evidence ID is `terminal:aarch64-apple-darwin-09fed09559c8` and
-the performance evidence ID is `perf:aarch64-apple-darwin-09fed09559c8`. The
-packaged `config --format json` review also passed with configuration digest
+`b967dd3d0ee1ec80aa2df7798ac2914616e59382e2b2db5c67e80a7b3c09bd73`, and
+3,926,146 bytes across 8 verified members. The embedded artifact manifest,
+SBOM, and third-party notices have SHA-256 values
+`37917446476e1506ea5705078bc530e89a74a6b3268d7e9efdf9a725405162af`,
+`6536c1f9888da7d38746c5d1f88ca42aa9b822761e83d14898c36b943205c376`, and
+`5eaa59be8d34e78a1832870f0c67bce772e9f6fd38c63281ecd765cc04ca388c`; their
+embedded sizes are 980, 162,139, and 291,176 bytes respectively. The package
+verifier passed, and `file`/`lipo` confirmed arm64 plus x86_64 Mach-O slices.
+Both slices passed four PTY terminal smoke cases and ten-sample final-artifact
+performance evidence. The terminal evidence IDs are
+`terminal:universal2-apple-darwin-arm64-b5e556315259` and
+`terminal:universal2-apple-darwin-x86_64-b5e556315259`; the performance IDs are
+`perf:universal2-apple-darwin-arm64-b5e556315259` and
+`perf:universal2-apple-darwin-x86_64-b5e556315259`. Both slices passed
+read-only `doctor`, `scan --dry-run`, `toolchain`, and `config` reviews; doctor
+reported 6 passing and 4 blocked policy checks, while scan reported 9 sources,
+325 tools, 273 apps, 895 services, and 22 warnings. The configuration digest is
 `b4d57157ae30be77f81a293bd49ddc2f939168377b20b9d9bb16a4ea1e40258f`.
+The artifact remains unsigned and unnotarized until an owner-led
+signing/notarization lane exists; it is not a public release.
 
 The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
@@ -613,8 +618,9 @@ and module-host execution.
 
 ## Validation baseline
 
-Current source validation for `dabc8ec` and
-the packaged artifact on `aarch64-apple-darwin`:
+Current source validation for
+`6d158b7e522a35d599a15f16ecee1b5bea12e05e` and the packaged artifact on
+`universal2-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` and the full
@@ -636,10 +642,10 @@ the packaged artifact on `aarch64-apple-darwin`:
 - the trust fixture review returned a valid package/signature result while
   retaining `test_key_only: true`, `execution_authorized: false`, and
   `writes_attempted: false`;
-- the Apple Silicon ZIP was independently verified from this exact package
-  source head; four PTY cases and ten-sample final-artifact performance evidence
-  passed, and its hashes/runtime evidence are recorded in the private
-  release-artifact note. The package verifier reported 8 members and pass.
+- the universal2 ZIP was independently verified from this exact package source
+  head; both arm64 and x86_64 slices passed four PTY cases and ten-sample
+  final-artifact performance evidence. The package verifier reported 8 members
+  and pass; the artifact remains unsigned and unnotarized.
 
 Historical earlier validation also recorded completion-source parity, Bash/Zsh
 syntax, PowerShell parsing, `mandoc`, Markdown-link checks, module-manifest
