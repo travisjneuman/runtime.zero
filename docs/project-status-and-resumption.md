@@ -303,6 +303,12 @@ contents exposed the exact nine-file DMG contract, and its `rz0 --version`,
 local unsigned packaging evidence, not publication, signing, notarization, or
 clean-host acceptance.
 
+The release-tooling follow-ups are now at `0c89b7029e01e76cc9f8c2e92dd535e0aa502853`:
+the DMG verifier rejects symlinked inputs before resolution and binds mounted
+SBOM/third-party-notice bytes to the artifact manifest's exact path, digest,
+and size. The exact DMG verification was rerun successfully after both
+hardening changes; no packaged binary bytes changed.
+
 The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only
 with no writes; and the final artifact passed the bounded terminal and
