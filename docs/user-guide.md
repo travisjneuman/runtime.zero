@@ -194,8 +194,13 @@ rz0 recovery --dry-run --format json
 
 The review reports only logical plan/action identity, digest/size evidence,
 record validity, payload presence, and whether the narrow restore lane can use
-the record. It is capped, skips unsafe record entries, and never deletes,
-restores, or repairs evidence.
+the record. It also inspects bounded immutable transaction journal heads and
+reports stable per-transaction state, recovery decision, operator guidance,
+invalid-journal count, and incomplete-review warnings without exposing the
+private state root. Persistent writer-lock markers are evidence only; their
+presence does not prove active ownership. The review is capped, skips unsafe
+record entries, and never deletes, restores, repairs, publishes a journal,
+completes a transaction, or authorizes rollback.
 
 Restore is intentionally separate from cache and leftovers discovery. It reads
 one existing runtime.zero quarantine record, validates the record binding,
