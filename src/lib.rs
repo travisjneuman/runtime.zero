@@ -52,6 +52,7 @@ pub mod tui_render;
 mod tui_render_support;
 pub mod tui_state;
 pub mod tui_theme;
+pub mod ui;
 pub mod update_cli;
 pub mod update_execution;
 pub mod updates;
