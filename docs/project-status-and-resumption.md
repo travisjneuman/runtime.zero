@@ -7,10 +7,10 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `fb95b455f1b520a9470a776db720721f632ce90b` (`Refresh staged status evidence`);
+  `f9e28cb4f8e40440631edda482d1680598230e4c` (`Cross-check staged module evidence`);
   this status document is refreshed in a follow-up documentation-only commit.
 - **Current behavior implementation:**
-  `fb95b45` on `main`, including the redesigned TUI, Rust toolchain contract,
+  `f9e28cb` on `main`, including the redesigned TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -62,7 +62,9 @@
   The same read-only status report now reviews staged receipts and destination
   bytes as a separate `staged_modules` collection, and the redesigned TUI
   Diagnostics workspace exposes the staged count without treating it as an
-  installed or active module.
+  installed or active module. Each valid staged receipt is also bound to its
+  immutable committed transaction-journal head and commit receipt; missing or
+  tampered transaction evidence is degraded review data.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
@@ -95,6 +97,7 @@ The installed-module-byte status hardening slice is `17dd2e2`.
 The developer-only signed module staging slice is `1e782c8`.
 The staged-receipt status and TUI count slice is `26c1b44`.
 The staged-status evidence refresh is `fb95b45`.
+The staged transaction-evidence cross-check slice is `f9e28cb`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -102,15 +105,15 @@ Local
 `cargo test --workspace --locked --all-features` suite, strict all-features
 workspace Clippy, Windows MSVC and Linux GNU cross-target `cargo check`, and
 `git diff --check`. The current local aarch64 Apple Silicon package from
-`fb95b455f1b520a9470a776db720721f632ce90b` has binary SHA-256
-`ed506cd4caeff8df8fa45747426827468f6152144153e54e0e080705f456ae14`, ZIP
+`f9e28cb4f8e40440631edda482d1680598230e4c` has binary SHA-256
+`b3845d0489e34f980f8d28a33e9cd65774463bc27a03da18971cb8d42f8320f9`, ZIP
 SHA-256
-`dc43021d0e9972a5b7579fe853effc7f342f32524efd0186cc5dafc0c5d8d061`, and
-1,791,854 bytes across 8 verified members. Embedded SBOM, third-party notices,
+`753e37ced610660fe79fccb393365e95b20780cccb45965e44529c18e60c0030`, and
+1,801,764 bytes across 8 verified members. Embedded SBOM, third-party notices,
 and artifact-manifest SHA-256 values are
-`fba8b1be295c0f4f24b22fc0a0b71dde85a87c0a724b582d5eaef3585a797a1f`,
-`7a7cffad59fd6b8c5ec29b0b9947912a49847ba42a7b36c1aa1bf2829d075692`, and
-`f299d62ac591833f9f2e1586da9cb46a07dfdcb090144a67c38aa2c7890e32a9`; their
+`f84ed81629a11e0506b0fd831dd758e73a9a0ef621ea9e850ca8e9fa4dbcce5e`,
+`b75dbd0dfbaee7610f9fd578489fdd74762b8ece2b173c843732caece04bc509`, and
+`093d17be764efb200adebcd873c778ceaf79a063d2b38e95ce93a33cd916cdc8`; their
 embedded sizes are 158,365, 290,906, and 977 bytes respectively. Independent
 verification, four PTY terminal smoke cases, and ten-sample final-artifact
 performance evidence passed. The artifact remains unsigned and unnotarized
@@ -520,7 +523,7 @@ trust, configuration, receipts, recovery, and module-host execution.
 
 ## Validation baseline
 
-Current source validation for `fb95b455f1b520a9470a776db720721f632ce90b` and
+Current source validation for `f9e28cb4f8e40440631edda482d1680598230e4c` and
 the packaged artifact on `aarch64-apple-darwin`:
 
 - `cargo fmt --all -- --check` passed;
