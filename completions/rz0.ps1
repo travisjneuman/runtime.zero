@@ -3,7 +3,7 @@ Register-ArgumentCompleter -Native -CommandName rz0 -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $tokens = @($commandAst.CommandElements | ForEach-Object { $_.Extent.Text })
-    $commands = @('doctor','apps','cache','leftovers','integrity','uninstall','modules','store','scan','monitor','toolchain','report','updates','completions','help','version')
+    $commands = @('doctor','apps','cache','leftovers','integrity','uninstall','modules','store','scan','monitor','toolchain','report','release','updates','completions','help','version')
     $managers = @('homebrew-formula','homebrew-cask','macports','winget','apt','dnf','pacman','zypper','snap','flatpak')
     $candidates = if ($tokens.Count -le 2) {
         $commands + @('--tui','--no-tui','--json','--color','--version','--help')
@@ -17,6 +17,8 @@ Register-ArgumentCompleter -Native -CommandName rz0 -ScriptBlock {
         @('bash','zsh','fish','powershell')
     } elseif ($tokens[1] -eq 'updates') {
         @('--dry-run','--fixture','--manager-output','--manager','--executable','--probe','--allow-network-read','--plan','--queue','--apply','--action','--all','--confirm','--challenge-issued-unix-seconds','--accept-no-rollback','--allow-network-write','--recovery-status','--transaction','--format','--json','--help')
+    } elseif ($tokens[1] -eq 'release') {
+        @('status','--assessment','--format','--json','--help')
     } elseif ($tokens[1] -eq 'uninstall') {
         @('plan','--executable','--format','--json','--help')
     } elseif ($tokens[1] -eq 'store') {

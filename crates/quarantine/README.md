@@ -17,7 +17,11 @@ It uses opened-directory-relative secure filesystem operations, an exclusive
 quarantine lock, append-only transaction journal snapshots, a tamper-evident
 quarantine record, and a filesystem-effect receipt. Symlinks, unsafe path
 components, source drift, occupied destinations, missing records, and invalid
-confirmation fail closed.
+confirmation fail closed. Cancellation is observed at synchronized boundaries;
+before the payload move it returns a typed cancellation and after any move it
+returns `RecoveryRequired`. If record, journal, or receipt publication fails
+after a move, the executor publishes a recovery marker where possible instead
+of reporting an ordinary failure.
 
 The crate does not discover candidates, decide ownership, create confirmation
 phrases, authorize module execution, perform recursive deletion, or expose a

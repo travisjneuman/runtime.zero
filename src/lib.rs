@@ -22,6 +22,7 @@ pub mod module_validation;
 pub mod package_integrity;
 mod package_integrity_io;
 pub use rz0_quarantine as quarantine;
+pub mod release_cli;
 pub mod report;
 pub mod store_cli;
 pub mod store_init;
@@ -87,6 +88,7 @@ where
         Some("monitor") => system_monitor::monitor_command(&args[1..]),
         Some("toolchain") => toolchain::toolchain_command(&args[1..]),
         Some("report") => report::report_command(&args[1..]),
+        Some("release") => release_cli::release_command(&args[1..]),
         Some("updates") => update_cli::updates_command(&args[1..]),
         Some(command) => unknown_command(command),
     }
@@ -150,6 +152,13 @@ pub fn help_text() -> String {
     );
     if let Some(index) = help.find("\n\nFoundation safety posture:") {
         help.insert_str(index, &format!("\n{module_trust_usage}"));
+    }
+    let release_usage = format!(
+        "  {} release status --assessment <assessment.json> [--format text|json]\n",
+        brand::COMMAND
+    );
+    if let Some(index) = help.find("\n\nFoundation safety posture:") {
+        help.insert_str(index, &format!("\n{release_usage}"));
     }
     let provider_usage = format!(
         "  {} updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback]\n  {} updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> --accept-no-rollback\n",

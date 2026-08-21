@@ -107,6 +107,9 @@ full platform/lifecycle acceptance cells.
 - [x] Promote quarantine/restore from test helpers to receipt-scoped foundation
   APIs with exact roots, no-replace moves, record verification, journal
   snapshots, and filesystem-effect receipts.
+- [x] Observe cancellation through the receipt-bound quarantine/restore
+  transaction boundaries and classify post-move cancellation as recovery
+  required.
 - [ ] Bind the executor to each domain's ownership/provenance findings and
   expose the reviewed action through the shared CLI/TUI confirmation workflow;
   complete retention, metadata fidelity, capacity, and cross-filesystem policy.

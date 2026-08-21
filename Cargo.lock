@@ -749,6 +749,7 @@ dependencies = [
  "rz0-process-host",
  "rz0-quarantine",
  "rz0-registry-contract",
+ "rz0-release-contract",
  "rz0-resource-contract",
  "rz0-secure-fs",
  "rz0-support-contract",
@@ -1049,6 +1050,7 @@ name = "rz0-quarantine"
 version = "0.1.0"
 dependencies = [
  "rz0-action-plan",
+ "rz0-cancellation-contract",
  "rz0-confirmation-contract",
  "rz0-error-contract",
  "rz0-resource-contract",

@@ -22,11 +22,12 @@ _rz0_complete() {
     esac
 
     if [[ $COMP_CWORD -eq 1 ]]; then
-        COMPREPLY=( $(compgen -W 'doctor apps cache leftovers integrity uninstall modules store scan monitor toolchain report updates completions help version --tui --no-tui --json --color --version --help' -- "$current") )
+        COMPREPLY=( $(compgen -W 'doctor apps cache leftovers integrity uninstall modules store scan monitor toolchain report release updates completions help version --tui --no-tui --json --color --version --help' -- "$current") )
         return
     fi
     case "$command" in
         doctor|apps|monitor|toolchain|report) COMPREPLY=( $(compgen -W '--format --json --help' -- "$current") ) ;;
+        release) COMPREPLY=( $(compgen -W 'status --assessment --format --json --help' -- "$current") ) ;;
         cache) COMPREPLY=( $(compgen -W '--dry-run --fixture --format --json --help' -- "$current") ) ;;
         leftovers) COMPREPLY=( $(compgen -W '--dry-run --fixture --format --json --help' -- "$current") ) ;;
         integrity) COMPREPLY=( $(compgen -W '--dry-run --fixture --format --json --help' -- "$current") ) ;;

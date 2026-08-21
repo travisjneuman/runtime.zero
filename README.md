@@ -235,9 +235,11 @@ activation, or production support. See
 A separate `crates/module-trust/` contract now verifies local detached Ed25519
 signatures with public test keys only. It does not provide signing, production
 keys, installation, activation, or module execution. Schema-1 staging plans and
-integration-test-only OS-temp helpers now exercise atomic staging and
-quarantine/restore failure semantics without adding a production filesystem
-mover. A separate schema-1 process protocol keeps module execution unauthorized.
+integration-test-only OS-temp helpers exercise atomic staging and
+quarantine/restore failure semantics; the foundation-owned `rz0-quarantine`
+crate now provides a narrow receipt-bound mover with cancellation and
+post-move recovery classification, while domain ownership/action wiring remains
+separate. A separate schema-1 process protocol keeps module execution unauthorized.
 An explicit-feature integration lane executes only a Cargo-built test helper to
 exercise bounded JSON framing, environment clearing, output draining, timeout
 kill/reap, and fail-closed errors; it is not linked to the core or inventory

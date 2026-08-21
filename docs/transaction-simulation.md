@@ -70,6 +70,13 @@ append-only journals, and filesystem-effect receipts. This does not imply that
 leftovers or cache modules have permission to invoke it; candidate ownership
 and CLI/TUI action wiring remain separate gates.
 
+The production-shaped executor also consumes the shared cancellation token at
+transaction boundaries. Cancellation before the move is typed and write-free;
+cancellation after a payload move is `recovery_required`. Record, journal, and
+receipt publication failures after a move use the same recovery classification,
+so a durable committed journal without its receipt is never reported as a
+normal success.
+
 ## Shared journal contract
 
 `crates/transaction-contract/` now defines the shared bounded state machine,

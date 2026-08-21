@@ -8,6 +8,7 @@ use std::{
 };
 
 use rz0_action_plan::ActionPlan;
+use rz0_cancellation_contract::{CancellationReason, cancellation_pair};
 use rz0_confirmation_contract::{
     ConfirmationChallenge, ConfirmationConsumption, ConfirmationResponse, ConfirmationRisk,
     ConfirmationSurface, confirmation_response_sha256, seal_confirmation_challenge,
@@ -17,7 +18,7 @@ use rz0_quarantine::{
     FilesystemEffectRequest, FilesystemEffectStatus, execute_filesystem_effect,
     validate_filesystem_effect_receipt, validate_quarantine_record,
 };
-use rz0_transaction_contract::recover_journal_head;
+use rz0_transaction_contract::{TransactionEventKind, TransactionState, recover_journal_head};
 use sha2::{Digest, Sha256};
 
 #[test]
@@ -38,6 +39,7 @@ fn quarantine_and_restore_round_trip_is_receipt_bound() {
         challenge: &quarantine_evidence.challenge,
         response: &quarantine_evidence.response,
         consumption: &quarantine_evidence.consumption,
+        cancellation: None,
         now_unix_seconds: 1_100,
     })
     .expect("quarantine effect");
@@ -82,6 +84,7 @@ fn quarantine_and_restore_round_trip_is_receipt_bound() {
         challenge: &restore_evidence.challenge,
         response: &restore_evidence.response,
         consumption: &restore_evidence.consumption,
+        cancellation: None,
         now_unix_seconds: 2_100,
     })
     .expect("restore effect");
@@ -113,6 +116,7 @@ fn source_drift_is_rejected_before_any_destination_is_created() {
         challenge: &evidence.challenge,
         response: &evidence.response,
         consumption: &evidence.consumption,
+        cancellation: None,
         now_unix_seconds: 1_100,
     })
     .expect_err("source drift");
@@ -155,6 +159,7 @@ fn occupied_destination_fails_closed_without_removing_source() {
         challenge: &evidence.challenge,
         response: &evidence.response,
         consumption: &evidence.consumption,
+        cancellation: None,
         now_unix_seconds: 1_100,
     })
     .expect_err("occupied destination");
@@ -193,6 +198,7 @@ fn invalid_confirmation_is_rejected_before_transaction_creation() {
         challenge: &evidence.challenge,
         response: &evidence.response,
         consumption: &evidence.consumption,
+        cancellation: None,
         now_unix_seconds: 1_100,
     })
     .expect_err("invalid confirmation");
@@ -200,6 +206,149 @@ fn invalid_confirmation_is_rejected_before_transaction_creation() {
         error.code,
         rz0_quarantine::FilesystemEffectErrorCode::InvalidEvidence
     );
+    assert!(
+        fs::read_dir(roots.state.join("transactions"))
+            .expect("transactions directory")
+            .next()
+            .is_none()
+    );
+}
+
+#[test]
+fn quarantine_record_failure_is_marked_for_recovery_after_payload_move() {
+    let roots = TestRoots::new();
+    write_private_file(
+        &roots.source.join("stale-shim.bin"),
+        b"Synthetic stale shim fixture.\n",
+    );
+    let occupied_record = roots
+        .quarantine
+        .join("rz0plan-quarantine-example/quarantine.json");
+    fs::create_dir_all(occupied_record.parent().expect("record parent")).expect("record parent");
+    fs::set_permissions(
+        occupied_record.parent().expect("record parent"),
+        fs::Permissions::from_mode(0o700),
+    )
+    .expect("record parent permissions");
+    write_private_file(&occupied_record, b"occupied record\n");
+
+    let plan = plan("valid-quarantine.json");
+    let evidence = evidence(&plan, 1_100);
+    let error = execute_filesystem_effect(FilesystemEffectRequest {
+        state_root: &roots.state,
+        source_root: &roots.source,
+        quarantine_root: &roots.quarantine,
+        plan: &plan,
+        action: &plan.actions[0],
+        challenge: &evidence.challenge,
+        response: &evidence.response,
+        consumption: &evidence.consumption,
+        cancellation: None,
+        now_unix_seconds: 1_100,
+    })
+    .expect_err("occupied quarantine record");
+    assert_eq!(
+        error.code,
+        rz0_quarantine::FilesystemEffectErrorCode::RecoveryRequired
+    );
+    assert!(!roots.source.join("stale-shim.bin").exists());
+    assert!(
+        roots
+            .quarantine
+            .join("rz0plan-quarantine-example/payload.bin")
+            .is_file()
+    );
+    let journal = recover_journal_head(
+        &roots.state.join("transactions"),
+        &transaction_id(&plan, 1_100),
+    )
+    .expect("recovery journal")
+    .journal;
+    assert_eq!(journal.state, TransactionState::RecoveryRequired);
+    assert_eq!(
+        journal.events.last().expect("recovery event").kind,
+        TransactionEventKind::RecoveryRequired
+    );
+}
+
+#[test]
+fn receipt_publication_failure_keeps_committed_journal_for_manual_verification() {
+    let roots = TestRoots::new();
+    write_private_file(
+        &roots.source.join("stale-shim.bin"),
+        b"Synthetic stale shim fixture.\n",
+    );
+    write_private_file(
+        &roots.state.join("receipts/rz0plan-quarantine-example.json"),
+        b"occupied receipt\n",
+    );
+
+    let plan = plan("valid-quarantine.json");
+    let evidence = evidence(&plan, 1_100);
+    let error = execute_filesystem_effect(FilesystemEffectRequest {
+        state_root: &roots.state,
+        source_root: &roots.source,
+        quarantine_root: &roots.quarantine,
+        plan: &plan,
+        action: &plan.actions[0],
+        challenge: &evidence.challenge,
+        response: &evidence.response,
+        consumption: &evidence.consumption,
+        cancellation: None,
+        now_unix_seconds: 1_100,
+    })
+    .expect_err("occupied receipt");
+    assert_eq!(
+        error.code,
+        rz0_quarantine::FilesystemEffectErrorCode::RecoveryRequired
+    );
+    assert!(!roots.source.join("stale-shim.bin").exists());
+    let journal = recover_journal_head(
+        &roots.state.join("transactions"),
+        &transaction_id(&plan, 1_100),
+    )
+    .expect("committed journal")
+    .journal;
+    assert_eq!(journal.state, TransactionState::Committed);
+    assert_eq!(
+        fs::read(roots.state.join("receipts/rz0plan-quarantine-example.json"))
+            .expect("occupied receipt bytes"),
+        b"occupied receipt\n"
+    );
+}
+
+#[test]
+fn cancellation_before_transaction_creation_is_typed_and_write_free() {
+    let roots = TestRoots::new();
+    write_private_file(
+        &roots.source.join("stale-shim.bin"),
+        b"Synthetic stale shim fixture.\n",
+    );
+    let plan = plan("valid-quarantine.json");
+    let evidence = evidence(&plan, 1_100);
+    let (controller, token) = cancellation_pair();
+    assert_eq!(
+        controller.cancel(CancellationReason::UserRequested),
+        rz0_cancellation_contract::CancelOutcome::Won(CancellationReason::UserRequested)
+    );
+    let error = execute_filesystem_effect(FilesystemEffectRequest {
+        state_root: &roots.state,
+        source_root: &roots.source,
+        quarantine_root: &roots.quarantine,
+        plan: &plan,
+        action: &plan.actions[0],
+        challenge: &evidence.challenge,
+        response: &evidence.response,
+        consumption: &evidence.consumption,
+        cancellation: Some(&token),
+        now_unix_seconds: 1_100,
+    })
+    .expect_err("cancelled effect");
+    assert_eq!(
+        error.code,
+        rz0_quarantine::FilesystemEffectErrorCode::Cancelled
+    );
+    assert!(roots.source.join("stale-shim.bin").is_file());
     assert!(
         fs::read_dir(roots.state.join("transactions"))
             .expect("transactions directory")

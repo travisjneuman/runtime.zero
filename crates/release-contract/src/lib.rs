@@ -155,13 +155,13 @@ pub enum AcceptanceStatus {
     NotApplicable,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReleaseValidation {
     pub valid: bool,
     pub errors: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct AcceptanceSummary {
     pub targets: usize,
     pub cells: usize,

@@ -12,6 +12,7 @@ complete -c rz0 -n '__fish_use_subcommand' -a scan -d 'Collect bounded dry-run i
 complete -c rz0 -n '__fish_use_subcommand' -a monitor -d 'Show a native system snapshot'
 complete -c rz0 -n '__fish_use_subcommand' -a toolchain -d 'Show Rust, AI, and developer toolchain posture'
 complete -c rz0 -n '__fish_use_subcommand' -a report -d 'Build a privacy-reviewed local summary'
+complete -c rz0 -n '__fish_use_subcommand' -a release -d 'Inspect a release-acceptance assessment'
 complete -c rz0 -n '__fish_use_subcommand' -a updates -d 'Review, apply, or assess manager updates'
 complete -c rz0 -n '__fish_use_subcommand' -a completions -d 'Print shell completion source'
 complete -c rz0 -n '__fish_use_subcommand' -a help -d 'Show help'
@@ -24,6 +25,10 @@ for command in doctor apps monitor toolchain report
     complete -c rz0 -n "__fish_seen_subcommand_from $command" -l format -xa 'text json'
     complete -c rz0 -n "__fish_seen_subcommand_from $command" -l json
 end
+complete -c rz0 -n '__fish_seen_subcommand_from release' -a status -d 'Inspect one bounded assessment'
+complete -c rz0 -n '__fish_seen_subcommand_from release' -l assessment -rF
+complete -c rz0 -n '__fish_seen_subcommand_from release' -l format -xa 'text json'
+complete -c rz0 -n '__fish_seen_subcommand_from release' -l json
 complete -c rz0 -n '__fish_seen_subcommand_from scan' -l dry-run
 complete -c rz0 -n '__fish_seen_subcommand_from scan' -l include-raw-paths
 complete -c rz0 -n '__fish_seen_subcommand_from scan' -l format -xa 'text json'

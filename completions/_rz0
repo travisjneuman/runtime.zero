@@ -15,6 +15,7 @@ _rz0() {
     'monitor:show a one-shot native system snapshot'
     'toolchain:show Rust, AI, and developer toolchain posture'
     'report:build a privacy-reviewed local summary'
+    'release:inspect a release-acceptance assessment'
     'updates:review, apply, or assess recovery for manager updates'
     'completions:print a shell completion script'
     'help:show help'
@@ -38,6 +39,7 @@ _rz0() {
   case $words[2] in
     completions) _values 'shell' bash zsh fish powershell ;;
     doctor|apps|monitor|toolchain|report) _arguments '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
+    release) _arguments '1:operation:(status)' '--assessment[bounded assessment JSON]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     cache) _arguments '--dry-run[required report-only mode]' '*--fixture[local cache evidence JSON]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     leftovers) _arguments '--dry-run[required report-only mode]' '*--fixture[local leftover evidence JSON]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;
     integrity) _arguments '--dry-run[required report-only mode]' '*--fixture[local integrity evidence JSON]:path:_files' '--format[output format]:format:(text json)' '--json[JSON output]' '--help[help]' ;;

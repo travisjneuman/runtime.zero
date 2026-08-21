@@ -36,6 +36,13 @@ synchronized transaction boundaries:
 - cancellation after exact final-registry verification does not rewrite a
   completed commit as failure.
 
+The receipt-bound quarantine/restore foundation consumes the same token. It
+checks before transaction creation, before the write intent, after the durable
+write intent, after the payload move, after quarantine-record publication, and
+after commit intent. A pre-move cancellation is typed `cancelled` and leaves
+the source untouched; a post-move cancellation is `recovery_required` and
+never attempts an automatic rollback.
+
 All eight coordinator boundaries have deterministic all-feature cancellation
 classification tests. A token is a signal, not permission to spawn, kill,
 mutate, retry, rollback, or recover. Production process hosts must still pair it with platform tree containment and

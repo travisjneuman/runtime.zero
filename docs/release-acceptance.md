@@ -50,6 +50,12 @@ This crate does no host discovery, artifact execution, network access,
 publication, signing, or mutation. It is the canonical completeness ledger shape,
 not completion evidence itself.
 
+The scriptable inspection surface is `rz0 release status --assessment
+<assessment.json> [--format text|json]`. It reads one explicit bounded regular
+file, validates the complete target × module × lifecycle cross-product, and
+reports the blocked schema-1 decision. It does not discover targets, authorize
+publication, sign artifacts, or change the assessment.
+
 See [`production-readiness.md`](production-readiness.md),
 [`support-policy.md`](support-policy.md), and
 [`windows-compatibility.md`](windows-compatibility.md).

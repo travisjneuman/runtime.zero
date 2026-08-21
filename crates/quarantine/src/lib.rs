@@ -15,6 +15,7 @@ use rz0_action_plan::{
     ActionDisposition, ActionKind, ActionPlan, PlanAction, WriteKind, action_plan_digests,
     validate_action_plan,
 };
+use rz0_cancellation_contract::CancellationToken;
 use rz0_confirmation_contract::{
     ConfirmationChallenge, ConfirmationConsumption, ConfirmationResponse, ConfirmationRisk,
     confirmation_response_sha256, validate_confirmation_consumption,
@@ -46,6 +47,7 @@ pub enum FilesystemEffectErrorCode {
     RecoveryRequired,
     LimitExceeded,
     Unsupported,
+    Cancelled,
     Io,
 }
 
@@ -85,6 +87,9 @@ impl FilesystemEffectError {
             }
             FilesystemEffectErrorCode::Unsupported => {
                 rz0_error_contract::FoundationErrorCode::UnsupportedOperation
+            }
+            FilesystemEffectErrorCode::Cancelled => {
+                rz0_error_contract::FoundationErrorCode::Cancelled
             }
             FilesystemEffectErrorCode::Io => rz0_error_contract::FoundationErrorCode::IoUnavailable,
         }
@@ -182,6 +187,7 @@ pub struct FilesystemEffectRequest<'a> {
     pub challenge: &'a ConfirmationChallenge,
     pub response: &'a ConfirmationResponse,
     pub consumption: &'a ConfirmationConsumption,
+    pub cancellation: Option<&'a CancellationToken>,
     pub now_unix_seconds: u64,
 }
 
@@ -189,6 +195,17 @@ pub fn execute_filesystem_effect(
     request: FilesystemEffectRequest<'_>,
 ) -> Result<FilesystemEffectReport, FilesystemEffectError> {
     validate_request(&request)?;
+    check_cancellation(
+        request.cancellation,
+        false,
+        "before filesystem-effect transaction",
+    )?;
+    let digests = action_plan_digests(request.plan).map_err(|errors| {
+        error(
+            FilesystemEffectErrorCode::InvalidPlan,
+            format!("action plan digest failed: {errors:?}"),
+        )
+    })?;
     let operation = operation_for(request.action.kind);
     let transaction_id = transaction_id(
         request.action.kind,
@@ -222,6 +239,11 @@ pub fn execute_filesystem_effect(
             format!("publish confirmation consumption: {cause}"),
         )
     })?;
+    check_cancellation(
+        request.cancellation,
+        false,
+        "before filesystem-effect write intent",
+    )?;
 
     let source = request.action.source.as_ref().ok_or_else(|| {
         error(
@@ -280,6 +302,18 @@ pub fn execute_filesystem_effect(
         ),
     );
     publish_snapshot(request.state_root, &journal)?;
+    if let Err(cause) = check_cancellation(
+        request.cancellation,
+        false,
+        "after filesystem-effect write intent",
+    ) {
+        let recovery = append_transaction(
+            &journal,
+            event(TransactionEventKind::RecoveryRequired, None, None, None),
+        );
+        let _ = publish_snapshot(request.state_root, &recovery);
+        return Err(cause);
+    }
 
     let result = move_verified(
         request.action.kind,
@@ -304,6 +338,18 @@ pub fn execute_filesystem_effect(
             return Err(error);
         }
     };
+    if let Err(cause) = check_cancellation(
+        request.cancellation,
+        true,
+        "after filesystem-effect payload move",
+    ) {
+        return Err(recovery_required_after_effect(
+            request.state_root,
+            &journal,
+            "filesystem-effect cancellation",
+            cause,
+        ));
+    }
 
     journal = append_transaction(
         &journal,
@@ -315,7 +361,14 @@ pub fn execute_filesystem_effect(
             &source.sha256,
         ),
     );
-    publish_snapshot(request.state_root, &journal)?;
+    if let Err(cause) = publish_snapshot(request.state_root, &journal) {
+        return Err(recovery_required_after_effect(
+            request.state_root,
+            &journal,
+            "publish verified filesystem move",
+            cause,
+        ));
+    }
 
     if request.action.kind == ActionKind::Quarantine {
         let mut record = QuarantineRecord {
@@ -343,8 +396,34 @@ pub fn execute_filesystem_effect(
                 &record.binding_sha256,
             ),
         );
-        publish_snapshot(request.state_root, &journal)?;
-        write_quarantine_record(&quarantine_root, destination, &record)?;
+        if let Err(cause) = publish_snapshot(request.state_root, &journal) {
+            return Err(recovery_required_after_effect(
+                request.state_root,
+                &journal,
+                "publish quarantine-record write intent",
+                cause,
+            ));
+        }
+        if let Err(cause) = write_quarantine_record(&quarantine_root, destination, &record) {
+            return Err(recovery_required_after_effect(
+                request.state_root,
+                &journal,
+                "publish quarantine record",
+                cause,
+            ));
+        }
+        if let Err(cause) = check_cancellation(
+            request.cancellation,
+            true,
+            "after quarantine record publication",
+        ) {
+            return Err(recovery_required_after_effect(
+                request.state_root,
+                &journal,
+                "filesystem-effect cancellation",
+                cause,
+            ));
+        }
         journal = append_transaction(
             &journal,
             write_event(
@@ -355,26 +434,52 @@ pub fn execute_filesystem_effect(
                 &record.binding_sha256,
             ),
         );
-        publish_snapshot(request.state_root, &journal)?;
+        if let Err(cause) = publish_snapshot(request.state_root, &journal) {
+            return Err(recovery_required_after_effect(
+                request.state_root,
+                &journal,
+                "publish verified quarantine record",
+                cause,
+            ));
+        }
     }
 
     let commit_pending = append_transaction(
         &journal,
         event(TransactionEventKind::CommitStarted, None, None, None),
     );
-    publish_snapshot(request.state_root, &commit_pending)?;
+    if let Err(cause) = publish_snapshot(request.state_root, &commit_pending) {
+        return Err(recovery_required_after_effect(
+            request.state_root,
+            &commit_pending,
+            "publish filesystem-effect commit intent",
+            cause,
+        ));
+    }
+    if let Err(cause) = check_cancellation(
+        request.cancellation,
+        true,
+        "after filesystem-effect commit intent",
+    ) {
+        return Err(recovery_required_after_effect(
+            request.state_root,
+            &commit_pending,
+            "filesystem-effect cancellation",
+            cause,
+        ));
+    }
     let committed = append_transaction(
         &commit_pending,
         event(TransactionEventKind::Committed, None, None, None),
     );
-    publish_snapshot(request.state_root, &committed)?;
-
-    let digests = action_plan_digests(request.plan).map_err(|errors| {
-        error(
-            FilesystemEffectErrorCode::InvalidPlan,
-            format!("action plan digest failed after filesystem effect: {errors:?}"),
-        )
-    })?;
+    if let Err(cause) = publish_snapshot(request.state_root, &committed) {
+        return Err(recovery_required_after_effect(
+            request.state_root,
+            &commit_pending,
+            "publish committed filesystem-effect journal",
+            cause,
+        ));
+    }
     let mut receipt = FilesystemEffectReceipt {
         schema_version: FILESYSTEM_EFFECT_RECEIPT_SCHEMA_VERSION,
         contract: FILESYSTEM_EFFECT_RECEIPT_CONTRACT.to_string(),
@@ -404,7 +509,14 @@ pub fn execute_filesystem_effect(
         binding_sha256: String::new(),
     };
     seal_filesystem_effect_receipt(&mut receipt);
-    write_receipt(&receipts, &receipt)?;
+    if let Err(cause) = write_receipt(&receipts, &receipt) {
+        return Err(error(
+            FilesystemEffectErrorCode::RecoveryRequired,
+            format!(
+                "filesystem effect committed without a receipt; manual verification required: {cause}"
+            ),
+        ));
+    }
 
     Ok(FilesystemEffectReport {
         transaction_id,
@@ -1044,6 +1156,51 @@ fn committed_snapshot_name(journal: &TransactionJournal) -> String {
     journal.events.last().map_or_else(String::new, |event| {
         format!("{:04}-{}.json", event.sequence, event.event_sha256)
     })
+}
+
+/// Converts any publication failure after the payload has moved into an
+/// explicit recovery state. The recovery snapshot is best effort: if the
+/// state root is itself unavailable, the returned error still remains
+/// `RecoveryRequired` and explains that the durable marker could not be
+/// published.
+fn recovery_required_after_effect(
+    state_root: &Path,
+    journal: &TransactionJournal,
+    operation: &str,
+    cause: impl fmt::Display,
+) -> FilesystemEffectError {
+    let recovery = append_transaction(
+        journal,
+        event(TransactionEventKind::RecoveryRequired, None, None, None),
+    );
+    let recovery_result = publish_snapshot(state_root, &recovery);
+    let detail = match recovery_result {
+        Ok(()) => format!(
+            "{operation} failed after a filesystem move; recovery marker published: {cause}"
+        ),
+        Err(recovery_cause) => format!(
+            "{operation} failed after a filesystem move and recovery marker publication also failed: {cause}; {recovery_cause}"
+        ),
+    };
+    error(FilesystemEffectErrorCode::RecoveryRequired, detail)
+}
+
+fn check_cancellation(
+    cancellation: Option<&CancellationToken>,
+    partial: bool,
+    boundary: &str,
+) -> Result<(), FilesystemEffectError> {
+    let Some(reason) = cancellation.and_then(CancellationToken::reason) else {
+        return Ok(());
+    };
+    Err(error(
+        if partial {
+            FilesystemEffectErrorCode::RecoveryRequired
+        } else {
+            FilesystemEffectErrorCode::Cancelled
+        },
+        format!("filesystem effect cancelled {boundary}: {reason:?}"),
+    ))
 }
 
 fn quarantine_record_digest(record: &QuarantineRecord) -> String {
