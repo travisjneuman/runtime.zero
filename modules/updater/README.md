@@ -74,7 +74,7 @@ wrapper with `sudo -n`; npm updates receive an isolated temporary cache and
 preserve the discovered user/runtime PATH.
 
 The module includes bounded, locale-reviewed parser slices for Homebrew JSON,
-APT, DNF, Pacman, MacPorts, Mac App Store `mas` JSON lines, Apple
+APT, DNF, Pacman, MacPorts, Flatpak JSON, Mac App Store `mas` JSON lines, Apple
 `softwareupdate --list`, global npm prefixes, pip JSON, RubyGems, `rustup`,
 `uv tool`, Grok, Hermes, and oh-my-pi. Homebrew cask review uses documented
 greedy mode so latest/auto-updating casks are not silently omitted. The
@@ -91,8 +91,13 @@ other npm-owned CLIs when their actual npm prefix is present; it also checks
 native Grok and OMP channels and reports Hermes when installed. It does not
 invent an update command for a direct installer, a private vendor service, an
 unknown bundle, or an app whose channel is only available inside its UI.
-Winget, Zypper, Snap, and Flatpak parsing currently fails closed as not yet
-locale-safe. A probe specification is not production runtime evidence.
+Winget, Zypper, and Snap parsing currently fails closed as not yet locale-safe.
+Flatpak uses the explicit `remote-ls --updates --app --json` column contract
+under the updater's forced `C` locale and binds each candidate to its exact
+app/architecture/branch ref plus the remote commit. The human-readable version
+field is validated for bounded shape but is not used as authority because
+Flatpak versions can be source metadata rather than the immutable update
+identity. A probe specification is not production runtime evidence.
 `--all-providers` is provider-driven and bounded: missing, delegated,
 observed-only, and unsupported sources remain explicit in the report.
 

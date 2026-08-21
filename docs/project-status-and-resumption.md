@@ -461,8 +461,9 @@ live probe. Homebrew JSON and bounded APT/DNF/Pacman/MacPorts parser slices exis
 The all-provider lane also has native update adapters for Homebrew,
 Apple Software Update, npm prefixes, language tools, AIUP-managed tools,
 crates.io Cargo installs, Warp's standalone CLI store, and declared
-Electron/Squirrel releases. Winget/Zypper/Snap/Flatpak specifications fail
-closed where parsers are not accepted. Findings, action plans, and queue plans
+Electron/Squirrel releases. Winget/Zypper/Snap specifications fail closed
+where parsers are not accepted; Flatpak now has a strict JSON, ref/commit-bound
+parser. Findings, action plans, and queue plans
 remain non-authorizing until the apply lane consumes an exact confirmation.
 
 Live discovery observes the exact manager artifact and seals its SHA-256, size,

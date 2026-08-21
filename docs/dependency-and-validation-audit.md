@@ -37,6 +37,7 @@ Validated with Rust/Cargo 1.96.0:
 - opt-in macOS application-bundle smoke with redacted paths;
 - synthetic Linux XDG desktop-entry precedence/parser and Flatpak metadata
   identity/malformed-input tests;
+- strict Flatpak updater JSON/ref/commit parser and unknown-field fixtures;
 - test-key signature, immutable OS-temp staging, quarantine/restore failure,
   no-execution module-protocol fixtures, canonical blocked production-execution
   assessments, and native test-child framing/output/timeout failure cases;

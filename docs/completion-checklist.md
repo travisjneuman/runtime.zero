@@ -211,7 +211,10 @@ full platform/lifecycle acceptance cells.
 - [ ] Prefer stable machine interfaces; prove every unavoidable text parser
   against version, locale, encoding, warning, partial-output, and source-
   agreement fixtures.
-- [ ] Finish safe Winget, Zypper, Snap, and Flatpak parsing or mark exact cells
+- [x] Add safe Flatpak JSON/ref/commit parsing with forced `C` locale and
+  strict identity fixtures; its network, manager, and target-runtime gates
+  remain separate.
+- [ ] Finish safe Winget, Zypper, and Snap parsing or mark exact cells
   unsupported; expand Homebrew/APT/DNF/Pacman/MacPorts proof.
 - [ ] Prove manager executable discovery, version compatibility, offline mode,
   source agreements, network behavior, lock contention, privilege, and

@@ -111,7 +111,13 @@ impl ManagerKind {
             Self::Pacman => &["-Qu"],
             Self::Zypper => &["list-updates"],
             Self::Snap => &["refresh", "--list"],
-            Self::Flatpak => &["remote-ls", "--updates"],
+            Self::Flatpak => &[
+                "remote-ls",
+                "--updates",
+                "--app",
+                "--json",
+                "--columns=application,version,branch,arch,origin,commit",
+            ],
             Self::NpmGlobal => &["outdated", "--global", "--json"],
             Self::Pip => &["-m", "pip", "list", "--outdated", "--format=json"],
             Self::RubyGems => &["outdated"],
@@ -858,13 +864,69 @@ pub fn parse_manager_output(
             "AIUP output requires the provider-specific dry-run adapter; it is not a generic manager record stream".to_string(),
         ),
         ManagerKind::CargoInstall => Ok(Vec::new()),
-        ManagerKind::Winget | ManagerKind::Zypper | ManagerKind::Snap | ManagerKind::Flatpak => {
-            Err(format!(
-                "{} output parser is not yet locale-safe; source remains unavailable",
-                context.manager.id()
-            ))
-        }
+        ManagerKind::Flatpak => parse_flatpak(context, text),
+        ManagerKind::Winget | ManagerKind::Zypper | ManagerKind::Snap => Err(format!(
+            "{} output parser is not yet locale-safe; source remains unavailable",
+            context.manager.id()
+        )),
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FlatpakUpdateRow {
+    application_id: String,
+    version: String,
+    branch: String,
+    arch: String,
+    origin: String,
+    commit: String,
+}
+
+fn parse_flatpak(context: &ManagerParseContext, text: &str) -> Result<Vec<UpdateRecord>, String> {
+    let rows: Vec<FlatpakUpdateRow> = serde_json::from_str(text)
+        .map_err(|error| format!("parse flatpak remote-ls JSON: {error}"))?;
+    if rows.len() > MAX_UPDATE_RECORDS {
+        return Err("flatpak output exceeds the update-record ceiling".to_string());
+    }
+    rows.into_iter()
+        .map(|row| {
+            if !valid_flatpak_token(&row.application_id, 240)
+                || !valid_flatpak_token(&row.branch, 120)
+                || !valid_flatpak_token(&row.arch, 80)
+                || !valid_flatpak_token(&row.origin, 160)
+                || !valid_flatpak_commit(&row.commit)
+            {
+                return Err("flatpak update row contains unsafe identity evidence".to_string());
+            }
+            if row.version.len() > 120 || row.version.chars().any(char::is_control) {
+                return Err(
+                    "flatpak update row contains an oversized or unsafe version".to_string()
+                );
+            }
+            let reference = format!("app/{}/{}/{}", row.application_id, row.arch, row.branch);
+            // The remote commit is the immutable update identity. The displayed
+            // AppStream version is retained only as bounded input evidence.
+            make_record(
+                context,
+                &reference,
+                None,
+                format!("commit:{}", row.commit.to_ascii_lowercase()),
+            )
+        })
+        .collect()
+}
+
+fn valid_flatpak_token(value: &str, maximum: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= maximum
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+}
+
+fn valid_flatpak_commit(value: &str) -> bool {
+    value.len() == 12 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn empty_manager_output_is_valid(manager: ManagerKind) -> bool {
@@ -1696,6 +1758,46 @@ antigravity 1.1.12\n",
         ));
         assert!(aiup_command_is_delegated("npm install -g @openai/codex"));
         assert!(parse_manager_output(&context(ManagerKind::Aiup), b"").is_err());
+    }
+
+    #[test]
+    fn parses_flatpak_json_as_commit_bound_ref_evidence() {
+        let records = parse_manager_output(
+            &context(ManagerKind::Flatpak),
+            br#"[{"application_id":"org.example.App","version":"1.2.3","branch":"stable","arch":"x86_64","origin":"flathub","commit":"0123456789ab"}]"#,
+        )
+        .expect("flatpak JSON");
+        assert_eq!(records.len(), 1);
+        assert_eq!(
+            records[0].subject_reference,
+            "package:flatpak:app:org.example.app:x86_64:stable"
+        );
+        assert_eq!(
+            records[0].available_version.as_deref(),
+            Some("commit:0123456789ab")
+        );
+        assert_eq!(
+            records[0].arguments,
+            vec![
+                "update".to_string(),
+                "app/org.example.App/x86_64/stable".to_string()
+            ]
+        );
+        assert!(records[0].network_required);
+    }
+
+    #[test]
+    fn flatpak_json_parser_rejects_unknown_fields_and_bad_commit_identity() {
+        assert!(parse_manager_output(
+            &context(ManagerKind::Flatpak),
+            br#"[{"application_id":"org.example.App","version":"1.2.3","branch":"stable","arch":"x86_64","origin":"flathub","commit":"0123456789ab","extra":"reject"}]"#,
+        )
+        .is_err());
+        assert!(parse_manager_output(
+            &context(ManagerKind::Flatpak),
+            br#"[{"application_id":"org.example.App","version":"1.2.3","branch":"stable","arch":"x86_64","origin":"flathub","commit":"not-a-commit"}]"#,
+        )
+        .is_err());
     }
 
     #[test]

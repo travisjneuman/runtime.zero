@@ -23,15 +23,16 @@ The updater package now contains more than a synthetic classifier:
 
 - strict finding input and deterministic finding reports;
 - exact-input-bound action plans and serial queue review;
-- Homebrew JSON plus APT, DNF, Pacman, and MacPorts parser slices;
+- Homebrew JSON plus APT, DNF, Pacman, MacPorts, and Flatpak JSON parser slices;
 - probe specifications for Homebrew, MacPorts, Winget, APT, DNF, Pacman,
   Zypper, Snap, and Flatpak;
 - a separate stdin/stdout development binary;
 - core integration for fixture, captured-output, and explicit live probes.
 
-Winget, Zypper, Snap, and Flatpak parsers currently fail closed as not yet
-locale-safe. Manager probes and action plans do not independently authorize a
-write. The core's explicitly confirmed manager-update lane remains a narrow
+Winget, Zypper, and Snap parsers currently fail closed as not yet locale-safe.
+The Flatpak parser requires the forced `C` locale, strict JSON columns, and a
+12-character remote commit for each exact app/architecture/branch ref. Manager
+probes and action plans do not independently authorize a write. The core's explicitly confirmed manager-update lane remains a narrow
 pre-alpha exception with Linux native-ELF identity-bound spawn and canonical
 external-effect receipts, but open macOS/Windows identity, OS isolation, full
 cancellation, rollback, manager-specific recovery, and platform-proof gates. See
