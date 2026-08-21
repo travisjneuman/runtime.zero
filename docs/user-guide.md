@@ -100,6 +100,10 @@ mistaken for an executable update authority. The TUI Toolchain workspace uses
 the same classification; provider availability review remains the separate
 read-only `u`/`rz0 updates --dry-run --all-providers` workflow.
 
+AIUP-managed tools intentionally remain `observed-only` in this snapshot. Their
+presence does not grant runtime.zero AIUP update authority; any later provider
+action must come through the separate bounded plan and confirmation workflow.
+
 Source identifiers, software names, versions, publishers, and service labels may
 be sensitive even when paths are omitted.
 

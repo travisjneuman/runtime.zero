@@ -135,7 +135,9 @@ pub fn collect_toolchain_report() -> Result<ToolchainReport, String> {
             ToolchainProvider {
                 id,
                 label,
-                state: if observed_tool_count > 0 {
+                state: if *id == "aiup" {
+                    "observed-only"
+                } else if observed_tool_count > 0 {
                     "ready"
                 } else {
                     "observed-only"
@@ -169,7 +171,11 @@ fn tool_from_app(app: &InstalledSoftware) -> ToolchainTool {
         version: app.version.clone(),
         source_id: app.source_id.clone(),
         provider,
-        state: "ready",
+        state: if provider == "aiup" {
+            "observed-only"
+        } else {
+            "ready"
+        },
     }
 }
 
@@ -344,6 +350,25 @@ mod tests {
         assert_eq!(provider_for_text("package:npm-global:pi"), "npm-prefix");
         assert_eq!(toolchain_provider_id("aiup-managed:tool"), "aiup");
         assert!(!is_toolchain_text("application:capital"));
+    }
+
+    #[test]
+    fn aiup_managed_tools_remain_observed_only_in_toolchain_state() {
+        let app = InstalledSoftware {
+            id: "aiup-managed:codex".to_string(),
+            name: "Codex".to_string(),
+            version: Some("1.0.0".to_string()),
+            source_id: "aiup.catalog".to_string(),
+            identifiers: Vec::new(),
+            identity_group_id: "software.codex".to_string(),
+            identity_confidence: IdentityConfidence::ExactEvidence,
+            kind: SoftwareKind::PlatformPackage,
+            scope: InstallScope::User,
+            uninstall_option: UninstallOption::ManagerReview,
+        };
+        let tool = tool_from_app(&app);
+        assert_eq!(tool.provider, "aiup");
+        assert_eq!(tool.state, "observed-only");
     }
 
     #[test]
