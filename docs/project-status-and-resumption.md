@@ -7,9 +7,9 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `687febfea9a4844833d10355cd6c394e413208d1` (`feat: add rust-owned aiup review surface`).
+  `80f10ac07afb1761a1ed826640262a972c455e86` (`feat: surface aiup posture in tui`).
 - **Current behavior implementation:**
-  `687febf` on `main`, including the quiet task-first TUI, Rust toolchain contract,
+  `80f10ac` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   AIUP updater-provider adapter, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
@@ -169,8 +169,9 @@ The bounded Snap updater parser slice is `5285173`.
 The portable provider-locale binding slice is `dabc8ec`.
 The bounded Zypper XML updater parser slice is `899b2a5`.
 The Rust-owned AIUP capability review slice is `687febf`.
+The TUI AIUP posture-parity slice is `80f10ac`.
 The current exact-head release evidence refresh is bound to
-`687febfea9a4844833d10355cd6c394e413208d1`.
+`80f10ac07afb1761a1ed826640262a972c455e86`.
 Local
 `main` and
 `origin/main` matched after publication. The source validation baseline passes
@@ -629,7 +630,7 @@ and module-host execution.
 ## Validation baseline
 
 Current source validation for
-`687febfea9a4844833d10355cd6c394e413208d1`:
+`80f10ac07afb1761a1ed826640262a972c455e86`:
 
 - `cargo fmt --all -- --check` passed;
 - `cargo test --workspace --locked` and the full
@@ -651,6 +652,8 @@ Current source validation for
 - the Rust-owned AIUP review surface passed focused contract tests, live CLI
   JSON inspection, help/completion coverage, and remains read-only with no
   provider invocation or state writes;
+- the TUI Toolchain workspace passed the full Ratatui/render/state/dashboard
+  suites with the same AIUP posture summary and no second action authority;
 - the existing packaged artifact remains the separately verified
   `899b2a554953ad360d80e2296edfb0f9f1a005bf` universal2 build; it was not
   rebuilt for this source-only AIUP review slice;
