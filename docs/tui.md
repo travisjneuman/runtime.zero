@@ -52,6 +52,12 @@ The same two-panel shell is reused in every workspace. Home and the other
 workspaces do not expose a persistent command rail, duplicate status-card
 dashboard, or standalone Actions destination.
 
+The primary list is intentionally concise: status rows show the one-line
+summary needed for scanning, while selected details carry dense evidence such
+as load averages, journal counts, active-use uncertainty, and integrity
+posture. This keeps the interface calm without hiding information from the
+keyboard-accessible selected pane or the scriptable CLI/JSON surfaces.
+
 ## Layout and terminal behavior
 
 The TUI uses `crossterm` for raw terminal control and Ratatui for the
@@ -59,8 +65,8 @@ interactive layout. The scriptable text renderer uses the same dashboard model
 without raw mode. There are never more than two bordered content panels:
 
 ```text
-runtime.zero / LOCAL CONTROL                         [ready]
-local snapshot · 273 software · no action runs without confirmation
+runtime.zero · LOCAL SNAPSHOT                         [ready]
+273 software · 0 modules · review before action
 
 HOME   TOOLCHAIN   SOFTWARE   SYSTEM   DIAGNOSTICS
 

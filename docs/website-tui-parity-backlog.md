@@ -10,7 +10,7 @@ itself a future TUI reference and is known to be stale.
 
 ## Current terminal TUI structure to mirror later
 
-- `runtime.zero / LOCAL CONTROL` header with loading/readiness status and Dossier Navy / Burnished Brass posture;
+- `runtime.zero · LOCAL SNAPSHOT` header with loading/readiness status and Dossier Navy / Burnished Brass posture;
 - named layout tiers: very-small, compact, standard, wide;
 - five-workspace navigation for Home, Toolchain, Software, System, and Diagnostics;
 - selected row/context panel with an explicit next-action/review posture;

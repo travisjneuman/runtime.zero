@@ -19,7 +19,8 @@ use crate::system_monitor::{self, SystemSnapshot};
 use crate::toolchain::{is_toolchain_software, is_toolchain_text, toolchain_provider_id};
 use crate::tui_dashboard_labels::{
     init_label, init_status_label, init_tone, receipt_label, receipt_state_label, receipt_tone,
-    registry_label, registry_state_label, registry_tone, row, row_count, store_state_label,
+    registry_label, registry_state_label, registry_tone, row, row_count, row_with_preview,
+    store_state_label,
 };
 use crate::tui_theme;
 use crate::update_cli::TuiUpdateChallenge;
@@ -540,29 +541,44 @@ fn diagnostics_section(
             "info",
         ),
         match (cache, leftovers) {
-            (Some(cache), Some(leftovers)) => row(
-                if cache.warnings.is_empty() && leftovers.warnings.is_empty() {
-                    tui_theme::LABEL_INFO
+            (Some(cache), Some(leftovers)) => {
+                let cache_count = cache.finding_report.summary.finding_count;
+                let aged_count = cache
+                    .observations
+                    .iter()
+                    .map(|observation| observation.files_older_than_review_threshold)
+                    .sum::<usize>();
+                let leftovers_count = leftovers.finding_report.summary.finding_count;
+                let active_use = if cache
+                    .observations
+                    .iter()
+                    .any(|observation| observation.active_use_state != "unknown")
+                {
+                    "possible lock marker"
                 } else {
-                    tui_theme::LABEL_WARN
-                },
-                &format!(
-                    "bounded evidence · cache {} · age {} · leftovers {} · integrity {}",
-                    cache.finding_report.summary.finding_count,
-                    cache
-                        .observations
-                        .iter()
-                        .map(|observation| observation.files_older_than_review_threshold)
-                        .sum::<usize>(),
-                    leftovers.finding_report.summary.finding_count,
-                    integrity_status
-                ),
-                if cache.warnings.is_empty() && leftovers.warnings.is_empty() {
+                    "active use unknown"
+                };
+                let tone = if cache.warnings.is_empty() && leftovers.warnings.is_empty() {
                     "info"
                 } else {
                     "warn"
-                },
-            ),
+                };
+                row_with_preview(
+                    if tone == "info" {
+                        tui_theme::LABEL_INFO
+                    } else {
+                        tui_theme::LABEL_WARN
+                    },
+                    &format!(
+                        "cache {cache_count} · age {aged_count} · leftovers {leftovers_count}"
+                    ),
+                    tone,
+                    &format!(
+                        "bounded evidence: cache {cache_count} findings, {aged_count} over the review age threshold, {active_use}; leftovers {leftovers_count}; integrity: {integrity_status}. Warnings: {}.",
+                        cache.warnings.len() + leftovers.warnings.len()
+                    ),
+                )
+            }
             _ => row(
                 tui_theme::LABEL_WARN,
                 "bounded cache/leftovers evidence unavailable",
@@ -570,23 +586,8 @@ fn diagnostics_section(
             ),
         },
         match recovery {
-            Some(summary) => row(
-                if summary.invalid_count == 0 && summary.quarantine_root_state != "invalid" {
-                    tui_theme::LABEL_INFO
-                } else {
-                    tui_theme::LABEL_WARN
-                },
-                &format!(
-                    "quarantine records {} · {} valid · {} restore-capable · journals {} · {} invalid · {} action-required · {} review warnings",
-                    summary.checked_count,
-                    summary.valid_count,
-                    summary.restore_available_count,
-                    summary.checked_transaction_count,
-                    summary.invalid_transaction_count,
-                    summary.transaction_action_required_count,
-                    summary.transaction_warning_count,
-                ),
-                if summary.invalid_count == 0
+            Some(summary) => {
+                let tone = if summary.invalid_count == 0
                     && summary.invalid_transaction_count == 0
                     && summary.transaction_warning_count == 0
                     && summary.quarantine_root_state != "invalid"
@@ -594,8 +595,32 @@ fn diagnostics_section(
                     "info"
                 } else {
                     "warn"
-                },
-            ),
+                };
+                row_with_preview(
+                    if tone == "info" {
+                        tui_theme::LABEL_INFO
+                    } else {
+                        tui_theme::LABEL_WARN
+                    },
+                    &format!(
+                        "recovery {} valid · {} restore · {} journals",
+                        summary.valid_count,
+                        summary.restore_available_count,
+                        summary.checked_transaction_count
+                    ),
+                    tone,
+                    &format!(
+                        "recovery review: {} quarantine records, {} valid, {} restore-capable; journals {} checked, {} invalid, {} action-required, {} review warnings.",
+                        summary.checked_count,
+                        summary.valid_count,
+                        summary.restore_available_count,
+                        summary.checked_transaction_count,
+                        summary.invalid_transaction_count,
+                        summary.transaction_action_required_count,
+                        summary.transaction_warning_count
+                    ),
+                )
+            }
             None => row(
                 tui_theme::LABEL_INFO,
                 "quarantine recovery review available from the CLI",
@@ -632,70 +657,85 @@ fn system_monitor_section(snapshot: Option<&SystemSnapshot>) -> TuiSection {
             )],
         };
     };
+    let cpu_usage = snapshot
+        .cpu
+        .usage_percent
+        .map(|value| format!("{value}%"))
+        .unwrap_or_else(|| "sampling".to_string());
+    let load = snapshot
+        .cpu
+        .load_average_milli
+        .iter()
+        .map(|value| {
+            value
+                .map(|value| format!("{}.{:03}", value / 1000, value % 1000))
+                .unwrap_or_else(|| "?".to_string())
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let memory_used = system_monitor::format_bytes(snapshot.memory.used_bytes);
+    let memory_available = system_monitor::format_bytes(snapshot.memory.available_bytes);
+    let memory_total = system_monitor::format_bytes(snapshot.memory.total_bytes);
+    let received = system_monitor::format_bytes(snapshot.network.received_bytes);
+    let transmitted = system_monitor::format_bytes(snapshot.network.transmitted_bytes);
     let mut rows = vec![
-        row(
+        row_with_preview(
             tui_theme::LABEL_OK,
             &format!(
-                "CPU {} · load {} · {} logical CPUs",
-                snapshot
-                    .cpu
-                    .usage_percent
-                    .map(|value| format!("{value}%"))
-                    .unwrap_or_else(|| "sampling".to_string()),
-                snapshot
-                    .cpu
-                    .load_average_milli
-                    .iter()
-                    .map(|value| {
-                        value
-                            .map(|value| format!("{}.{:03}", value / 1000, value % 1000))
-                            .unwrap_or_else(|| "?".to_string())
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" "),
+                "CPU {cpu_usage} · {} cores",
                 snapshot.cpu.logical_cpus.unwrap_or(0)
             ),
             "safe",
-        ),
-        row(
-            tui_theme::LABEL_INFO,
             &format!(
-                "memory {} used · {} available of {}",
-                system_monitor::format_bytes(snapshot.memory.used_bytes),
-                system_monitor::format_bytes(snapshot.memory.available_bytes),
-                system_monitor::format_bytes(snapshot.memory.total_bytes)
+                "CPU usage: {cpu_usage}; load averages: {load}; logical CPUs: {}.",
+                snapshot.cpu.logical_cpus.unwrap_or(0)
             ),
-            "info",
         ),
-        row(
+        row_with_preview(
             tui_theme::LABEL_INFO,
-            &format!(
-                "network {} interfaces · received {} · sent {}",
-                snapshot.network.interface_count,
-                system_monitor::format_bytes(snapshot.network.received_bytes),
-                system_monitor::format_bytes(snapshot.network.transmitted_bytes)
-            ),
+            &format!("memory {memory_used} used · {memory_available} free"),
             "info",
+            &format!(
+                "memory: {memory_used} used, {memory_available} available of {memory_total} total."
+            ),
         ),
-        row(
+        row_with_preview(
+            tui_theme::LABEL_INFO,
+            &format!("network {} interfaces", snapshot.network.interface_count),
+            "info",
+            &format!(
+                "network: {} interfaces; received {received}; sent {transmitted}.",
+                snapshot.network.interface_count
+            ),
+        ),
+        row_with_preview(
             tui_theme::LABEL_INFO,
             &format!(
                 "processes {} total · {} running",
                 snapshot.processes.total, snapshot.processes.running
             ),
             "info",
+            &format!(
+                "processes: {} total, {} running. Top process details are available in this workspace.",
+                snapshot.processes.total, snapshot.processes.running
+            ),
         ),
     ];
     for disk in &snapshot.disks {
-        rows.push(row(
+        rows.push(row_with_preview(
             tui_theme::LABEL_INFO,
             &format!(
-                "disk {} · {} used · {} available",
+                "disk {} · {} used",
+                disk.mount,
+                system_monitor::format_bytes(disk.used_bytes)
+            ),
+            "info",
+            &format!(
+                "disk {}: {} used, {} available.",
                 disk.mount,
                 system_monitor::format_bytes(disk.used_bytes),
                 system_monitor::format_bytes(disk.available_bytes)
             ),
-            "info",
         ));
     }
     for process in &snapshot.processes.top {

@@ -42,14 +42,14 @@ fn render_dashboard_frame(
     let mut lines = Vec::new();
     lines.push(border_top(width));
     lines.push(line(
-        "runtime.zero / LOCAL CONTROL",
+        "runtime.zero · local snapshot",
         width,
         color,
         Some(tui_theme::TuiTone::Accent),
     ));
     lines.push(line(
         &format!(
-            "{} · {} software · {} modules · no action runs without confirmation",
+            "{} · {} software · {} modules · review before action",
             if dashboard.inventory_status == "loading" {
                 "loading local snapshot"
             } else {

@@ -43,7 +43,7 @@ fn strip_ansi(value: &str) -> String {
 fn render_plain_dashboard_without_ansi() {
     let rendered = render_dashboard(&tui_dashboard::dashboard(), false);
     assert!(rendered.contains("runtime.zero"));
-    assert!(rendered.contains("LOCAL CONTROL"));
+    assert!(rendered.contains("local snapshot"));
     assert!(rendered.contains("HOME / NEXT STEP"));
     assert!(rendered.contains("status"));
     assert!(!rendered.contains("\x1b["));

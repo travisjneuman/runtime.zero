@@ -42,15 +42,40 @@ fn dashboard_does_not_claim_active_feature_modules() {
         diagnostics
             .rows
             .iter()
-            .any(|row| row.value.contains("bounded evidence")
+            .any(|row| row.value.contains("cache ")
                 || row.value.contains("cache/leftovers evidence unavailable"))
     );
     assert!(
         diagnostics
             .rows
             .iter()
-            .any(|row| row.value.contains("quarantine records")
+            .any(|row| row.value.contains("recovery ")
                 || row.value.contains("quarantine recovery review"))
+    );
+    if let Some(evidence_row) = diagnostics
+        .rows
+        .iter()
+        .find(|row| row.value.starts_with("cache "))
+    {
+        assert!(evidence_row.value.len() < 80);
+        assert!(
+            evidence_row
+                .preview
+                .as_deref()
+                .is_some_and(|preview| preview.contains("bounded evidence"))
+        );
+    }
+    let recovery_row = diagnostics
+        .rows
+        .iter()
+        .find(|row| row.value.starts_with("recovery "))
+        .expect("concise recovery row");
+    assert!(recovery_row.value.len() < 80);
+    assert!(
+        recovery_row
+            .preview
+            .as_deref()
+            .is_some_and(|preview| preview.contains("quarantine records"))
     );
     assert!(
         diagnostics

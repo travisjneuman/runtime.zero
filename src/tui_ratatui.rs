@@ -98,14 +98,14 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, dashboard: &TuiDashboard, co
                 "runtime.zero",
                 tone_style("accent", color).add_modifier(Modifier::BOLD),
             ),
-            Span::styled("  /  LOCAL CONTROL", tone_style("muted", color)),
+            Span::styled("  ·  LOCAL SNAPSHOT", tone_style("muted", color)),
             Span::raw("  "),
             Span::styled(readiness.0, tone_style(readiness.1, color)),
         ]),
         Line::styled(
             ellipsize(
                 &format!(
-                    "local snapshot  ·  {} software  ·  {} modules  ·  no action runs without confirmation",
+                    "{} software  ·  {} modules  ·  review before action",
                     dashboard.installed_software_count, dashboard.installed_module_count
                 ),
                 area.width,

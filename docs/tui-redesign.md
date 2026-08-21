@@ -29,8 +29,8 @@ They are navigation destinations, not simultaneous panels on the home screen.
 Every frame has four regions, with no more than two bordered content panels:
 
 ```text
-runtime.zero / LOCAL CONTROL                         [ready]
-local snapshot · 273 software · no action runs without confirmation
+runtime.zero · LOCAL SNAPSHOT                         [ready]
+273 software · 0 modules · review before action
 
 HOME   TOOLCHAIN   SOFTWARE   SYSTEM   DIAGNOSTICS
 
@@ -47,6 +47,9 @@ Rules:
 
 - Home shows the next useful action and a small readiness summary; it does not
   repeat the entire architecture or all provider counts.
+- Primary rows use a short status summary. Dense evidence (load averages,
+  journal counts, active-use uncertainty, and integrity posture) moves into
+  the selected explanation instead of competing with the task list.
 - Software is the primary list workspace. Rows use a stable name, current
   version, status, and one short source/next-step hint.
 - The selected pane explains the selected row. It never repeats the whole row

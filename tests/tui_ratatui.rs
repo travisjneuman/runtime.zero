@@ -36,7 +36,7 @@ fn render_dashboard_text(
 fn widget_dashboard_keeps_text_first_labels() {
     let text = render_text(110, 32, &TuiState::new(4), false);
     assert!(text.contains("runtime.zero"));
-    assert!(text.contains("LOCAL CONTROL"));
+    assert!(text.contains("LOCAL SNAPSHOT"));
     assert!(text.contains("HOME / NEXT STEP"));
     assert!(text.contains(tui_theme::LABEL_OK));
     assert!(text.contains(tui_theme::LABEL_INFO));
@@ -146,7 +146,7 @@ fn live_software_command_is_previewed_without_execution_claims() {
 fn polished_shell_uses_component_labels_without_color_dependency() {
     let text = render_text(118, 34, &TuiState::new(4), false);
     assert!(text.contains("runtime.zero"));
-    assert!(text.contains("LOCAL CONTROL"));
+    assert!(text.contains("LOCAL SNAPSHOT"));
     assert!(text.contains("HOME / NEXT STEP"));
     assert!(text.contains("SELECTED"));
     assert!(text.contains("status"));

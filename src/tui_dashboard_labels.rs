@@ -14,6 +14,20 @@ pub(crate) fn row(label: &'static str, value: &str, tone: &'static str) -> TuiRo
     }
 }
 
+pub(crate) fn row_with_preview(
+    label: &'static str,
+    value: &str,
+    tone: &'static str,
+    preview: &str,
+) -> TuiRow {
+    TuiRow {
+        label,
+        value: value.to_string(),
+        tone,
+        preview: Some(preview.to_string()),
+    }
+}
+
 pub(crate) fn row_count(
     label: &'static str,
     count: usize,
