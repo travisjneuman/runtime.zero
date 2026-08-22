@@ -145,10 +145,14 @@ External sharing remains unauthorized pending review.
 List built-in core surfaces and explicitly installed module manifests.
 .TP
 .B modules status [--store-root PATH] [--format text|json]
-Report path-redacted installed-module lifecycle status from the local registry,
-receipts, and developer-stage receipts. This is read-only; staged modules are
-not installed, installed modules remain inactive, and module execution is not
-authorized.
+Report path-redacted built-in capability state plus installed-module lifecycle
+status from the local registry, receipts, and developer-stage receipts. This is
+read-only and never authorizes execution.
+.TP
+.B modules builtin install|enable|disable|update|uninstall --module-id ID --dry-run|--apply ...
+Change only the local availability state of one of the seven compiled macOS
+capabilities. Compiled bytes remain in rz0; update is delivered by upgrading
+rz0. Apply requires the exact short-lived challenge from dry-run.
 .TP
 .B modules validate MANIFEST [--format text|json]
 Validate one local manifest without loading or executing code.
@@ -160,6 +164,21 @@ module execution.
 .TP
 .B modules install --dry-run PACKAGE [--format text|json]
 Build a non-authorizing module lifecycle installation plan.
+.TP
+.B modules install --signed --dry-run PACKAGE --signature ENVELOPE --trusted-test-key KEY --store-root PATH [--format text|json]
+Review the bounded signed macOS first-party.inventory package lifecycle plan.
+.TP
+.B modules install --signed --apply PACKAGE --signature ENVELOPE --trusted-test-key KEY --store-root PATH --challenge-issued-unix-seconds SECONDS --confirm PHRASE [--format text|json]
+Install one exact locally selected signed inventory package after the matching
+challenge. The package is published inactive and remains separately gated from
+execution until enabled.
+.TP
+.B modules enable|disable|update|uninstall --module-id first-party.inventory --store-root PATH --dry-run|--apply ...
+Run one exact signed inventory lifecycle transition. Apply rebuilds the plan
+and requires its short-lived confirmation.
+.TP
+.B modules recover --recovery-id ID --store-root PATH --dry-run|--apply ...
+Review or complete one recorded signed-module quarantine recovery.
 .TP
 .B modules install --developer-trial --dry-run PACKAGE --signature ENVELOPE --trusted-test-key KEY --store-root PATH [--format text|json]
 Review a locally selected read-only first-party package, its exact declared
@@ -197,7 +216,7 @@ deactivate, repair, migrate, upgrade, and uninstall.
 .B store plan|status|init
 Inspect the local store or explicitly create only runtime.zero-owned user-local
 scaffolding. Use
-.B store init --yes
+.B store init --yes [--store-root PATH]
 for the write path; unsupported platforms fail closed.
 .TP
 .B updates --dry-run ...

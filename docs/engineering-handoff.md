@@ -246,25 +246,26 @@ The general configure/repair/migrate command shape remains illustrative. The
 current bounded CLI lifecycle is:
 
 ~~~text
-rz0 modules list --all
-rz0 modules inspect <module-id>
-rz0 modules install <package> --dry-run
+rz0 modules
+rz0 modules status [--store-root <path>]
+rz0 modules install --signed --dry-run <package> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path>
+rz0 modules install --signed --apply <package> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <phrase>
+rz0 modules builtin <install|enable|disable|update|uninstall> --module-id <id> --dry-run|--apply
 rz0 modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state>
-rz0 modules enable <module-id> --dry-run
-rz0 modules disable <module-id> --dry-run
-rz0 modules update <module-id> --dry-run --package <package-dir> --signature <envelope.json> --trusted-key <key.json>
-rz0 modules uninstall <module-id> --dry-run
-rz0 modules recover --recovery-id <id> --dry-run
+rz0 modules enable|disable|update|uninstall --module-id first-party.inventory --store-root <path> --dry-run|--apply
+rz0 modules recover --recovery-id <id> --store-root <path> --dry-run|--apply
 rz0 modules invoke --signed --dry-run --module-id first-party.inventory --store-root <path>
 ~~~
 
-Only `first-party.inventory` on macOS is currently wired to these mutating
-commands. Every apply form rebuilds the exact plan and requires the matching
-challenge. The invocation lane revalidates complete package evidence, binds
-the declared executable through the shared process host, and accepts only the
-path-redacted read-only inventory contract. It does not execute third-party
-code or claim a native sandbox. `modules status` remains read-only and reports
-the resulting inactive/active/degraded evidence.
+The seven first-party capabilities are compiled into the macOS core and use
+the built-in availability lifecycle; their bytes are upgraded with rz0. The
+separately packaged first-party.inventory module is the only signed package
+with the full mutating lifecycle. Every apply form rebuilds the exact plan and
+requires the matching challenge. The invocation lane revalidates complete
+package evidence, binds the declared executable through the shared process
+host, and accepts only the path-redacted read-only inventory contract. It does
+not execute third-party code or claim a native sandbox. modules status remains
+read-only and reports built-in and package inactive/active/degraded evidence.
 
 The current `modules lifecycle-plan` command is a bounded review renderer for
 the crate-owned schema-1 transition grammar. It is not one of the mutating
@@ -388,10 +389,9 @@ end state:
   known self-updaters, npm prefixes, AI tools, Warp, and declared app metadata,
   but it reports missing, delegated, observed-only, and unsupported sources;
 - module manifests, local integrity, registry parsing, store planning, lifecycle
-  plans, signatures, process previews, and transaction simulations exist, but
-  optional module installation/activation/execution is not production-enabled;
-- the seven first-party module directories are source-level packages at
-  different maturity levels, not seven active end-user modules;
+  plans, signatures, process hosting, and transaction/recovery evidence exist;
+- seven first-party capabilities are usable as compiled macOS core modules, while
+  only first-party.inventory also has a separately signed package lifecycle;
 - broad uninstall, cleanup, quarantine/restore, arbitrary module execution, and
   production third-party trust remain unavailable;
 - Windows runtime proof, macOS race closure, OS capability/network isolation,

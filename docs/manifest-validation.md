@@ -227,7 +227,7 @@ remote distribution, update orchestration, sandboxing, or third-party trust.
 The separate `modules trust verify` review command remains an evidence path.
 
 The signed v0 CLI path is the deliberately narrower exception: it accepts only
-the source-only, read-only `first-party.inventory` package on macOS, verifies a
+the separately packaged, read-only `first-party.inventory` artifact on macOS, verifies a
 caller-selected non-revoked `first_party_release` key and exact manifest
 identity, and then hands verified bytes to the foundation-owned store/lifecycle
 executor. The executor owns confirmation, receipts, active/inactive registry

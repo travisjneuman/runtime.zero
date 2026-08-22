@@ -57,7 +57,7 @@ and the remaining release evidence.
 
 ## Bounded macOS lifecycle v0
 
-The source-only `first-party.inventory` package can be installed/staged with a
+The separately packaged `first-party.inventory` artifact can be installed/staged with a
 caller-selected first-party release key, inspected through `modules status`,
 enabled, disabled, updated to a newer signed package, invoked through the
 foundation process host while active, uninstalled into quarantine, and

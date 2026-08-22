@@ -229,7 +229,7 @@ Without that flag, the developer trial remains staged-only and leaves the
 installed registry unchanged.
 
 The signed v0 path is the first end-user lifecycle write lane. It accepts only
-the source-only, read-only `first-party.inventory` package on macOS, verifies a
+the separately packaged, read-only `first-party.inventory` artifact on macOS, verifies a
 caller-selected non-revoked `first_party_release` key and exact detached
 signature, then uses the foundation store and registry executor:
 
