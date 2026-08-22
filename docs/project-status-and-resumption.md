@@ -7,7 +7,7 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `887dbcccfc20f54096d0ed872ffafe662cee4ab9` (`test: close TUI state parity gaps`).
+  `a9045b2` (`Harden typed TUI and foundation help contracts`).
 - **Current behavior implementation:**
   `887dbcc` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   provider updater adapters, bounded cache/leftovers evidence review,
@@ -131,7 +131,10 @@
   The follow-on state-parity slice keeps the text and Ratatui renderers aligned
   for loading, unavailable, empty, and blocked states with visible semantic
   labels, and records those states in the acceptance tests without adding a
-  second authority path.
+  second authority path. The current typed UI contract additionally rejects
+  incomplete route sets, generation drift, duplicate record/action/module
+  ownership, common host-path forms, and ambiguous route focus; `doctor --help`
+  and `config --help` now expose consistent scriptable guidance.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.

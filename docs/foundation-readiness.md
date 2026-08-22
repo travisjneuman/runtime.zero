@@ -4,9 +4,37 @@ This document records what feature work may rely on in the current foundation
 and what still blocks production module or mutation work. It is a maturity gate,
 not a production-ready claim.
 
+The current Rust-first presentation checkpoint is `a9045b2`. Its typed UI model
+is validation-bound to the complete five-route set, one model generation,
+globally unique record/action identities, redacted bounded text, and explicit
+route focus semantics. Foundation help for `doctor` and `config` is also
+scriptable and covered by CLI tests. These hardening changes improve the
+presentation and contract boundary; they do not authorize blocked production
+module execution, network access, or unproven platform mutation lanes.
+
 For the current source baseline and validation totals, see
 [`project-status-and-resumption.md`](project-status-and-resumption.md). For all
 remaining 1.0 work, see [`completion-checklist.md`](completion-checklist.md).
+
+## Public contract audit — 2026-08-21
+
+The executable dispatch was traced from `src/main.rs` through launch routing and
+`src/lib.rs`. A bare interactive launch enters `src/ui/terminal.rs`; explicit
+`--no-tui`, pipe, and redirect launches use the typed `src/ui/text.rs`
+projection; `--json` preserves the versioned `foundation_dashboard` contract;
+and explicit subcommands remain scriptable CLI paths. The checked top-level
+dispatch set is `doctor`, `config`, `apps`, `cache`, `leftovers`, `recovery`,
+`restore`, `integrity`, `uninstall`, `completions`, `modules`, `store`, `scan`,
+`monitor`, `toolchain`, `report`, `release`, and `updates`.
+
+The audit also traced the shared authority seams: inventory/provider discovery
+produces bounded evidence; modules expose lifecycle/status and read-only
+process-protocol contracts; updater/uninstall action plans pass through shared
+identity, confirmation, cancellation, process-host, transaction, receipt,
+verification, and recovery code; and the TUI only renders typed records or
+delegates review/execute requests back to those foundation functions. No
+presentation surface authorizes a provider, module, process, confirmation,
+transaction, receipt, or recovery action.
 
 ## Stable-enough implemented surfaces
 

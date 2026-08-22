@@ -1,10 +1,10 @@
 use runtime_zero::dashboard_cli;
-use runtime_zero::tui_dashboard;
-use runtime_zero::tui_render::render_dashboard;
+use runtime_zero::ui::testkit::fixture_model;
+use runtime_zero::ui::text::render_dashboard;
 
 #[test]
 fn scriptable_dashboard_text_keeps_the_public_safety_copy() {
-    let rendered = render_dashboard(&tui_dashboard::dashboard(), false);
+    let rendered = render_dashboard(&fixture_model(), false);
     assert!(rendered.contains("runtime.zero"));
     assert!(rendered.contains("local snapshot"));
     assert!(rendered.contains("Home / next step"));

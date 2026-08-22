@@ -12,6 +12,7 @@ pub mod screens;
 pub mod state;
 pub mod terminal;
 pub mod testkit;
+pub mod text;
 pub mod theme;
 pub mod widgets;
 

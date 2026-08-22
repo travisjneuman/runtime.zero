@@ -163,7 +163,10 @@ Automated coverage includes reducer focus/navigation behavior, loading,
 unavailable, empty, and blocked failed-closed states, plain/color text parity,
 JSON ANSI exclusion, Ratatui buffer bounds, all five workspaces,
 help/search/confirmation overlays, PTY restoration, and the shared update
-plan/action IDs. The required local checks are:
+plan/action IDs. The typed model also rejects incomplete route sets, generation
+drift, duplicate record/action ownership, and common unredacted host-path
+forms; mouse route clicks focus the destination before keyboard movement. The
+required local checks are:
 
 ```bash
 cargo fmt --all -- --check
@@ -181,8 +184,9 @@ passing Rust test.
 ## Implementation boundaries
 
 - `src/tui_dashboard.rs` remains a foundation-owned bounded snapshot builder
-  used by CLI/text and the typed adapter; it is not an interactive renderer;
-- `src/tui_render.rs` is the retained scriptable text contract for `--no-tui`;
+  used by CLI/JSON and the typed adapter; it is not an interactive renderer;
+- `src/ui/text.rs` is the deterministic scriptable text projection for
+  `--no-tui`, consuming the same typed model as the interactive path;
 - `src/ui/model.rs` and `src/ui/foundation_adapter.rs` define bounded typed
   records and projections from foundation evidence/action plans;
 - `src/ui/messages.rs` and `src/ui/state.rs` define the reducer, focus,

@@ -1,13 +1,15 @@
-use crate::{ExitCode, tui_dashboard, tui_render};
+use crate::{ExitCode, tui_dashboard};
 
 pub fn dashboard_text() -> (ExitCode, String, String) {
     dashboard_text_with_color(false)
 }
 
 pub fn dashboard_text_with_color(color: bool) -> (ExitCode, String, String) {
+    let dashboard = tui_dashboard::dashboard();
+    let model = crate::ui::foundation_adapter::model_from_dashboard(&dashboard, 0);
     (
         ExitCode::Ok,
-        tui_render::render_dashboard(&tui_dashboard::dashboard(), color),
+        crate::ui::text::render_dashboard(&model, color),
         String::new(),
     )
 }
