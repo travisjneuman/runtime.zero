@@ -1,0 +1,46 @@
+{
+  "manifest_version": 1,
+  "id": "first-party.inventory",
+  "display_name": "macOS Inventory Fixture",
+  "version": "0.1.0",
+  "publisher": "runtime.zero",
+  "kind": "first_party_module",
+  "status": "installed",
+  "availability": "source_only_module",
+  "summary": "Signed read-only macOS inventory fixture for lifecycle integration tests.",
+  "capabilities": ["process-path-inventory", "path-redaction"],
+  "supported_platforms": ["macos"],
+  "risk_level": "read_only",
+  "safety": {
+    "mutates_system": false,
+    "requires_confirmation": true,
+    "dry_run_required": true,
+    "quarantine_supported": true,
+    "remote_execution_allowed": false
+  },
+  "integrity": {
+    "package_format": "directory",
+    "root_policy": "manifest_directory",
+    "hash_algorithm": "sha256",
+    "complete_file_set": true,
+    "files": [
+      {
+        "path": "payload.txt",
+        "sha256": "8475c9c91a1d281c2796f82865c5276715e295bcc60d1931b365e61227466b9b",
+        "size_bytes": 52,
+        "role": "test_fixture"
+      },
+      {
+        "path": "bin/rz0-inventory",
+        "sha256": "078763e0c7350253470393e485fa821f6673da3c1aab9f155a7b50fdabedd8fe",
+        "size_bytes": 1027,
+        "role": "test_fixture"
+      }
+    ],
+    "provenance": {
+      "source": "local_fixture",
+      "publisher": "runtime.zero",
+      "release_id": "macos-lifecycle-v0"
+    }
+  }
+}

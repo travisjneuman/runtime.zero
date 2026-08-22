@@ -4,7 +4,8 @@ use std::fs;
 use std::path::Path;
 
 use crate::module_manifest::{
-    MAX_MANIFEST_BYTES, MODULE_SCHEMA_VERSION, ModuleKind, ModuleManifest, ModuleStatus, RiskLevel,
+    MAX_MANIFEST_BYTES, MODULE_SCHEMA_VERSION, ModuleAvailability, ModuleKind, ModuleManifest,
+    ModuleStatus, RiskLevel,
 };
 use crate::package_integrity::{PackageIntegrityReport, verify_package_integrity};
 
@@ -128,6 +129,18 @@ fn validate_trust(manifest: &ModuleManifest, errors: &mut Vec<String>, warnings:
     }
     if manifest.kind == ModuleKind::CoreFoundation && manifest.publisher != "runtime.zero" {
         errors.push("core foundation manifests must be published by runtime.zero".to_string());
+    }
+    if manifest.kind == ModuleKind::CoreFoundation
+        && manifest.availability != ModuleAvailability::BuiltInCapability
+    {
+        errors.push(
+            "core foundation manifests must be classified as built-in capabilities".to_string(),
+        );
+    }
+    if manifest.kind != ModuleKind::CoreFoundation
+        && manifest.availability != ModuleAvailability::SourceOnlyModule
+    {
+        errors.push("optional modules must be classified as source-only modules".to_string());
     }
     if manifest.kind == ModuleKind::FirstPartyModule && manifest.publisher != "runtime.zero" {
         errors.push("first-party modules must be published by runtime.zero".to_string());

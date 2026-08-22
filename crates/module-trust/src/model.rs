@@ -31,6 +31,7 @@ pub struct TrustedTestKey {
 #[serde(rename_all = "snake_case")]
 pub enum KeyPurpose {
     TestOnly,
+    FirstPartyRelease,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

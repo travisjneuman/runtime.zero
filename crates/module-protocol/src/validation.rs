@@ -119,8 +119,8 @@ fn validate_executable(plan: &InvocationPlan, errors: &mut Vec<String>) {
 }
 
 fn validate_signature(plan: &InvocationPlan, errors: &mut Vec<String>) {
-    if !plan.signature.verified || !plan.signature.test_key_only {
-        errors.push("invocation preview requires verified test-key metadata".to_string());
+    if !plan.signature.verified {
+        errors.push("invocation preview requires verified signature metadata".to_string());
     }
     if !valid_id(&plan.signature.key_id) {
         errors.push("signature key_id is invalid".to_string());

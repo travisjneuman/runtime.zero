@@ -220,12 +220,18 @@ JSON dry-run output also includes read-only future-state contract metadata:
 These fields are calculated only. They do not create store directories or write
 registry, receipt, transaction, staging, rollback, quarantine, or module files.
 
-## Safety non-goals
+## Safety non-goals and the bounded v0 path
 
-This core manifest-validation layer does not perform production signature
-verification, revocation, module installation, remote distribution, update
-orchestration, sandboxing, or third-party trust. The separate
-`modules trust verify` review command wires the local test-key contract into a
-read-only evidence path; it remains test-key-only, has no production trust root,
-and is not wired into installation or lifecycle execution. Later stages require
-separate approval and threat modeling.
+This core manifest-validation layer remains read-only and does not perform
+remote distribution, update orchestration, sandboxing, or third-party trust.
+The separate `modules trust verify` review command remains an evidence path.
+
+The signed v0 CLI path is the deliberately narrower exception: it accepts only
+the source-only, read-only `first-party.inventory` package on macOS, verifies a
+caller-selected non-revoked `first_party_release` key and exact manifest
+identity, and then hands verified bytes to the foundation-owned store/lifecycle
+executor. The executor owns confirmation, receipts, active/inactive registry
+state, update, quarantine, recovery, and the bounded process host. It does not
+fetch packages or establish a bundled production trust root. Key custody,
+provenance transparency, rotation/revocation, native sandboxing, and other
+module families require separate implementation and acceptance.

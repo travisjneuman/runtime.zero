@@ -18,7 +18,7 @@ pub fn verify_detached_signature(
     let mut report = SignatureVerification {
         schema_version: SIGNATURE_SCHEMA_VERSION,
         verified: false,
-        test_key_only: true,
+        test_key_only: matches!(trusted_key.purpose, crate::KeyPurpose::TestOnly),
         scheme: envelope.scheme.clone(),
         key_id: envelope.key_id.clone(),
         package_id: envelope.package_id.clone(),
@@ -152,7 +152,7 @@ fn validate_trusted_key(key: &TrustedTestKey, errors: &mut Vec<String>) {
     validate_id(&key.key_id, "trusted key_id", errors);
     validate_lower_hex(&key.public_key_hex, 64, "trusted public key", errors);
     if key.revoked {
-        errors.push("trusted test key is revoked".to_string());
+        errors.push("trusted module key is revoked".to_string());
     }
     if key.allowed_package_ids.is_empty() || key.allowed_package_ids.len() > MAX_ALLOWED_PACKAGE_IDS
     {

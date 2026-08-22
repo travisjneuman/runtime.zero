@@ -1,24 +1,20 @@
 # Module Trust and Execution Gate
 
 This document defines the security work required before `rz0` may install or
-execute a feature module. It is a design gate, not an implementation or maturity
-claim.
+execute a feature module. It also records the deliberately bounded macOS v0
+exception; it is not a general production-readiness claim.
 
 Today the core validates local JSON manifests, hashes explicitly listed local
-files, plans installation without writes, and inspects registry/receipt shapes.
-The first-party inventory package is separately buildable; the core embeds its
-library only as a bounded read adapter and does not install, activate, or execute
-its lifecycle package/development binary. A developer-only staging trial now
-accepts one locally selected read-only first-party package after
-manifest/package-file verification and detached public test-key verification.
-It copies held, verified bytes into a private runtime.zero-owned module path,
-publishes a stage receipt and transaction evidence, and leaves the installed
-registry unchanged. It is not a production installer and does not authorize
-activation, invocation, or execution. The read-only module-status review binds
-that stage receipt back to the immutable committed transaction journal head and
-commit receipt, degrading the entry if evidence is missing or tampered. The
-core-owned manager updater is a
-separate narrow execution lane and does not authorize module execution.
+files, and inspects registry/receipt shapes. The first-party inventory package
+is separately buildable and its library is also embedded as a bounded built-in
+read adapter. A bounded signed v0 path accepts one locally selected read-only
+`first-party.inventory` package on macOS after manifest/package-file
+verification and detached `first_party_release` signature verification. It
+copies held, verified bytes into a private runtime.zero-owned module path,
+publishes a registry/install receipt, supports explicit enable/disable/update,
+invokes only the active package through the foundation host, and quarantines or
+recovers the module through recorded recovery evidence. The core-owned manager
+updater remains a separate narrow execution lane.
 
 This gate is the prerequisite for the end-state product described in
 [`engineering-handoff.md`](engineering-handoff.md): users must be able to choose
@@ -50,8 +46,9 @@ The future design must assume:
    release controls apply.
 2. **First-party source package** — repository source such as
    `modules/inventory`; buildable by developers but not installable by the core.
-3. **First-party signed artifact** — future immutable artifact with verified
-   provenance, signature, digest, and release metadata.
+3. **First-party signed artifact** — the bounded v0 immutable local package with
+   verified signature, digest, and release metadata; public distribution and
+   production key custody remain open.
 4. **Third-party package** — blocked until signing, identity, permissions,
    isolation, revocation, reporting, and abuse-response policies are complete.
 
@@ -118,10 +115,11 @@ non-revoked test key that explicitly authorizes the package ID; the envelope
 cannot self-authorize a key. See
 [`signature-verification.md`](signature-verification.md).
 
-This settles only the bounded test-key scheme. Production key custody, release
+This settles the bounded local signature scheme used by v0. The release key is
+caller-selected and fixture/local by design; production key custody, release
 authorization, rotation, compromise response, recovery, provenance,
-transparency/freshness, and reproducible public verification instructions remain
-undecided and required before release use.
+transparency/freshness, and reproducible public distribution instructions remain
+undecided and required before broad release use.
 
 ## Execution isolation
 
@@ -161,14 +159,13 @@ canonical artifact/capability/identity/process/runtime/transaction gate set; it
 has no authorization decision. See
 [`production-readiness.md`](production-readiness.md).
 
-The first explicit developer-trial process lane now consumes this foundation
-for one promoted `first-party.inventory` package. It requires a complete
-immutable package file set and a `receipts/install-*.json` test-key trial
-receipt, binds the declared Rust executable through the host, and accepts only
-the path-redacted read-only inventory response. It does not activate state,
-persist a lifecycle receipt, execute third-party code, or change the blocked
-production decision. The host's bounded transport and identity binding are
-evidence, not sandbox or production authorization.
+The foundation process lane now consumes one active signed
+`first-party.inventory` package. It requires a complete immutable package file
+set and an install receipt bound to the signed release input, binds the
+declared executable through the host, and accepts only the path-redacted
+read-only inventory response. It does not execute third-party code or claim a
+native sandbox. The separate developer-trial invocation remains available for
+local fixture testing and is still test-key-only.
 
 ## Transaction, receipt, and rollback rules
 
@@ -219,18 +216,19 @@ Implementation may proceed only in bounded stages:
    journal/receipt publication, and tamper/conflict rejection. Its tests use
    disposable roots; domain invocation and cross-platform recovery remain
    blocked.
-5. **Implemented as a native test-helper slice:** fixture-only first-party
-   invocation/not-executed module contract plus an explicit-feature Cargo helper
+5. **Implemented as a native host slice:** first-party invocation contract,
+   exact executable identity, bounded process I/O, and an explicit-feature Cargo helper
    transport. The helper slice proves bounded JSON framing, exact cleared
    environment names, an explicit working directory, concurrent output drains,
    fail-closed output ceilings, Unix inheritable-descriptor refusal, and Unix
-   process-group timeout teardown including a sleeping descendant. It does not
-   execute a module or provide a core API. Same-open-handle identity and
-   non-authorizing Linux/Windows spawn leases are implemented for guarded test
-   builds; macOS binding, descriptor/handle-audit races, Windows production Job
-   control, core module-host integration, and platform sandbox/capability
-   isolation remain open. A separate schema-1 production assessment records the
-   complete gate set but cannot authorize execution.
+   process-group timeout teardown including a sleeping descendant. The helper
+   remains test-only; the signed v0 module host is the separate product path.
+   Same-open-handle identity and non-authorizing Linux/Windows spawn leases are
+   implemented for guarded test builds; macOS path revalidation is used by the
+   v0 host, while descriptor/handle-audit races, Windows production Job control,
+   and platform sandbox/capability isolation remain open. A separate schema-1
+   production assessment records the complete general gate set but does not
+   authorize broader execution.
 6. **Implemented as a developer-only signed artifact trial:** the explicit
    `modules install --developer-trial` path stages one local read-only
    first-party package after test-key verification, held source identity
@@ -238,22 +236,28 @@ Implementation may proceed only in bounded stages:
    publication, and post-copy byte verification. It leaves the installed
    registry unchanged and grants no activation or execution authority. The
    signed test key remains a fixture trust root only.
-7. Separately approved release/distribution work.
-8. Third-party threat model and governance last.
+7. **Implemented as a bounded macOS signed lifecycle v0:** the explicit
+   `modules install --signed` path publishes one inactive first-party inventory
+   record, and foundation-owned enable/disable/update/invoke/uninstall/recover
+   operations bind exact plans, receipts, quarantine, and recovery. This is a
+   caller-selected local release-key path, not a bundled production trust root,
+   public distribution channel, or native sandbox.
+8. Separately approved release/distribution, key custody, provenance, and
+   revocation work.
+9. Third-party threat model and governance last.
 
 See [`module-process-protocol.md`](module-process-protocol.md) for the schema-1
 preview and its no-execution response boundary.
 
-The stage-3/4 filesystem writes and stage-5 helper launch still exist only in
-integration-test support, require marked/prefixed direct OS-temp children, and
-are removed by test cleanup. The test-child model is compiled only under an
-explicit feature. The developer trial is the first bounded core write path for
-module bytes, but it is deliberately not installed-registry publication,
-activation, module execution, production trust, or public distribution. The
-separately reviewed leftovers exact-file lane is not module execution or
-staging: it only moves one runtime.zero-owned module-store file through the
-receipt-bound foundation quarantine executor after exact confirmation. Each
-stage must preserve a no-execution product mode and stop before the next gate.
+The stage-3/4 filesystem writes and the explicit-feature helper launch remain
+test support. The developer trial remains a no-registry local fixture path.
+The signed lifecycle v0 is the first bounded core write and execution path for
+one macOS package; it still stops before public distribution, native sandbox,
+third-party trust, and the remaining cross-platform gates. The separately
+reviewed leftovers exact-file lane is not module execution or staging: it only
+moves one runtime.zero-owned module-store file through the receipt-bound
+foundation quarantine executor after exact confirmation. Each stage must
+preserve a no-execution product mode and stop before the next gate.
 Destructive cleanup, credential/session handling, persistence, account actions,
 production deployment, and recurring automation remain outside this design
 without explicit approval.

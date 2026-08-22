@@ -14,6 +14,8 @@ pub struct ModuleRegistryReport {
     pub schema_version: u16,
     pub runtime: RuntimeSummary,
     pub core: Vec<ModuleManifest>,
+    pub built_in_capabilities: Vec<ModuleManifest>,
+    pub built_in_state: BTreeMap<String, bool>,
     pub installed_modules: Vec<ModuleManifest>,
     pub planned_module_families: Vec<ModuleManifest>,
     pub validation_reports: Vec<ManifestValidationReport>,
@@ -33,6 +35,10 @@ impl ModuleRegistryReport {
     fn from_reports(mut validation_reports: Vec<ManifestValidationReport>) -> Self {
         flag_duplicate_installed_ids(&mut validation_reports);
         let core = core_foundation_manifests();
+        let built_in_capabilities = crate::builtin_modules::builtin_manifests();
+        let built_in_state = crate::builtin_modules::load_enabled_state(None)
+            .map(|(state, _)| state)
+            .unwrap_or_default();
         let installed_modules = valid_installed_modules(&validation_reports);
         let planned_module_families = planned_module_family_manifests();
 
@@ -41,15 +47,18 @@ impl ModuleRegistryReport {
             runtime: RuntimeSummary::current(),
             summary: RegistrySummary {
                 core_count: core.len(),
+                built_in_capability_count: built_in_capabilities.len(),
                 installed_module_count: installed_modules.len(),
                 planned_family_count: planned_module_families.len(),
                 validation_error_count: count_validation_errors(&validation_reports),
             },
             core,
+            built_in_capabilities,
+            built_in_state,
             installed_modules,
             planned_module_families,
             validation_reports,
-            safety_note: "No optional feature modules are bundled or executed by default.",
+            safety_note: "Seven macOS capability modules are compiled into runtime.zero; optional signed package modules are separate and never auto-installed or auto-executed.",
         }
     }
 }
@@ -78,6 +87,7 @@ impl RuntimeSummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RegistrySummary {
     pub core_count: usize,
+    pub built_in_capability_count: usize,
     pub installed_module_count: usize,
     pub planned_family_count: usize,
     pub validation_error_count: usize,

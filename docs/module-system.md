@@ -59,20 +59,18 @@ and are not bundled, installed, or executed by default.
 `crates/module-lifecycle/` owns the only schema-1 transition grammar for install,
 activate, invoke, deactivate, repair, migrate, upgrade, and uninstall. Active
 modules must deactivate before upgrade or uninstall. Every mutation remains dry-
-run-only and binds identity, trust, capability, confirmation, transaction,
-rollback, and where required process-isolation gates. Modules supply domain
-behavior; they must not implement lifecycle state machines, cancellation
-engines, registries, receipts, or transaction coordinators. See
+rollback, and where required process-isolation gates. The bounded v0 executor
+uses that grammar for signed `first-party.inventory` on macOS; other module
+families remain review/planning-only. Modules supply domain behavior; they must
+not implement lifecycle state machines, cancellation engines, registries,
+receipts, or transaction coordinators. See
 [`module-lifecycle-contract.md`](module-lifecycle-contract.md).
 
-Schema 1 currently plans these transitions but does not execute them. The target
-runtime must expose the same foundation-owned transitions through both the TUI
-and CLI: inspect, install, enable, configure, invoke, disable, upgrade, repair,
-migrate, and uninstall. The target command names and state semantics are
-documented in [`engineering-handoff.md`](engineering-handoff.md); they must not
-be advertised as current commands until production lifecycle execution,
-production registry authority, trust, configuration, receipts, recovery, and
-the shared TUI path are implemented together.
+The current CLI exposes the bounded signed v0 path through the foundation. It
+does not claim the target configuration, repair, migration, third-party,
+remote-distribution, or shared-TUI lifecycle surface. The target command names
+and state semantics remain documented in
+[`engineering-handoff.md`](engineering-handoff.md).
 
 ## Current registry surface
 
@@ -89,6 +87,18 @@ rz0 modules install --developer-trial --dry-run <package-dir-or-manifest> \
 rz0 modules install --developer-trial --apply <package-dir-or-manifest> \
   --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> \
   --challenge-issued-unix-seconds <seconds> --confirm '<exact phrase>'
+rz0 modules install --signed --dry-run <package-dir> \
+  --signature <envelope.json> --trusted-test-key <key.json> --store-root <path>
+rz0 modules install --signed --apply <package-dir> \
+  --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> \
+  --challenge-issued-unix-seconds <seconds> --confirm '<exact phrase>'
+rz0 modules enable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules disable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules update --module-id first-party.inventory --package <package-dir> \
+  --signature <envelope.json> --trusted-key <key.json> --store-root <path> --dry-run
+rz0 modules uninstall --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules recover --recovery-id <id> --store-root <path> --dry-run
+rz0 modules invoke --signed --module-id first-party.inventory --store-root <path> --dry-run
 rz0 modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json>
 rz0 modules lifecycle-plan install --dry-run --module-id first-party.inventory --from-state absent --to-state installed_inactive --to-version 0.1.0
 rz0 store plan
@@ -121,10 +131,10 @@ security/integrity, and report/export. Planned entries are not implementations.
 
 `rz0 modules status` is the operator-facing, path-redacted lifecycle view. It
 composes the installed registry, receipt, manifest, and declared package-file
-integrity validators and reports each installed record only when its persisted
-foundation state is `installed_inactive` and the receipt and installed module
-bytes are valid; missing, invalid,
-unreadable, or unsupported evidence produces `degraded`.
+integrity validators and reports an installed record as `installed_inactive` or
+`active` only when its persisted foundation state and installed module bytes are
+valid; missing, invalid, unreadable, or unsupported evidence produces
+`degraded`.
 It also reviews developer-only staging receipts and staged destination bytes as
 a separate `staged_modules` collection. A valid staged entry is `staged`, not
 installed; an invalid receipt or destination is `degraded` in that collection
@@ -132,9 +142,10 @@ and remains operator review evidence only. The status review also binds each
 staged receipt to its immutable committed transaction-journal head and commit
 receipt; missing, tampered, or incomplete transaction evidence is degraded
 instead of being presented as a valid staged module.
-It never reports `active` because module activation and invocation are not
-available in the current product. The command is read-only, does not execute
-module code, and does not treat an installed record as execution authority.
+The bounded macOS `first-party.inventory` record reports activation support and
+invocation readiness only after the explicit signed lifecycle path has been
+validated. Status itself remains read-only, does not execute module code, and
+does not treat an installed record as execution authority.
 `--store-root` is a local read-only inspection override for fixtures and
 support triage.
 
@@ -170,14 +181,15 @@ manifest directory; it rejects absolute paths, traversal, URLs, symlinks,
 reparse points, files over 64 MiB, and manifests with more than 128 listed
 files.
 
-`rz0 modules install --dry-run <package-dir-or-manifest>` is a planner only.
+`rz0 modules install --dry-run <package-dir-or-manifest>` remains a planner for
+untrusted or unsigned package review. The bounded signed v0 installer is the
+explicit `--signed` form described below.
 It accepts a local package directory containing `rz0-module.json`, or a direct
 local manifest path, then reuses manifest and package integrity validation. If
 the package is valid, it reports proposed install state such as the module
 directory, verified files that would be copied later, and the manifest metadata
 that would be recorded later. Every planned action has `would_write: false` in
-JSON output. The command performs no writes and intentionally has no non-dry-run
-form.
+JSON output. The planner itself performs no writes.
 
 The bounded developer trial is the first local write path for module-shaped
 bytes, but it is not production installation:
@@ -207,6 +219,32 @@ module ID, activate or invoke code, and does not establish production trust.
 Without that flag, the developer trial remains staged-only and leaves the
 installed registry unchanged.
 
+The signed v0 path is the first end-user lifecycle write lane. It accepts only
+the source-only, read-only `first-party.inventory` package on macOS, verifies a
+caller-selected non-revoked `first_party_release` key and exact detached
+signature, then uses the foundation store and registry executor:
+
+```bash
+rz0 modules install --signed --dry-run <package-dir> \
+  --signature <envelope.json> --trusted-test-key <key.json> --store-root <path>
+rz0 modules install --signed --apply <package-dir> \
+  --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> \
+  --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase>
+rz0 modules enable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules disable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules update --module-id first-party.inventory --package <package-dir> \
+  --signature <envelope.json> --trusted-key <key.json> --store-root <path> --dry-run
+rz0 modules uninstall --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules recover --recovery-id <id> --store-root <path> --dry-run
+```
+
+Each apply form requires the exact challenge values from its current dry-run.
+Enable publishes `active`; disable returns to `installed_inactive`; update
+requires a newer signed package and keeps it inactive; uninstall moves module
+bytes to quarantine before removing the registry record; recover restores only
+the recorded quarantine directory. No operation deletes unknown or shared
+paths, fetches a package, or runs third-party code.
+
 For the one current lifecycle execution fixture, a promoted inventory package
 may be reviewed and invoked through the explicit developer-only process lane:
 
@@ -224,6 +262,22 @@ the executable through the shared process host and accepts only the
 path-redacted read-only inventory contract. It never activates state, writes a
 lifecycle receipt, invokes third-party code, or provides production sandbox or
 execution authority.
+
+An installed signed v0 package uses the same host through the active lifecycle
+state:
+
+```bash
+rz0 modules invoke --signed --dry-run \
+  --module-id first-party.inventory --store-root <path>
+rz0 modules invoke --signed --apply \
+  --module-id first-party.inventory --store-root <path> \
+  --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase>
+```
+
+Successful signed invocation reports `product_execution_authorized: true` only
+after executable identity revalidation, bounded process execution, and the
+path-redacted read-only inventory response succeed. The host is an identity,
+I/O, timeout, and environment boundary, not a native macOS sandbox.
 
 `rz0 modules trust verify` is a separate local package-review command. It
 combines exact manifest-byte hashing, declared package-file integrity, and the
@@ -258,23 +312,27 @@ plus the explicit `rz0 store init --dry-run` / `--yes` scaffold gate.
 
 ## First-party module boundary
 
-The foundation is ready for first-module planning only inside a read-only,
-first-party boundary. The first module may rely on manifest validation,
-SHA-256 package integrity checks, dry-run install planning, store plan/status,
-registry/receipt validation, stable JSON output, and TUI inventory/update-action
-surfacing.
+The foundation has one bounded end-user lifecycle inside a read-only,
+first-party boundary: signed `first-party.inventory` packages on macOS may be
+staged, published inactive, enabled, disabled, updated, invoked, quarantined,
+and recovered. Other modules may rely on manifest validation, SHA-256 package
+integrity checks, dry-run install planning, store plan/status,
+registry/receipt validation, stable JSON output, and foundation review
+surfacing, but they do not gain this executor automatically.
 
-Starting module work does not approve module execution, real install/update/
-uninstall behavior, third-party trust, production signing, release/package publishing,
-remote fetch, bootstrap/direct-run commands, cleanup, repair, or broad system
-mutation. See [`foundation-readiness.md`](foundation-readiness.md) for the
-handoff gate and acceptance checklist.
+The v0 path does not approve third-party trust, remote fetch, bootstrap/direct-
+run commands, cleanup, repair, or broad system mutation. The caller-supplied
+release key is a local explicit trust document; production key custody,
+provenance, rotation/revocation, public distribution, and native sandboxing
+remain open. See [`foundation-readiness.md`](foundation-readiness.md) for the
+remaining acceptance gates.
 
 The schema-1 output from `rz0 scan --dry-run --format json` is the live,
 path-redacted core inventory contract. The `modules/inventory/` workspace
-library supplies fixture-backed and live read-only collectors and is now a
-built-in core dependency. Its separate development binary and lifecycle
-manifest remain unpublished and uninstalled. See
+library supplies fixture-backed and live read-only collectors and is also
+embedded as a built-in core adapter. Its source manifest is explicitly
+`source_only_module`; a signed package is a separate release artifact and is
+not inferred from the embedded adapter. See
 [`inventory-schema.md`](inventory-schema.md).
 
 `modules/report-export/` is also a development-only `planned` source package. It
@@ -322,23 +380,18 @@ trust, capability, transaction, privacy, recovery, CLI, JSON, and TUI treatment.
 
 ## Trust model
 
-The current implementation does not execute optional modules. The core embeds
-only the inventory package's library as a bounded read adapter and owns a narrow
-manager-update executor; neither is module lifecycle execution. First-party
-modules should later be signed and explicitly installed or enabled. The
-foundation verifies local SHA-256 checksums, and a separate workspace contract
-can verify detached Ed25519 signatures against caller-selected public test keys.
-That test-only verifier is not integrated with installation and does not make a
-production or network trust decision. A separate fixture-only process protocol
-requires exact receipt metadata, least-privilege read grants, a cleared bounded
-environment allowlist, and a `not_executed` module response. An explicit Cargo
-feature launches only a Cargo-built test helper under guarded OS-temp roots to
-exercise transport failure behavior; no inventory/report/domain module
-execution path is implemented. Opened-artifact spawn leases exist for Linux and Windows test-host builds; the
-core updater now consumes the Linux native-ELF lease, while macOS/Windows
-production binding, capability isolation, and platform runtime proof remain
-blocked. Third-party modules are expected eventually, but only
-after a hardened trust model covering signing, provenance, sandboxing,
-permissions, revocation, and abuse cases. The required staged gate is documented
-in [`module-trust-and-execution.md`](module-trust-and-execution.md); current
-source packages do not bypass it.
+The current implementation executes one optional module path: a signed,
+read-only `first-party.inventory` package on macOS after explicit install and
+enable. The core also embeds the inventory library as a bounded built-in read
+adapter, and owns a separate narrow manager-update executor. The module path
+verifies local SHA-256 checksums and detached Ed25519 metadata, binds the exact
+declared executable through the foundation process host, clears the child
+environment to an allowlist, bounds time/I/O, and validates only the
+path-redacted read-only inventory response. A separate fixture-only process
+protocol remains available for transport contract tests. The host is not a
+native sandbox, and third-party modules remain blocked. Caller-selected release
+keys are explicit local trust documents for this v0 path; production key
+custody, provenance, rotation/revocation, public distribution, and abuse
+handling remain open. The remaining gates are documented in
+[`module-trust-and-execution.md`](module-trust-and-execution.md); source
+packages do not bypass them.

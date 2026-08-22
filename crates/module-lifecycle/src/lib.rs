@@ -29,6 +29,7 @@ pub enum ModuleLifecycleOperation {
     Migrate,
     Upgrade,
     Uninstall,
+    Recover,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
@@ -227,6 +228,12 @@ fn validate_transition(plan: &ModuleLifecyclePlan, errors: &mut Vec<String>) {
                 && plan.from_version.is_some()
                 && plan.to_version.is_none()
         }
+        Operation::Recover => {
+            plan.from_state == State::Quarantined
+                && plan.to_state == State::InstalledInactive
+                && plan.from_version.is_some()
+                && same_version
+        }
     };
     if !valid {
         errors.push("operation uses an unsafe or impossible lifecycle transition".to_string());
@@ -260,7 +267,11 @@ fn expected_gates(operation: ModuleLifecycleOperation) -> &'static [LifecycleFou
             Gate::Transaction,
             Gate::Trust,
         ],
-        Operation::Install | Operation::Repair | Operation::Upgrade | Operation::Uninstall => &[
+        Operation::Install
+        | Operation::Repair
+        | Operation::Upgrade
+        | Operation::Uninstall
+        | Operation::Recover => &[
             Gate::ArtifactIdentity,
             Gate::CapabilityPolicy,
             Gate::Confirmation,
@@ -321,6 +332,7 @@ fn operation_name(operation: ModuleLifecycleOperation) -> &'static str {
         ModuleLifecycleOperation::Migrate => "migrate",
         ModuleLifecycleOperation::Upgrade => "upgrade",
         ModuleLifecycleOperation::Uninstall => "uninstall",
+        ModuleLifecycleOperation::Recover => "recover",
     }
 }
 

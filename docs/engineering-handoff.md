@@ -10,12 +10,12 @@
 ## Read this first
 
 `runtime.zero` is active pre-alpha development. It is not a supported release,
-and the production module lifecycle is still planning-only. A bounded
-developer-only signed staging trial now exists for local read-only
-first-party artifacts. Its ordinary form deliberately does not publish
-installed state or activate/execute modules; an explicit promotion form now
-publishes one test-key-only `installed_inactive` record for local lifecycle
-fixture testing, still without activation or invocation. The current source
+and the general module lifecycle remains incomplete. A bounded macOS signed v0
+path now exists for the read-only `first-party.inventory` package: it can
+publish an inactive registry record, enable/disable, update, invoke through the
+foundation host, quarantine/uninstall, and recover with exact confirmations.
+The developer-only signed staging trial and test-key-only promotion remain
+available as separate fixture lanes. The current source
 snapshot is the `main` branch at the updater/TUI implementation commit recorded
 in [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
@@ -242,38 +242,29 @@ semantics must remain stable:
   compatibility, interruption handling, and rollback/recovery. Startup must
   never perform them implicitly.
 
-The enable/disable/configure command shape is illustrative, not current CLI
-behavior. The one current process-backed exception is the explicit
-developer-trial inventory invocation:
+The general configure/repair/migrate command shape remains illustrative. The
+current bounded CLI lifecycle is:
 
 ~~~text
 rz0 modules list --all
 rz0 modules inspect <module-id>
 rz0 modules install <package> --dry-run
 rz0 modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state>
-rz0 modules invoke --developer-trial --dry-run --module-id first-party.inventory --store-root <path>
 rz0 modules enable <module-id> --dry-run
-rz0 modules enable <module-id> --confirm <exact-phrase>
 rz0 modules disable <module-id> --dry-run
-rz0 modules disable <module-id> --confirm <exact-phrase>
-rz0 modules configure <module-id> --dry-run
-rz0 modules update <module-id> --dry-run
-rz0 modules repair <module-id> --dry-run
+rz0 modules update <module-id> --dry-run --package <package-dir> --signature <envelope.json> --trusted-key <key.json>
 rz0 modules uninstall <module-id> --dry-run
+rz0 modules recover --recovery-id <id> --dry-run
+rz0 modules invoke --signed --dry-run --module-id first-party.inventory --store-root <path>
 ~~~
 
-These commands must not be added as cosmetic aliases before the production
-lifecycle runtime, registry authority, trust, configuration, receipts,
-recovery, and TUI flows can support them. The current repository exposes listing, validation,
-read-only lifecycle status, store inspection, installation planning, and this
-one explicitly bounded developer-trial inventory invocation. It does not yet
-expose these mutating module lifecycle commands. The invocation lane revalidates
-complete package evidence, binds the Rust executable through the shared process
-host, and accepts only the path-redacted read-only inventory contract; it does
-not activate state, write a lifecycle receipt, execute third-party code, or
-grant production authority. `modules status`
-is deliberately not an enable/activate alias: it reports registry/receipt
-evidence and keeps execution unavailable.
+Only `first-party.inventory` on macOS is currently wired to these mutating
+commands. Every apply form rebuilds the exact plan and requires the matching
+challenge. The invocation lane revalidates complete package evidence, binds
+the declared executable through the shared process host, and accepts only the
+path-redacted read-only inventory contract. It does not execute third-party
+code or claim a native sandbox. `modules status` remains read-only and reports
+the resulting inactive/active/degraded evidence.
 
 The current `modules lifecycle-plan` command is a bounded review renderer for
 the crate-owned schema-1 transition grammar. It is not one of the mutating

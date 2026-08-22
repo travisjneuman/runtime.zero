@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 
 pub const INSTALLED_REGISTRY_SCHEMA_VERSION: u16 = 1;
 pub const INSTALLED_MODULE_LIFECYCLE_STATE: &str = "installed_inactive";
+pub const ACTIVE_MODULE_LIFECYCLE_STATE: &str = "active";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -177,7 +178,10 @@ pub fn validate_registry(registry: &InstalledRegistry) -> RegistryValidation {
                 Some(index),
             );
         }
-        if record.lifecycle_state != INSTALLED_MODULE_LIFECYCLE_STATE {
+        if !matches!(
+            record.lifecycle_state.as_str(),
+            INSTALLED_MODULE_LIFECYCLE_STATE | ACTIVE_MODULE_LIFECYCLE_STATE
+        ) {
             push(
                 &mut violations,
                 RegistryViolationCode::InvalidLifecycleState,

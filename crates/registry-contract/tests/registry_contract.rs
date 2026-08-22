@@ -100,7 +100,7 @@ fn reserved_ids_unsafe_receipts_and_version_drift_are_rejected() {
 }
 
 #[test]
-fn lifecycle_state_is_explicit_and_only_installed_inactive_is_publishable() {
+fn lifecycle_state_accepts_installed_inactive_and_active_only() {
     let mut registry = InstalledRegistry {
         schema_version: 1,
         modules: vec![record("first-party.inventory")],
@@ -110,6 +110,9 @@ fn lifecycle_state_is_explicit_and_only_installed_inactive_is_publishable() {
         INSTALLED_MODULE_LIFECYCLE_STATE
     );
     registry.modules[0].lifecycle_state = "active".to_string();
+    let validation = validate_registry(&registry);
+    assert!(validation.valid, "active modules are lifecycle-publishable");
+    registry.modules[0].lifecycle_state = "mystery".to_string();
     let validation = validate_registry(&registry);
     assert!(
         validation

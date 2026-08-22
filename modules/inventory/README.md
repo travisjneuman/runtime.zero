@@ -1,10 +1,11 @@
 # runtime.zero first-party inventory module
 
-This workspace package is the first read-only feature module for
-`runtime.zero`. It is source-available for development and contract validation;
-it is not a published or installed lifecycle package. The `rz0` core embeds its
-library as the built-in read-only collector but does not execute its development
-binary. A small `rz0-inventory-contract` workspace crate shares the
+This workspace package is the source-only read-only feature module for
+`runtime.zero`. The `rz0` foundation embeds its library as a separate built-in
+read adapter, but that adapter is not an installed lifecycle package. A signed
+macOS package can be staged, installed, enabled, invoked, updated,
+quarantined/uninstalled, and recovered through the foundation-owned v0 CLI
+path. A small `rz0-inventory-contract` workspace crate shares the
 JSON model without making this package depend on the core TUI/CLI stack. Core
 maps software records into the path-free `rz0 apps` catalog and deterministic
 identity groups. Source-native bundle/package/desktop/receipt/product identifiers
@@ -67,6 +68,22 @@ current-user identity remain omitted. Raw registry keys,
 credentials, sessions, browser profiles, projects, backups, and unknown user
 data are outside this module's contract.
 
+## End-user lifecycle v0
+
+The source manifest is explicitly `source_only_module`; building this crate does
+not register or install it. A release package must contain `rz0-module.json`,
+the complete declared file set, and `bin/rz0-inventory`, then be signed with an
+approved first-party release key supplied to the CLI. The bounded v0 commands
+are documented in [`../../docs/module-system.md`](../../docs/module-system.md)
+and require an initialized private store plus a fresh exact confirmation for
+every write. The process host accepts only the path-redacted read-only
+inventory response. The host is not a native macOS sandbox.
+
+The committed `tests/fixtures/module-packages/macos-inventory` package is a
+small lifecycle/invocation fixture. It is not a public release artifact or a
+bundled trust root; release distribution, key custody/rotation, provenance,
+revocation, and native sandboxing remain open.
+
 ## Boundaries
 
 The module does not:
@@ -76,13 +93,13 @@ The module does not:
 - invoke package managers or contact a network source;
 - load third-party code;
 - create services, tasks, persistence, or account actions;
-- publish or install itself.
+  - publish or install itself automatically.
 
 Remaining work includes full Windows/Linux runtime proof, broader in-scope
 package/service/persistence sources and live status on every platform, trusted
 publisher/linkage evidence, stronger product identity and
 publisher evidence, final-artifact performance/privacy/accessibility coverage,
-and signed lifecycle integration. See
+and broader release lifecycle integration. See
 [`../../docs/inventory-schema.md`](../../docs/inventory-schema.md) for the shared
 output contract and
 [`../../docs/project-status-and-resumption.md`](../../docs/project-status-and-resumption.md)

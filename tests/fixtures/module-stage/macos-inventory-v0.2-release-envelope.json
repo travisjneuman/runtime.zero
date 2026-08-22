@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "scheme": "ed25519",
+  "key_id": "first-party.release.fixture-v2",
+  "package_id": "first-party.inventory",
+  "package_version": "0.2.0",
+  "manifest_sha256": "b73816de470cca3be67c89855c0d2d1b95fe99e0234bd5a71b122a432c2d3252",
+  "signature_hex": "2aa9b4353fb451216689eeb9a12ea768f432182d55139bc8b0a045dab94180f44aa3474be1bdfde976bcbc879533ffcf8f047976d5cb82bc3c54d92f21143908"
+}

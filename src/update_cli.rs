@@ -110,6 +110,7 @@ struct ParsedArgs {
     action: Option<String>,
     all: bool,
     all_providers: bool,
+    macos_homebrew: bool,
     confirm: Option<String>,
     challenge_issued_unix_seconds: Option<u64>,
     accept_no_rollback: bool,
@@ -135,6 +136,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
         action: None,
         all: false,
         all_providers: false,
+        macos_homebrew: false,
         confirm: None,
         challenge_issued_unix_seconds: None,
         accept_no_rollback: false,
@@ -194,6 +196,7 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             }
             "--all" => parsed.all = true,
             "--all-providers" => parsed.all_providers = true,
+            "--macos" => parsed.macos_homebrew = true,
             "--confirm" => {
                 index += 1;
                 parsed.confirm = Some(
@@ -343,8 +346,11 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
                     .to_string(),
             );
         }
-        if !parsed.probe && !parsed.all_providers {
-            return Err("--apply requires an explicit live --probe or --all-providers".to_string());
+        if !parsed.probe && !parsed.all_providers && !parsed.macos_homebrew {
+            return Err(
+                "--apply requires an explicit live --probe, --macos, or --all-providers"
+                    .to_string(),
+            );
         }
         if !parsed.allow_network_write {
             return Err("--apply requires --allow-network-write".to_string());
@@ -378,8 +384,11 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
     if parsed.probe && parsed.manager_output.is_some() {
         return Err("--probe cannot be combined with --manager-output".to_string());
     }
-    if parsed.allow_network_read && !parsed.probe && !parsed.all_providers {
-        return Err("--allow-network-read requires --probe or --all-providers".to_string());
+    if parsed.allow_network_read && !parsed.probe && !parsed.all_providers && !parsed.macos_homebrew
+    {
+        return Err(
+            "--allow-network-read requires --probe, --macos, or --all-providers".to_string(),
+        );
     }
     if parsed.allow_network_write && !parsed.apply {
         return Err("--allow-network-write requires --apply".to_string());
@@ -402,9 +411,27 @@ fn parse_args(args: &[String]) -> Result<ParsedArgs, String> {
             || parsed.manager.is_some()
             || parsed.executable.is_some()
             || parsed.probe
+            || parsed.macos_homebrew
         {
             return Err(
                 "--all-providers is a live system-provider probe and cannot be combined with a fixture, manager selection, or --probe details"
+                    .to_string(),
+            );
+        }
+    }
+    if parsed.macos_homebrew {
+        if !cfg!(target_os = "macos") {
+            return Err("--macos is supported only on macOS".to_string());
+        }
+        if parsed.fixture.is_some()
+            || parsed.manager_output.is_some()
+            || parsed.manager.is_some()
+            || parsed.executable.is_some()
+            || parsed.probe
+            || parsed.all_providers
+        {
+            return Err(
+                "--macos is a live Homebrew lane and cannot be combined with fixture, manager, executable, probe, or --all-providers details"
                     .to_string(),
             );
         }
@@ -656,6 +683,34 @@ fn universal_provider_command(allow_network_read: bool) -> ParsedArgs {
         action: None,
         all: false,
         all_providers: true,
+        macos_homebrew: false,
+        confirm: None,
+        challenge_issued_unix_seconds: None,
+        accept_no_rollback: false,
+        allow_network_write: false,
+        recovery_status: false,
+        recovery_complete: false,
+        transaction: None,
+        format: OutputFormat::Text,
+    }
+}
+
+fn macos_homebrew_command(allow_network_read: bool) -> ParsedArgs {
+    ParsedArgs {
+        fixture: None,
+        manager_output: None,
+        manager: None,
+        executable: None,
+        probe: false,
+        allow_network_read,
+        dry_run: true,
+        plan: false,
+        queue: false,
+        apply: false,
+        action: None,
+        all: false,
+        all_providers: false,
+        macos_homebrew: true,
         confirm: None,
         challenge_issued_unix_seconds: None,
         accept_no_rollback: false,
@@ -693,11 +748,52 @@ pub(crate) fn collect_universal_update_plan_cancellable(
     Ok((scan, plan))
 }
 
+pub(crate) fn collect_macos_homebrew_update_plan_cancellable(
+    allow_network_read: bool,
+    cancellation: Option<&CancellationToken>,
+) -> Result<(UniversalProviderScan, Option<ActionPlan>), String> {
+    let command = ParsedArgs {
+        fixture: None,
+        manager_output: None,
+        manager: None,
+        executable: None,
+        probe: false,
+        allow_network_read,
+        dry_run: true,
+        plan: false,
+        queue: false,
+        apply: false,
+        action: None,
+        all: false,
+        all_providers: false,
+        macos_homebrew: true,
+        confirm: None,
+        challenge_issued_unix_seconds: None,
+        accept_no_rollback: false,
+        allow_network_write: false,
+        recovery_status: false,
+        recovery_complete: false,
+        transaction: None,
+        format: OutputFormat::Text,
+    };
+    let built = build_input_with_cancellation(&command, cancellation)?;
+    let scan = UniversalProviderScan {
+        source_count: built.source_count,
+        source_ok_count: built.source_ok_count,
+        records: built.input.records.clone(),
+        warnings: built.warnings,
+        input: built.input,
+    };
+    let report = classify_updates(&scan.input)?;
+    let plan = build_update_plan_if_candidates(&scan.input, &report)?;
+    Ok((scan, plan))
+}
+
 pub(crate) fn prepare_tui_update(
     action_id: &str,
     cancellation: Option<&CancellationToken>,
 ) -> Result<TuiUpdateChallenge, String> {
-    let command = universal_provider_command(true);
+    let command = macos_homebrew_command(true);
     let built = build_input_with_cancellation(&command, cancellation)?;
     let report = classify_updates(&built.input)?;
     let plan = build_update_plan_if_candidates(&built.input, &report)?
@@ -743,7 +839,7 @@ pub(crate) fn execute_tui_update(
     let response = validate_tui_update_confirmation(&prepared.challenge, phrase, unix_seconds())?;
     let state_root = ensure_update_state_root()?;
     let finding_id = prepared.action.finding_id.clone();
-    let command = universal_provider_command(true);
+    let command = macos_homebrew_command(true);
     execute_update_action(UpdateExecutionRequest {
         state_root: &state_root,
         plan: &prepared.plan,
@@ -794,6 +890,9 @@ fn build_input_with_cancellation(
     command: &ParsedArgs,
     cancellation: Option<&CancellationToken>,
 ) -> Result<BuiltInput, String> {
+    if command.macos_homebrew {
+        return build_macos_homebrew_input(command, cancellation);
+    }
     if command.all_providers {
         return build_all_provider_input(command, cancellation);
     }
@@ -870,6 +969,91 @@ fn build_input_with_cancellation(
         command.probe,
         command.probe && command.allow_network_read,
     ))
+}
+
+fn build_macos_homebrew_input(
+    command: &ParsedArgs,
+    cancellation: Option<&CancellationToken>,
+) -> Result<BuiltInput, String> {
+    if !cfg!(target_os = "macos") {
+        return Err("the macOS Homebrew lane is unavailable on this platform".to_string());
+    }
+    let providers = discover_provider_specs_for_platform("macos")
+        .into_iter()
+        .filter(|provider| {
+            matches!(
+                provider.manager,
+                ManagerKind::HomebrewFormula | ManagerKind::HomebrewCask
+            )
+        })
+        .collect::<Vec<_>>();
+    if providers.is_empty() {
+        return Err(
+            "Homebrew was not found at a supported macOS prefix; install Homebrew or use --fixture"
+                .to_string(),
+        );
+    }
+    let mut records = Vec::new();
+    let mut sources = Vec::new();
+    let mut warnings = Vec::new();
+    let mut source_ok_count = 0usize;
+    for provider in providers {
+        check_cancellation(cancellation)?;
+        match probe_provider_output(&provider, command.allow_network_read, cancellation)
+            .and_then(|(bytes, identity)| parse_provider_records(&provider, &bytes, Some(identity)))
+        {
+            Ok(mut source_records) => {
+                source_ok_count = source_ok_count.saturating_add(1);
+                let candidate_count = source_records.len();
+                records.append(&mut source_records);
+                sources.push(ProviderSourceStatus {
+                    provider: provider.instance_id,
+                    status: "ok".to_string(),
+                    candidate_count,
+                });
+            }
+            Err(error) => {
+                sources.push(ProviderSourceStatus {
+                    provider: provider.instance_id.clone(),
+                    status: "unavailable".to_string(),
+                    candidate_count: 0,
+                });
+                warnings.push(format!(
+                    "{} Homebrew source unavailable: {error}",
+                    provider.manager.id()
+                ));
+            }
+        }
+    }
+    if source_ok_count == 0 {
+        return Err(format!(
+            "Homebrew was found, but no supported Homebrew source completed: {}",
+            warnings.join("; ")
+        ));
+    }
+    records.sort_by(|left, right| left.finding_id.cmp(&right.finding_id));
+    records.dedup_by(|left, right| left.finding_id == right.finding_id);
+    let normalized = serde_json::to_vec(&records)
+        .map_err(|error| format!("normalize Homebrew evidence: {error}"))?;
+    let evidence_digest = sha256(&normalized);
+    Ok(BuiltInput {
+        input: UpdaterFindingInput {
+            schema_version: 1,
+            contract: rz0_module_updater::INPUT_CONTRACT.to_string(),
+            platform: "macos".to_string(),
+            input_evidence_sha256: evidence_digest.clone(),
+            source_id: "system.macos.homebrew".to_string(),
+            source_evidence_sha256: evidence_digest,
+            records,
+        },
+        source_count: sources.len(),
+        source_ok_count,
+        sources,
+        warnings,
+        aggregate: true,
+        live_probe: true,
+        network_read_requested: command.allow_network_read,
+    })
 }
 
 fn build_all_provider_input(
@@ -3584,13 +3768,14 @@ fn usage() -> String {
         "Usage: rz0 updates --dry-run --fixture <updater-evidence.json> [--plan] [--queue] [--format text|json]\n",
         "       rz0 updates --dry-run --manager <manager-id> --manager-output <output> --executable <absolute-path> [--plan] [--queue] [--format text|json]\n",
         "       rz0 updates --dry-run --probe --manager <manager-id> --executable <absolute-path> --allow-network-read [--plan] [--queue] [--format text|json]\n",
+        "       rz0 updates --dry-run --macos --allow-network-read [--plan] [--queue] [--format text|json]\n",
         "       rz0 updates --dry-run --all-providers --allow-network-read [--plan] [--queue] [--format text|json]\n",
         "       rz0 updates --apply --probe --manager <manager-id> --executable <absolute-path> --allow-network-read --allow-network-write (--action <exact-action-id> | --all) [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
         "       rz0 updates --apply --all-providers --allow-network-read --allow-network-write --action <exact-action-id> [--accept-no-rollback] [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n",
         "       rz0 updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback] [--format text]\n",
         "       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n",
         "       rz0 updates --recovery-complete --transaction <transaction-id> [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n\n",
-        "--all-providers performs a provider-driven live review of installed system managers, language/package environments, known self-updaters, and declared application update metadata. On macOS this includes Homebrew formulae/casks, Apple Software Update, npm global prefixes, pip, RubyGems, rustup, uv, Grok, Hermes, oh-my-pi, crates.io Cargo installs, Warp's standalone signed CLI store, Electron/Squirrel GitHub metadata, and observed Sparkle channels when present; missing, delegated, observed-only, and unsupported providers remain explicit. --apply performs a fresh availability probe, requires explicit network-write approval and exact interactive confirmation, runs the native manager command, and verifies the result. Elevated managers use non-interactive /usr/bin/sudo; authenticate with sudo before invoking rz0. Known self-updaters may replace their launcher during a successful update. --recovery-status is read-only; --recovery-complete may append only the exact final local journal commit for a verified receipt and never reruns a manager."
+        "--macos is the focused Homebrew formula/cask lane for daily macOS use. It discovers Homebrew at the supported Apple Silicon or Intel prefix, performs an explicit read-only availability review, and keeps the exact action plan available for one-item confirmation. --all-providers performs a broader provider-driven live review of installed system managers, language/package environments, known self-updaters, and declared application update metadata. Missing, delegated, observed-only, and unsupported providers remain explicit. --apply performs a fresh availability probe, requires explicit network-write approval and exact interactive confirmation, runs the native manager command, and verifies the result. Elevated managers use non-interactive /usr/bin/sudo; authenticate with sudo before invoking rz0. Known self-updaters may replace their launcher during a successful update. --recovery-status is read-only; --recovery-complete may append only the exact final local journal commit for a verified receipt and never reruns a manager."
     )
     .to_string()
 }

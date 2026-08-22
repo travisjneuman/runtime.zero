@@ -117,8 +117,10 @@ families; it cannot authorize an action. Updater and uninstall now turn selected
 live evidence into shared findings/plans, while leftovers/cache expose bounded
 read-only evidence and integrity remains caller-baseline-only with a bounded
 exact-file adapter. The only current non-updater process execution is the
-explicit developer-trial first-party inventory lane; it is path-redacted,
-test-key-only, non-sandboxed, and non-authorizing. `crates/confirmation-contract/` owns
+signed macOS `first-party.inventory` v0 lane; it is path-redacted,
+non-sandboxed, and authorizes only the active package after exact host checks.
+The explicit developer-trial lane remains test-key-only and non-authorizing.
+`crates/confirmation-contract/` owns
 exact short-lived interactive plan binding,
 response digests, and single-use consumption evidence without execution
 authority. `crates/error-contract/` owns stable machine codes and conservative privacy/retry
@@ -248,7 +250,7 @@ verified immutable package -> production trust/provenance
 
 Schema 1 deliberately cannot authorize that flow.
 
-The eventual enabled-module flow adds a foundation-owned lifecycle step before
+The bounded enabled-module flow adds a foundation-owned lifecycle step before
 the domain flow:
 
 ```text
@@ -257,5 +259,6 @@ verified package -> install/registry receipt -> explicit enable
 -> shared evidence/plan/action pipeline -> explicit disable or uninstall
 ```
 
-This is an architectural target, not a claim that `rz0 modules enable`,
-`disable`, or module execution exists today.
+This is implemented only for the signed macOS `first-party.inventory` v0 path;
+configuration, third-party distribution, native sandboxing, and other module
+families remain architectural targets.

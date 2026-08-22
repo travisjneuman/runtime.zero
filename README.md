@@ -132,6 +132,12 @@ for the complete product horizon and shift plan.
 - `core.policy` defines shared safety metadata and executable action gates.
 - `core.registry` lists core primitives and explicitly installed modules.
 
+The manifest now distinguishes `built_in_capability` from
+`source_only_module`. Core manifests such as `core.inventory` are compiled
+foundation capabilities; `first-party.inventory` is source-only even though
+the foundation embeds its library as a bounded read adapter. An embedded
+adapter is not an installed lifecycle package.
+
 **Implementation standard:** a feature is `implemented` only when its normal
 user path is callable, its result is observable, and its failure/recovery path
 is tested. A schema, fixture parser, dry-run planner, or preview is a
@@ -180,12 +186,9 @@ rz0 modules install --dry-run path/to/module-package
 ```
 
 Module validation and installation planning remain local and bounded. The
-current module planner does not fetch, trust, activate, or run module code;
-normal module installation writes remain a separate production lifecycle
-implementation and must not be confused with manager update execution. A
-developer-only trial can now stage one locally selected, read-only,
-first-party package after exact manifest/package-file verification and
-detached test-key verification:
+unsigned planner does not fetch, trust, activate, or run module code. The
+developer trial remains a local test-key staging lane. The first end-user
+exception is a signed, read-only `first-party.inventory` package on macOS:
 
 ```bash
 rz0 modules install --developer-trial --dry-run path/to/module-package \
@@ -194,30 +197,48 @@ rz0 modules install --developer-trial --dry-run path/to/module-package \
   --store-root path/to/initialized-runtime-zero-store
 ```
 
-The explicit apply form requires the dry-run challenge phrase and stages only
+The developer apply form requires the dry-run challenge phrase and stages only
 runtime.zero-owned bytes with transaction/receipt evidence. It leaves the
-installed registry unchanged, never activates or executes the module, and is
-not a production installer. For local lifecycle testing only, add
+installed registry unchanged. For local lifecycle testing only, add
 `--developer-promote` to the dry-run and apply forms; the same test-key-only
 transaction then publishes one `installed_inactive` registry record plus a
 separate install receipt. Promotion still never activates, invokes, or grants
-production trust to module code. Target commands such as
-`rz0 modules enable`, `disable`, `configure`, `repair`, and `uninstall` are not
-current commands until production lifecycle execution, trust, receipts,
-recovery, capability enforcement, and the shared TUI path are implemented
-together.
+production trust to module code. The signed release form is:
+
+```bash
+rz0 modules install --signed --dry-run path/to/module-package \
+  --signature path/to/release-envelope.json \
+  --trusted-test-key path/to/release-key.json \
+  --store-root path/to/initialized-runtime-zero-store
+rz0 modules install --signed --apply path/to/module-package \
+  --signature path/to/release-envelope.json \
+  --trusted-test-key path/to/release-key.json \
+  --store-root path/to/initialized-runtime-zero-store \
+  --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase>
+rz0 modules enable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules disable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules update --module-id first-party.inventory --package <path> \
+  --signature <envelope.json> --trusted-key <key.json> --store-root <path> --dry-run
+rz0 modules uninstall --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules recover --recovery-id <id> --store-root <path> --dry-run
+```
+
+Each apply form rebuilds its current plan and requires the exact challenge.
+Only this macOS inventory package is wired to the v0 executor; release
+distribution, key custody/rotation, native sandboxing, third-party modules,
+and other provider/module families remain open.
 
 `rz0 modules status` is the path-redacted read-only lifecycle surface. It
-reports installed records as `installed_inactive` only when registry, receipt,
-manifest, and declared package-file evidence is valid, reports missing or
-invalid evidence as `degraded`. It separately reports valid developer-stage
+reports installed records as `installed_inactive` or `active` only when
+registry, receipt, manifest, and declared package-file evidence is valid,
+reports missing or invalid evidence as `degraded`. It separately reports valid developer-stage
 receipts and verified staged bytes as `staged`; staged bytes are not installed,
 active, discoverable, or executable. A developer promotion instead appears as
 `installed_inactive` only when its registry, install receipt, manifest, and
 package bytes are valid. The staged review binds each stage receipt to its
 immutable committed transaction journal and commit receipt; missing or
-tampered transaction evidence is `degraded`. It never claims `active` or
-authorizes module execution. `--store-root` accepts a local fixture store root
+tampered transaction evidence is `degraded`. It never authorizes module
+execution by itself. `--store-root` accepts a local fixture store root
 for bounded support review and does not initialize or modify it.
 
 The dry-run planner also reports future local store and CLI/TUI routing
@@ -271,32 +292,34 @@ lifecycle activation, or production support. See
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).
 
 A separate `crates/module-trust/` contract now verifies local detached Ed25519
-signatures with public test keys only. The developer-trial module staging path
-uses that proof plus same-open-handle package reads, private store roots,
-explicit confirmation, immutable transaction snapshots, byte verification,
-and a stage receipt; it does not publish installed state, activate, or execute
-modules. Production signing, revocation, sandboxing, and release distribution
-remain open. Schema-1 staging plans and integration-test-only OS-temp helpers
+signatures. The developer-trial module staging path uses test-key proof plus
+same-open-handle package reads, private store roots, explicit confirmation,
+immutable transaction snapshots, byte verification, and a stage receipt; it
+does not publish installed state, activate, or execute modules. The signed v0
+path uses an explicit first-party release-key document for one macOS inventory
+package and adds foundation-owned registry, enable/disable, update, invocation,
+quarantine, and recovery execution. Production key custody, revocation,
+provenance, native sandboxing, and release distribution remain open. Schema-1
+staging plans and integration-test-only OS-temp helpers
 also exercise atomic staging and quarantine/restore failure semantics; the foundation-owned `rz0-quarantine`
 crate now provides a narrow receipt-bound mover with cancellation and
 post-move recovery classification. The leftovers CLI is the first non-updater
 consumer, but only for one explicitly supplied module-store file after an
 exact short-lived confirmation; domain-wide ownership/action wiring remains
-separate. A separate schema-1 process protocol keeps module execution
-unauthorized.
-The first bounded outer exception is an explicit developer-trial invocation of
-a promoted `first-party.inventory` package:
+separate. A separate schema-1 process protocol remains a non-authorizing test
+contract. The signed lifecycle invocation is:
 
 ```bash
-rz0 modules invoke --developer-trial --dry-run \
+rz0 modules invoke --signed --dry-run \
   --module-id first-party.inventory --store-root path/to/initialized-store
 ```
 
 After the exact short-lived challenge is re-entered with `--apply`, runtime.zero
-binds the package's declared Rust executable to the shared process host and
+binds the package's declared executable to the shared process host and
 accepts only a path-redacted, read-only inventory response. This lane is
-test-key-only, does not activate or mutate registry state, does not execute
-third-party modules, and is not a production sandbox or public execution API.
+available only after explicit enable, does not execute third-party modules, and
+is not a native sandbox or public distribution API. The developer-trial
+invocation remains available separately for promoted local fixtures.
 An explicit-feature integration lane executes only a Cargo-built test helper to
 exercise bounded JSON framing, environment clearing, output draining, timeout
 kill/reap, and fail-closed errors; it is not linked to the core or inventory

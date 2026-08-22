@@ -408,14 +408,14 @@ fn modules_status_reports_valid_installed_modules_as_inactive() {
     assert_eq!(value["contract"], "module_lifecycle_status");
     assert_eq!(value["read_only"], true);
     assert_eq!(value["writes_attempted"], false);
-    assert_eq!(value["lifecycle_execution_available"], false);
+    assert_eq!(value["lifecycle_execution_available"], true);
     assert_eq!(value["product_execution_authorized"], false);
     assert_eq!(value["registry_state"], "valid");
     assert_eq!(value["receipt_state"], "valid");
     assert_eq!(value["inactive_module_count"], 1);
     assert_eq!(value["degraded_module_count"], 0);
     assert_eq!(value["modules"][0]["state"], "installed_inactive");
-    assert_eq!(value["modules"][0]["activation_supported"], false);
+    assert_eq!(value["modules"][0]["activation_supported"], true);
     assert_eq!(value["modules"][0]["invocation_supported"], false);
     assert!(!out.contains("/Users/"));
     assert!(!out.contains(&store_root));

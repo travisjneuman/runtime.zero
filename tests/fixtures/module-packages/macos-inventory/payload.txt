@@ -1,0 +1,1 @@
+runtime.zero signed macOS inventory fixture payload

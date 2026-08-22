@@ -6,6 +6,7 @@
   "publisher": "runtime.zero",
   "kind": "first_party_module",
   "status": "planned",
+  "availability": "source_only_module",
   "summary": "Read-only PATH, known-tool, and platform inventory evidence.",
   "capabilities": [
     "process-path-inventory",

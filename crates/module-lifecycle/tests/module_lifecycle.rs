@@ -188,7 +188,11 @@ fn gates(operation: Operation) -> Vec<Gate> {
             Gate::Transaction,
             Gate::Trust,
         ],
-        Operation::Install | Operation::Repair | Operation::Upgrade | Operation::Uninstall => vec![
+        Operation::Install
+        | Operation::Repair
+        | Operation::Upgrade
+        | Operation::Uninstall
+        | Operation::Recover => vec![
             Gate::ArtifactIdentity,
             Gate::CapabilityPolicy,
             Gate::Confirmation,

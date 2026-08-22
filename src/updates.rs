@@ -93,6 +93,44 @@ pub(crate) fn collect_live_update_review_cancellable(
     })
 }
 
+pub(crate) fn collect_macos_homebrew_update_review_cancellable(
+    catalog: &AppCatalog,
+    cancellation: Option<&CancellationToken>,
+) -> Result<LiveUpdateReview, String> {
+    let (scan, plan) =
+        crate::update_cli::collect_macos_homebrew_update_plan_cancellable(true, cancellation)?;
+    let mut candidates = scan
+        .records
+        .into_iter()
+        .filter(|record| {
+            record.installed && record.manager_record_present && record.update_available
+        })
+        .filter_map(|record| software_update_from_record(catalog, record))
+        .collect::<Vec<_>>();
+    candidates.sort_by(|left, right| {
+        left.software_id
+            .cmp(&right.software_id)
+            .then_with(|| left.available_version.cmp(&right.available_version))
+    });
+    candidates.dedup_by(|left, right| left.finding_id == right.finding_id);
+    Ok(LiveUpdateReview {
+        catalog: LiveUpdateCatalog {
+            schema_version: 1,
+            contract: UPDATE_CATALOG_CONTRACT,
+            checked: true,
+            read_only: true,
+            writes_attempted: false,
+            network_read_requested: true,
+            source_count: scan.source_count,
+            source_ok_count: scan.source_ok_count,
+            candidate_count: candidates.len(),
+            candidates,
+            warnings: scan.warnings.into_iter().take(MAX_WARNINGS).collect(),
+        },
+        plan,
+    })
+}
+
 fn software_update_from_record(
     catalog: &AppCatalog,
     record: rz0_module_updater::UpdateRecord,

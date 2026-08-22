@@ -58,7 +58,7 @@ const TRANSACTIONS_DIRECTORY: &str = "transactions";
 const RECEIPTS_DIRECTORY: &str = "receipts";
 const INSTALL_RECEIPT_PREFIX: &str = "install-";
 const MAX_TRUST_DOCUMENT_BYTES: u64 = rz0_resource_contract::MAX_SMALL_DOCUMENT_BYTES;
-const STAGE_SAFETY_NOTE: &str = "Developer-only local staging or promotion; test-key trust, activation, invocation, network fetch, and production release authority remain disabled.";
+const STAGE_SAFETY_NOTE: &str = "Signed local first-party staging; only the release-key macOS inventory path may publish an inactive module, and activation, invocation, network fetch, and host mutation remain separately gated.";
 const REDACTED_SOURCE_MANIFEST: &str = "<local-package>/rz0-module.json";
 const MAX_STAGING_RECEIPTS: usize = 64;
 
@@ -76,6 +76,15 @@ pub enum DeveloperStageMode {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeveloperStageRequest {
+    pub package_path: PathBuf,
+    pub signature_path: PathBuf,
+    pub trusted_key_path: PathBuf,
+    pub store_root: PathBuf,
+    pub mode: DeveloperStageMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedStageRequest {
     pub package_path: PathBuf,
     pub signature_path: PathBuf,
     pub trusted_key_path: PathBuf,
@@ -199,6 +208,8 @@ struct PreparedStage {
     install_receipt_bytes: Option<Vec<u8>>,
     commit_receipt_relative: String,
     publish_installed: bool,
+    developer_only: bool,
+    test_key_only: bool,
 }
 
 struct StageFileContent {
@@ -207,10 +218,34 @@ struct StageFileContent {
 }
 
 pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStageReport {
+    stage_report(request, false)
+}
+
+pub fn signed_stage_report(request: &SignedStageRequest) -> DeveloperStageReport {
+    let internal = DeveloperStageRequest {
+        package_path: request.package_path.clone(),
+        signature_path: request.signature_path.clone(),
+        trusted_key_path: request.trusted_key_path.clone(),
+        store_root: request.store_root.clone(),
+        mode: request.mode.clone(),
+    };
+    stage_report(&internal, true)
+}
+
+fn stage_report(
+    request: &DeveloperStageRequest,
+    allow_first_party_release_key: bool,
+) -> DeveloperStageReport {
     let source_manifest_path = resolve_manifest_path(&request.package_path);
-    let prepared = match prepare_stage(request, &source_manifest_path) {
+    let prepared = match prepare_stage(
+        request,
+        &source_manifest_path,
+        allow_first_party_release_key,
+    ) {
         Ok(prepared) => prepared,
-        Err(failure) => return failure.into_report(&source_manifest_path),
+        Err(failure) => {
+            return failure.into_report(&source_manifest_path, allow_first_party_release_key);
+        }
     };
 
     let (challenge, full_challenge, is_apply, publish_installed) = match &request.mode {
@@ -252,7 +287,7 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
                 return prepared.report(
                     source_manifest_path,
                     false,
-                    true,
+                    false,
                     *publish_installed,
                     false,
                     None,
@@ -291,7 +326,7 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
             return prepared.report(
                 source_manifest_path,
                 false,
-                true,
+                false,
                 publish_installed,
                 false,
                 Some(challenge),
@@ -310,7 +345,7 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
             Some(challenge),
             Vec::new(),
             vec![format!(
-                "developer stage committed as {}",
+                "signed module stage committed as {}",
                 receipt.transaction_id
             )],
         ),
@@ -330,6 +365,7 @@ pub fn developer_stage_report(request: &DeveloperStageRequest) -> DeveloperStage
 fn prepare_stage(
     request: &DeveloperStageRequest,
     source_manifest_path: &Path,
+    allow_first_party_release_key: bool,
 ) -> Result<PreparedStage, StageFailure> {
     let publish_installed = match &request.mode {
         DeveloperStageMode::DryRun { publish_installed }
@@ -373,11 +409,25 @@ fn prepare_stage(
             manifest_validation,
         ));
     }
+    if allow_first_party_release_key
+        && (manifest.id != "first-party.inventory"
+            || !manifest
+                .supported_platforms
+                .iter()
+                .any(|platform| platform == "macos"))
+    {
+        return Err(StageFailure::with_manifest(
+            "first-party release staging is bounded to the macOS first-party.inventory module",
+            manifest_validation,
+        ));
+    }
 
     let envelope = read_json::<SignatureEnvelope>(&request.signature_path, "signature envelope")?;
     let trusted_key = read_json::<TrustedTestKey>(&request.trusted_key_path, "trusted test key")?;
     let signature_verification = verify_detached_signature(&envelope, &trusted_key);
-    if !signature_verification.verified || !signature_verification.test_key_only {
+    if !signature_verification.verified
+        || (!signature_verification.test_key_only && !allow_first_party_release_key)
+    {
         return Err(StageFailure {
             manifest_validation: Some(Box::new(manifest_validation)),
             signature_verification: Some(Box::new(signature_verification)),
@@ -465,6 +515,7 @@ fn prepare_stage(
                 &destination_relative,
                 receipt_path,
                 &manifest_sha256,
+                signature_verification.test_key_only,
             )
         })
         .transpose()
@@ -477,6 +528,7 @@ fn prepare_stage(
         stage_receipt_relative.as_deref(),
         install_receipt_relative.as_deref(),
         &commit_receipt_relative,
+        signature_verification.test_key_only,
     );
     let validation = validate_action_plan(&action_plan);
     if !validation.valid {
@@ -492,7 +544,7 @@ fn prepare_stage(
     Ok(PreparedStage {
         manifest,
         manifest_validation,
-        signature_verification,
+        signature_verification: signature_verification.clone(),
         trusted_key_id: envelope.key_id,
         manifest_sha256,
         files,
@@ -511,9 +563,12 @@ fn prepare_stage(
         install_receipt_bytes,
         commit_receipt_relative,
         publish_installed,
+        developer_only: signature_verification.test_key_only,
+        test_key_only: signature_verification.test_key_only,
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_action_plan(
     plan_id: &str,
     stage_id: &str,
@@ -522,6 +577,7 @@ fn build_action_plan(
     stage_receipt_relative: Option<&str>,
     install_receipt_relative: Option<&str>,
     commit_receipt_relative: &str,
+    test_key_only: bool,
 ) -> ActionPlan {
     let mut write_set = vec![
         WriteSetEntry {
@@ -590,7 +646,11 @@ fn build_action_plan(
             },
         }],
         warnings: vec![
-            "developer-only local stage; test-key trust does not authorize production installation or module execution".to_string(),
+            if test_key_only {
+                "developer-only local stage; test-key trust does not authorize production installation or module execution".to_string()
+            } else {
+                "first-party release-key stage; activation, invocation, and host mutation remain separately gated".to_string()
+            },
             if install_receipt_relative.is_some() {
                 "developer promotion publishes installed_inactive state only; activation and invocation remain disabled".to_string()
             } else {
@@ -606,6 +666,7 @@ fn build_install_receipt(
     destination_relative: &str,
     receipt_relative: &str,
     manifest_sha256: &str,
+    test_key_only: bool,
 ) -> Result<Vec<u8>, String> {
     let mut write_set = vec![serde_json::json!({
         "path": destination_relative,
@@ -631,8 +692,8 @@ fn build_install_receipt(
             "version": manifest.version
         },
         "source": {
-            "source_type": "local_developer_trial",
-            "package_reference": "test-key-signed-local-package"
+            "source_type": if test_key_only { "local_developer_trial" } else { "first_party_release" },
+            "package_reference": if test_key_only { "test-key-signed-local-package" } else { "first-party-release-signed-local-package" }
         },
         "target": {
             "module_dir": destination_relative,
@@ -656,10 +717,10 @@ fn build_install_receipt(
         }
     });
     let mut bytes = serde_json::to_vec(&value)
-        .map_err(|error| format!("serialize developer install receipt: {error}"))?;
+        .map_err(|error| format!("serialize signed module install receipt: {error}"))?;
     bytes.push(b'\n');
     if bytes.len() as u64 > MAX_TRUST_DOCUMENT_BYTES {
-        return Err("developer install receipt exceeds the foundation ceiling".to_string());
+        return Err("signed module install receipt exceeds the foundation ceiling".to_string());
     }
     Ok(bytes)
 }
@@ -938,15 +999,15 @@ fn apply_stage(
                 .map(|file| file.metadata.clone())
                 .collect(),
             lifecycle_state: "staged".to_string(),
-            developer_only: true,
-            test_key_only: true,
+            developer_only: prepared.developer_only,
+            test_key_only: prepared.test_key_only,
             activation_authorized: false,
             invocation_authorized: false,
             product_execution_authorized: false,
             writes_attempted: true,
         };
         let mut stage_receipt_bytes = serde_json::to_vec(&stage_receipt)
-            .map_err(|error| format!("serialize developer stage receipt: {error}"))?;
+            .map_err(|error| format!("serialize signed module stage receipt: {error}"))?;
         stage_receipt_bytes.push(b'\n');
         let staging_receipts = state
             .open_or_create_child_directory(OsStr::new(STAGING_RECEIPTS_DIRECTORY))
@@ -974,7 +1035,7 @@ fn apply_stage(
                 &stage_receipt_bytes,
                 MAX_TRUST_DOCUMENT_BYTES,
             )
-            .map_err(|error| format!("publish developer stage receipt: {error}"))?;
+            .map_err(|error| format!("publish signed module stage receipt: {error}"))?;
         let receipt_verified = append(
             &receipt_intent,
             write_event(
@@ -1060,10 +1121,14 @@ impl PreparedStage {
         warnings.extend(self.action_plan.warnings.clone());
         DeveloperStageReport {
             schema_version: 1,
-            contract: "developer_module_stage",
+            contract: if self.developer_only {
+                "developer_module_stage"
+            } else {
+                "signed_module_stage"
+            },
             valid,
-            developer_only: true,
-            test_key_only: true,
+            developer_only: self.developer_only,
+            test_key_only: self.test_key_only,
             dry_run: !apply,
             writes_attempted: apply,
             product_execution_authorized: false,
@@ -1122,13 +1187,21 @@ impl StageFailure {
         }
     }
 
-    fn into_report(self, _source_manifest_path: &Path) -> DeveloperStageReport {
+    fn into_report(
+        self,
+        _source_manifest_path: &Path,
+        allow_first_party_release_key: bool,
+    ) -> DeveloperStageReport {
         DeveloperStageReport {
             schema_version: 1,
-            contract: "developer_module_stage",
+            contract: if allow_first_party_release_key {
+                "signed_module_stage"
+            } else {
+                "developer_module_stage"
+            },
             valid: false,
-            developer_only: true,
-            test_key_only: true,
+            developer_only: !allow_first_party_release_key,
+            test_key_only: !allow_first_party_release_key,
             dry_run: true,
             writes_attempted: false,
             product_execution_authorized: false,
@@ -1444,8 +1517,7 @@ fn review_staged_module(
     if receipt.lifecycle_state != "staged" {
         errors.push("staging_lifecycle_state_invalid");
     }
-    if !receipt.developer_only
-        || !receipt.test_key_only
+    if receipt.developer_only != receipt.test_key_only
         || receipt.activation_authorized
         || receipt.invocation_authorized
         || receipt.product_execution_authorized
@@ -1674,6 +1746,11 @@ fn write_relative_file(root: &SecureDirectory, relative: &str, bytes: &[u8]) -> 
             rz0_resource_contract::MAX_ARTIFACT_BYTES,
         )
         .map_err(|error| format!("write staged package file: {error}"))?;
+    if relative.starts_with("bin/") {
+        directory
+            .mark_child_executable(OsStr::new(file_name))
+            .map_err(|error| format!("mark staged executable: {error}"))?;
+    }
     Ok(())
 }
 
@@ -1845,6 +1922,7 @@ mod tests {
             Some("state/staging-receipts/module-stage-demo.json"),
             None,
             "state/receipts/module-stage-demo.json",
+            true,
         );
         let validation = validate_action_plan(&plan);
         assert!(validation.valid, "{:?}", validation.errors);

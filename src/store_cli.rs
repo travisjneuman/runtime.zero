@@ -29,6 +29,7 @@ struct StoreStatusOptions {
 struct StoreInitCliOptions {
     format: OutputFormat,
     mode: StoreInitMode,
+    store_root: Option<PathBuf>,
 }
 
 pub fn store_command(args: &[String]) -> (ExitCode, String, String) {
@@ -90,6 +91,7 @@ fn parse_store_status_args(args: &[String]) -> Result<StoreAction, String> {
 fn parse_store_init_args(args: &[String]) -> Result<StoreAction, String> {
     let mut format = OutputFormat::Text;
     let mut mode = None;
+    let mut store_root = None;
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
@@ -104,6 +106,14 @@ fn parse_store_init_args(args: &[String]) -> Result<StoreAction, String> {
             "--dry-run" | "--yes" => {
                 return Err("store init accepts only one of --dry-run or --yes".to_string());
             }
+            "--store-root" => {
+                let value = args.get(index + 1).ok_or_else(|| usage_error(args))?;
+                if store_root.is_some() {
+                    return Err("store root override was provided more than once".to_string());
+                }
+                store_root = Some(resolve_store_root_override(value)?);
+                index += 1;
+            }
             _ => return Err(usage_error(args)),
         }
         index += 1;
@@ -114,7 +124,11 @@ fn parse_store_init_args(args: &[String]) -> Result<StoreAction, String> {
             brand::COMMAND
         )
     })?;
-    Ok(StoreAction::Init(StoreInitCliOptions { format, mode }))
+    Ok(StoreAction::Init(StoreInitCliOptions {
+        format,
+        mode,
+        store_root,
+    }))
 }
 
 fn render_store_plan(format: OutputFormat, args: &[String]) -> (ExitCode, String, String) {
@@ -140,7 +154,11 @@ fn render_store_status(options: StoreStatusOptions, args: &[String]) -> (ExitCod
 }
 
 fn render_store_init(options: StoreInitCliOptions, args: &[String]) -> (ExitCode, String, String) {
-    let report = store_init_report(args, StoreInitOptions::new(options.mode));
+    let init_options = match options.store_root {
+        Some(root) => StoreInitOptions::with_store_root(options.mode, root),
+        None => StoreInitOptions::new(options.mode),
+    };
+    let report = store_init_report(args, init_options);
     let code = if report.status.is_blocked() {
         ExitCode::Usage
     } else {
@@ -197,7 +215,7 @@ fn usage_error(args: &[String]) -> String {
 
 fn store_usage() -> String {
     format!(
-        "Usage: {} store plan [--format json]\n       {} store status [--store-root <path>] [--format json]\n       {} store init --dry-run [--format json]\n       {} store init --yes [--format json]\n\nSafety: store status and plan are read-only; store init writes only with explicit --yes.\n",
+        "Usage: {} store plan [--format json]\n       {} store status [--store-root <path>] [--format json]\n       {} store init --dry-run [--store-root <path>] [--format json]\n       {} store init --yes [--store-root <path>] [--format json]\n\nSafety: store status and plan are read-only; store init writes only with explicit --yes to the selected local store root.\n",
         brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,

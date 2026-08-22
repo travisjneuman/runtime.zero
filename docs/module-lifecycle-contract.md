@@ -18,6 +18,7 @@ Allowed transitions are:
 - migrate: installed/inactive → installed/inactive at the same version;
 - upgrade: installed/inactive → installed/inactive at a different version;
 - uninstall: installed/inactive → absent.
+- recover: quarantined → installed/inactive at the same version.
 
 Active modules must deactivate before upgrade or uninstall. Every mutation
 requires exact artifact identity, capability policy, trust, confirmation,
@@ -46,21 +47,53 @@ integrity, trust/revocation, dependencies, conflicts, platform support,
 effective capabilities, configuration, and pending recovery. Startup must not
 implicitly enable, migrate, repair, upgrade, or uninstall a module.
 
-The current implementation only plans these transitions. The production
-executable lifecycle, registry authority, TUI/CLI controls, and disabled-work
-guarantee are P0 work for the end-state platform. See
+The current v0 implementation executes one bounded end-user path outside the
+TUI: a signed, read-only `first-party.inventory` package on macOS. Foundation
+execution owns the store, registry, receipts, plan-bound confirmation,
+quarantine, and recovery. It does not fetch releases, accept third-party
+modules, or imply a general-purpose module sandbox. See
 [`engineering-handoff.md`](engineering-handoff.md) for the target command shape
-and the shift sequence.
+and the remaining release evidence.
 
-Schema-1 developer promotion now persists the foundation-owned
-`lifecycle_state: "installed_inactive"` field in each installed registry
-record. The registry accepts no other explicit lifecycle state; this records
-verified installation posture and cannot authorize activation, invocation, or a
-domain action. Newly generated install receipts carry the same lifecycle state
-plus explicit false activation/invocation authority flags; an explicit active
-receipt fails receipt validation. Activation remains unavailable until the
-production trust, capability, isolation, receipt, and recovery gates are
-implemented.
+## Bounded macOS lifecycle v0
+
+The source-only `first-party.inventory` package can be installed/staged with a
+caller-selected first-party release key, inspected through `modules status`,
+enabled, disabled, updated to a newer signed package, invoked through the
+foundation process host while active, uninstalled into quarantine, and
+recovered from its recorded recovery ID. Every apply command first rebuilds the
+current plan and requires the exact five-minute confirmation phrase from its
+dry-run response. JSON reports distinguish `read_only`, `writes_attempted`,
+`product_execution_authorized`, state transitions, receipts, and exact errors.
+
+The supported command shape is:
+
+```text
+rz0 modules install --signed --dry-run <package-dir> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path>
+rz0 modules install --signed --apply <package-dir> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <phrase>
+rz0 modules status --store-root <path> --format json
+rz0 modules enable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules disable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules update --module-id first-party.inventory --package <package-dir> --signature <envelope.json> --trusted-key <key.json> --store-root <path> --dry-run
+rz0 modules invoke --signed --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules uninstall --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules recover --recovery-id <id> --store-root <path> --dry-run
+```
+
+`--apply` is available for each planned mutating operation with its matching
+challenge values. The v0 release-key input is an explicit local trust
+document, not a bundled production root: release distribution, key custody,
+rotation/revocation, provenance transparency, native sandboxing, and the
+other module families remain open.
+
+Developer promotion persists the foundation-owned
+`lifecycle_state: "installed_inactive"` field for local test-key staging. The
+signed v0 path also publishes `lifecycle_state: "active"` only after an exact
+enable confirmation; the registry accepts these two explicit states and no
+other arbitrary value. Install receipts still carry explicit false
+activation/invocation authority flags. The v0 process host authorizes only the
+active, signed macOS inventory package and does not provide a general module
+sandbox or third-party execution path.
 
 The core module-install dry-run now embeds the canonical foundation install
 transition instead of maintaining a private lifecycle model. No lifecycle plan

@@ -1,5 +1,6 @@
 pub mod apps;
 pub mod brand;
+pub mod builtin_modules;
 pub mod cache;
 pub mod color_mode;
 pub mod completions;
@@ -17,6 +18,7 @@ pub mod leftovers;
 pub mod module_cli;
 pub mod module_install_plan;
 pub mod module_invoke;
+pub mod module_lifecycle_exec;
 pub mod module_manifest;
 pub mod module_registry;
 pub mod module_stage;
@@ -77,23 +79,47 @@ where
         Some("--version" | "-V" | "version") => (ExitCode::Ok, version_text(), String::new()),
         Some("doctor") => doctor_command(&args[1..]),
         Some("config") => configuration_cli::configuration_command(&args[1..]),
-        Some("apps") => apps::apps_command(&args[1..]),
-        Some("cache") => cache::cache_command(&args[1..]),
-        Some("leftovers") => leftovers::leftovers_command(&args[1..]),
+        Some("apps") => {
+            gated_builtin_command("first-party.inventory", || apps::apps_command(&args[1..]))
+        }
+        Some("cache") => {
+            gated_builtin_command("first-party.cache", || cache::cache_command(&args[1..]))
+        }
+        Some("leftovers") => gated_builtin_command("first-party.leftovers", || {
+            leftovers::leftovers_command(&args[1..])
+        }),
         Some("recovery") => recovery_cli::recovery_command(&args[1..]),
         Some("restore") => restore_cli::restore_command(&args[1..]),
-        Some("integrity") => integrity::integrity_command(&args[1..]),
-        Some("uninstall") => apps::uninstall_command(&args[1..]),
+        Some("integrity") => gated_builtin_command("first-party.security-integrity", || {
+            integrity::integrity_command(&args[1..])
+        }),
+        Some("uninstall") => gated_builtin_command("first-party.uninstall", || {
+            apps::uninstall_command(&args[1..])
+        }),
         Some("completions") => completions::completions_command(&args[1..]),
         Some("modules") => module_cli::modules_command(&args[1..]),
         Some("store") => store_cli::store_command(&args[1..]),
-        Some("scan") => scan_command(&args[1..]),
+        Some("scan") => gated_builtin_command("first-party.inventory", || scan_command(&args[1..])),
         Some("monitor") => system_monitor::monitor_command(&args[1..]),
         Some("toolchain") => toolchain::toolchain_command(&args[1..]),
-        Some("report") => report::report_command(&args[1..]),
+        Some("report") => gated_builtin_command("first-party.report-export", || {
+            report::report_command(&args[1..])
+        }),
         Some("release") => release_cli::release_command(&args[1..]),
-        Some("updates") => update_cli::updates_command(&args[1..]),
+        Some("updates") => gated_builtin_command("first-party.updater", || {
+            update_cli::updates_command(&args[1..])
+        }),
         Some(command) => unknown_command(command),
+    }
+}
+
+fn gated_builtin_command(
+    module_id: &str,
+    command: impl FnOnce() -> (ExitCode, String, String),
+) -> (ExitCode, String, String) {
+    match builtin_modules::require_enabled(module_id, None) {
+        Ok(()) => command(),
+        Err(error) => (ExitCode::Usage, String::new(), format!("{error}\n")),
     }
 }
 
@@ -185,6 +211,15 @@ pub fn help_text() -> String {
     );
     if let Some(index) = help.find("\n\nFoundation safety posture:") {
         help.insert_str(index, &format!("\n{module_status_usage}"));
+    }
+    let module_lifecycle_usage = format!(
+        "  {} modules builtin <install|enable|disable|update|uninstall> --module-id <id> --dry-run|--apply [--store-root <path>] [--format text|json]\n  {} modules enable|disable|update|uninstall --module-id first-party.inventory --store-root <path> --dry-run|--apply ...\n  {} modules recover --recovery-id <id> --store-root <path> --dry-run|--apply ...\n",
+        brand::COMMAND,
+        brand::COMMAND,
+        brand::COMMAND,
+    );
+    if let Some(index) = help.find("\n\nFoundation safety posture:") {
+        help.insert_str(index, &format!("\n{module_lifecycle_usage}"));
     }
     let module_trust_usage = format!(
         "  {} modules trust verify --manifest <manifest.json> --signature <envelope.json> --trusted-test-key <key.json> [--format text|json]\n",

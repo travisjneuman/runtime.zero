@@ -29,6 +29,15 @@ fn validates_read_only_unexecuted_inventory_protocol() {
 }
 
 #[test]
+fn verified_first_party_release_metadata_is_accepted_for_the_same_read_only_plan() {
+    let mut plan = valid_plan();
+    plan.signature.test_key_only = false;
+    plan.signature.key_id = "first-party.release.fixture-v2".to_string();
+    let validation = validate_invocation_plan(&plan);
+    assert!(validation.valid, "{:?}", validation.errors);
+}
+
+#[test]
 fn rejects_authorization_mutation_network_environment_and_limit_drift() {
     let plan: InvocationPlan =
         serde_json::from_str(include_str!("fixtures/invalid-authorized-plan.json"))

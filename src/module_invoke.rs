@@ -1,4 +1,4 @@
-//! Developer-only first-party module invocation.
+//! Foundation-owned first-party module invocation.
 //!
 //! This is the first process-backed lifecycle slice. It resolves one installed
 //! `first-party.inventory` record, revalidates its manifest and complete file
@@ -32,6 +32,7 @@ use sha2::{Digest, Sha256};
 
 pub const DEVELOPER_INVOCATION_SCHEMA_VERSION: u16 = 1;
 pub const DEVELOPER_INVOCATION_CONTRACT: &str = "developer_module_invocation";
+pub const SIGNED_INVOCATION_CONTRACT: &str = "signed_module_invocation";
 const INVENTORY_MODULE_ID: &str = "first-party.inventory";
 const INVENTORY_EXECUTABLE: &str = "bin/rz0-inventory";
 const INVENTORY_EXECUTABLE_WINDOWS: &str = "bin/rz0-inventory.exe";
@@ -50,6 +51,13 @@ pub enum DeveloperInvocationMode {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeveloperInvocationRequest {
+    pub module_id: String,
+    pub store_root: PathBuf,
+    pub mode: DeveloperInvocationMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedInvocationRequest {
     pub module_id: String,
     pub store_root: PathBuf,
     pub mode: DeveloperInvocationMode,
@@ -115,9 +123,25 @@ struct PreparedInvocation {
 pub fn developer_invocation_report(
     request: &DeveloperInvocationRequest,
 ) -> DeveloperInvocationReport {
+    invocation_report(request, true)
+}
+
+pub fn signed_invocation_report(request: &SignedInvocationRequest) -> DeveloperInvocationReport {
+    let internal = DeveloperInvocationRequest {
+        module_id: request.module_id.clone(),
+        store_root: request.store_root.clone(),
+        mode: request.mode.clone(),
+    };
+    invocation_report(&internal, false)
+}
+
+fn invocation_report(
+    request: &DeveloperInvocationRequest,
+    developer_trial: bool,
+) -> DeveloperInvocationReport {
     let dry_run = matches!(request.mode, DeveloperInvocationMode::DryRun);
-    let mut report = empty_report(&request.module_id, dry_run);
-    let prepared = match prepare_invocation(request) {
+    let mut report = empty_report(&request.module_id, dry_run, developer_trial);
+    let prepared = match prepare_invocation(request, developer_trial) {
         Ok(prepared) => prepared,
         Err(error) => {
             report.errors.push(error);
@@ -129,7 +153,11 @@ pub fn developer_invocation_report(
     report.plan_id = Some(prepared.plan.request_id.clone());
     report.plan_sha256 = Some(prepared.plan_sha256.clone());
     report.warnings.extend([
-        "developer-only first-party inventory invocation; product execution authorization remains disabled".to_string(),
+        if developer_trial {
+            "developer-only first-party inventory invocation; product execution authorization remains disabled".to_string()
+        } else {
+            "first-party release-key inventory invocation; only the active macOS module may execute".to_string()
+        },
         "process containment is bounded transport, not a filesystem, network, privilege, syscall, or sandbox boundary".to_string(),
         "no module activation or registry mutation was performed".to_string(),
     ]);
@@ -283,11 +311,16 @@ pub fn developer_invocation_report(
     }
     report.status = DeveloperInvocationStatus::Success;
     report.inventory = Some(inventory);
+    report.developer_trial = developer_trial;
+    report.product_execution_authorized = !developer_trial;
     report.valid = true;
     report
 }
 
-fn prepare_invocation(request: &DeveloperInvocationRequest) -> Result<PreparedInvocation, String> {
+fn prepare_invocation(
+    request: &DeveloperInvocationRequest,
+    developer_trial: bool,
+) -> Result<PreparedInvocation, String> {
     if request.module_id != INVENTORY_MODULE_ID {
         return Err("developer invocation supports only first-party.inventory".to_string());
     }
@@ -310,13 +343,19 @@ fn prepare_invocation(request: &DeveloperInvocationRequest) -> Result<PreparedIn
         .ok_or_else(|| {
             "first-party.inventory is not installed in the selected store".to_string()
         })?;
-    if !record
-        .receipt_path
-        .starts_with(DEVELOPER_TRIAL_RECEIPT_PREFIX)
+    if developer_trial
+        && !record
+            .receipt_path
+            .starts_with(DEVELOPER_TRIAL_RECEIPT_PREFIX)
     {
         return Err(
             "installed module receipt is not a developer-trial promotion receipt".to_string(),
         );
+    }
+    if !developer_trial
+        && record.lifecycle_state != rz0_registry_contract::ACTIVE_MODULE_LIFECYCLE_STATE
+    {
+        return Err("first-party.inventory must be enabled before signed invocation".to_string());
     }
     let receipt = store
         .receipts
@@ -391,6 +430,7 @@ fn prepare_invocation(request: &DeveloperInvocationRequest) -> Result<PreparedIn
         executable_size_bytes,
         &manifest_path,
         &environment,
+        developer_trial,
     )?;
     let plan_bytes = serde_json::to_vec(&plan)
         .map_err(|error| format!("serialize developer invocation plan: {error}"))?;
@@ -413,6 +453,7 @@ fn build_invocation_plan(
     executable_size_bytes: u64,
     manifest_path: &Path,
     environment: &[(String, String)],
+    developer_trial: bool,
 ) -> Result<InvocationPlan, String> {
     let manifest_sha256 = sha256_file(manifest_path)?;
     let allowed_names = environment
@@ -441,8 +482,13 @@ fn build_invocation_plan(
         },
         signature: SignatureBinding {
             verified: true,
-            test_key_only: true,
-            key_id: "developer-trial".to_string(),
+            test_key_only: developer_trial,
+            key_id: if developer_trial {
+                "developer-trial"
+            } else {
+                "first-party-release"
+            }
+            .to_string(),
             manifest_sha256,
         },
         limits: ProcessLimits {
@@ -533,14 +579,22 @@ fn invocation_challenge(
     }
 }
 
-fn empty_report(module_id: &str, dry_run: bool) -> DeveloperInvocationReport {
+fn empty_report(
+    module_id: &str,
+    dry_run: bool,
+    developer_trial: bool,
+) -> DeveloperInvocationReport {
     DeveloperInvocationReport {
         schema_version: DEVELOPER_INVOCATION_SCHEMA_VERSION,
-        contract: DEVELOPER_INVOCATION_CONTRACT,
+        contract: if developer_trial {
+            DEVELOPER_INVOCATION_CONTRACT
+        } else {
+            SIGNED_INVOCATION_CONTRACT
+        },
         valid: false,
         read_only: true,
         writes_attempted: false,
-        developer_trial: true,
+        developer_trial,
         product_execution_authorized: false,
         module_id: module_id.to_string(),
         module_version: None,
@@ -595,6 +649,7 @@ mod tests {
             1024,
             Path::new("tests/fixtures/store-roots/valid-registry-valid-receipt/modules/first-party.inventory/0.1.0/rz0-module.json"),
             &environment,
+            true,
         )
         .expect("read-only developer preview plan");
         assert!(plan.dry_run);

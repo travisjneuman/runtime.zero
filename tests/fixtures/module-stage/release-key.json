@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "scheme": "ed25519",
+  "key_id": "first-party.release.fixture-v2",
+  "purpose": "first_party_release",
+  "public_key_hex": "20b54a2b389489ded6beeb57a578dfe3a19ddcaccda6eab631572998d7a12220",
+  "allowed_package_ids": ["first-party.inventory"],
+  "revoked": false
+}

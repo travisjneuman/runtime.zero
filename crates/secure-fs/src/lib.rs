@@ -206,6 +206,14 @@ impl SecureDirectory {
         Ok(opened)
     }
 
+    /// Marks one already-created regular child as owner-executable without
+    /// reopening its path through an unrestricted filesystem lookup.
+    pub fn mark_child_executable(&self, name: &OsStr) -> Result<(), SecureFsError> {
+        validate_child_name(name)?;
+        platform::mark_child_executable(&self.file, name)?;
+        self.sync()
+    }
+
     pub fn read_child(&self, name: &OsStr, maximum_bytes: u64) -> Result<Vec<u8>, SecureFsError> {
         let opened = self.open_child_file(name)?;
         if opened.metadata.len() > maximum_bytes {
@@ -433,6 +441,35 @@ mod platform {
             0,
             "open child file relative to held parent",
         )
+    }
+
+    pub fn mark_child_executable(parent: &File, name: &OsStr) -> Result<(), SecureFsError> {
+        let name = child_c_string(name)?;
+        // SAFETY: parent is a held directory and name is one validated
+        // component. The descriptor is owned immediately by File.
+        let descriptor = unsafe {
+            libc::openat(
+                parent.as_raw_fd(),
+                name.as_ptr(),
+                libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+            )
+        };
+        if descriptor == -1 {
+            return Err(io_error(
+                "open child for executable permission",
+                std::io::Error::last_os_error(),
+            ));
+        }
+        // SAFETY: descriptor was opened successfully and is now owned by File.
+        let file = unsafe { File::from_raw_fd(descriptor) };
+        if unsafe { libc::fchmod(file.as_raw_fd(), 0o700) } != 0 {
+            return Err(io_error(
+                "mark child executable",
+                std::io::Error::last_os_error(),
+            ));
+        }
+        file.sync_all()
+            .map_err(|error| io_error("sync executable child", error))
     }
 
     pub fn open_or_create_lock_file(parent: &File, name: &OsStr) -> Result<File, SecureFsError> {
@@ -784,6 +821,10 @@ mod platform {
             FILE_OPTIONS,
             "open Windows child file relative to held parent",
         )
+    }
+
+    pub fn mark_child_executable(_parent: &File, _name: &OsStr) -> Result<(), SecureFsError> {
+        Ok(())
     }
 
     pub fn open_or_create_lock_file(parent: &File, name: &OsStr) -> Result<File, SecureFsError> {
@@ -1419,6 +1460,9 @@ mod platform {
         unsupported()
     }
     pub fn open_child_file(_parent: &File, _name: &OsStr) -> Result<File, SecureFsError> {
+        unsupported()
+    }
+    pub fn mark_child_executable(_parent: &File, _name: &OsStr) -> Result<(), SecureFsError> {
         unsupported()
     }
     pub fn open_or_create_lock_file(_parent: &File, _name: &OsStr) -> Result<File, SecureFsError> {

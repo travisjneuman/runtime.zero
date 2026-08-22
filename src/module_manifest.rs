@@ -22,6 +22,13 @@ pub enum ModuleStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
+pub enum ModuleAvailability {
+    BuiltInCapability,
+    SourceOnlyModule,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum RiskLevel {
     None,
     ReadOnly,
@@ -72,6 +79,8 @@ pub struct ModuleManifest {
     pub publisher: String,
     pub kind: ModuleKind,
     pub status: ModuleStatus,
+    #[serde(default = "default_module_availability")]
+    pub availability: ModuleAvailability,
     pub summary: String,
     pub capabilities: Vec<String>,
     pub supported_platforms: Vec<String>,
@@ -98,6 +107,11 @@ impl ModuleManifest {
         risk_level: RiskLevel,
         safety: ModuleSafety,
     ) -> Self {
+        let availability = if kind == ModuleKind::CoreFoundation {
+            ModuleAvailability::BuiltInCapability
+        } else {
+            ModuleAvailability::SourceOnlyModule
+        };
         Self {
             manifest_version: MODULE_SCHEMA_VERSION,
             id: id.to_string(),
@@ -106,6 +120,7 @@ impl ModuleManifest {
             publisher: publisher.to_string(),
             kind,
             status,
+            availability,
             summary: summary.to_string(),
             capabilities: to_strings(capabilities),
             supported_platforms: to_strings(supported_platforms),
@@ -115,6 +130,10 @@ impl ModuleManifest {
             integrity: None,
         }
     }
+}
+
+fn default_module_availability() -> ModuleAvailability {
+    ModuleAvailability::SourceOnlyModule
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]

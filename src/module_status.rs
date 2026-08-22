@@ -10,7 +10,7 @@ use crate::module_stage::{DeveloperStagedModuleStatus, developer_staging_invento
 use crate::module_validation::load_manifest_file;
 use crate::store_status::{StoreOverallState, store_status_report, store_status_report_for_root};
 use rz0_module_lifecycle::ModuleLifecycleState;
-use rz0_registry_contract::INSTALLED_MODULE_LIFECYCLE_STATE;
+use rz0_registry_contract::{ACTIVE_MODULE_LIFECYCLE_STATE, INSTALLED_MODULE_LIFECYCLE_STATE};
 use serde::Serialize;
 
 pub const MODULE_STATUS_SCHEMA_VERSION: u16 = 1;
@@ -112,7 +112,9 @@ pub fn module_status_report_from_store(
         read_only: true,
         writes_attempted: false,
         product_execution_authorized: false,
-        lifecycle_execution_available: false,
+        lifecycle_execution_available: modules
+            .iter()
+            .any(|module| module.activation_supported || module.invocation_supported),
         store_state: store.overall_state,
         registry_state: store.registry.status,
         receipt_state: store.receipts.overall_state,
@@ -127,7 +129,8 @@ pub fn module_status_report_from_store(
         warnings,
         guidance: vec![
             "module status does not install, activate, invoke, repair, migrate, upgrade, or uninstall modules",
-            "lifecycle execution remains unavailable until production trust, capability, isolation, rollback, transaction, and platform gates are implemented",
+            "first-party.inventory supports explicit enable, disable, update, uninstall, and recovery plans on macOS",
+            "each lifecycle mutation rebuilds the exact current plan and requires a short-lived confirmation challenge",
             "use registry, receipt, and module-byte findings as review inputs; do not infer active runtime execution from an installed record",
         ],
         safety_note: SAFETY_NOTE,
@@ -257,9 +260,15 @@ fn valid_record_status(
             version: record.version.clone(),
             state: persisted_module_state(record),
             receipt_state: Some(InstallReceiptState::Valid),
-            activation_supported: false,
-            invocation_supported: false,
-            reason: "installed record, receipt, and module bytes are valid; execution is disabled",
+            activation_supported: record.id == "first-party.inventory" && cfg!(target_os = "macos"),
+            invocation_supported: record.id == "first-party.inventory"
+                && cfg!(target_os = "macos")
+                && persisted_module_state(record) == ModuleLifecycleState::Active,
+            reason: if record.id == "first-party.inventory" && cfg!(target_os = "macos") {
+                "signed macOS inventory module is lifecycle-ready; enable it before invocation"
+            } else {
+                "installed record, receipt, and module bytes are valid; execution is disabled"
+            },
             errors: Vec::new(),
         },
         Some(InstallReceiptState::Valid) => ModuleStatusEntry {
@@ -298,6 +307,8 @@ fn valid_record_status(
 fn persisted_module_state(record: &InstalledRegistryRecordStatus) -> ModuleLifecycleState {
     if record.lifecycle_state == INSTALLED_MODULE_LIFECYCLE_STATE {
         ModuleLifecycleState::InstalledInactive
+    } else if record.lifecycle_state == ACTIVE_MODULE_LIFECYCLE_STATE {
+        ModuleLifecycleState::Active
     } else {
         ModuleLifecycleState::Degraded
     }
@@ -400,7 +411,9 @@ fn status_warnings(
     if !modules.is_empty() {
         warnings.push("installed_modules_are_inactive_until_lifecycle_execution_is_authorized")
     }
-    warnings.push("module_lifecycle_execution_is_unavailable");
+    if !modules.iter().any(|module| module.activation_supported) {
+        warnings.push("bounded_first_party_inventory_lifecycle_is_unavailable_on_this_platform");
+    }
     warnings
 }
 
