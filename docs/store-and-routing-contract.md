@@ -360,8 +360,9 @@ The terminal guard must restore raw mode, cursor visibility, and the normal
 screen on exit or panic unwinding.
 
 The TUI may show built-in bounded software evidence plus foundation store/module
-state. Its five stable destinations are Overview, Explore, Review, Activity,
-and Modules. Installed software remains one canonical evidence source:
+state. Its task-first destinations are Home, Inventory, Evidence, Plan Review,
+Confirmation, and Activity. Installed software remains one canonical evidence
+source:
 each row shows details and only an applicable protected, manager-review,
 quarantine-review, or unsupported uninstall posture. `u` requests provider
 review and `c` enters the same confirmation-bound foundation lane as the CLI,

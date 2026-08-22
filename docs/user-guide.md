@@ -283,22 +283,24 @@ Review even a summary before sharing it.
 
 ## Interactive TUI
 
-The Dossier Queue TUI has five stable destinations: Overview, Explore, Review,
-Activity, and Modules. It renders a loading shell before the local snapshot
-completes; an explicit `r` refresh is the only retry. `u` separately requests
-cancellable provider review, so a slow provider cannot block the ready local
-first screen. `q` cancels in-flight work and rejects late stale results before
-publishing a replacement snapshot.
+The Dossier Queue TUI follows one task workflow: Home, Inventory, Evidence, Plan
+Review, Confirmation, and Activity. It renders a loading shell before the local
+snapshot completes; an explicit `r` refresh is the only retry. `u` separately
+requests cancellable provider review, so a slow provider cannot block the ready
+local first screen. `q` cancels in-flight work and rejects late stale results
+before publishing a replacement snapshot. Module records remain content in the
+queue and evidence index rather than becoming tabs.
 Important controls:
 
 - `r`: refresh local inventory;
 - `u`: scan every discovered provider for availability and potentially read
   network metadata; it never applies an update;
-- `c`: request the foundation confirmation challenge for a selected
-  reviewable action, then enter its exact phrase only if you intend to proceed;
+- `c`: request the foundation confirmation challenge from Plan Review for a
+  selected reviewable action, then enter its exact phrase only if you intend to
+  proceed;
 - `/`: search the current typed evidence set;
 - arrows or `j`/`k`: move; Home/End: boundaries;
-- Tab/Shift+Tab: change focus among routes, records, detail, and footer;
+- Tab/Shift+Tab: change focus among queue, detail, and controls;
   Enter opens detail or the read-only action review;
 - `h`/`?`: help; Esc: back; `q`: quit.
 

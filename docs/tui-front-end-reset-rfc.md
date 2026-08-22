@@ -687,7 +687,8 @@ is a transition mechanism, not a permanent dual-UI architecture.
 ### Gate A — RFC coherence (phase 1)
 
 - [x] dominant mental model and first-screen goal are explicit;
-- [x] five stable destinations and module scaling rule are explicit;
+- [x] the task-first Home → Inventory → Evidence → Plan Review → Confirmation →
+  Activity workflow and module-as-content scaling rule are explicit;
 - [x] typed contribution contract forbids widget/chrome/keymap/authority
   injection;
 - [x] requested Rust boundaries and all required states are defined;
