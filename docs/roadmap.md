@@ -6,7 +6,7 @@ path, production support, or permission to cross a later gate. Windows, macOS,
 Linux, and every frozen 1.0 module family are equal release requirements; see
 [`production-readiness.md`](production-readiness.md).
 
-> **Reviewed 2026-08-21.** The 2026-07-30 pause was superseded by the
+> **Reviewed 2026-08-22.** The 2026-07-30 pause was superseded by the
 > 2026-08-01 TUI, updater, and native-monitor continuation. Resume with
 > [`project-status-and-resumption.md`](project-status-and-resumption.md), which
 > records the current implementation boundary, validation totals, known debts,

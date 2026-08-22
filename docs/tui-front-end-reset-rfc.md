@@ -2,8 +2,8 @@
 
 Status: implemented product and architecture contract; source cutover complete,
 owner/platform acceptance remains open
-Date: 2026-08-21
-Repository baseline: `1049103f1ff4b3f290f9b6f84fd0fdeb04561594` on `main`
+Date: 2026-08-22
+Repository baseline: `eb7178a724063130b02d886879293009fc81dd47` on `main`
 Scope: the Rust terminal UI and its durable product/architecture boundary
 
 This RFC is the reviewable contract for rebuilding the runtime.zero terminal

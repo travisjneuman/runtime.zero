@@ -2,14 +2,14 @@
 
 ## Snapshot identity
 
-- **Reviewed:** 2026-08-21.
+- **Reviewed:** 2026-08-22.
 - **Product status:** active pre-alpha development; not production-ready and not
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `1049103` (`Record final artifact refresh evidence`).
+  `eb7178a724063130b02d886879293009fc81dd47` (`Align TUI documentation with final frontend`).
 - **Current behavior implementation:**
-  `1049103` on `main`, including the Rust-first Dossier Queue TUI, typed
+  `eb7178a724063130b02d886879293009fc81dd47` on `main`, including the Rust-first Dossier Queue TUI, typed
   presentation contract, Rust toolchain contract,
   provider updater adapters, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
@@ -369,6 +369,23 @@ final-artifact PTY cases, package command smoke, and ten-sample schema-3
 performance. TUI startup/refresh p95 was 7,015/741 microseconds on ARM64 and
 13,226/976 microseconds under Rosetta. This is exact local unsigned evidence,
 not signing, target-native runtime, accessibility, or public-release approval.
+
+The current exact-head universal2 package was rebuilt from source commit
+`eb7178a724063130b02d886879293009fc81dd47` at
+`target/release-package-universal2-eb7178a-v2/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
+The independent package verifier passed the exact eight-member contract. Its
+ZIP SHA-256 is
+`4ec85afeb5b48f284050147eeb5995d59714ca8d530b60a35348778c900f8af2` and its
+universal binary SHA-256 is
+`5db1e311a7bb58884f5f696bea64c7f6ab9d3d7746b0c6ab574675069afac2bc`.
+`file` and `lipo` confirmed arm64 plus x86_64 Mach-O slices. Both slices
+passed four PTY terminal cases, extracted-package command smoke, and
+ten-sample schema-3 performance evidence. Performance evidence IDs are
+`perf:universal2-apple-darwin-arm64-5db1e311a7bb` and
+`perf:universal2-apple-darwin-x86_64-5db1e311a7bb`. TUI startup/refresh p95
+was 6,848/261 microseconds on arm64 and 16,019/567 microseconds under
+Rosetta. This artifact remains unsigned and unnotarized and is not a public
+release.
 
 The current release decision remains blocked. On this source head, `doctor`
 reports 6 passing and 4 blocked policy checks; `scan --dry-run` is read-only

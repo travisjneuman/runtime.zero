@@ -4,7 +4,7 @@ This document records what feature work may rely on in the current foundation
 and what still blocks production module or mutation work. It is a maturity gate,
 not a production-ready claim.
 
-The current Rust-first presentation checkpoint is `1049103`. Its typed UI
+The current Rust-first presentation checkpoint is `eb7178a`. Its typed UI
 model is validation-bound to the complete five-route set, one model generation,
 globally unique record/action identities, redacted bounded text, explicit route
 focus semantics, and explicit refresh/failure/recovery transitions. The
@@ -18,7 +18,7 @@ For the current source baseline and validation totals, see
 [`project-status-and-resumption.md`](project-status-and-resumption.md). For all
 remaining 1.0 work, see [`completion-checklist.md`](completion-checklist.md).
 
-## Public contract audit — 2026-08-21
+## Public contract audit — 2026-08-22
 
 The executable dispatch was traced from `src/main.rs` through launch routing and
 `src/lib.rs`. A bare interactive launch enters `src/ui/terminal.rs`; explicit
@@ -105,18 +105,35 @@ Read-only and synthetic module work may continue when it:
 - keeps protected and unknown data blocked;
 - updates CLI/JSON/TUI/docs without implying installation or execution.
 
-## Current write-path exception
+## Current bounded write paths
 
-The core updater and the narrow leftovers exact-file lane are the only domain
-write exceptions. The updater performs a fresh live probe, selects one
-finding-bound plan action, obtains exact short-lived confirmation, publishes
-local durable evidence, invokes one allowlisted manager path through the
-bounded process host, and verifies fresh availability. The leftovers lane
-accepts only one explicitly supplied regular file inside the private module
-store and invokes the receipt-bound quarantine mover after the same kind of
-exact confirmation; it does not discover candidates or recurse.
+The repository contains several deliberately narrow, confirmation-bound write
+paths. They are separate exceptions, not a general mutation authority:
 
-Do not copy or broaden either lane. Before the updater is production-ready it
+- the core updater performs a fresh live probe, selects one finding-bound plan
+  action, obtains exact short-lived confirmation, publishes local durable
+  evidence, invokes one allowlisted manager path through the bounded process
+  host, and verifies fresh availability;
+- exact leftovers and runtime-cache quarantine accept only one explicitly
+  supplied runtime.zero-owned regular file, and exact restore accepts only one
+  validated quarantine record with an unoccupied original destination; these
+  paths do not discover candidates, recurse, or provide permanent deletion;
+- `store init --yes` creates only validated runtime.zero-owned user-local
+  scaffolding;
+- developer-only module staging and promotion accept only local first-party,
+  test-key-bound bytes and publish only `installed_inactive` evidence for
+  lifecycle testing; they do not grant production trust or execution
+  authority;
+- exact manager-native uninstall uses a fresh manager-owned plan, sealed
+  executable identity, explicit destructive confirmation, shared receipts, and
+  fresh post-action verification; it does not provide dependent-package,
+  recursive, rollback, or broad cleanup behavior.
+
+Every listed path remains bounded by foundation identity, capability,
+confirmation, cancellation, transaction, receipt, verification, and recovery
+contracts. No module or presentation layer may copy or broaden one of them.
+
+Do not copy or broaden any listed lane. Before the updater is production-ready it
 still needs:
 
 - opened executable identity bound to the actual spawn;
@@ -127,21 +144,26 @@ still needs:
 - real manager/platform failure, interruption, and power-loss evidence;
 - Windows runtime/ACL/reparse containment proof and broader capability policy.
 
-The other current write surface, `store init --yes`, is limited to validated
-runtime.zero-owned user-local scaffolding and remains blocked on Windows.
-The leftovers lane still needs cross-filesystem, metadata-retention,
-platform-bundle, full recovery, and target-native runtime proof.
+These lanes still need platform-native runtime, failure/interruption/power-loss,
+rollback or recovery, and owner-acceptance evidence before they can be treated
+as production capabilities. `store init --yes` remains blocked on Windows;
+the exact leftovers/cache lanes still need cross-filesystem,
+metadata-retention, platform-bundle, full recovery, and target-native runtime
+proof. The exact manager-native uninstall lane still needs complete manager and
+platform adapter coverage plus dependent-package, rollback, and recovery proof.
 
 ## Still-blocked product work
 
 The current foundation does not authorize:
 
-- module installation, activation, invocation, repair, migration, upgrade,
-  deactivation, or uninstall;
+- production module installation, activation, invocation, repair, migration,
+  upgrade, deactivation, or uninstall; the developer-only test-key staging,
+  promotion, and first-party preview invocation paths remain explicitly
+  non-production and non-authorizing;
 - arbitrary first- or third-party process execution;
-- uninstall, broad leftover/cache, permanent-delete, or integrity remediation
-  writes; the only narrow exception is the confirmation-bound quarantine of one
-  explicitly supplied runtime.zero module-store file;
+- broad uninstall, broad leftover/cache, permanent-delete, or integrity
+  remediation writes; only the exact confirmation-bound paths listed above
+  exist, and none discovers or authorizes a broad cleanup set;
 - broad or domain-discovered quarantine/restore writes. The narrow executor
   requires a caller-provided exact plan and receipt-bound confirmation and does
   not make any module action-ready by itself;
@@ -178,8 +200,9 @@ The current foundation does not authorize:
 ## Current handoff outcome
 
 The foundation is ready for continued bounded read-only/synthetic domain work
-and for hardening the existing updater exception. It is **not** ready for broad
-module execution or another write domain. The next highest-value dependency is
-to close updater/process/filesystem/transaction production gaps, then bind
-uninstall reviews into the same shared pipeline without adding a parallel
-security model.
+and hardening of the existing updater, exact uninstall, quarantine/restore, and
+developer-only lifecycle paths. It is **not** ready for broad module execution
+or production authorization of another write domain. The next highest-value
+dependencies are platform-native runtime evidence, failure/recovery proof,
+rollback semantics, accessibility/terminal acceptance, and release operations,
+without adding a parallel security model.
