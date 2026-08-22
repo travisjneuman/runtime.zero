@@ -72,8 +72,6 @@ rz0 monitor --format text
 rz0 monitor --format json
 rz0 toolchain
 rz0 toolchain --format json
-rz0 aiup
-rz0 aiup --format json
 rz0 updates --dry-run --fixture tests/fixtures/updater/evidence.json --plan --queue --format json
 rz0 updates --dry-run --manager homebrew-formula --manager-output /tmp/out.json --executable /opt/homebrew/bin/brew --plan --queue --format json
 rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --plan --queue --format json
@@ -160,7 +158,7 @@ performs a provider-driven review of installed system managers,
 language/package environments, known self-updaters, and declared application
 update metadata. On macOS this includes Homebrew formulae/casks, MacPorts, Mac
 App Store via `mas` when installed, Apple Software Update, npm prefixes,
-crates.io Cargo installs, AIUP-managed native tools, Warp's standalone signed
+crates.io Cargo installs, Warp's standalone signed
 CLI store, Electron/Squirrel GitHub metadata, and observed Sparkle channels;
 other platforms use the providers native to that host. Missing, delegated,
 observed-only, and unsupported sources remain explicit rather than being

@@ -6,10 +6,9 @@ use rz0_capability_contract::Capability;
 mod adapters;
 
 pub use adapters::{
-    AiupDryRunReport, ManagerKind, ManagerParseContext, ManagerProbeSpec, ProviderProbeSpec,
-    aiup_command_is_delegated, discover_provider_specs_for_platform, dynamic_provider_ids,
-    manager_executable_allowed, manager_probe_specs, manager_probe_specs_for_platform,
-    parse_aiup_dry_run, parse_manager_output,
+    ManagerKind, ManagerParseContext, ManagerProbeSpec, ProviderProbeSpec,
+    discover_provider_specs_for_platform, dynamic_provider_ids, manager_executable_allowed,
+    manager_probe_specs, manager_probe_specs_for_platform, parse_manager_output,
 };
 
 use rz0_finding_contract::{

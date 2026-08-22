@@ -108,7 +108,7 @@ rz0 toolchain --format json
 ```
 
 This is a bounded local snapshot of toolchain records and provider posture. It
-does not invoke AIUP, Cargo, rustup, npm, or another provider, and it never
+does not invoke Cargo, rustup, npm, or another provider, and it never
 installs or updates anything. Provider states remain explicit (`ready`,
 `observed-only`, or a later failed/blocked state) so an observed binary is not
 mistaken for an executable update authority. The TUI Toolchain workspace uses
@@ -116,32 +116,6 @@ the same classification and includes the same bounded known-executable evidence
 as `rz0 scan`; wrapper-like PATH names remain inventory-only. Provider
 availability review remains the separate
 read-only `u`/`rz0 updates --dry-run --all-providers` workflow.
-
-AIUP-managed tools intentionally remain `observed-only` in this snapshot. Their
-presence does not grant runtime.zero AIUP update authority; any later provider
-action must come through the separate bounded plan and confirmation workflow.
-
-### AIUP capability review
-
-```bash
-rz0 aiup
-rz0 aiup --format json
-```
-
-This is the Rust-owned AIUP-facing capability surface. It normalizes local AI
-tool identity, separates the AIUP orchestrator from managed tools, and reports
-which provider boundary needs review. It is intentionally read-only: it does
-not invoke the standalone `aiup` command, install or update tools, configure a
-provider, or write state. Provider actions remain in the shared `rz0 updates`
-plan, confirmation, transaction, and verification path.
-The review consumes the same bounded installed-software and known-executable
-inventory used by `rz0 scan`; exact PATH matches are retained as internal
-evidence and never expose executable paths in this report.
-
-The updater’s AIUP text adapter is fail-closed: it accepts only bounded UTF-8
-dry-run evidence with matching tool boundaries, unique identities, and
-commands contained within the tool that reported them. Malformed or
-unterminated provider output is unavailable rather than an update candidate.
 
 Source identifiers, software names, versions, publishers, and service labels may
 be sensitive even when paths are omitted.
@@ -407,7 +381,7 @@ bundle name identifies its update channel. It probes system managers, global
 language/package environments, and known self-updaters when an exact
 availability/update adapter is available. On this Mac that includes Homebrew,
 Apple Software Update, npm global prefixes, pip, RubyGems, Grok, oh-my-pi, `uv`,
-AIUP-managed native tools, crates.io Cargo installs, Warp's standalone CLI, and
+crates.io Cargo installs, Warp's standalone CLI, and
 declared Electron/Squirrel GitHub release metadata; it also reports Hermes,
 MacPorts, Mac App Store, and Sparkle apps when present. This catches npm-owned
 CLIs such as Codex, Pi, GSD, and Kilo when their actual prefix is discovered.

@@ -38,30 +38,10 @@ fn toolchain_has_a_scriptable_read_only_snapshot_contract() {
     assert_eq!(value["read_only"], true);
     assert_eq!(value["writes_attempted"], false);
     assert!(
-        value["providers"]
-            .as_array()
-            .is_some_and(|providers| { providers.iter().any(|provider| provider["id"] == "aiup") })
+        value["providers"].as_array().is_some_and(|providers| {
+            providers.iter().any(|provider| provider["id"] == "cargo")
+        })
     );
-}
-
-#[test]
-fn aiup_has_a_scriptable_read_only_provider_posture_contract() {
-    let (code, out, err) = run(["aiup", "--format", "json"]);
-    assert_eq!(code, ExitCode::Ok);
-    assert!(err.is_empty());
-    let value: serde_json::Value = serde_json::from_str(&out).expect("AIUP JSON");
-    assert_eq!(value["schema_version"], 1);
-    assert_eq!(value["contract"], "ai_toolchain_snapshot");
-    assert_eq!(value["capability_id"], "first-party.updater.ai-toolchain");
-    assert_eq!(value["read_only"], true);
-    assert_eq!(value["writes_attempted"], false);
-    assert!(value["orchestrator"].is_object());
-    assert!(
-        value["providers"]
-            .as_array()
-            .is_some_and(|providers| { providers.iter().any(|provider| provider["id"] == "aiup") })
-    );
-    assert!(!out.contains("/Users/"));
 }
 
 #[test]
@@ -326,7 +306,6 @@ fn root_help_mentions_store_root_override() {
     assert!(out.contains("--color auto|always|never"));
     assert!(out.contains("rz0 --tui"));
     assert!(out.contains("rz0 apps [--format text|json]"));
-    assert!(out.contains("rz0 aiup [--format text|json]"));
     assert!(out.contains("rz0 uninstall plan <installed-software-id>"));
     assert!(out.contains("rz0 restore --dry-run --plan-id"));
     assert!(out.contains("rz0 recovery --dry-run"));

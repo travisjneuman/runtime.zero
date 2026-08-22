@@ -31,8 +31,7 @@ blocked, stale, and failed are separate states; an empty result is not treated
 as “not loaded.” Provider review is explicit (`u`) and cancellable, so a slow
 provider cannot block the ready local first screen.
 Provider probes run through the Rust process host in a detached Unix session so
-terminal-aware tools such as AIUP cannot reopen `/dev/tty` and overwrite the
-runtime.zero frame.
+provider output cannot reopen `/dev/tty` and overwrite the runtime.zero frame.
 
 ## Workspaces
 
@@ -70,13 +69,11 @@ active-use uncertainty, and integrity posture. This keeps the interface calm
 without hiding information from the keyboard-accessible selected pane or the
 scriptable CLI/JSON surfaces.
 
-Home and Toolchain also expose the Rust-owned AIUP boundary from the same local
-catalog: orchestrator posture, AI-tool count, and provider-review count remain
-visible as a compact summary, while `rz0 aiup --format json` provides the full
-scriptable review. Toolchain rows also include the same bounded named
-executable evidence as `rz0 scan`; unknown or wrapper-like PATH names remain
-observations and do not become provider actions. This is discovery and posture
-only; it does not invoke AIUP or create a second provider action path.
+Home and Toolchain expose bounded provider classification from the same local
+catalog. Toolchain rows include the same bounded named executable evidence as
+`rz0 scan`; unknown or wrapper-like PATH names remain observations and do not
+become provider actions. Provider review remains an explicit read-only updater
+workflow and does not create a second action path.
 
 ## Layout and terminal behavior
 

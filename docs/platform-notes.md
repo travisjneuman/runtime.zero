@@ -40,7 +40,7 @@ The explicit `rz0 updates --dry-run --all-providers --allow-network-read` lane
 resolves provider ownership and adds bounded live availability probes for
 Homebrew formulae and casks (greedy cask mode), MacPorts, Mac App Store `mas`
 when installed, Apple `softwareupdate`, npm global prefixes, pip, RubyGems,
-`rustup`, `uv`, Grok, Hermes, and oh-my-pi. It also executes native AIUP,
+`rustup`, `uv`, Grok, Hermes, and oh-my-pi. It also executes native Cargo,
 crates.io Cargo, and standalone Warp lanes, inspects declared Electron/Squirrel
 GitHub metadata, and reports Sparkle app bundles. A missing provider, parser
 drift, UI-only updater, or direct installer is retained as an explicit warning.

@@ -39,12 +39,7 @@ pub struct ToolchainTool {
     pub state: &'static str,
 }
 
-const PROVIDERS: [(&str, &str, &str); 8] = [
-    (
-        "aiup",
-        "AIUP",
-        "High-level orchestration is observed; managed native channels remain provider-bound.",
-    ),
+const PROVIDERS: [(&str, &str, &str); 7] = [
     (
         "cargo",
         "Cargo",
@@ -197,11 +192,7 @@ fn tool_from_app(app: &InstalledSoftware) -> ToolchainTool {
         version: app.version.clone(),
         source_id: app.source_id.clone(),
         provider,
-        state: if provider == "aiup" {
-            "observed-only"
-        } else {
-            "ready"
-        },
+        state: "ready",
     }
 }
 
@@ -246,7 +237,6 @@ pub(crate) fn is_toolchain_record(tool: &ToolRecord) -> bool {
 
 pub fn is_toolchain_text(value: &str) -> bool {
     [
-        "aiup",
         "cargo",
         "rustup",
         "codex",
@@ -283,9 +273,7 @@ pub fn is_toolchain_text(value: &str) -> bool {
 
 fn provider_for_text(value: &str) -> &'static str {
     let value = value.to_ascii_lowercase();
-    if value.contains("aiup") {
-        "aiup"
-    } else if value.contains("cargo") {
+    if value.contains("cargo") {
         "cargo"
     } else if value.contains("rustup") {
         "rustup"
@@ -341,7 +329,7 @@ fn render_text(report: &ToolchainReport) -> String {
         }
     }
     output.push_str(
-        "\nsafety: this command reads bounded local evidence only; it does not install, update, configure, or invoke AIUP.\n",
+        "\nsafety: this command reads bounded local evidence only; it does not install, update, configure, or invoke a provider.\n",
     );
     output
 }
@@ -402,27 +390,8 @@ mod tests {
         };
         assert!(is_toolchain_software(&app));
         assert_eq!(provider_for_text("package:npm-global:pi"), "npm-prefix");
-        assert_eq!(toolchain_provider_id("aiup-managed:tool"), "aiup");
+        assert_eq!(toolchain_provider_id("cargo:tool"), "cargo");
         assert!(!is_toolchain_text("application:capital"));
-    }
-
-    #[test]
-    fn aiup_managed_tools_remain_observed_only_in_toolchain_state() {
-        let app = InstalledSoftware {
-            id: "aiup-managed:codex".to_string(),
-            name: "Codex".to_string(),
-            version: Some("1.0.0".to_string()),
-            source_id: "aiup.catalog".to_string(),
-            identifiers: Vec::new(),
-            identity_group_id: "software.codex".to_string(),
-            identity_confidence: IdentityConfidence::ExactEvidence,
-            kind: SoftwareKind::PlatformPackage,
-            scope: InstallScope::User,
-            uninstall_option: UninstallOption::ManagerReview,
-        };
-        let tool = tool_from_app(&app);
-        assert_eq!(tool.provider, "aiup");
-        assert_eq!(tool.state, "observed-only");
     }
 
     #[test]

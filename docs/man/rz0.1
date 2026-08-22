@@ -51,11 +51,6 @@ module activation, or mutation.
 .B apps [--format text|json]
 List bounded path-free installed-software evidence and source identifiers.
 .TP
-.B aiup [--format text|json]
-Print the Rust-owned AIUP-facing AI-tool and provider-posture review. It is
-read-only and never invokes AIUP, installs or updates a tool, configures a
-provider, or writes state.
-.TP
 .B cache --dry-run [--fixture PATH] [--format text|json]
 Review bounded ownership-aware cache evidence from known runtime/manager roots
 or one local fixture. This is read-only and never authorizes cleanup,
@@ -74,7 +69,8 @@ only that one confirmation-bound quarantine move. It never deletes, recurses,
 elevates, or uses network access.
 .TP
 .B leftovers --dry-run [--fixture PATH] [--format text|json]
-Review bounded runtime.zero-owned module/log and unreferenced-receipt evidence or one local fixture. This
+Review bounded runtime.zero-owned module/log and unreferenced-receipt evidence
+or one local fixture. This
 is read-only and never authorizes cleanup, quarantine, restore, or deletion.
 .TP
 .B leftovers --dry-run --plan --path ABSOLUTE_MODULE_FILE [--format text|json]
@@ -107,13 +103,15 @@ recurses, deletes, elevates, or uses network access.
 .B recovery --dry-run [--format text|json]
 Review a bounded inventory of runtime.zero quarantine records without writing,
 deleting, restoring, or exposing absolute host paths. The output reports record
-validity, payload presence, digest/size evidence, and exact-restore availability.
+validity, payload presence, digest/size evidence, and exact-restore
+availability.
 .TP
 .B integrity --dry-run --fixture PATH [--format text|json]
 .br
 .B integrity --dry-run --path ABSOLUTE_FILE --sha256 DIGEST [--format text|json]
 Review exact digest evidence from one local fixture or one bounded regular file.
-The exact-file path is omitted from output. A trusted baseline is not configured;
+The exact-file path is omitted from output. A trusted baseline is not
+configured;
 this remains report-only and never authorizes remediation.
 .TP
 .B uninstall plan ID [--executable PATH] [--format text|json]
@@ -136,7 +134,7 @@ Print one native read-only resource snapshot.
 .TP
 .B toolchain [--format text|json]
 Print Rust, AI, and developer-tool provider posture from bounded local evidence.
-This command never invokes AIUP or another provider and never performs a write.
+This command never invokes a provider and never performs a write.
 .TP
 .B report [--format text|json]
 Build a deterministic summary that omits raw paths, host/user identity,
@@ -249,7 +247,8 @@ inventory without review. Never edit the runtime.zero state store manually to
 bypass a recovery decision. Uninstall, recursive cleanup, production module
 lifecycle execution, third-party execution, and permanent deletion are not
 implemented product actions. The developer module trial is test-key-only
-staging and leaves staged bytes undiscoverable and inactive. The leftovers apply lane is limited to one explicitly supplied
+staging and leaves staged bytes undiscoverable and inactive. The leftovers
+apply lane is limited to one explicitly supplied
 runtime.zero module-store file and remains subject to the exact confirmation,
 foundation recovery, retention, and platform gates.
 .SH FILES

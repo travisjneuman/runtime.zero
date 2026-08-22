@@ -47,7 +47,7 @@ cell.
 
 | Document | Purpose |
 | --- | --- |
-| [`user-guide.md`](user-guide.md) | Current workflows, Rust/AI toolchain and AIUP capability reviews, updater apply lane, TUI, uninstall review, bounded quarantine recovery/restore, store, modules, and completion usage |
+| [`user-guide.md`](user-guide.md) | Current workflows, Rust/AI toolchain reviews, updater apply lane, TUI, uninstall review, bounded quarantine recovery/restore, store, modules, and completion usage |
 | [`troubleshooting.md`](troubleshooting.md) | Fail-closed triage for terminals, inventory, reports, updates, store, builds, and safe bug reports |
 | [`recovery-guide.md`](recovery-guide.md) | Transaction/receipt states, cancellation outcomes, evidence preservation, and current recovery limits |
 | [`privacy-and-sharing.md`](privacy-and-sharing.md) | Output sensitivity, redaction limits, network posture, support-export review, and retention caveats |

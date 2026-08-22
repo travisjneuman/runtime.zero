@@ -2,7 +2,6 @@ use rz0_action_plan::{ActionDisposition, ActionPlan, PlanAction};
 use rz0_cancellation_contract::CancellationToken;
 use serde::Serialize;
 
-use crate::aiup::report_from_catalog as aiup_report_from_catalog;
 use crate::apps::{
     AppCatalog, InstalledSoftware, SoftwareFilter, SoftwareKind, SoftwareUpdate, SoftwareView,
     UninstallOption, collect_app_catalog, collect_app_catalog_cancellable,
@@ -924,7 +923,6 @@ fn overview_section(
                 .count();
             let visible_count = catalog.apps.iter().filter(|app| view.matches(app)).count();
             let tool_count = toolchain_tools_from_catalog(catalog).len();
-            let aiup = aiup_report_from_catalog(catalog);
             let (update_value, update_tone, update_preview) = match updates {
                 Some(updates) => (
                     format!(
@@ -972,22 +970,13 @@ fn overview_section(
             ));
             rows.push(row_with_preview(
                 tui_theme::LABEL_INFO,
-                &format!(
-                    "{visible_count} software · {tool_count} toolchain records · AIUP {}",
-                    aiup.orchestrator.state
-                ),
+                &format!("{visible_count} software · {tool_count} toolchain records"),
                 "info",
                 &format!(
-                    "{} software records match the current view; {} identity groups and {} service/persistence records are available in Software and Diagnostics. Rust-owned AIUP review sees {} AI tools and {} provider-review boundaries; run `rz0 aiup` for the scriptable report.",
+                    "{} software records match the current view; {} identity groups and {} service/persistence records are available in Software and Diagnostics. Toolchain rows retain bounded provider classification and never infer update authority.",
                     visible_count,
                     catalog.identity_group_count,
                     catalog.service_count,
-                    aiup.tools.len(),
-                    aiup
-                        .providers
-                        .iter()
-                        .filter(|provider| provider.state == "provider-review")
-                        .count()
                 ),
             ));
             if visible_count != catalog.app_count || !view.query().is_empty() {
@@ -1054,29 +1043,11 @@ fn installed_software_section(
                 .collect::<Vec<_>>();
             let visible_count = visible.len() + visible_known_tools.len() + visible_dynamic.len();
             if toolchain_only {
-                let aiup = aiup_report_from_catalog(catalog);
-                let provider_review_count = aiup
-                    .providers
-                    .iter()
-                    .filter(|provider| provider.state == "provider-review")
-                    .count();
                 rows.push(row_with_preview(
                     tui_theme::LABEL_OK,
-                    &format!(
-                        "{visible_count} toolchain records shown · AIUP {}",
-                        aiup.orchestrator.state
-                    ),
+                    &format!("{visible_count} toolchain records shown"),
                     "safe",
-                    &format!(
-                        "Rust-owned AIUP review: {} AI tools, {} provider-review boundaries, {} AIUP-managed records. The review is read-only; use `rz0 aiup` or `rz0 updates` for the next explicit boundary.",
-                        aiup.tools.len(),
-                        provider_review_count,
-                        aiup
-                            .tools
-                            .iter()
-                            .filter(|tool| tool.provider == "aiup")
-                            .count()
-                    ),
+                    "Toolchain rows are bounded local evidence. Provider availability review remains an explicit read-only updater workflow.",
                 ));
             } else {
                 rows.push(row_count(
@@ -1139,12 +1110,7 @@ fn installed_software_section(
                     app.id, app.name, app.source_id, app.identifiers
                 ));
                 if toolchain_only {
-                    let provider_state = if provider == "aiup" {
-                        "observed-only"
-                    } else {
-                        "ready"
-                    };
-                    options = format!("provider {provider} · {provider_state} · {options}");
+                    options = format!("provider {provider} · {options}");
                 }
                 if let Some(update) = updates.and_then(|updates| {
                     updates

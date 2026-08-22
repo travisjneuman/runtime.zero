@@ -104,7 +104,6 @@ const WINDOWS_TOOL_SPECS: &[ToolSpec] = &[
         &["gemini.cmd", "gemini.exe"],
         None,
     ),
-    spec("aiup", "AIUP", "utility", &["aiup.cmd", "aiup.exe"], None),
     spec(
         "deno",
         "Deno",
@@ -294,7 +293,6 @@ const UNIX_TOOL_SPECS: &[ToolSpec] = &[
     spec("opencode", "OpenCode", "ai_tool", &["opencode"], None),
     spec("kilo", "Kilo", "ai_tool", &["kilo"], None),
     spec("gemini", "Gemini", "ai_tool", &["gemini"], None),
-    spec("aiup", "AIUP", "utility", &["aiup"], None),
     spec(
         "mise",
         "mise",

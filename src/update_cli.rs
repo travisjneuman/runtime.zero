@@ -8,10 +8,9 @@ use rz0_action_plan::{ActionDisposition, ActionPlan, PlanAction};
 use rz0_cancellation_contract::CancellationToken;
 use rz0_module_updater::{
     ManagerKind, ManagerParseContext, ProviderProbeSpec, SerialUpdateItemStatus,
-    SerialUpdateQueuePlan, UPDATE_QUEUE_CONTRACT, UpdaterFindingInput, aiup_command_is_delegated,
-    build_serial_update_queue, build_update_action_plan, classify_updates,
-    discover_provider_specs_for_platform, dynamic_provider_ids, manager_probe_specs,
-    parse_aiup_dry_run, parse_manager_output,
+    SerialUpdateQueuePlan, UPDATE_QUEUE_CONTRACT, UpdaterFindingInput, build_serial_update_queue,
+    build_update_action_plan, classify_updates, discover_provider_specs_for_platform,
+    dynamic_provider_ids, manager_probe_specs, parse_manager_output,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -889,21 +888,6 @@ fn build_all_provider_input(
     let mut source_ok_count = 0usize;
     if let Some(provider) = providers
         .iter()
-        .find(|provider| provider.manager == ManagerKind::Aiup)
-    {
-        collect_aiup_managed_updates(
-            command.allow_network_read,
-            provider,
-            cancellation,
-            &mut records,
-            &mut sources,
-            &mut warnings,
-            &mut source_ok_count,
-        );
-        check_cancellation(cancellation)?;
-    }
-    if let Some(provider) = providers
-        .iter()
         .find(|provider| provider.manager == ManagerKind::CargoInstall)
     {
         collect_cargo_install_updates(
@@ -1116,9 +1100,6 @@ fn observed_only_provider_warning(manager: ManagerKind) -> String {
         ManagerKind::Warp => {
             "warp is installed outside the standalone CLI layout; the signed Warp application/provider channel remains explicit until that installation exposes its native update store".to_string()
         }
-        ManagerKind::Aiup => {
-            "aiup is installed as a high-level tool orchestrator; its managed npm/native channels are probed separately, and only non-delegated native actions are attached to the AIUP update lane".to_string()
-        }
         ManagerKind::CargoInstall => {
             "cargo is installed, but its installed registry packages could not be attached to the crates.io update lane; path and alternate-registry installs remain explicit".to_string()
         }
@@ -1134,159 +1115,6 @@ struct CargoInstalledPackage {
     name: String,
     version: String,
     binaries: Vec<String>,
-}
-
-fn collect_aiup_managed_updates(
-    allow_network_read: bool,
-    provider: &ProviderProbeSpec,
-    cancellation: Option<&CancellationToken>,
-    records: &mut Vec<rz0_module_updater::UpdateRecord>,
-    sources: &mut Vec<ProviderSourceStatus>,
-    warnings: &mut Vec<String>,
-    source_ok_count: &mut usize,
-) {
-    if check_cancellation(cancellation).is_err() {
-        return;
-    }
-    let provider_id = provider.instance_id.clone();
-    if !allow_network_read {
-        sources.push(ProviderSourceStatus {
-            provider: provider_id,
-            status: "blocked".to_string(),
-            candidate_count: 0,
-        });
-        warnings.push("aiup managed-tool availability requires --allow-network-read".to_string());
-        return;
-    }
-    let (bytes, identity) = match probe_provider_output(provider, true, cancellation) {
-        Ok(value) => value,
-        Err(error) => {
-            sources.push(ProviderSourceStatus {
-                provider: provider_id,
-                status: "unavailable".to_string(),
-                candidate_count: 0,
-            });
-            warnings.push(format!("aiup managed-tool dry-run unavailable: {error}"));
-            return;
-        }
-    };
-    let parsed = match parse_aiup_dry_run(&bytes) {
-        Ok(parsed) => parsed,
-        Err(error) => {
-            sources.push(ProviderSourceStatus {
-                provider: provider_id,
-                status: "unavailable".to_string(),
-                candidate_count: 0,
-            });
-            warnings.push(format!(
-                "aiup managed-tool dry-run was not parseable: {error}"
-            ));
-            return;
-        }
-    };
-    let selection = match build_aiup_update_selection(&parsed) {
-        Ok(Some(selection)) => selection,
-        Ok(None) => {
-            sources.push(ProviderSourceStatus {
-                provider: provider_id,
-                status: "ok".to_string(),
-                candidate_count: 0,
-            });
-            *source_ok_count = source_ok_count.saturating_add(1);
-            return;
-        }
-        Err(error) => {
-            sources.push(ProviderSourceStatus {
-                provider: provider_id,
-                status: "unavailable".to_string(),
-                candidate_count: 0,
-            });
-            warnings.push(error);
-            return;
-        }
-    };
-    let arguments = selection.arguments;
-    let identity_material = selection.identity_material;
-    let digest = sha256(format!("aiup-managed\0{identity_material}").as_bytes());
-    let target_version = format!("aiup-{}", &digest[..12]);
-    records.push(rz0_module_updater::UpdateRecord {
-        finding_id: format!("update.aiup.{}", &digest[..16]),
-        subject_reference: "tooling:aiup-managed".to_string(),
-        installed: true,
-        manager_record_present: true,
-        update_available: true,
-        installed_version: Some("present".to_string()),
-        available_version: Some(target_version),
-        manager: Some("aiup".to_string()),
-        executable: Some(provider.executable.display().to_string()),
-        executable_sha256: Some(identity.sha256),
-        executable_size_bytes: Some(identity.size_bytes),
-        arguments,
-        network_required: true,
-        requires_elevation: provider.requires_elevation,
-        rollback_supported: false,
-    });
-    sources.push(ProviderSourceStatus {
-        provider: provider_id,
-        status: "ok".to_string(),
-        candidate_count: 1,
-    });
-    *source_ok_count = source_ok_count.saturating_add(1);
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct AiupUpdateSelection {
-    arguments: Vec<String>,
-    identity_material: String,
-}
-
-fn build_aiup_update_selection(
-    report: &rz0_module_updater::AiupDryRunReport,
-) -> Result<Option<AiupUpdateSelection>, String> {
-    let selected = report
-        .commands
-        .iter()
-        .filter_map(|(tool, commands)| {
-            let installed = report.versions.get(tool).is_some_and(|version| {
-                !version.eq_ignore_ascii_case("not installed")
-                    && !version.eq_ignore_ascii_case("missing")
-            });
-            if !installed {
-                return None;
-            }
-            let relevant = commands
-                .iter()
-                .filter(|command| !aiup_command_is_delegated(command))
-                .cloned()
-                .collect::<Vec<_>>();
-            (!relevant.is_empty()).then_some((tool, relevant))
-        })
-        .collect::<Vec<_>>();
-    if selected.is_empty() {
-        return Ok(None);
-    }
-
-    let mut arguments = vec!["only".to_string()];
-    let mut identity_material = String::new();
-    for (tool, commands) in selected {
-        arguments.push(tool.clone());
-        identity_material.push_str(tool);
-        identity_material.push('\0');
-        for command in commands {
-            identity_material.push_str(&command);
-            identity_material.push('\0');
-        }
-    }
-    arguments.push("--no-install".to_string());
-    if arguments.len() > rz0_action_plan::MAX_ARGUMENTS {
-        return Err(
-            "aiup managed-tool selection exceeds the bounded action argument ceiling".to_string(),
-        );
-    }
-    Ok(Some(AiupUpdateSelection {
-        arguments,
-        identity_material,
-    }))
 }
 
 fn collect_cargo_install_updates(
@@ -3153,25 +2981,6 @@ fn verify_update_after(
     cancellation: &CancellationToken,
 ) -> Result<String, String> {
     check_cancellation(Some(cancellation))?;
-    if finding_id.starts_with("update.aiup.") {
-        let fresh_built = build_input_with_cancellation(command, Some(cancellation))?;
-        check_cancellation(Some(cancellation))?;
-        let aiup_source = fresh_built
-            .sources
-            .iter()
-            .find(|source| source.provider == "aiup:managed")
-            .ok_or_else(|| "fresh AIUP managed-tool inventory source disappeared".to_string())?;
-        if aiup_source.status == "unavailable" || aiup_source.status == "missing" {
-            return Err(format!(
-                "fresh AIUP managed-tool inventory is unavailable after the native update: {}",
-                aiup_source.status
-            ));
-        }
-        return Ok(format!(
-            "AIUP native managed-tool update completed and fresh managed-tool inventory is available (remaining refresh candidates: {})",
-            aiup_source.candidate_count
-        ));
-    }
     let fresh_built = build_input_with_cancellation(command, Some(cancellation))?;
     check_cancellation(Some(cancellation))?;
     let fresh_input = &fresh_built.input;
@@ -3584,7 +3393,6 @@ fn parse_manager_kind(value: &str) -> Result<ManagerKind, String> {
         ManagerKind::Rustup,
         ManagerKind::UvTools,
         ManagerKind::Deno,
-        ManagerKind::Aiup,
         ManagerKind::CargoInstall,
     ]
     .into_iter()
@@ -3782,7 +3590,7 @@ fn usage() -> String {
         "       rz0 updates --apply --all-providers --allow-network-read --allow-network-write [--accept-no-rollback] [--format text]\n",
         "       rz0 updates --recovery-status --transaction <transaction-id> [--format text|json]\n",
         "       rz0 updates --recovery-complete --transaction <transaction-id> [--challenge-issued-unix-seconds <unix-seconds>] [--confirm <exact-phrase>] [--format text|json]\n\n",
-        "--all-providers performs a provider-driven live review of installed system managers, language/package environments, known self-updaters, and declared application update metadata. On macOS this includes Homebrew formulae/casks, Apple Software Update, npm global prefixes, pip, RubyGems, rustup, uv, Grok, Hermes, oh-my-pi, AIUP-managed tools, crates.io Cargo installs, Warp's standalone signed CLI store, Electron/Squirrel GitHub metadata, and observed Sparkle channels when present; missing, delegated, observed-only, and unsupported providers remain explicit. --apply performs a fresh availability probe, requires explicit network-write approval and exact interactive confirmation, runs the native manager command, and verifies the result. Elevated managers use non-interactive /usr/bin/sudo; authenticate with sudo before invoking rz0. Known self-updaters may replace their launcher during a successful update. --recovery-status is read-only; --recovery-complete may append only the exact final local journal commit for a verified receipt and never reruns a manager."
+        "--all-providers performs a provider-driven live review of installed system managers, language/package environments, known self-updaters, and declared application update metadata. On macOS this includes Homebrew formulae/casks, Apple Software Update, npm global prefixes, pip, RubyGems, rustup, uv, Grok, Hermes, oh-my-pi, crates.io Cargo installs, Warp's standalone signed CLI store, Electron/Squirrel GitHub metadata, and observed Sparkle channels when present; missing, delegated, observed-only, and unsupported providers remain explicit. --apply performs a fresh availability probe, requires explicit network-write approval and exact interactive confirmation, runs the native manager command, and verifies the result. Elevated managers use non-interactive /usr/bin/sudo; authenticate with sudo before invoking rz0. Known self-updaters may replace their launcher during a successful update. --recovery-status is read-only; --recovery-complete may append only the exact final local journal commit for a verified receipt and never reruns a manager."
     )
     .to_string()
 }
@@ -4003,49 +3811,6 @@ local-tool v0.1.0 (path+file:///tmp/local-tool):
         assert_eq!(packages[0].name, "ripgrep");
         assert_eq!(packages[0].version, "14.1.0");
         assert_eq!(packages[0].binaries, ["rg", "rg-alt"]);
-    }
-
-    #[test]
-    fn parses_aiup_dry_run_and_ignores_delegated_channels() {
-        let bytes = b"[INFO] ========== TOOL START: antigravity ==========
-[INFO] DRY-RUN: curl -fsSL https://example.invalid/install.sh | bash
-[INFO] ========== TOOL DONE: antigravity ==========
-[INFO] ========== TOOL START: codex ==========
-[INFO] DRY-RUN: npm install -g --prefix /tmp/npm @openai/codex@latest
-[INFO] ========== TOOL DONE: codex ==========
-=== Detected tool versions ===
-antigravity 1.1.12
-codex codex-cli 0.147.0
-";
-        let parsed = parse_aiup_dry_run(bytes).expect("AIUP dry-run evidence");
-        let commands = &parsed.commands;
-        let versions = &parsed.versions;
-        assert_eq!(
-            versions.get("antigravity").map(String::as_str),
-            Some("1.1.12")
-        );
-        assert_eq!(commands["antigravity"].len(), 1);
-        assert!(!aiup_command_is_delegated(&commands["antigravity"][0]));
-        assert!(aiup_command_is_delegated(&commands["codex"][0]));
-
-        let selection = build_aiup_update_selection(&parsed)
-            .expect("AIUP action selection")
-            .expect("native AIUP action");
-        assert_eq!(selection.arguments, ["only", "antigravity", "--no-install"]);
-        assert_eq!(
-            selection.identity_material,
-            "antigravity\0curl -fsSL https://example.invalid/install.sh | bash\0"
-        );
-
-        let delegated_only = parse_aiup_dry_run(
-            b"TOOL START: codex ==========\nDRY-RUN: npm install -g @openai/codex\nTOOL DONE: codex ==========\n=== Detected tool versions ===\ncodex 0.147.0\n",
-        )
-        .expect("delegated-only AIUP evidence");
-        assert!(
-            build_aiup_update_selection(&delegated_only)
-                .expect("delegated-only selection")
-                .is_none()
-        );
     }
 
     #[test]

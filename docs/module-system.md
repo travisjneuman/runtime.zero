@@ -29,17 +29,13 @@ A module manifest declares:
 - optional local package integrity metadata;
 - test fixtures.
 
-Provider adapters are not automatically lifecycle modules. AIUP is a
-provider-owned orchestrator consumed by the first-party updater domain, with a
-Rust-owned `rz0 aiup` review surface layered above it: runtime.zero owns local
-identity normalization, redaction, provider posture, and the finding/plan/
-confirmation boundary, while the standalone AIUP catalog and native tool
-behavior remain provider-owned. This keeps one updater lifecycle and one
-foundation action path instead of creating a duplicate AIUP execution stack.
-When the updater consumes AIUP dry-run text, the Rust adapter accepts only
-bounded UTF-8 output with unique, matching `TOOL START`/`TOOL DONE` sections,
-one version catalog, and commands contained by their owning tool; malformed,
-unterminated, duplicated, or out-of-section evidence stays unavailable.
+Provider adapters are not automatically lifecycle modules. Each first-party
+updater adapter owns only its bounded evidence parser and provider identity;
+the shared foundation owns the finding, plan, confirmation, process, receipt,
+and recovery boundaries. This keeps one updater lifecycle and one foundation
+action path instead of creating duplicate execution stacks. Provider output
+with malformed, unterminated, duplicated, or out-of-section evidence stays
+unavailable.
 
 ## Design rule
 

@@ -10,7 +10,7 @@
   `887dbcccfc20f54096d0ed872ffafe662cee4ab9` (`test: close TUI state parity gaps`).
 - **Current behavior implementation:**
   `887dbcc` on `main`, including the quiet task-first TUI, Rust toolchain contract,
-  AIUP updater-provider adapter, bounded cache/leftovers evidence review,
+  provider updater adapters, bounded cache/leftovers evidence review,
   fixture and bounded exact-file integrity evidence, receipt-bound local
   recovery completion, explicit provider ownership in Toolchain rows, the
   pre-start Windows Job Object/handle-list process host, shared version probes,
@@ -88,12 +88,9 @@
   tampered transaction evidence is degraded review data.
   The TUI Diagnostics workspace separately counts staged entries requiring
   review, so invalid staged evidence is not visually mixed with valid staging.
-  AIUP-managed toolchain records remain explicitly `observed-only` in both the
-  Rust report and TUI rows; provider availability review remains a separate
-  plan/confirmation path. The Rust AIUP dry-run adapter now rejects output with
-  no recognized tool or detected-version catalog section, so arbitrary success
-  text and malformed tool labels cannot silently become an empty successful
-  provider review. The foundation now also exposes a narrow exact-manager
+  Provider availability review remains a separate plan/confirmation path, and
+  malformed provider output cannot silently become an empty successful review.
+  The foundation now also exposes a narrow exact-manager
   uninstall apply lane: it derives a fresh manager-owned action plan, binds an
   allowlisted executable by digest and size, requires destructive confirmation
   plus explicit no-rollback acknowledgement, records the external effect in
@@ -112,14 +109,6 @@
   Newly generated install receipts carry the same state plus explicit false
   activation/invocation authority flags; an explicit active receipt is invalid
   evidence.
-  The Rust-owned `rz0 aiup` capability review now gives that boundary a
-  first-class scriptable surface: it normalizes bounded local AI-tool identity,
-  separates the standalone AIUP orchestrator from AIUP-managed tools, reports
-  provider posture and next review boundary, and emits private JSON/text without
-  invoking AIUP or authorizing any provider action. It consumes the same bounded
-  installed-software and known-executable inventory as `rz0 scan`, recognizes an
-  exact PATH-bound AIUP orchestrator as observed-only, filters wrapper-like
-  executable names, and keeps executable paths out of the report.
   The Toolchain CLI and TUI now consume the same bounded named-executable
   inventory as Scan, label executable-only records `observed-only`, and keep
   wrapper-like PATH names out of the toolchain surface. The renderer reserves
@@ -179,8 +168,6 @@ The staged-receipt status and TUI count slice is `26c1b44`.
 The staged-status evidence refresh is `fb95b45`.
 The staged transaction-evidence cross-check slice is `f9e28cb`.
 The staged-review TUI warning slice is `b818e54`.
-The AIUP ownership-posture parity slice is `7a120fd`.
-The AIUP malformed-catalog fail-closed slice is `c036f56`.
 The developer-only installed-inactive promotion slice is `0fe633f`.
 The developer-only first-party inventory process invocation slice is
 `8f9f3c7`.
@@ -194,10 +181,6 @@ The quiet task-first TUI slice is `d82c60f`.
 The bounded Snap updater parser slice is `5285173`.
 The portable provider-locale binding slice is `dabc8ec`.
 The bounded Zypper XML updater parser slice is `899b2a5`.
-The Rust-owned AIUP capability review slice is `687febf`.
-The TUI AIUP posture-parity slice is `80f10ac`.
-The strict AIUP provider-evidence slice is `e3f4bd4`.
-The AIUP executable-inventory binding and wrapper-filter slice is `8b035bd`.
 The shared Toolchain/TUI executable-evidence slice is `3961200`.
 The Home/Toolchain parity slice is `4a8960d`.
 The post-action cancellation propagation slice is `7bb5b44`.
@@ -233,10 +216,9 @@ performance evidence. The terminal evidence IDs are
 `terminal:universal2-apple-darwin-x86_64-cb6531d46684`; the performance IDs are
 `perf:universal2-apple-darwin-arm64-cb6531d46684` and
 `perf:universal2-apple-darwin-x86_64-cb6531d46684`. Both slices passed
-read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
+read-only `doctor`, `scan --dry-run`, `toolchain`, and `config` reviews;
 doctor reported 6 passing and 4 blocked policy checks, while scan reported 9
-sources, 325 tools, 273 apps, 895 services, and 22 warnings. AIUP reported the
-orchestrator as observed-only with 5 curated tools. Toolchain reported 17
+sources, 325 tools, 273 apps, 895 services, and 22 warnings. Toolchain reported 17
 records, including 10 observed-only executable records. The configuration
 digest is `b4d57157ae30be77f81a293bd49ddc2f939168377b20b9d9bb16a4ea1e40258f`.
 The artifact remains unsigned and unnotarized until an owner-led
@@ -261,10 +243,9 @@ cases and ten-sample final-artifact performance evidence with terminal IDs
 `terminal:universal2-apple-darwin-x86_64-9542dfdffdc8`, and performance IDs
 `perf:universal2-apple-darwin-arm64-627f497f6435` and
 `perf:universal2-apple-darwin-x86_64-9542dfdffdc8`. Both slices passed
-read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
+read-only `doctor`, `scan --dry-run`, `toolchain`, and `config` reviews;
 doctor reported 6 passing and 4 blocked policy checks; scan reported 9 sources,
-325 tools, 273 apps, 895 services, and 22 warnings; AIUP reported an
-observed-only orchestrator with 5 tools; Toolchain reported 17 tools including
+325 tools, 273 apps, 895 services, and 22 warnings; Toolchain reported 17 tools including
 10 observed-only records; and configuration was valid but non-authorizing.
 The artifact remains unsigned and unnotarized and is not a public release.
 
@@ -288,7 +269,7 @@ TUI startup and refresh-request operations. The terminal evidence IDs are
 `terminal:universal2-apple-darwin-x86_64-03a02a5043e4`; the performance IDs are
 `perf:universal2-apple-darwin-arm64-086d38d21759` and
 `perf:universal2-apple-darwin-x86_64-03a02a5043e4`. Both slices passed
-read-only `doctor`, `scan --dry-run`, `aiup`, `toolchain`, and `config` reviews;
+read-only `doctor`, `scan --dry-run`, `toolchain`, and `config` reviews;
 the artifact remains unsigned and unnotarized and is not a public release.
 
 A current docs-head unsigned macOS DMG was also built from source commit
@@ -328,7 +309,7 @@ evidence IDs are
 `terminal:universal2-apple-darwin-x86_64-166046a6c7bd`,
 `perf:universal2-apple-darwin-arm64-166046a6c7bd`, and
 `perf:universal2-apple-darwin-x86_64-166046a6c7bd`. Extracted package binaries
-passed version, doctor, dry-run scan, AIUP, Toolchain, and configuration
+passed version, doctor, dry-run scan, Toolchain, and configuration
 reviews on both slices.
 
 The matching unsigned DMG is
@@ -363,7 +344,7 @@ The latest exact-head TUI parity slice is `887dbcccfc20f54096d0ed872ffafe662cee4
 Both Rust renderers now preserve explicit loading, unavailable, empty, and
 blocked states; the acceptance guide marks workspace-size, state, and
 plain/color semantic automation complete. Human terminal/accessibility review
-and the end-to-end AIUP golden path remain open.
+and the end-to-end provider-review path remain open.
 
 The exact-head unsigned universal2 package is
 `target/release-package-universal2-887dbcc/runtime-zero-0.1.0-universal2-apple-darwin.zip`.
@@ -438,7 +419,7 @@ The strongest implemented areas are:
   teardown, caller cancellation, exact updater write evidence, canonical
   external-effect receipts, and read-only recovery assessment;
 - provider-native macOS/Linux updater execution for Homebrew formulae/casks,
-  Apple Software Update, npm prefixes, pip, RubyGems, rustup, uv, AIUP, Cargo,
+  Apple Software Update, npm prefixes, pip, RubyGems, rustup, uv, Cargo,
   Warp, known self-updaters, and declared Electron/Squirrel application
   channels, with explicit delegated, missing, and observed-only source states;
 - exact local module manifest/package-file hashing plus detached public
@@ -483,14 +464,14 @@ The current development Mac produced a bounded live review of 20 provider
 sources and 85 planned actions. Native apply support is present for every
 source that returned an exact manager/update adapter in that review, including
 Homebrew formulae/casks, Apple Software Update, both discovered npm prefixes,
-pip, RubyGems, AIUP-managed tools, crates.io Cargo installs, Warp's standalone
+pip, RubyGems, crates.io Cargo installs, Warp's standalone
 CLI store, and declared Electron/Squirrel releases. Deno is explicitly
 delegated to its Homebrew formula because the installed binary lacks native
 self-upgrade support. MacPorts, Mac App Store, and Hermes were reported as
 missing on this host; 12 Sparkle bundles were observed-only because Sparkle's
 public tooling does not provide a generic external app-update command.
 
-Live smoke work committed OMP, Pi/npm-prefix, and AIUP effects through the
+Live smoke work committed OMP and Pi/npm-prefix effects through the
 canonical receipt path. Warp's standalone CLI store switched to and verified
 the signed current version, but earlier live transactions reached recovery
 status before receipt publication because the receipt contract rejected a
@@ -507,7 +488,6 @@ rz0 --version
 rz0 doctor [--format text|json]
 rz0 config [--format text|json]
 rz0 apps [--format text|json]
-rz0 aiup [--format text|json]
 rz0 cache --dry-run [--format text|json] [--fixture <cache-input.json>]
 rz0 cache --dry-run --plan --path <absolute-cache-file> [--format text|json]
 rz0 cache --apply --path <absolute-cache-file> [--challenge-issued-unix-seconds <seconds>] [--confirm <phrase>] [--format text|json]
@@ -561,7 +541,6 @@ completion source has parser-coverage tests but is not generated by the parser;
 | `doctor` | No | No | Implemented privacy-safe posture report |
 | `config` | No | No | Implemented immutable built-in effective-policy review; never authorizes execution |
 | `apps` | No | No | Implemented path-free catalog; names/IDs remain sensitive |
-| `aiup` | No | No | Rust-owned bounded AI-tool and provider-posture review; never invokes AIUP or authorizes an update |
 | `cache --dry-run` | No | No | Bounded known-root ownership review; no cleanup authority |
 | `cache --dry-run --plan --path FILE` | No | No | One exact runtime-cache-file plan with digest/size binding; no move |
 | `cache --apply --path FILE` without `--confirm` | No | No | Prints a short-lived exact challenge; no write |
@@ -676,7 +655,7 @@ only. See [`privacy-and-sharing.md`](privacy-and-sharing.md).
 The updater consumes strict fixtures, bounded captured output, or one explicit
 live probe. Homebrew JSON and bounded APT/DNF/Pacman/MacPorts parser slices exist.
 The all-provider lane also has native update adapters for Homebrew,
-Apple Software Update, npm prefixes, language tools, AIUP-managed tools,
+Apple Software Update, npm prefixes, language tools,
 crates.io Cargo installs, Warp's standalone CLI store, and declared
 Electron/Squirrel releases. Winget remains fail-closed because its documented
 list surface is human-readable; Zypper has a strict XML package-row parser;
@@ -843,15 +822,12 @@ Current source validation for
   bounded journal decisions and review warnings without raw paths, while cache
   exposed the policy, age, scan, and active-use uncertainty fields;
 - `git diff --check` passed;
-- the Rust-owned AIUP review surface passed focused contract tests, live CLI
-  JSON inspection, help/completion coverage, and remains read-only with no
-  provider invocation or state writes;
-- the AIUP provider parser now requires bounded UTF-8 output with unique,
-  matching tool sections, one version catalog, and in-section commands; its
-  focused updater suite passed 23 tests including malformed-boundary cases;
+- the Toolchain review passed focused contract tests, live CLI JSON inspection,
+  help/completion coverage, and remains read-only with no provider invocation or
+  state writes;
 - the TUI Toolchain workspace passed the full Ratatui/render/state/dashboard
-  suites with the same AIUP posture summary, shared executable evidence, and no
-  second action authority; dense rows preserve the selected-context pane;
+  suites with shared executable evidence and no second action authority; dense
+  rows preserve the selected-context pane;
 - the universal2 package was rebuilt from the exact source baseline above at
   `target/release-package-universal2-3961200`, and the package verifier passed
   with the archive SHA-256
@@ -861,9 +837,7 @@ Current source validation for
   `writes_attempted: false`;
 - the universal2 ZIP was independently verified from this exact package source
   head; both arm64 and x86_64 slices passed four PTY cases and ten-sample
-  final-artifact performance evidence, and both slices passed the AIUP
-  read-only JSON review, including the observed-only orchestrator and five-tool
-  path-bound inventory. Toolchain reported 17 records with 10 observed-only
+final-artifact performance evidence. Toolchain reported 17 records with 10 observed-only
   executable records. The package verifier reported 8 members and pass; the
   artifact remains unsigned and unnotarized.
 

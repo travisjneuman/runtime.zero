@@ -54,10 +54,9 @@ Rules:
   decision, toolchain/software counts, and only the reviews that need
   attention. Identity, service, cache, recovery, and policy detail opens from
   the selected pane instead of becoming permanent dashboard chrome.
-- Home and Toolchain include a compact Rust-owned AIUP posture summary from the
-  same catalog: orchestrator state, AI-tool count, and provider-review count.
-  The selected explanation points to `rz0 aiup` for the full read-only report;
-  it never invokes AIUP or creates a second update authority.
+- Home and Toolchain include a compact provider-classification summary from the
+  same catalog. The selected explanation points to the explicit read-only
+  updater review; it never creates a second update authority.
 - Toolchain rows include the same bounded known-executable evidence used by
   `rz0 scan` and `rz0 toolchain`; unknown or wrapper-like PATH names remain
   observed-only and path-free in the user-facing surface.

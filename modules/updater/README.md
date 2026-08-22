@@ -6,25 +6,13 @@ can bind update candidates to the foundation action-plan contract. The core
 owns the manager execution lane so the module cannot invent its own process,
 confirmation, or transaction stack.
 
-AIUP is represented here as a provider adapter inside the updater domain, not
-as a second runtime.zero lifecycle module. The adapter invokes AIUP only in its
-bounded `--no-install --dry-run` review mode, parses that provider-owned text in
-Rust, filters channels delegated to Homebrew/npm, and turns only the remaining
-installed native-tool evidence into a runtime.zero plan. AIUP's own catalog,
-install/uninstall behavior, and terminal UI remain AIUP-owned; runtime.zero
-does not edit or reimplement them.
-
-The Rust adapter fails closed when the captured output contains neither a valid
-AIUP tool section nor the detected-version section. Arbitrary success text,
-malformed tool labels, truncated output, invalid UTF-8, and oversized captures
-cannot silently become an empty successful provider review.
-
-The resulting apply action is deterministic: tool names are ordered from the
-provider's bounded sorted evidence, delegated Homebrew/npm commands are omitted,
-and the exact `aiup only <tools...> --no-install` argument vector plus its
-provider-command digest are bound into the finding/action identity. `--no-install`
-does not make apply read-only; it prevents AIUP from installing missing
-dependencies while the selected update still performs its provider-owned writes.
+Each provider adapter is explicit and bounded. Provider-specific output is
+parsed only by the matching adapter; malformed, truncated, invalid, or
+oversized captures fail closed rather than becoming guessed update candidates.
+The resulting action identity includes the exact manager, target, executable
+identity, arguments, and evidence digest, so the shared foundation can enforce
+planning, confirmation, execution, receipt, and fresh verification without a
+second provider authority.
 
 The standalone binary accepts bounded JSON on standard input:
 
@@ -78,10 +66,8 @@ APT, DNF, Pacman, MacPorts, Flatpak JSON, Mac App Store `mas` JSON lines, Apple
 `softwareupdate --list`, global npm prefixes, pip JSON, RubyGems, `rustup`,
 `uv tool`, Grok, Hermes, and oh-my-pi. Homebrew cask review uses documented
 greedy mode so latest/auto-updating casks are not silently omitted. The
-provider resolver also executes native update lanes for AIUP-managed installed
-tools, crates.io Cargo installs, and Warp's standalone signed CLI store. AIUP
-dry-run output has its own strict UTF-8, field, command, and total-output
-ceilings; it is not accepted by the generic manager-record parser. On
+provider resolver also executes native update lanes for crates.io Cargo
+installs and Warp's standalone signed CLI store. On
 macOS it inspects Electron/Squirrel application release metadata when the
 bundle declares a GitHub provider and identifies Sparkle bundles that must
 remain on their signed in-app channel.
@@ -123,11 +109,10 @@ The core apply lane is pre-alpha rather than a supported module lifecycle:
 - read-only recovery status can reconcile journal/receipt evidence but cannot
   mutate, retry, repair, or finish a commit;
 - live provider review and dry-run planning have been exercised on the
-  development Mac for AIUP and the other discovered channels; no AIUP apply
-  claim is made here until a separately authorized disposable-host run produces
-  receipt, fresh-verification, and recovery evidence. That evidence would still
-  not substitute for the broader platform/release matrix or native rollback
-  proof.
+  development Mac for the discovered channels; provider apply claims remain
+  subject to receipt, fresh-verification, and recovery evidence. That evidence
+  would still not substitute for the broader platform/release matrix or native
+  rollback proof.
 
 Third-party module execution, uninstall/cleanup mutation, module lifecycle, and
 release support remain separate foundation gates. See

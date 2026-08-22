@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -38,7 +37,6 @@ pub enum ManagerKind {
     Rustup,
     UvTools,
     Deno,
-    Aiup,
     CargoInstall,
 }
 
@@ -67,7 +65,6 @@ impl ManagerKind {
             Self::Rustup => "rustup",
             Self::UvTools => "uv-tools",
             Self::Deno => "deno",
-            Self::Aiup => "aiup",
             Self::CargoInstall => "cargo-install",
         }
     }
@@ -90,7 +87,7 @@ impl ManagerKind {
             | Self::Hermes
             | Self::OhMyPi => "any",
             Self::Warp => "any",
-            Self::Rustup | Self::UvTools | Self::Deno | Self::Aiup | Self::CargoInstall => "any",
+            Self::Rustup | Self::UvTools | Self::Deno | Self::CargoInstall => "any",
         }
     }
 
@@ -136,7 +133,6 @@ impl ManagerKind {
             Self::Rustup => &["check", "--no-self-update"],
             Self::UvTools => &["tool", "list", "--outdated"],
             Self::Deno => &["upgrade", "--dry-run"],
-            Self::Aiup => &["--no-install", "--dry-run"],
             Self::CargoInstall => &["install", "--list"],
         }
     }
@@ -192,7 +188,7 @@ impl ManagerKind {
                 package.to_string(),
             ],
             Self::Deno => vec!["upgrade".to_string()],
-            Self::Aiup | Self::CargoInstall => Vec::new(),
+            Self::CargoInstall => Vec::new(),
         }
     }
 
@@ -219,7 +215,6 @@ impl ManagerKind {
             Self::Rustup => "rustup",
             Self::UvTools => "uv",
             Self::Deno => "deno",
-            Self::Aiup => "aiup",
             Self::CargoInstall => "cargo",
         }
     }
@@ -305,7 +300,6 @@ pub fn manager_probe_specs() -> Vec<ManagerProbeSpec> {
         spec(ManagerKind::Rustup, NO_STATIC_EXECUTABLES, true, false),
         spec(ManagerKind::UvTools, NO_STATIC_EXECUTABLES, true, false),
         spec(ManagerKind::Deno, NO_STATIC_EXECUTABLES, true, false),
-        spec(ManagerKind::Aiup, NO_STATIC_EXECUTABLES, false, false),
         spec(
             ManagerKind::CargoInstall,
             NO_STATIC_EXECUTABLES,
@@ -389,7 +383,6 @@ pub const fn dynamic_provider_ids() -> &'static [&'static str] {
         "rustup",
         "uv-tools",
         "deno",
-        "aiup",
         "cargo-install",
     ]
 }
@@ -493,7 +486,6 @@ fn discover_dynamic_providers(providers: &mut Vec<ProviderProbeSpec>) {
         ("rustup", ManagerKind::Rustup, "rustup:default"),
         ("uv", ManagerKind::UvTools, "uv-tools:default"),
         ("deno", ManagerKind::Deno, "deno:default"),
-        ("aiup", ManagerKind::Aiup, "aiup:managed"),
         ("cargo", ManagerKind::CargoInstall, "cargo-install:registry"),
     ] {
         if let Some(executable) = find_command(command) {
@@ -519,11 +511,7 @@ fn npm_prefix_candidates() -> Vec<PathBuf> {
     let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
         return Vec::new();
     };
-    let mut candidates = vec![
-        home.join(".local/share/aiup/npm"),
-        home.join(".npm-global"),
-        home.join(".local/npm"),
-    ];
+    let mut candidates = vec![home.join(".npm-global"), home.join(".local/npm")];
     let share = home.join(".local/share");
     if let Ok(entries) = fs::read_dir(share) {
         for entry in entries.flatten().take(128) {
@@ -689,7 +677,6 @@ fn custom_executable_allowed(manager: &str, platform: &str, executable: &str) ->
             path.file_name().is_some_and(|name| name == "deno")
                 && (under_home(".deno") || under_home(".local") || under_system_prefix)
         }
-        "aiup" => path.file_name().is_some_and(|name| name == "aiup") && under_home(".local"),
         "cargo" => {
             path.file_name().is_some_and(|name| name == "cargo")
                 && (under_home(".cargo/bin") || under_system_prefix)
@@ -743,175 +730,6 @@ pub struct ManagerParseContext {
     pub rollback_supported: bool,
 }
 
-/// Bounded text evidence emitted by AIUP's `--no-install --dry-run` mode.
-/// AIUP remains the provider-owned orchestrator; runtime.zero owns only this
-/// parser and the later plan/confirmation boundary.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AiupDryRunReport {
-    pub commands: BTreeMap<String, Vec<String>>,
-    pub versions: BTreeMap<String, String>,
-}
-
-pub fn parse_aiup_dry_run(bytes: &[u8]) -> Result<AiupDryRunReport, String> {
-    if bytes.len() as u64 > MAX_MANAGER_OUTPUT_BYTES {
-        return Err("AIUP dry-run output exceeds the foundation ceiling".to_string());
-    }
-    let text = std::str::from_utf8(bytes)
-        .map_err(|_| "AIUP dry-run output is not valid UTF-8".to_string())?;
-    let mut commands = BTreeMap::<String, Vec<String>>::new();
-    let mut versions = BTreeMap::<String, String>::new();
-    let mut current_tool = None;
-    let mut in_versions = false;
-    let mut recognized_tool_section = false;
-    let mut recognized_versions_section = false;
-    for line in text.lines() {
-        if line.contains("TOOL START:") {
-            let tool = parse_aiup_marker(line, "TOOL START:")?.ok_or_else(|| {
-                "AIUP dry-run output contains a malformed tool-start marker".to_string()
-            })?;
-            if in_versions {
-                return Err(
-                    "AIUP dry-run output starts a tool after the version catalog".to_string(),
-                );
-            }
-            if current_tool.is_some() {
-                return Err(
-                    "AIUP dry-run output starts a tool before closing the previous tool"
-                        .to_string(),
-                );
-            }
-            if commands.contains_key(&tool) {
-                return Err(format!("AIUP dry-run output repeats tool section '{tool}'"));
-            }
-            current_tool = Some(tool.clone());
-            commands.insert(tool, Vec::new());
-            recognized_tool_section = true;
-            continue;
-        }
-        if line.contains("TOOL DONE:") {
-            let tool = parse_aiup_marker(line, "TOOL DONE:")?.ok_or_else(|| {
-                "AIUP dry-run output contains a malformed tool-done marker".to_string()
-            })?;
-            if current_tool.as_deref() != Some(tool.as_str()) {
-                return Err(format!(
-                    "AIUP dry-run output closes tool '{tool}' without a matching start"
-                ));
-            }
-            current_tool = None;
-            continue;
-        }
-        if line.contains("=== Detected tool versions ===") {
-            if current_tool.is_some() {
-                return Err(
-                    "AIUP dry-run output enters the version catalog before closing a tool"
-                        .to_string(),
-                );
-            }
-            if recognized_versions_section {
-                return Err("AIUP dry-run output repeats the version catalog".to_string());
-            }
-            current_tool = None;
-            in_versions = true;
-            recognized_versions_section = true;
-            continue;
-        }
-        if line.contains("DRY-RUN:") {
-            let command = line
-                .split_once("DRY-RUN:")
-                .map(|(_, value)| value.trim())
-                .unwrap_or_default();
-            let Some(tool) = current_tool.as_ref() else {
-                return Err(
-                    "AIUP dry-run output contains a command outside a tool section".to_string(),
-                );
-            };
-            if command.is_empty() || command.len() > 512 || command.chars().any(char::is_control) {
-                return Err(format!(
-                    "AIUP dry-run output contains an invalid command for tool '{tool}'"
-                ));
-            }
-            let Some(commands_for_tool) = commands.get_mut(tool) else {
-                return Err(format!("AIUP dry-run output lost tool identity '{tool}'"));
-            };
-            commands_for_tool.push(command.to_string());
-            continue;
-        }
-        if in_versions {
-            let mut fields = line.split_whitespace();
-            let Some(tool) = fields.next() else {
-                continue;
-            };
-            let version = fields.collect::<Vec<_>>().join(" ");
-            if version.is_empty() {
-                continue;
-            }
-            if valid_aiup_field(tool, 80)
-                && valid_aiup_version(&version)
-                && versions.insert(tool.to_string(), version).is_some()
-            {
-                return Err(format!(
-                    "AIUP dry-run output repeats version identity '{tool}'"
-                ));
-            }
-        }
-    }
-    if let Some(tool) = current_tool {
-        return Err(format!(
-            "AIUP dry-run output leaves tool '{tool}' unterminated"
-        ));
-    }
-    if !recognized_tool_section && !recognized_versions_section {
-        return Err("AIUP dry-run output contained no recognized catalog sections".to_string());
-    }
-    Ok(AiupDryRunReport { commands, versions })
-}
-
-fn parse_aiup_marker(line: &str, marker: &str) -> Result<Option<String>, String> {
-    let Some((_, value)) = line.split_once(marker) else {
-        return Ok(None);
-    };
-    if line.matches(marker).count() != 1 {
-        return Err(format!("AIUP dry-run output repeats marker '{marker}'"));
-    }
-    let value = value.trim_start();
-    let Some(tool) = value.strip_suffix(" ==========") else {
-        return Err(format!(
-            "AIUP dry-run output has an invalid '{marker}' marker"
-        ));
-    };
-    if !valid_aiup_field(tool, 80) {
-        return Err(format!(
-            "AIUP dry-run output has an invalid tool identity '{tool}'"
-        ));
-    }
-    Ok(Some(tool.to_string()))
-}
-
-pub fn aiup_command_is_delegated(command: &str) -> bool {
-    let command = command.trim_start();
-    command == "brew update"
-        || command.starts_with("brew ")
-        || command.starts_with("npm ")
-        || command.starts_with("npm-update ")
-}
-
-fn valid_aiup_field(value: &str, maximum: usize) -> bool {
-    !value.is_empty()
-        && value.len() <= maximum
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
-}
-
-fn valid_aiup_version(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 120
-        && !value.chars().any(char::is_control)
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_' | b' '))
-}
-
 pub fn parse_manager_output(
     context: &ManagerParseContext,
     output: &[u8],
@@ -942,9 +760,6 @@ pub fn parse_manager_output(
         ManagerKind::Rustup => parse_rustup(context, text),
         ManagerKind::UvTools => parse_uv_tools(context, text),
         ManagerKind::Deno => parse_deno(context, text),
-        ManagerKind::Aiup => Err(
-            "AIUP output requires the provider-specific dry-run adapter; it is not a generic manager record stream".to_string(),
-        ),
         ManagerKind::CargoInstall => Ok(Vec::new()),
         ManagerKind::Flatpak => parse_flatpak(context, text),
         ManagerKind::Snap => parse_snap(context, text),
@@ -1204,7 +1019,6 @@ fn empty_manager_output_is_valid(manager: ManagerKind) -> bool {
             | ManagerKind::RubyGems
             | ManagerKind::Rustup
             | ManagerKind::Deno
-            | ManagerKind::Aiup
             | ManagerKind::CargoInstall
     )
 }
@@ -2005,28 +1819,6 @@ mod tests {
     }
 
     #[test]
-    fn parses_aiup_dry_run_as_bounded_provider_evidence() {
-        let report = parse_aiup_dry_run(
-            b"[INFO] ========== TOOL START: antigravity ==========\n\
-[INFO] DRY-RUN: curl -fsSL https://example.invalid/install.sh | bash\n\
-[INFO] ========== TOOL DONE: antigravity ==========\n\
-=== Detected tool versions ===\n\
-antigravity 1.1.12\n",
-        )
-        .expect("AIUP dry-run report");
-        assert_eq!(
-            report.versions.get("antigravity").map(String::as_str),
-            Some("1.1.12")
-        );
-        assert_eq!(report.commands["antigravity"].len(), 1);
-        assert!(!aiup_command_is_delegated(
-            &report.commands["antigravity"][0]
-        ));
-        assert!(aiup_command_is_delegated("npm install -g @openai/codex"));
-        assert!(parse_manager_output(&context(ManagerKind::Aiup), b"").is_err());
-    }
-
-    #[test]
     fn parses_flatpak_json_as_commit_bound_ref_evidence() {
         let records = parse_manager_output(
             &context(ManagerKind::Flatpak),
@@ -2142,37 +1934,6 @@ antigravity 1.1.12\n",
     }
 
     #[test]
-    fn aiup_dry_run_rejects_invalid_encoding_and_oversized_output() {
-        assert!(parse_aiup_dry_run(&[0xff]).is_err());
-        assert!(parse_aiup_dry_run(&vec![b'x'; MAX_MANAGER_OUTPUT_BYTES as usize + 1]).is_err());
-    }
-
-    #[test]
-    fn aiup_dry_run_rejects_unrecognized_or_malformed_catalog_output() {
-        assert!(parse_aiup_dry_run(b"aiup completed successfully\n").is_err());
-        assert!(parse_aiup_dry_run(b"TOOL START: invalid tool ==========").is_err());
-        assert!(parse_aiup_dry_run(b"=== Detected tool versions ===\n").is_ok());
-    }
-
-    #[test]
-    fn aiup_dry_run_requires_closed_unique_tool_sections_and_version_catalog() {
-        let unterminated = b"TOOL START: codex ==========\nDRY-RUN: npm update\n=== Detected tool versions ===\ncodex 1.0.0\n";
-        assert!(parse_aiup_dry_run(unterminated).is_err());
-
-        let mismatched = b"TOOL START: codex ==========\nTOOL DONE: hermes ==========\n";
-        assert!(parse_aiup_dry_run(mismatched).is_err());
-
-        let outside_section = b"DRY-RUN: npm update\n=== Detected tool versions ===\n";
-        assert!(parse_aiup_dry_run(outside_section).is_err());
-
-        let duplicate_tool = b"TOOL START: codex ==========\nTOOL DONE: codex ==========\nTOOL START: codex ==========\nTOOL DONE: codex ==========\n";
-        assert!(parse_aiup_dry_run(duplicate_tool).is_err());
-
-        let duplicate_version = b"=== Detected tool versions ===\ncodex 1.0.0\ncodex 1.0.1\n";
-        assert!(parse_aiup_dry_run(duplicate_version).is_err());
-    }
-
-    #[test]
     fn deterministic_untrusted_byte_corpus_never_panics_or_exceeds_bounds() {
         let managers = [
             ManagerKind::HomebrewFormula,
@@ -2197,7 +1958,6 @@ antigravity 1.1.12\n",
             ManagerKind::Rustup,
             ManagerKind::UvTools,
             ManagerKind::Deno,
-            ManagerKind::Aiup,
             ManagerKind::CargoInstall,
         ];
         let mut state = 0x5eed_cafe_d00d_beefu64;
