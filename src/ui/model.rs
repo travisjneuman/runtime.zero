@@ -692,6 +692,17 @@ impl UiModel {
         }
     }
 
+    pub fn refreshing(generation: u64) -> Self {
+        let mut model = Self::loading(generation);
+        model.status = BoundedText::try_new("refreshing local snapshot · no action is running")
+            .expect("static UI status is valid");
+        for route in &mut model.routes {
+            route.summary =
+                BoundedText::try_new("refreshing evidence").expect("static UI summary is valid");
+        }
+        model
+    }
+
     pub fn unavailable(generation: u64, reason: impl Into<String>) -> Self {
         let reason = BoundedText::try_new(reason).unwrap_or_else(|_| BoundedText::redacted());
         let state = ViewState::Unavailable {
@@ -819,6 +830,24 @@ mod tests {
                 Err(UiValidationError::RawPath)
             ));
         }
+    }
+
+    #[test]
+    fn refreshing_model_exposes_an_explicit_refresh_state() {
+        let model = UiModel::refreshing(7);
+        assert_eq!(model.state.label(), "loading");
+        assert!(
+            model
+                .status
+                .as_str()
+                .starts_with("refreshing local snapshot")
+        );
+        assert!(
+            model
+                .routes
+                .iter()
+                .all(|route| route.summary.as_str() == "refreshing evidence")
+        );
     }
 
     #[test]

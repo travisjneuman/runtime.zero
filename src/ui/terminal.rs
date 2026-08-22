@@ -169,7 +169,7 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
             controller = new_controller;
             receiver = Some(new_receiver);
             dashboard = None;
-            state.apply_model(foundation_adapter::loading_model(generation));
+            state.apply_model(foundation_adapter::refreshing_model(generation));
         } else {
             let outward = state.apply(intent);
             handle_outward_intent(

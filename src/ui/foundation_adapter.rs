@@ -13,6 +13,10 @@ pub fn loading_model(generation: u64) -> UiModel {
     UiModel::loading(generation)
 }
 
+pub fn refreshing_model(generation: u64) -> UiModel {
+    UiModel::refreshing(generation)
+}
+
 pub fn unavailable_model(generation: u64, reason: &str) -> UiModel {
     UiModel::unavailable(generation, public_text(reason).as_str())
 }
