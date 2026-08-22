@@ -1,9 +1,11 @@
 # Module Process Protocol Preview
 
 `crates/module-protocol/` defines a versioned host/module process contract while
-keeping product execution blocked. Schema version `1` authorizes nothing: a
-valid module plan is read-only, dry-run, offline, path-redacted, and explicitly
-sets both `execution_authorized` and `execution_attempted` to `false`.
+keeping the preview plan non-authorizing. Schema version `1` authorizes nothing
+by itself: a valid module plan is read-only, dry-run, offline, path-redacted,
+and explicitly sets both `execution_authorized` and `execution_attempted` to
+`false`. The signed macOS lifecycle executor consumes this preview only after
+its separate active-state, confirmation, receipt, and host checks succeed.
 
 An explicit Cargo feature now enables a separate integration-test transport and
 Cargo-built helper. That outer test contract authorizes only
@@ -19,7 +21,8 @@ The schema binds:
 - target platform and the single `collect_inventory` operation;
 - a receipt-relative `bin/` executable path, lowercase SHA-256, and bounded
   exact size;
-- successful public-test-key metadata and exact manifest SHA-256;
+- verified signature metadata (test-key or bounded first-party release-key) and
+  exact manifest SHA-256;
 - a cleared, non-inherited environment with names (not values) selected from a
   platform allowlist;
 - timeout and stdin/stdout/stderr byte ceilings;
@@ -113,6 +116,23 @@ not activate the registry, write a lifecycle receipt, grant third-party trust,
 or enforce filesystem/network/privilege/syscall sandboxing. The report marks
 `developer_trial=true` and `product_execution_authorized=false`; absence of a
 complete immutable package or any response drift fails closed.
+
+## Signed macOS lifecycle invocation
+
+The bounded v0 path uses the same plan shape for an active signed
+`first-party.inventory` package:
+
+```text
+rz0 modules invoke --signed --dry-run --module-id first-party.inventory --store-root PATH
+rz0 modules invoke --signed --apply --module-id first-party.inventory --store-root PATH --challenge-issued-unix-seconds SECONDS --confirm PHRASE
+```
+
+The foundation first requires persisted `active` state, a valid signed install
+receipt, complete package integrity, exact executable identity, and the current
+plan-bound confirmation. It then uses the bounded process host and accepts only
+a valid path-redacted read-only inventory response. A successful signed
+response may report `product_execution_authorized=true` for this one path; the
+host remains non-sandboxed and does not authorize third-party or remote modules.
 
 ## Explicit-feature test-child transport
 
