@@ -973,7 +973,9 @@ fn install_usage() -> String {
 
 fn invoke_usage() -> String {
     format!(
-        "developer module invocation is local and first-party-only\n\nUsage: {} modules invoke --developer-trial --dry-run --module-id first-party.inventory --store-root <path> [--format text|json]\n       {} modules invoke --developer-trial --apply --module-id first-party.inventory --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n\nThe dry-run resolves one promoted installed_inactive inventory module, revalidates its complete immutable package, and prints the exact short-lived confirmation phrase. Apply invokes only the path-redacted read-only Rust inventory module through the bounded process host. It never activates, mutates the registry, invokes third-party code, or establishes production execution authority. Process containment is not a sandbox.",
+        "module invocation is local and first-party-only\n\nUsage: {} modules invoke --signed --dry-run --module-id first-party.inventory --store-root <path> [--format text|json]\n       {} modules invoke --signed --apply --module-id first-party.inventory --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n       {} modules invoke --developer-trial --dry-run --module-id first-party.inventory --store-root <path> [--format text|json]\n       {} modules invoke --developer-trial --apply --module-id first-party.inventory --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n\nSigned invocation requires an active signed macOS inventory record and revalidates its complete immutable package before the bounded process host accepts a path-redacted read-only response. Developer-trial invocation is a promoted local fixture lane. Neither mode executes third-party code or provides a native sandbox.",
+        brand::COMMAND,
+        brand::COMMAND,
         brand::COMMAND,
         brand::COMMAND,
     )

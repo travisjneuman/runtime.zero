@@ -115,10 +115,11 @@ Schema version `1` expects:
 `module_dir` is optional for forward compatibility with future receipt-first
 records, but `id`, `version`, `manifest_path`, `receipt_path`, and
 `lifecycle_state` are required in newly published records. Schema 1 accepts
-only `installed_inactive`; older records without the field are read as that
-state, while any other explicit value is invalid. The persisted state records
-installation posture only and never authorizes activation, invocation, or a
-domain action.
+`installed_inactive` and `active`; older records without the field are read as
+`installed_inactive`, while any other explicit value is invalid. The bounded
+signed macOS inventory path may publish `active` only through an exact enable
+transition. The persisted state is not, by itself, authority for a domain
+action.
 Paths are registry references, not instructions to write files. They must be
 relative, must not use backslashes, absolute paths, URL-like values, or `..`
 traversal, and must stay in the expected future store classes:
@@ -300,9 +301,9 @@ publishes a registry, or launches a module.
 
 `rz0 modules status` is the complementary path-redacted read-only operator
 surface. It composes the installed registry, receipt, manifest, and declared
-package-file integrity validators, reports a record as `installed_inactive`
-only when those checks are valid, reports missing or invalid evidence as
-`degraded`, and never authorizes activation or invocation. Its
+package-file integrity validators, reports a record as `installed_inactive` or
+`active` only when those checks are valid, reports missing or invalid evidence
+as `degraded`, and never authorizes activation or invocation by itself. Its
 `--store-root` override is limited to local inspection and does not initialize
 or modify the selected root.
 

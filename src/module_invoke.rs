@@ -2,11 +2,11 @@
 //!
 //! This is the first process-backed lifecycle slice. It resolves one installed
 //! `first-party.inventory` record, revalidates its manifest and complete file
-//! set, binds the exact executable identity to the shared Rust process host,
+//! set, binds the exact executable identity to the shared process host,
 //! and accepts only the module's path-redacted read-only JSON contract. It is
-//! deliberately an outer developer-trial lane: it does not activate registry
-//! state, expose a production execution API, enforce a sandbox, or authorize
-//! third-party code.
+//! bounded to the active macOS inventory package; the developer-trial lane
+//! remains a local fixture path. Neither lane is a native sandbox or a
+//! third-party execution API.
 
 use std::collections::BTreeMap;
 use std::env;
@@ -190,7 +190,7 @@ fn invocation_report(
         || confirmation != &challenge.expected_phrase
     {
         report.errors.push(
-            "developer invocation confirmation is expired or does not match the exact dry-run plan"
+            "module invocation confirmation is expired or does not match the exact dry-run plan"
                 .to_string(),
         );
         return report;
@@ -322,7 +322,7 @@ fn prepare_invocation(
     developer_trial: bool,
 ) -> Result<PreparedInvocation, String> {
     if request.module_id != INVENTORY_MODULE_ID {
-        return Err("developer invocation supports only first-party.inventory".to_string());
+        return Err("module invocation supports only first-party.inventory".to_string());
     }
     let store =
         crate::store_status::store_status_report_for_root(&[], Some(request.store_root.clone()));
@@ -405,9 +405,7 @@ fn prepare_invocation(
         .as_ref()
         .ok_or_else(|| "installed module has no complete package integrity metadata".to_string())?;
     if !integrity.complete_file_set {
-        return Err(
-            "developer invocation requires a complete immutable package file set".to_string(),
-        );
+        return Err("module invocation requires a complete immutable package file set".to_string());
     }
     let executable_relative = if cfg!(windows) {
         INVENTORY_EXECUTABLE_WINDOWS
@@ -433,7 +431,7 @@ fn prepare_invocation(
         developer_trial,
     )?;
     let plan_bytes = serde_json::to_vec(&plan)
-        .map_err(|error| format!("serialize developer invocation plan: {error}"))?;
+        .map_err(|error| format!("serialize module invocation plan: {error}"))?;
     Ok(PreparedInvocation {
         module_version: record.version.clone(),
         module_root,
@@ -463,7 +461,7 @@ fn build_invocation_plan(
     let plan = InvocationPlan {
         schema_version: PROTOCOL_SCHEMA_VERSION,
         contract: INVOCATION_PLAN_CONTRACT.to_string(),
-        request_id: format!("developer-invoke-{}", &manifest_sha256[..16]),
+        request_id: format!("module-invoke-{}", &manifest_sha256[..16]),
         module_id: INVENTORY_MODULE_ID.to_string(),
         module_version: module_version.to_string(),
         platform: current_protocol_platform(),
@@ -517,7 +515,7 @@ fn build_invocation_plan(
         Ok(plan)
     } else {
         Err(format!(
-            "developer invocation plan is invalid: {:?}",
+            "module invocation plan is invalid: {:?}",
             validation.errors
         ))
     }
