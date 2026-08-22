@@ -750,9 +750,9 @@ The typed model/testkit foundation, Dossier Queue vertical slice, explicit
 provider-review worker, foundation-owned confirmation/execute delegation, and
 all five destination projections are implemented in `src/ui/`. The new route
 is the sole interactive launch path. The obsolete interactive lifecycle,
-state, Ratatui renderer, and layout sources were removed; `tui_dashboard.rs`
-and `tui_render.rs` remain only as bounded foundation snapshot and scriptable
-text-contract sources used by CLI/JSON consumers.
+state, Ratatui renderer, and legacy text renderer were removed;
+`tui_dashboard.rs` remains only as a bounded foundation snapshot source, while
+`src/ui/text.rs` is the typed scriptable text projection used by the CLI.
 
 Source and deterministic test evidence cover the required local sizes,
 color/no-color semantics, reducer states, stale generations, mouse/keyboard

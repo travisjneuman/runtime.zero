@@ -314,6 +314,14 @@ fn set_route(
         ViewState::Empty {
             generation: ready.generation(),
         }
+    } else if records
+        .iter()
+        .all(|record| record.status == RecordStatus::Blocked)
+    {
+        ViewState::Blocked {
+            generation: ready.generation(),
+            reason: bounded("all evidence is blocked by foundation policy"),
+        }
     } else {
         ready
     };

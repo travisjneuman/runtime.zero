@@ -321,6 +321,10 @@ impl UiState {
                     generation: self.model.generation,
                     reason: self.model.status.clone(),
                 };
+                self.model.route_mut(self.route).state = ViewState::Failed {
+                    generation: self.model.generation,
+                    reason: self.model.status.clone(),
+                };
                 None
             }
             UiEvent::JobRunning { job_id, phase } => {
@@ -351,12 +355,19 @@ impl UiState {
                     generation: self.model.generation,
                     reason: reason.clone(),
                 };
+                for route in &mut self.model.routes {
+                    route.state = ViewState::Failed {
+                        generation: self.model.generation,
+                        reason: reason.clone(),
+                    };
+                }
                 None
             }
             UiEvent::RecoveryRequired {
                 transaction,
                 decision,
             } => {
+                self.overlay = Overlay::Recovery(transaction.clone());
                 self.set_job(JobState::Recovery {
                     transaction,
                     decision,
@@ -589,5 +600,19 @@ mod tests {
         });
         assert_eq!(state.view_state().label(), "failed");
         assert!(matches!(state.job, JobState::Failed { .. }));
+    }
+
+    #[test]
+    fn recovery_event_opens_read_only_recovery_evidence() {
+        let mut state = UiState::new(fixture_model());
+        state.apply_event(UiEvent::RecoveryRequired {
+            transaction: BoundedId::try_new("transaction/1").expect("id"),
+            decision: BoundedText::try_new("review required").expect("text"),
+        });
+        assert_eq!(
+            state.overlay,
+            Overlay::Recovery(BoundedId::try_new("transaction/1").expect("id"))
+        );
+        assert!(matches!(state.job, JobState::Recovery { .. }));
     }
 }
