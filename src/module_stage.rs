@@ -256,6 +256,7 @@ fn stage_report(
                     return prepared.report(
                         source_manifest_path,
                         false,
+                        true,
                         false,
                         *publish_installed,
                         false,
@@ -288,6 +289,7 @@ fn stage_report(
                     source_manifest_path,
                     false,
                     false,
+                    false,
                     *publish_installed,
                     false,
                     None,
@@ -301,6 +303,7 @@ fn stage_report(
     if !is_apply {
         return prepared.report(
             source_manifest_path,
+            true,
             true,
             false,
             publish_installed,
@@ -327,6 +330,7 @@ fn stage_report(
                 source_manifest_path,
                 false,
                 false,
+                false,
                 publish_installed,
                 false,
                 Some(challenge),
@@ -339,6 +343,7 @@ fn stage_report(
         Ok(receipt) => prepared.report(
             source_manifest_path,
             true,
+            false,
             true,
             publish_installed,
             publish_installed,
@@ -351,6 +356,7 @@ fn stage_report(
         ),
         Err(error) => prepared.report(
             source_manifest_path,
+            false,
             false,
             true,
             publish_installed,
@@ -1111,7 +1117,8 @@ impl PreparedStage {
         &self,
         _source_manifest_path: PathBuf,
         valid: bool,
-        apply: bool,
+        dry_run: bool,
+        writes_attempted: bool,
         registry_publication_requested: bool,
         installed_registry_published: bool,
         challenge: Option<DeveloperStageChallenge>,
@@ -1129,8 +1136,8 @@ impl PreparedStage {
             valid,
             developer_only: self.developer_only,
             test_key_only: self.test_key_only,
-            dry_run: !apply,
-            writes_attempted: apply,
+            dry_run,
+            writes_attempted,
             product_execution_authorized: false,
             activation_authorized: false,
             invocation_authorized: false,

@@ -3,7 +3,8 @@
 Status: implemented product and architecture contract; task-first UI rebuild
 complete in source, owner/platform acceptance remains open
 Date: 2026-08-22
-Repository baseline: `eb7178a724063130b02d886879293009fc81dd47` on `main`
+Repository baseline: task-first source cutover on `main`; verify the current
+published commit with `git rev-parse origin/main`
 Scope: the Rust terminal UI and its durable product/architecture boundary
 
 This RFC is the reviewable contract for rebuilding the runtime.zero terminal
@@ -751,11 +752,10 @@ is a transition mechanism, not a permanent dual-UI architecture.
 The typed model/testkit foundation, task-first Home-to-Activity flow, explicit
 provider-review worker, foundation-owned confirmation/execute delegation, and
 semantic outcome states are implemented in `src/ui/`. `task_terminal.rs` is
-the sole active interactive controller. The old route shell and screen
-composition files were retired; `tui_dashboard.rs` remains only as a bounded
-foundation snapshot source, while `src/ui/text.rs` is the typed scriptable
-projection used by the CLI. The concurrent dirty `src/ui/terminal.rs` is kept
-outside the active module boundary pending owner reconciliation.
+the sole active interactive controller. The old route shell, screen
+composition files, and unused direct terminal controller were retired;
+`tui_dashboard.rs` remains only as a bounded foundation snapshot source,
+while `src/ui/text.rs` is the typed scriptable projection used by the CLI.
 
 Source and deterministic test evidence cover the required local sizes,
 color/no-color semantics, reducer states, stale generations, mouse/keyboard

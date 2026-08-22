@@ -66,10 +66,12 @@ not implement lifecycle state machines, cancellation engines, registries,
 receipts, or transaction coordinators. See
 [`module-lifecycle-contract.md`](module-lifecycle-contract.md).
 
-The current CLI exposes the bounded signed v0 path through the foundation. It
-does not claim the target configuration, repair, migration, third-party,
-remote-distribution, or shared-TUI lifecycle surface. The target command names
-and state semantics remain documented in
+The current CLI exposes the bounded signed v0 path through the foundation and
+the seven compiled macOS capabilities through local availability lifecycle
+commands. It does not claim configuration, repair, migration,
+third-party/remote distribution, or a public package feed. The task-first TUI
+uses the same foundation authority; it does not create a second lifecycle
+implementation. Remaining target semantics are documented in
 [`engineering-handoff.md`](engineering-handoff.md).
 
 ## Current registry surface
@@ -82,6 +84,9 @@ rz0 modules status --store-root tests/fixtures/store-roots/valid-registry-valid-
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
+rz0 modules builtin <install|enable|disable|update|uninstall> --module-id <id> --dry-run|--apply
+rz0 modules enable|disable|update|uninstall --module-id first-party.inventory --store-root <path> --dry-run|--apply
+rz0 modules recover --recovery-id <id> --store-root <path> --dry-run|--apply
 rz0 modules install --developer-trial --dry-run <package-dir-or-manifest> \
   --signature <envelope.json> --trusted-test-key <key.json> --store-root <path>
 rz0 modules install --developer-trial --apply <package-dir-or-manifest> \
@@ -106,15 +111,15 @@ rz0 store plan --format json
 rz0 store status
 rz0 store status --format json
 rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
-rz0 store init --dry-run
-rz0 store init --yes
+rz0 store init --dry-run --store-root <path>
+rz0 store init --yes --store-root <path>
 ```
 
-Bare `rz0` opens the Dossier Queue TUI in interactive terminals. It shows
-bounded foundation evidence, provider review boundaries, activity, and module
-posture; `c` can request the shared exact-confirmation challenge for a selected
-reviewable action. It must not claim planned module families are installed or
-executable. Explicit subcommands remain the scriptable CLI surface. See
+Bare `rz0` opens the Dossier Queue TUI in interactive terminals. It follows
+Home → Inventory → Evidence → Plan Review → Confirmation → Activity; module
+records remain content inside the attention queue and evidence index. `c`
+requests the shared exact-confirmation challenge only from Plan Review.
+Explicit subcommands remain the scriptable CLI surface. See
 [`tui.md`](tui.md) for the raw-key TUI contract, layout boundaries, and
 maintenance boundaries.
 
@@ -124,10 +129,14 @@ The JSON output uses schema version `1` and separates:
 - `installed_modules`;
 - `planned_module_families`.
 
-An empty `installed_modules` list is valid and expected for the foundation-only
-build. The planned registry is pinned by test to the frozen seven-family 1.0
-catalog: inventory/environment, updater, uninstall, leftovers, cache management,
-security/integrity, and report/export. Planned entries are not implementations.
+An empty `installed_modules` list is valid and expected when no separately
+packaged module has been staged. The registry also reports seven
+`built_in_capabilities` with local enabled/disabled state. The separate
+`planned_module_families` list is the optional package catalog: inventory/
+environment, updater, uninstall, leftovers, cache management,
+security/integrity, and report/export. Planned package entries are not
+installable end-user modules unless their trust and lifecycle slice is marked
+available; the signed inventory package is the current exception.
 
 `rz0 modules status` is the operator-facing, path-redacted lifecycle view. It
 composes the installed registry, receipt, manifest, and declared package-file

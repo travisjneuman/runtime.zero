@@ -44,6 +44,28 @@ The dependency order is therefore:
 4. consider third-party and remote/fleet ecosystems only after local lifecycle,
    revocation, support, and recovery are production-ready.
 
+## Current macOS usable slice — implemented in source
+
+The current executable target is a practical Apple Silicon macOS product built
+from this repository, not a packaging-only milestone. Its done definition is:
+
+- the seven first-party capability manifests are compiled into rz0 and have
+  real local availability lifecycle (install, enable, disable, update, and
+  uninstall; update is delivered by upgrading rz0);
+- Homebrew formula/cask discovery, exact plan review, confirmation-bound apply,
+  receipts, fresh verification, and recovery-status paths work through the
+  macOS provider lane;
+- the signed local first-party.inventory package can be staged, installed,
+  enabled, invoked, disabled, updated, quarantined on uninstall, and recovered;
+- CLI, JSON, and TUI delegate to the same foundation evidence, plan,
+  confirmation, transaction, verification, and recovery authority;
+- source-run, workspace tests, and bounded macOS PTY evidence pass.
+
+This slice is complete for local source-based macOS use. It is not a public
+release claim: release key custody/distribution, notarized artifacts, native
+sandbox proof, human accessibility/owner acceptance, and equal-platform
+matrices remain separate gates.
+
 ## Phase 1 — foundation baseline (implemented; not a production gate)
 
 - [x] Public Rust CLI, safety/security/contribution docs, brand, and static site.
@@ -91,15 +113,18 @@ The dependency order is therefore:
 
 See [`inventory-schema.md`](inventory-schema.md).
 
-## Phase 3 — first-party inventory module (source implementation complete)
+## Phase 3 — first-party inventory module (macOS lifecycle slice complete)
 
 - [x] Separate `modules/inventory/` workspace package and `rz0-inventory` binary.
 - [x] Deterministic text/JSON output and fixture support.
 - [x] Inventory library embedded as the installed core's bounded read-only
   adapter, with live TUI, `rz0 apps`, and `rz0 scan` surfaces.
-- [x] Planned first-party lifecycle manifest retained for development validation.
-- [ ] Signed immutable lifecycle artifact, activation, and out-of-process module
-  execution; blocked by the trust gate and not needed for built-in reads.
+- [x] Seven built-in capability manifests with local availability lifecycle;
+  compiled bytes are upgraded with rz0.
+- [x] Signed immutable macOS first-party.inventory artifact lifecycle:
+  install, enable, invoke, disable, update, quarantine/uninstall, and recover.
+- [ ] Production release key custody/distribution, native sandboxing, and
+  equal-platform module lifecycle evidence.
 
 ## Phase 4 — updater planning
 
@@ -175,18 +200,18 @@ See [`action-planning.md`](action-planning.md).
 
 ## Phase 6 — interactive UX and site
 
-- [x] Interactive terminal flow, section navigation, details panel, command
-  rail, responsive layout tiers, mouse capture, one-second monitor refresh,
-  cancellable dashboard loading, refresh generation invalidation, and stale-
-  result suppression.
-- [x] One live installed-software section with per-item details/uninstall posture,
-  bottom-safe row selection, mouse-wheel scrolling, and exact CLI action entries.
+- [x] Task-first Home → Inventory → Evidence → Plan Review → Confirmation →
+  Activity flow with typed states, responsive layout tiers, mouse capture,
+  cancellable loading/refresh, generation invalidation, and stale-result
+  suppression.
+- [x] Module-contributed evidence remains content inside the attention queue and
+  inventory; modules do not add tabs, global key bindings, or authority.
 - [ ] Manual Windows Terminal/PowerShell TUI smoke and installed-binary refresh.
 - [ ] Linux/macOS terminal-emulator, SSH/tmux/screen, Unicode, no-color,
   accessibility, and restoration smoke on final artifacts.
-- [x] Dossier Queue confirmation preparation delegates to the shared foundation
-  updater path; broad uninstall and recovery completion remain outside the TUI
-  until their separate gates close.
+- [x] Confirmation and activity delegate to the shared foundation plan,
+  transaction, receipt, verification, and recovery evidence paths; the TUI has
+  no second mutation implementation.
 - [x] Add parser-covered Bash/Zsh/Fish/PowerShell completion output and a
   committed `rz0(1)` manual page.
 - [ ] Complete localization policy, direct TUI recovery UX, migration/repair
@@ -269,9 +294,11 @@ See [`action-planning.md`](action-planning.md).
   uses an explicit inherited-handle list and pre-start Job Object assignment.
 - [x] Add the bounded developer-only first-party inventory invocation lane with
   complete package revalidation, exact executable binding, cleared environment,
-  short-lived challenge, bounded process host, and read-only response validation;
-  production module execution, receipts, sandboxing, and third-party trust
-  remain blocked.
+  short-lived challenge, bounded process host, and read-only response validation.
+- [x] Add the bounded signed macOS inventory lifecycle with registry/receipt
+  publication, active invocation, update, quarantine, and recovery evidence.
+  This remains a caller-selected local release-key path, not a public feed or
+  native sandbox.
 - [x] Native Unix test-helper preflight for observed inheritable descriptors and
   process-group timeout teardown including a sleeping descendant.
 - [x] Windows-target test-helper Job Object assignment, kill-on-close, bounded

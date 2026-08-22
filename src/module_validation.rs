@@ -244,7 +244,9 @@ fn is_valid_id(id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::module_manifest::{ModulePermission, ModulePermissions, ModuleSafety, RiskLevel};
+    use crate::module_manifest::{
+        ModuleAvailability, ModulePermission, ModulePermissions, ModuleSafety, RiskLevel,
+    };
 
     fn valid_manifest() -> ModuleManifest {
         ModuleManifest::new(
@@ -266,6 +268,42 @@ mod tests {
     fn validates_safe_first_party_manifest() {
         let report = validate_manifest(Path::new("module.json"), valid_manifest());
         assert!(report.valid, "{:?}", report.errors);
+    }
+
+    #[test]
+    fn classifies_core_capabilities_and_optional_modules_separately() {
+        let optional = valid_manifest();
+        assert_eq!(optional.availability, ModuleAvailability::SourceOnlyModule);
+
+        let core = ModuleManifest::new(
+            "core.inventory",
+            "Core inventory",
+            "0.1.0",
+            "runtime.zero",
+            ModuleKind::CoreFoundation,
+            ModuleStatus::Active,
+            "Built-in inventory capability.",
+            &["inventory"],
+            &["macos"],
+            RiskLevel::ReadOnly,
+            ModuleSafety::core_read_only(),
+        );
+        assert_eq!(core.availability, ModuleAvailability::BuiltInCapability);
+        assert!(validate_manifest(Path::new("core.json"), core).valid);
+    }
+
+    #[test]
+    fn rejects_an_inaccurate_availability_classification() {
+        let mut manifest = valid_manifest();
+        manifest.availability = ModuleAvailability::BuiltInCapability;
+        let report = validate_manifest(Path::new("module.json"), manifest);
+        assert!(!report.valid);
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.contains("source-only"))
+        );
     }
 
     #[test]

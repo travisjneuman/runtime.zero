@@ -154,6 +154,11 @@ full platform/lifecycle acceptance cells.
   challenge, and path-redacted read-only response validation; it does not
   activate registry state, write a lifecycle receipt, or authorize production
   or third-party execution.
+- [x] Add one bounded signed macOS `first-party.inventory` lifecycle path with
+  foundation-owned install, active/inactive transitions, update, host
+  invocation, quarantine/uninstall, recovery, JSON state, and exact
+  confirmation/error tests; public distribution, native sandboxing, and other
+  module families remain open.
 - [ ] Implement production immutable staging without reopening mutable source,
   with production trust roots, revocation, provenance, and platform proof
   paths after verification.
@@ -170,8 +175,8 @@ full platform/lifecycle acceptance cells.
   private alternatives.
 - [x] Add a path-redacted, read-only `modules status` surface that composes
   registry, receipt, manifest, and declared-package-byte evidence and reports
-  `installed_inactive` or `degraded`
-  without claiming activation or execution authority; include developer-stage
+  `installed_inactive`, `active`, or `degraded`
+  without authorizing execution by itself; include developer-stage
   receipt, immutable transaction-journal-head, commit-receipt, and staged-byte
   integrity review with degraded evidence on drift.
 - [ ] Build and validate signed first-party artifacts for all seven module

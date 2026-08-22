@@ -5,7 +5,7 @@ Command: `rz0`
 
 `runtime.zero` is a Rust-first, terminal-native foundation for safe system management. The core owns shared policy, contracts, bounded inventory, and explicit mutation lanes; domain writes still require exact plans, confirmation, transactions, and post-action verification.
 
-> **Current pre-alpha snapshot (reviewed 2026-08-22):** the installed surface provides bounded software/package/service inventory, source-identity grouping, a Rust-first Dossier Queue TUI with five stable destinations, native monitoring, privacy-reviewed local support summaries, and a provider-driven CLI manager-update coordinator. The TUI starts with a loading shell, keeps local readiness independent from explicit provider review, and projects real foundation action-plan metadata without taking authority. The coordinator resolves system managers, language/package environments, known self-updaters, multiple npm prefixes, and declared application update metadata without guessing ownership; `--apply` executes native manager commands with plan-bound executable identity, isolated manager environments, optional non-interactive sudo elevation, durable external-effect receipts, self-updater replacement handling, and fresh post-action verification. Receipt-bound local recovery can complete only the final runtime.zero journal commit after a fresh explicit challenge; it never reruns a manager. `recovery --dry-run` also reviews bounded immutable transaction journal heads and reports conservative per-transaction guidance without mutation authority. The project remains pre-alpha: Windows runtime/ACL/reparse proof, private/UI-only app channels, native rollback, third-party trust, and final-artifact runtime matrices remain incomplete. Start with the [`user guide`](docs/user-guide.md), [`TUI guide`](docs/tui.md), [`current status`](docs/project-status-and-resumption.md), [`engineering handoff`](docs/engineering-handoff.md), and [`documentation guide`](docs/documentation-index.md).
+> **Current macOS product snapshot (reviewed 2026-08-22):** the source tree builds a usable Rust core with seven compiled-in capability modules, a signed local `first-party.inventory` package lifecycle, a real Homebrew formula/cask review-and-apply path, quarantine/recovery primitives, and a task-first Dossier Queue TUI. The core remains report-first and dry-run-first: exact plans, short-lived confirmation, receipts, fresh verification, and recovery evidence are required for writes. The public source workflow is complete for local macOS use; production release distribution, production key custody, native sandboxing, third-party modules, cross-platform runtime proof, and human accessibility/owner acceptance remain separate gates. Start with the [`user guide`](docs/user-guide.md), [`TUI guide`](docs/tui.md), [`current status`](docs/project-status-and-resumption.md), and [`documentation guide`](docs/documentation-index.md).
 
 ## The promise
 
@@ -37,14 +37,19 @@ rz0 modules status --store-root tests/fixtures/store-roots/valid-registry-valid-
 rz0 modules validate <manifest.json>
 rz0 modules --from <directory> --format json
 rz0 modules install --dry-run <package-dir-or-manifest>
+rz0 modules install --signed --dry-run <package-dir>
+rz0 modules install --signed --apply <package-dir> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm '<exact-phrase>'
+rz0 modules builtin <install|enable|disable|update|uninstall> --module-id <id> --dry-run|--apply
+rz0 modules enable|disable|update|uninstall --module-id first-party.inventory --store-root <path> --dry-run|--apply
+rz0 modules recover --recovery-id <id> --store-root <path> --dry-run|--apply
 rz0 modules lifecycle-plan <operation> --dry-run --module-id <id> --from-state <state> --to-state <state> [--from-version <version>] [--to-version <version>]
 rz0 store plan
 rz0 store plan --format json
 rz0 store status
 rz0 store status --format json
 rz0 store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
-rz0 store init --dry-run
-rz0 store init --yes
+rz0 store init --dry-run --store-root <path>
+rz0 store init --yes --store-root <path>
 rz0 apps
 rz0 apps --format json
 rz0 report
@@ -75,6 +80,7 @@ rz0 toolchain --format json
 rz0 updates --dry-run --fixture tests/fixtures/updater/evidence.json --plan --queue --format json
 rz0 updates --dry-run --manager homebrew-formula --manager-output /tmp/out.json --executable /opt/homebrew/bin/brew --plan --queue --format json
 rz0 updates --dry-run --probe --manager homebrew-formula --executable /opt/homebrew/bin/brew --allow-network-read --plan --queue --format json
+rz0 updates --dry-run --macos --allow-network-read --plan --queue --format json
 rz0 updates --dry-run --all-providers --allow-network-read --plan --queue --format json
 rz0 updates --recovery-status --transaction <exact-transaction-id>
 rz0 updates --recovery-complete --transaction <exact-transaction-id>
@@ -84,11 +90,11 @@ rz0 updates --apply --all-providers --allow-network-read --allow-network-write -
 ```
 
 Bare `rz0` opens the Rust-first Dossier Queue TUI in an interactive terminal.
-It renders a loading shell before the local snapshot, then exposes stable
-Overview, Explore, Review, Activity, and Modules destinations with typed
-evidence, bounded selection/detail overlays, explicit provider review, and the
-foundation-owned confirmation/action lane. `r` refreshes local evidence and
-`u` explicitly reviews providers; neither silently retries or executes. Use
+It renders Home first, then follows the task path Home → Inventory → Evidence →
+Plan Review → Confirmation → Activity. Modules contribute evidence and actions
+as content; they do not add tabs or global controls. `r` refreshes local
+evidence and `u` explicitly reviews providers; neither silently retries or
+executes. Use
 `rz0 --no-tui` for the scriptable text dashboard, or `rz0 --json` for the
 machine-readable foundation dashboard.
 `rz0 <subcommand>` remains scriptable and never opens the TUI.
@@ -132,11 +138,13 @@ for the complete product horizon and shift plan.
 - `core.policy` defines shared safety metadata and executable action gates.
 - `core.registry` lists core primitives and explicitly installed modules.
 
-The manifest now distinguishes `built_in_capability` from
-`source_only_module`. Core manifests such as `core.inventory` are compiled
-foundation capabilities; `first-party.inventory` is source-only even though
-the foundation embeds its library as a bounded read adapter. An embedded
-adapter is not an installed lifecycle package.
+The manifest distinguishes `built_in_capability` from `source_only_module`.
+The seven `first-party.*` capability manifests are compiled macOS capabilities
+with local enable/disable availability state. The separately packaged
+`first-party.inventory` artifact is also the one signed v0 module with an
+installed/active/quarantine/recovery lifecycle. A compiled capability and a
+separately installed package are different delivery forms even when they share
+a domain ID.
 
 **Implementation standard:** a feature is `implemented` only when its normal
 user path is callable, its result is observable, and its failure/recovery path
@@ -145,15 +153,14 @@ foundation component, not a completed end-user capability. Safe confirmation,
 rollback, and privilege gates may pause an action, but they must not hide an
 otherwise available action behind permanent read-only wording.
 
-First-party feature modules are planned as separate install/use choices. The
-future module platform must distinguish installed, enabled, active,
-degraded/blocked, and action-authorized states. Disabling a module must stop
-its collection, network work, scheduling, UI actions, and mutation while
-preserving its settings, evidence, and receipts; uninstall is a separate
-explicit, data-retention-aware lifecycle. A full bundle may exist later as a
-convenience distribution, but it should not redefine the core. Third-party and
-remote modules require hardened trust, capability, isolation, revocation, and
-support models before support is added.
+Built-in capabilities are user-manageable through local availability state;
+their bytes are upgraded with `runtime.zero` itself. The signed inventory
+package uses the full installed → enabled/active → disabled → updated or
+quarantined → recovered lifecycle. Every apply path rebuilds its plan and
+requires exact confirmation. The remaining six package families are cataloged
+as planned optional distributions, not silently claimed as installable modules.
+Third-party and remote modules require hardened trust, capability, isolation,
+revocation, and support models before support is added.
 
 The foundation can validate local module manifests without executing module
 code. The fixture/captured-output `rz0 updates --dry-run` surface can classify
@@ -188,12 +195,12 @@ rz0 modules install --dry-run path/to/module-package
 Module validation and installation planning remain local and bounded. The
 unsigned planner does not fetch, trust, activate, or run module code. The
 developer trial remains a local test-key staging lane. The first end-user
-exception is a signed, read-only `first-party.inventory` package on macOS:
+package path is the signed, read-only `first-party.inventory` package on macOS:
 
 ```bash
-rz0 modules install --developer-trial --dry-run path/to/module-package \
+rz0 modules install --signed --dry-run path/to/module-package \
   --signature path/to/envelope.json \
-  --trusted-test-key path/to/trusted-test-key.json \
+  --trusted-test-key path/to/release-key.json \
   --store-root path/to/initialized-runtime-zero-store
 ```
 
@@ -224,9 +231,10 @@ rz0 modules recover --recovery-id <id> --store-root <path> --dry-run
 ```
 
 Each apply form rebuilds its current plan and requires the exact challenge.
-Only this macOS inventory package is wired to the v0 executor; release
-distribution, key custody/rotation, native sandboxing, third-party modules,
-and other provider/module families remain open.
+Only this macOS inventory package is wired to the signed package executor;
+the seven compiled-in capabilities use the built-in lifecycle instead.
+Production release distribution, key custody/rotation, native sandboxing,
+third-party modules, and the remaining optional package families remain open.
 
 `rz0 modules status` is the path-redacted read-only lifecycle surface. It
 reports installed records as `installed_inactive` or `active` only when
@@ -287,8 +295,9 @@ command restores one existing validated quarantine record to its original
 unoccupied cache/module path after a fresh exact confirmation; it never
 overwrites, deletes, recurses, elevates, or uses network access. Integrity has a
 bounded exact-file adapter that remains caller-baseline only. None of these
-surfaces provides broad filesystem uninstall, recursive cleanup, signed
-lifecycle activation, or production support. See
+surfaces provides broad filesystem uninstall, recursive cleanup, or production
+support. The signed inventory package is the explicit lifecycle exception; the
+other families remain review/planning surfaces. See
 [`docs/domain-classifier-modules.md`](docs/domain-classifier-modules.md).
 
 A separate `crates/module-trust/` contract now verifies local detached Ed25519
@@ -533,7 +542,13 @@ The project is intentionally modular:
 
 - Rust CLI core for command parsing, built-in bounded inventory/monitoring, policy, contracts, JSON output, non-authorizing planning/recovery contracts, and the narrow explicit manager-update coordinator.
 - Platform adapters for Windows, macOS, and Linux.
-- Separately built first-party module families for inventory, updater domain logic, uninstall, leftovers, cache, security/integrity, and report/export. These are the initial release-gated families; the long-term catalog also includes developer/AI tooling, services/persistence, storage/data hygiene, security, network/hardware, OS settings, backup/recovery, automation, account/provider, and explicitly separated remote/fleet modules. Their executable lifecycle remains planned.
+- Seven compiled-in first-party capability families for inventory, updater,
+  uninstall, leftovers, cache, security/integrity, and report/export, plus the
+  separately signed inventory package lifecycle. The remaining package
+  distributions, public release feed, third-party trust, and long-term catalog
+  (developer/AI tooling, services/persistence, storage/data hygiene,
+  network/hardware, OS settings, backup/recovery, automation, account/provider,
+  and remote/fleet modules) remain explicitly staged work.
 - Interactive local-software TUI using crossterm for raw/mouse terminal
   lifecycle and Ratatui for the widget dashboard, with componentized panels,
   visible selected rows, section navigation, details, mouse-wheel scrolling,

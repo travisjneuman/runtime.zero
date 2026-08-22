@@ -189,8 +189,8 @@ The test lane deliberately does **not** claim production isolation:
 - Linux and Windows test-host builds bind the held verified artifact through
   spawn, but this still lacks real Windows runtime proof and broader capability
   enforcement;
-  guarded macOS tests spawn only their copied test helper by canonical path
-  while production macOS binding remains unsupported;
+  the bounded signed macOS inventory host uses canonical-path identity and
+  digest revalidation; this is not a native sandbox or a general module host;
 - the standard process boundary does not enforce filesystem, registry, process,
   network, or syscall capabilities;
 - shared Unix preflight enumeration rejects currently observed descriptors with
@@ -208,10 +208,10 @@ The test lane deliberately does **not** claim production isolation:
   process could still delay reader completion;
 - Windows reparse/File ID, macOS sandbox/code-signing, and Linux namespace/
   seccomp/landlock behavior have no runtime proof;
-- there is no production receipt loader, capability broker, journal, installed
-  module path, or core/TUI/CLI integration.
+- the signed v0 receipt/registry/store/CLI path is limited to
+  `first-party.inventory`; there is no general production receipt loader,
+  capability broker, or cross-platform module host.
 
-A process boundary is not a sandbox. Production module execution, dynamic
-libraries, WASM, scripts, hooks, third-party code, elevated operations, and
-network access remain blocked by
+A process boundary is not a sandbox. Dynamic libraries, WASM, hooks,
+third-party code, elevated operations, and network access remain blocked by
 [`module-trust-and-execution.md`](module-trust-and-execution.md).
