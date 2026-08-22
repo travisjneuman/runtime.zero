@@ -478,13 +478,17 @@ cargo run -- modules
 cargo run -- modules --format json
 cargo run -- modules validate path/to/rz0-module.json
 cargo run -- modules install --dry-run path/to/module-package
+cargo run -- modules install --signed --dry-run path/to/macos-package --signature path/to/envelope.json --trusted-test-key path/to/release-key.json --store-root path/to/store
+cargo run -- modules builtin enable --module-id first-party.inventory --dry-run
+cargo run -- modules disable --module-id first-party.inventory --store-root path/to/store --dry-run
+cargo run -- modules recover --recovery-id <id> --store-root path/to/store --dry-run
 cargo run -- store plan
 cargo run -- store plan --format json
 cargo run -- store status
 cargo run -- store status --format json
 cargo run -- store status --store-root tests/fixtures/store-roots/valid-registry-valid-receipt --format json
-cargo run -- store init --dry-run
-cargo run -- store init --dry-run --format json
+cargo run -- store init --dry-run --store-root path/to/store
+cargo run -- store init --yes --store-root path/to/store
 cargo run -- scan --dry-run
 cargo run -- scan --dry-run --format json
 cargo run -- report --format json

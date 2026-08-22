@@ -467,8 +467,8 @@ repeat with its issued timestamp and exact phrase. Follow
 ```bash
 rz0 store plan
 rz0 store status
-rz0 store init --dry-run
-rz0 store init --yes
+rz0 store init --dry-run --store-root path/to/store
+rz0 store init --yes --store-root path/to/store
 ```
 
 `store init --yes` creates only runtime.zero-owned user-local scaffolding on
@@ -476,12 +476,33 @@ currently enabled Unix paths. It refuses unsafe existing state and does not
 repair, overwrite, install, activate, or execute modules. Windows creation
 remains blocked pending ACL/runtime proof.
 
-## Module staging boundary
+## Module lifecycle boundary
 
-The normal module installer is not available. `rz0 modules install --dry-run`
-only validates a local package and builds a non-authorizing plan. A separate
-developer trial can exercise the foundation's first bounded module-byte write
-with a local fixture:
+`rz0 modules install --dry-run` only validates a local package and builds a
+non-authorizing plan. The signed macOS inventory package is the current
+end-user lifecycle path:
+
+```bash
+rz0 modules install --signed --dry-run <macos-package> \
+  --signature <envelope.json> --trusted-test-key <release-key.json> --store-root <path>
+rz0 modules install --signed --apply <macos-package> \
+  --signature <envelope.json> --trusted-test-key <release-key.json> --store-root <path> \
+  --challenge-issued-unix-seconds <seconds> --confirm <phrase>
+rz0 modules enable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules disable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules update --module-id first-party.inventory --package <macos-package> \
+  --signature <envelope.json> --trusted-key <release-key.json> --store-root <path> --dry-run
+rz0 modules uninstall --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules recover --recovery-id <id> --store-root <path> --dry-run
+```
+
+The signed path rebuilds the exact plan for every apply, requires the matching
+short-lived challenge, and uses receipts, quarantine, fresh verification, and
+recovery evidence. It is local and caller-key-selected; it does not fetch
+packages or establish a general third-party sandbox.
+
+A separate developer trial can exercise the foundation's bounded module-byte
+write with a local fixture:
 
 ```bash
 rz0 modules install --developer-trial --dry-run <package-dir-or-manifest> \
@@ -497,8 +518,8 @@ replacement, and leaves the installed registry unchanged. Add
 `--developer-promote` to the dry-run and apply forms to publish one
 test-key-only `installed_inactive` registry record and a separate install
 receipt for local lifecycle testing. Promotion still never activates, invokes,
-or executes module code. Both paths are developer foundation tests, not a
-public installer or a production trust decision.
+or executes module code. The developer dry-run/apply pair is a foundation test,
+not a public installer or a production trust decision.
 
 ## Module surfaces
 
@@ -506,6 +527,7 @@ public installer or a production trust decision.
 rz0 modules
 rz0 modules status
 rz0 modules status --store-root path/to/store --format json
+rz0 modules builtin <install|enable|disable|update|uninstall> --module-id <id> --dry-run|--apply
 rz0 modules validate modules/inventory/rz0-module.json
 rz0 modules install --dry-run modules/inventory
 rz0 modules install --developer-trial --dry-run <package> --signature <envelope.json> \
@@ -531,8 +553,9 @@ path: it supports the macOS `first-party.inventory` package through install,
 enable/disable, update, signed invocation, quarantine/uninstall, and recovery.
 It requires complete immutable package evidence, an explicit local release key,
 and exact confirmation; it accepts only a path-redacted read-only response and
-does not invoke third-party code or claim a native sandbox. Other module
-families remain planned or review-only.
+does not invoke third-party code or claim a native sandbox. The other six
+package distributions remain planned or review-only; their corresponding
+compiled-in macOS capabilities are available through the built-in lifecycle.
 
 Use `rz0 modules status` when you need the current module-store answer:
 valid registry-plus-receipt-plus-installed-byte evidence is
