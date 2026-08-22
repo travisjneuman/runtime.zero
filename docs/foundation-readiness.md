@@ -122,8 +122,8 @@ paths. They are separate exceptions, not a general mutation authority:
   scaffolding;
 - developer-only module staging and promotion accept only local first-party,
   test-key-bound bytes and publish only `installed_inactive` evidence for
-  lifecycle testing; they do not grant production trust or execution
-  authority;
+  lifecycle testing; the separate signed macOS v0 path publishes and manages
+  only `first-party.inventory` through the foundation lifecycle and host;
 - exact manager-native uninstall uses a fresh manager-owned plan, sealed
   executable identity, explicit destructive confirmation, shared receipts, and
   fresh post-action verification; it does not provide dependent-package,
@@ -156,10 +156,10 @@ platform adapter coverage plus dependent-package, rollback, and recovery proof.
 
 The current foundation does not authorize:
 
-- production module installation, activation, invocation, repair, migration,
-  upgrade, deactivation, or uninstall; the developer-only test-key staging,
-  promotion, and first-party preview invocation paths remain explicitly
-  non-production and non-authorizing;
+- general production module installation, activation, invocation, repair,
+  migration, upgrade, deactivation, or uninstall; the bounded signed macOS v0
+  path is limited to `first-party.inventory`, local release-key input, and the
+  foundation-owned receipt/quarantine/host boundaries;
 - arbitrary first- or third-party process execution;
 - broad uninstall, broad leftover/cache, permanent-delete, or integrity
   remediation writes; only the exact confirmation-bound paths listed above

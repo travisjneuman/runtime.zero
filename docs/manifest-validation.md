@@ -178,9 +178,9 @@ to choose between competing manifests silently.
 `rz0 modules status` reads the installed registry, receipt inventory, and
 installed manifest/package integrity evidence through the same bounded
 validators. It is the status surface for deciding whether an installed record
-is `installed_inactive` or `degraded`; it never claims
-`active`, executes a module, or changes registry/receipt state. Its optional
-`--store-root` argument is a local read-only inspection override.
+is `installed_inactive`, `active`, or `degraded`; it never executes a module or
+changes registry/receipt state. Its optional `--store-root` argument is a local
+read-only inspection override.
 
 ## Dry-run install planner
 

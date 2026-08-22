@@ -508,33 +508,37 @@ rz0 modules validate modules/inventory/rz0-module.json
 rz0 modules install --dry-run modules/inventory
 rz0 modules install --developer-trial --dry-run <package> --signature <envelope.json> \
   --trusted-test-key <key.json> --store-root <path>
+rz0 modules install --signed --dry-run <macos-package> --signature <envelope.json> \
+  --trusted-test-key <release-key.json> --store-root <path>
+rz0 modules enable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules disable --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules update --module-id first-party.inventory --package <macos-package> \
+  --signature <envelope.json> --trusted-key <release-key.json> --store-root <path> --dry-run
+rz0 modules uninstall --module-id first-party.inventory --store-root <path> --dry-run
+rz0 modules recover --recovery-id <id> --store-root <path> --dry-run
 rz0 modules lifecycle-plan invoke --dry-run --module-id first-party.inventory \
   --from-state active --to-state active --from-version 0.1.0 --to-version 0.1.0
-rz0 modules invoke --developer-trial --dry-run \
+rz0 modules invoke --signed --dry-run \
   --module-id first-party.inventory --store-root path/to/store
 ```
 
-These commands parse, validate, hash, and plan. The developer-trial form is the
-exceptional bounded foundation test described above: it can stage verified
-read-only fixture bytes after explicit confirmation, but it does not publish a
-registry record or make those bytes discoverable, active, or executable. The
-only current process-backed command is the explicit developer-trial
-`first-party.inventory` invocation lane. It requires a promoted installed
-record, complete immutable package evidence, and exact challenge confirmation;
-it accepts only a path-redacted read-only response and does not activate,
-mutate registry state, invoke third-party code, or establish production
-execution authority. There is still no supported production command to install,
-activate, invoke, repair, migrate, upgrade, deactivate, or uninstall module
-code. The seven first-party manifests remain planned.
+These commands parse, validate, hash, and plan unless `--apply` is explicitly
+entered with the exact current challenge. The developer-trial form remains a
+bounded foundation test. The signed form is the one current end-user lifecycle
+path: it supports the macOS `first-party.inventory` package through install,
+enable/disable, update, signed invocation, quarantine/uninstall, and recovery.
+It requires complete immutable package evidence, an explicit local release key,
+and exact confirmation; it accepts only a path-redacted read-only response and
+does not invoke third-party code or claim a native sandbox. Other module
+families remain planned or review-only.
 
 Use `rz0 modules status` when you need the current module-store answer:
 valid registry-plus-receipt-plus-installed-byte evidence is
-`installed_inactive`; missing or invalid receipt, manifest, or declared package
-file evidence is `degraded`; a valid developer-stage receipt and staged byte
-set is reported separately as `staged`; the staged receipt must also match its
-immutable committed transaction journal and commit receipt, otherwise it is
-degraded for review. No module is reported `active` because the lifecycle
-execution gate remains unavailable. The output is read-only and path-redacted
+`installed_inactive` or `active`; missing or invalid receipt, manifest, or
+declared package-file evidence is `degraded`; a valid developer-stage receipt
+and staged byte set is reported separately as `staged`; the staged receipt must
+also match its immutable committed transaction journal and commit receipt,
+otherwise it is degraded for review. The output is read-only and path-redacted
 by default.
 
 The product direction is broader than this current planning surface: every

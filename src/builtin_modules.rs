@@ -203,10 +203,10 @@ pub fn builtin_manifests() -> Vec<ModuleManifest> {
     ]
 }
 
-pub fn builtin_ids() -> Vec<&'static str> {
+pub fn builtin_ids() -> Vec<String> {
     builtin_manifests()
         .into_iter()
-        .map(|manifest| Box::leak(manifest.id.into_boxed_str()) as &'static str)
+        .map(|manifest| manifest.id)
         .collect()
 }
 

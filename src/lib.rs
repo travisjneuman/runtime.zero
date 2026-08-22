@@ -142,6 +142,28 @@ pub fn help_text() -> String {
         cmd = brand::COMMAND,
         safety = brand::SAFETY_POSTURE
     );
+    let store_init_without_root = format!(
+        "  {} store init --dry-run [--format json]\n  {} store init --yes [--format json]\n",
+        brand::COMMAND,
+        brand::COMMAND,
+    );
+    let store_init_with_root = format!(
+        "  {} store init --dry-run [--store-root <path>] [--format text|json]\n  {} store init --yes [--store-root <path>] [--format text|json]\n",
+        brand::COMMAND,
+        brand::COMMAND,
+    );
+    help = help.replace(&store_init_without_root, &store_init_with_root);
+    let unsigned_install = format!(
+        "  {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n",
+        brand::COMMAND,
+    );
+    let install_lifecycle = format!(
+        "  {} modules install --dry-run <package-dir-or-manifest> [--format text|json]\n  {} modules install --signed --dry-run <package-dir> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> [--format text|json]\n  {} modules install --signed --apply <package-dir> --signature <envelope.json> --trusted-test-key <key.json> --store-root <path> --challenge-issued-unix-seconds <seconds> --confirm <exact-phrase> [--format text|json]\n",
+        brand::COMMAND,
+        brand::COMMAND,
+        brand::COMMAND,
+    );
+    help = help.replace(&unsigned_install, &install_lifecycle);
     let toolchain_usage = format!("  {} toolchain [--format text|json]\n", brand::COMMAND);
     let configuration_usage = format!("  {} config [--format text|json]\n", brand::COMMAND);
     let uninstall_apply_usage = format!(
