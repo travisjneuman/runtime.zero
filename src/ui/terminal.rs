@@ -46,7 +46,19 @@ enum ActionPhase {
 
 enum ActionResult {
     Challenge(Box<Result<TuiUpdateChallenge, String>>),
-    Execution(Result<UpdateExecutionReport, String>),
+    Execution(Box<Result<UpdateExecutionReport, String>>),
+}
+
+struct IntentContext<'a> {
+    state: &'a mut UiState,
+    dashboard: Option<&'a tui_dashboard::TuiDashboard>,
+    generation: u64,
+    review_controller: &'a mut Option<rz0_cancellation_contract::CancellationController>,
+    review_receiver: &'a mut Option<Receiver<ReviewResult>>,
+    action_controller: &'a mut Option<rz0_cancellation_contract::CancellationController>,
+    action_receiver: &'a mut Option<Receiver<ActionResult>>,
+    action_phase: &'a mut Option<ActionPhase>,
+    pending_challenge: &'a mut Option<TuiUpdateChallenge>,
 }
 
 pub fn run_interactive_tui(_launch_context: &LaunchRoutingReport, color: bool) -> io::Result<()> {
@@ -75,24 +87,24 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
     draw(terminal, &state, color)?;
 
     loop {
-        if let Some((result_generation, result)) = poll_snapshot(&mut receiver, generation) {
-            if result_generation == generation {
-                match result {
-                    Ok(snapshot) => {
-                        dashboard = Some(snapshot.dashboard);
-                        state.apply_model(foundation_adapter::model_from_dashboard(
-                            dashboard.as_ref().expect("dashboard snapshot"),
-                            generation,
-                        ));
-                    }
-                    Err(reason) => state.mark_snapshot_unavailable(
+        if let Some((result_generation, result)) = poll_snapshot(&mut receiver, generation)
+            && result_generation == generation
+        {
+            match result {
+                Ok(snapshot) => {
+                    dashboard = Some(snapshot.dashboard);
+                    state.apply_model(foundation_adapter::model_from_dashboard(
+                        dashboard.as_ref().expect("dashboard snapshot"),
                         generation,
-                        super::model::BoundedText::try_new(reason)
-                            .unwrap_or_else(|_| super::model::BoundedText::redacted()),
-                    ),
+                    ));
                 }
-                draw(terminal, &state, color)?;
+                Err(reason) => state.mark_snapshot_unavailable(
+                    generation,
+                    super::model::BoundedText::try_new(reason)
+                        .unwrap_or_else(|_| super::model::BoundedText::redacted()),
+                ),
             }
+            draw(terminal, &state, color)?;
         }
 
         if let Some(result) = poll_action_result(&mut action_receiver, action_phase) {
@@ -108,22 +120,25 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
 
         if let Some((review_generation, result)) =
             poll_review_result(&mut review_receiver, generation)
+            && review_generation == generation
         {
-            if review_generation == generation {
-                finish_review_result(
-                    &mut state,
-                    dashboard.as_ref().expect("dashboard snapshot"),
-                    result,
-                    &mut review_controller,
-                );
-                draw(terminal, &state, color)?;
-            }
+            finish_review_result(
+                &mut state,
+                dashboard.as_ref().expect("dashboard snapshot"),
+                result,
+                &mut review_controller,
+            );
+            draw(terminal, &state, color)?;
         }
 
         if !event::poll(Duration::from_millis(250))? {
             continue;
         }
         let event = event::read()?;
+        if matches!(event, Event::Resize(_, _)) {
+            draw(terminal, &state, color)?;
+            continue;
+        }
         let Some(intent) = intent_from_event(event, terminal.size()?.into(), &state) else {
             continue;
         };
@@ -159,15 +174,17 @@ fn run_event_loop<B: Backend<Error = io::Error>>(
             let outward = state.apply(intent);
             handle_outward_intent(
                 outward,
-                &mut state,
-                dashboard.as_ref(),
-                generation,
-                &mut review_controller,
-                &mut review_receiver,
-                &mut action_controller,
-                &mut action_receiver,
-                &mut action_phase,
-                &mut pending_challenge,
+                IntentContext {
+                    state: &mut state,
+                    dashboard: dashboard.as_ref(),
+                    generation,
+                    review_controller: &mut review_controller,
+                    review_receiver: &mut review_receiver,
+                    action_controller: &mut action_controller,
+                    action_receiver: &mut action_receiver,
+                    action_phase: &mut action_phase,
+                    pending_challenge: &mut pending_challenge,
+                },
             );
         }
         draw(terminal, &state, color)?;
@@ -327,9 +344,9 @@ fn poll_action_result(
                 Some(ActionPhase::Prepare) | None => ActionResult::Challenge(Box::new(Err(
                     "foundation confirmation worker disconnected".to_string(),
                 ))),
-                Some(ActionPhase::Execute) => ActionResult::Execution(Err(
+                Some(ActionPhase::Execute) => ActionResult::Execution(Box::new(Err(
                     "foundation execution worker disconnected".to_string(),
-                )),
+                ))),
             })
         }
         Some(Err(TryRecvError::Empty)) | None => None,
@@ -383,25 +400,25 @@ fn start_action_execution(
     let (sender, new_receiver) = mpsc::channel();
     thread::spawn(move || {
         let result = crate::update_cli::execute_tui_update(challenge, &phrase, &cancellation);
-        let _ = sender.send(ActionResult::Execution(result));
+        let _ = sender.send(ActionResult::Execution(Box::new(result)));
     });
     *controller = Some(new_controller);
     *receiver = Some(new_receiver);
     *phase = Some(ActionPhase::Execute);
 }
 
-fn handle_outward_intent(
-    intent: Option<UiIntent>,
-    state: &mut UiState,
-    dashboard: Option<&tui_dashboard::TuiDashboard>,
-    generation: u64,
-    review_controller: &mut Option<rz0_cancellation_contract::CancellationController>,
-    review_receiver: &mut Option<Receiver<ReviewResult>>,
-    controller: &mut Option<rz0_cancellation_contract::CancellationController>,
-    receiver: &mut Option<Receiver<ActionResult>>,
-    phase: &mut Option<ActionPhase>,
-    pending_challenge: &mut Option<TuiUpdateChallenge>,
-) {
+fn handle_outward_intent(intent: Option<UiIntent>, context: IntentContext<'_>) {
+    let IntentContext {
+        state,
+        dashboard,
+        generation,
+        review_controller,
+        review_receiver,
+        action_controller,
+        action_receiver,
+        action_phase,
+        pending_challenge,
+    } = context;
     match intent {
         Some(UiIntent::LoadProviderReview) => {
             if let Some(dashboard) = dashboard {
@@ -415,20 +432,45 @@ fn handle_outward_intent(
             }
         }
         Some(UiIntent::PrepareAction(action_id)) => {
-            start_action_prepare(action_id, state, receiver, controller, phase);
+            start_action_prepare(
+                action_id,
+                state,
+                action_receiver,
+                action_controller,
+                action_phase,
+            );
         }
         Some(UiIntent::SubmitConfirmation) => {
             let Some(challenge) = pending_challenge.take() else {
                 return;
             };
             let phrase = state.confirmation_input.clone();
-            start_action_execution(challenge, phrase, state, receiver, controller, phase);
+            start_action_execution(
+                challenge,
+                phrase,
+                state,
+                action_receiver,
+                action_controller,
+                action_phase,
+            );
         }
         Some(UiIntent::CancelConfirmation) => {
-            cancel_action(controller, receiver, phase, pending_challenge, state);
+            cancel_action(
+                action_controller,
+                action_receiver,
+                action_phase,
+                pending_challenge,
+                state,
+            );
         }
         Some(UiIntent::CancelJob) => {
-            cancel_action(controller, receiver, phase, pending_challenge, state);
+            cancel_action(
+                action_controller,
+                action_receiver,
+                action_phase,
+                pending_challenge,
+                state,
+            );
             cancel_review(review_controller, review_receiver, state);
         }
         _ => {}
@@ -464,7 +506,7 @@ fn finish_action_result(
                 });
             }
         },
-        ActionResult::Execution(result) => match result {
+        ActionResult::Execution(result) => match *result {
             Ok(report) => match report.status {
                 UpdateExecutionStatus::Committed => {
                     state.apply_event(super::messages::UiEvent::JobSucceeded {
@@ -574,7 +616,12 @@ fn intent_from_key(key: KeyEvent, state: &UiState) -> Option<UiIntent> {
         KeyCode::Char('r') | KeyCode::Char('R') => Some(UiIntent::Refresh),
         KeyCode::Char(character) => Route::ALL
             .iter()
-            .find(|route| route.number().to_string().chars().next() == Some(character))
+            .find(|route| {
+                route
+                    .number()
+                    .to_string()
+                    .starts_with(&character.to_string())
+            })
             .copied()
             .map(UiIntent::Navigate),
         _ => None,
@@ -591,7 +638,10 @@ fn intent_from_mouse(mouse: MouseEvent, area: Rect, _state: &UiState) -> Option<
             let y = mouse.row;
             if plan.routes.contains((x, y).into()) {
                 let route_index = usize::from(y.saturating_sub(plan.routes.y));
-                return Route::ALL.get(route_index).copied().map(UiIntent::Navigate);
+                return Route::ALL
+                    .get(route_index)
+                    .copied()
+                    .map(UiIntent::FocusRoute);
             }
             if plan.primary.contains((x, y).into()) {
                 let index = usize::from(y.saturating_sub(plan.primary.y + 1));
@@ -717,7 +767,7 @@ mod tests {
         };
         assert_eq!(
             intent_from_mouse(route_event, area, &state),
-            Some(UiIntent::Navigate(Route::Overview))
+            Some(UiIntent::FocusRoute(Route::Overview))
         );
     }
 

@@ -101,6 +101,9 @@ pub enum UiValidationError {
     TooManyCapabilities { max: usize },
     DuplicateRecordId(String),
     DuplicateActionId(String),
+    DuplicateModuleId(String),
+    InvalidRouteSet,
+    MismatchedGeneration,
     EmptyModuleId,
     MismatchedModuleId(String),
     ExecutionClaim(String),
@@ -136,6 +139,11 @@ impl fmt::Display for UiValidationError {
             }
             Self::DuplicateRecordId(id) => write!(formatter, "duplicate UI record id {id}"),
             Self::DuplicateActionId(id) => write!(formatter, "duplicate UI action id {id}"),
+            Self::DuplicateModuleId(id) => write!(formatter, "duplicate UI module id {id}"),
+            Self::InvalidRouteSet => {
+                formatter.write_str("UI model must contain each stable route exactly once")
+            }
+            Self::MismatchedGeneration => formatter.write_str("UI model generations must agree"),
             Self::EmptyModuleId => {
                 formatter.write_str("module UI contribution must identify a module")
             }
@@ -149,7 +157,7 @@ impl fmt::Display for UiValidationError {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Route {
     Overview,
     Explore,
@@ -599,9 +607,13 @@ fn validate_action_ref(action: &UiActionRef) -> Result<(), UiValidationError> {
 
 fn looks_like_raw_path(value: &str) -> bool {
     value.contains("/Users/")
+        || value.contains("/home/")
+        || value.contains("/root/")
+        || value.contains("/Volumes/")
         || value.contains("/private/")
         || value.contains("/var/")
         || value.contains("/tmp/")
+        || value.contains("file://")
         || value.contains("\\Users\\")
         || value.as_bytes().windows(3).any(|window| {
             window[0].is_ascii_alphabetic() && window[1] == b':' && window[2] == b'\\'
@@ -624,7 +636,7 @@ impl UiRegistry {
             .iter()
             .any(|existing| existing.module_id == contribution.module_id)
         {
-            return Err(UiValidationError::DuplicateRecordId(
+            return Err(UiValidationError::DuplicateModuleId(
                 contribution.module_id.to_string(),
             ));
         }
@@ -727,14 +739,39 @@ impl UiModel {
             });
         }
         if self.routes.len() != Route::ALL.len() {
-            return Err(UiValidationError::TooManyRecords {
-                max: Route::ALL.len(),
-            });
+            return Err(UiValidationError::InvalidRouteSet);
         }
+        if self.state.generation() != self.generation {
+            return Err(UiValidationError::MismatchedGeneration);
+        }
+        let mut routes = BTreeSet::new();
+        let mut record_ids = BTreeSet::new();
+        let mut action_ids = BTreeSet::new();
         for projection in &self.routes {
+            if !routes.insert(projection.route) || projection.state.generation() != self.generation
+            {
+                return Err(UiValidationError::InvalidRouteSet);
+            }
             for record in &projection.records {
                 record.validate()?;
+                if !record_ids.insert(record.record_id.clone()) {
+                    return Err(UiValidationError::DuplicateRecordId(
+                        record.record_id.to_string(),
+                    ));
+                }
+                for action in &record.action_refs {
+                    if !action_ids.insert(action.action_id.clone()) {
+                        return Err(UiValidationError::DuplicateActionId(
+                            action.action_id.to_string(),
+                        ));
+                    }
+                }
             }
+        }
+        if routes.len() != Route::ALL.len()
+            || !Route::ALL.iter().all(|route| routes.contains(route))
+        {
+            return Err(UiValidationError::InvalidRouteSet);
         }
         Ok(())
     }
@@ -753,6 +790,35 @@ mod tests {
         let unavailable = UiModel::unavailable(4, "provider snapshot unavailable");
         assert_eq!(unavailable.state.label(), "unavailable");
         assert!(unavailable.validate().is_ok());
+    }
+
+    #[test]
+    fn model_validation_rejects_missing_routes_and_generation_drift() {
+        let mut model = UiModel::loading(3);
+        model.routes.pop();
+        assert_eq!(model.validate(), Err(UiValidationError::InvalidRouteSet));
+
+        let mut model = UiModel::loading(3);
+        model.generation = 4;
+        assert_eq!(
+            model.validate(),
+            Err(UiValidationError::MismatchedGeneration)
+        );
+    }
+
+    #[test]
+    fn bounded_text_rejects_common_host_path_forms() {
+        for value in [
+            "/home/operator/file",
+            "/root/file",
+            "/Volumes/Drive/file",
+            "file:///etc/hosts",
+        ] {
+            assert!(matches!(
+                BoundedText::try_new(value),
+                Err(UiValidationError::RawPath)
+            ));
+        }
     }
 
     #[test]

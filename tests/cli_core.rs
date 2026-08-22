@@ -143,6 +143,17 @@ fn doctor_is_read_only_bootstrap_diagnostic() {
 }
 
 #[test]
+fn foundation_commands_expose_consistent_help_entries() {
+    for command in ["doctor", "config"] {
+        let (code, out, err) = run([command, "--help"]);
+        assert_eq!(code, ExitCode::Ok, "{command}: {err}");
+        assert!(err.is_empty());
+        assert!(out.contains("Usage: rz0"));
+        assert!(out.contains("read-only") || out.contains("Reports bounded"));
+    }
+}
+
+#[test]
 fn doctor_json_is_versioned_and_private_by_default() {
     let (code, out, err) = run(["doctor", "--format", "json"]);
     assert_eq!(code, ExitCode::Ok);

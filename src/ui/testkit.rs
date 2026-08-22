@@ -214,7 +214,7 @@ mod tests {
         let duplicate = registry.register(fixture_contribution());
         assert!(matches!(
             duplicate,
-            Err(UiValidationError::DuplicateRecordId(_))
+            Err(UiValidationError::DuplicateModuleId(_))
         ));
         assert_eq!(
             registry.contributions()[0].module_id.as_str(),

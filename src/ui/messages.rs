@@ -4,6 +4,7 @@ use super::model::{BoundedId, BoundedText, Route, UiActionRef, UiModel};
 pub enum UiIntent {
     Quit,
     Navigate(Route),
+    FocusRoute(Route),
     FocusNext,
     FocusPrevious,
     SelectNext,

@@ -241,6 +241,9 @@ pub fn doctor_report() -> rz0_diagnostics_contract::DiagnosticReport {
 }
 
 fn doctor_command(args: &[String]) -> (ExitCode, String, String) {
+    if matches!(args, [help] if matches!(help.as_str(), "--help" | "-h" | "help")) {
+        return (ExitCode::Ok, doctor_usage(), String::new());
+    }
     let report = doctor_report();
     let validation = rz0_diagnostics_contract::validate_diagnostic_report(&report);
     if !validation.valid {
@@ -277,12 +280,16 @@ fn doctor_command(args: &[String]) -> (ExitCode, String, String) {
         _ => (
             ExitCode::Usage,
             String::new(),
-            format!(
-                "unsupported doctor option\n\nUsage: {} doctor [--format json|--json]\n",
-                brand::COMMAND
-            ),
+            format!("unsupported doctor option\n\n{}", doctor_usage()),
         ),
     }
+}
+
+fn doctor_usage() -> String {
+    format!(
+        "Usage: {} doctor [--format json|--json]\n\nReports bounded local foundation diagnostics without writing system state.\n",
+        brand::COMMAND
+    )
 }
 
 fn unknown_command(command: &str) -> (ExitCode, String, String) {

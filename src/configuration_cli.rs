@@ -28,6 +28,9 @@ pub struct ConfigurationReport {
 }
 
 pub fn configuration_command(args: &[String]) -> (ExitCode, String, String) {
+    if matches!(args, [help] if matches!(help.as_str(), "--help" | "-h" | "help")) {
+        return (ExitCode::Ok, configuration_usage(), String::new());
+    }
     let format = match parse_format(args) {
         Ok(format) => format,
         Err(error) => return (ExitCode::Usage, String::new(), error),

@@ -360,7 +360,7 @@ fn record_from_row(
         .preview
         .as_deref()
         .map(public_text)
-        .unwrap_or_else(|| public_text(&section.summary));
+        .unwrap_or_else(|| public_text(section.summary));
     let status = record_status(row.label, row.tone);
     let reference_id = bounded_id(format!(
         "evidence/{}/{index}",
@@ -372,7 +372,7 @@ fn record_from_row(
         RecordStatus::Blocked | RecordStatus::Warn => UiActionDisposition::Blocked,
         _ => UiActionDisposition::Unavailable,
     };
-    let review_boundary = Some(ReviewBoundary {
+    let review_boundary = ReviewBoundary {
         reference_id: bounded_id(format!(
             "review-boundary/{}/{index}",
             route.title().to_ascii_lowercase()
@@ -381,7 +381,7 @@ fn record_from_row(
         message: bounded(
             "Read-only review boundary. The foundation must provide an exact action plan before any confirmation or execution path exists.",
         ),
-    });
+    };
     let mut details = Vec::new();
     if let Ok(field) = DetailField::text("source", section.title) {
         details.push(field);
@@ -389,13 +389,17 @@ fn record_from_row(
     if let Ok(field) = DetailField::text("state", row.label) {
         details.push(field);
     }
-    if let Some(preview) = row.preview.as_deref() {
-        if let Ok(field) = DetailField::text("evidence", public_text(preview)) {
-            details.push(field);
-        }
+    if let Some(preview) = row.preview.as_deref()
+        && let Ok(field) = DetailField::text("evidence", public_text(preview))
+    {
+        details.push(field);
     }
     UiRecord {
-        record_id: bounded_id(format!("{}/{index}", section.code)),
+        record_id: bounded_id(format!(
+            "{}/{}/{index}",
+            route.title().to_ascii_lowercase(),
+            section.code
+        )),
         module_id,
         kind,
         title: bounded(title),
@@ -412,7 +416,7 @@ fn record_from_row(
             redaction: RedactionState::PathRedacted,
         }],
         action_refs: Vec::new(),
-        review_boundary: Some(review_boundary.expect("review boundary is always present")),
+        review_boundary: Some(review_boundary),
         search_terms: SearchTerms(vec![
             bounded(section.title),
             bounded(row.label),

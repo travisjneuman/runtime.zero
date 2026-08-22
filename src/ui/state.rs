@@ -118,6 +118,14 @@ impl UiState {
                 self.overlay = Overlay::None;
                 None
             }
+            UiIntent::FocusRoute(route) => {
+                self.route = route;
+                self.route_selected = route.number() - 1;
+                self.selected = 0;
+                self.focus = FocusRegion::Routes;
+                self.overlay = Overlay::None;
+                None
+            }
             UiIntent::FocusNext => {
                 self.focus = next_focus(self.focus);
                 None
@@ -127,11 +135,11 @@ impl UiState {
                 None
             }
             UiIntent::SelectNext => {
-                self.move_selection(1);
+                self.move_focus_selection(1);
                 None
             }
             UiIntent::SelectPrevious => {
-                self.move_selection(-1);
+                self.move_focus_selection(-1);
                 None
             }
             UiIntent::SelectFirst => {
@@ -309,6 +317,10 @@ impl UiState {
                     job_id: BoundedId::try_new("action-review").expect("id"),
                     reason: self.model.status.clone(),
                 });
+                self.model.state = ViewState::Failed {
+                    generation: self.model.generation,
+                    reason: self.model.status.clone(),
+                };
                 None
             }
             UiEvent::JobRunning { job_id, phase } => {
@@ -430,6 +442,21 @@ impl UiState {
             (self.selected + delta as usize).min(count - 1)
         };
     }
+
+    fn move_focus_selection(&mut self, delta: isize) {
+        if self.focus == FocusRegion::Routes {
+            let current = self.route.number().saturating_sub(1) as isize;
+            let last = Route::ALL.len().saturating_sub(1) as isize;
+            let next = (current + delta).clamp(0, last) as usize;
+            if let Some(route) = Route::ALL.get(next).copied() {
+                self.route = route;
+                self.route_selected = next;
+                self.selected = 0;
+            }
+        } else {
+            self.move_selection(delta);
+        }
+    }
 }
 
 const fn next_focus(focus: FocusRegion) -> FocusRegion {
@@ -540,5 +567,27 @@ mod tests {
             state.apply(UiIntent::SubmitConfirmation),
             Some(UiIntent::SubmitConfirmation)
         );
+    }
+
+    #[test]
+    fn route_focus_moves_destinations_without_moving_record_selection() {
+        let mut state = UiState::new(fixture_model());
+        state.apply(UiIntent::SelectNext);
+        assert_eq!(state.route, Route::Explore);
+        assert_eq!(state.selected, 0);
+        state.apply(UiIntent::FocusNext);
+        state.apply(UiIntent::SelectNext);
+        assert_eq!(state.selected, 1);
+    }
+
+    #[test]
+    fn action_review_failure_is_visible_as_a_failed_view() {
+        let mut state = UiState::new(fixture_model());
+        state.apply_event(UiEvent::ActionReviewUnavailable {
+            action_id: BoundedId::try_new("review/1").expect("id"),
+            reason: BoundedText::try_new("provider review failed").expect("text"),
+        });
+        assert_eq!(state.view_state().label(), "failed");
+        assert!(matches!(state.job, JobState::Failed { .. }));
     }
 }
