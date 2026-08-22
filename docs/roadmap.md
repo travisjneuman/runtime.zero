@@ -184,9 +184,9 @@ See [`action-planning.md`](action-planning.md).
 - [ ] Manual Windows Terminal/PowerShell TUI smoke and installed-binary refresh.
 - [ ] Linux/macOS terminal-emulator, SSH/tmux/screen, Unicode, no-color,
   accessibility, and restoration smoke on final artifacts.
-- [ ] Direct TUI confirmation/recovery flows for actions that become production-
-  supported; update `U` uses the shared updater path, while uninstall and
-  recovery remain CLI-only until their separate gates close.
+- [x] Dossier Queue confirmation preparation delegates to the shared foundation
+  updater path; broad uninstall and recovery completion remain outside the TUI
+  until their separate gates close.
 - [x] Add parser-covered Bash/Zsh/Fish/PowerShell completion output and a
   committed `rz0(1)` manual page.
 - [ ] Complete localization policy, direct TUI recovery UX, migration/repair

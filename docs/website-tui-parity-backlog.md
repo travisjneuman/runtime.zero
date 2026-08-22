@@ -12,13 +12,15 @@ itself a future TUI reference and is known to be stale.
 
 - `runtime.zero · local snapshot` header with loading/readiness status and Dossier Navy / Burnished Brass posture;
 - named layout tiers: very-small, compact, standard, wide;
-- five-workspace navigation for Home, Toolchain, Software, System, and Diagnostics;
+- five-destination navigation for Overview, Explore, Review, Activity, and
+  Modules;
 - selected row/context panel with an explicit next-action/review posture and title-case copy;
-- one software list with per-item details, mouse-wheel scrolling, and applicable
-  `rz0 apps`/`rz0 uninstall plan <id>` commands;
-- native system-monitor rows for CPU, memory, disk, network, uptime, and processes;
+- typed evidence records with selected detail, mouse/focus navigation, and
+  foundation-owned review references;
+- activity and module posture records without lifecycle or recovery authority;
 - one short status line and one short key line;
-- help guidance for keyboard and mouse navigation.
+- help guidance for keyboard, mouse, focus, search, confirmation, and safe
+  return.
 
 ## Future website update checklist
 
@@ -26,10 +28,10 @@ itself a future TUI reference and is known to be stale.
 - [ ] Represent compact/standard/wide behavior without implying unsupported website interactivity.
 - [ ] Replace stale “future TUI” copy with an honest description of the real
   pre-alpha TUI without implying production maturity.
-- [ ] Keep copy honest: inventory reads/details and monitor snapshots are read-
-  only; `u` may read network metadata; `U` enters the same exact
-  confirmation-bound updater lane as the CLI; do not imply module activation
-  or uninstall/cleanup execution.
+- [ ] Keep copy honest: inventory reads/details and provider review are
+  read-only; `u` may read network metadata; `c` requests the same exact
+  foundation confirmation path as the CLI only for a reviewable action; do not
+  imply module activation or broad uninstall/cleanup execution.
 - [ ] Show synthetic installed-software rows without machine paths or implying that uninstall reviews execute from the public mockup.
 - [ ] Preserve `BRAND.md` color semantics: Dossier Navy / Burnished Brass, red only for danger/error/destructive states.
 - [ ] Run static-site safety checks for `innerHTML`, `document.write`, `eval(`, `new Function`, rejected red/rust/copper accents, footer/link integrity, and viewport rendering.

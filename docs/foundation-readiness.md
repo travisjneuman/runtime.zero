@@ -4,13 +4,15 @@ This document records what feature work may rely on in the current foundation
 and what still blocks production module or mutation work. It is a maturity gate,
 not a production-ready claim.
 
-The current Rust-first presentation checkpoint is `a9045b2`. Its typed UI model
-is validation-bound to the complete five-route set, one model generation,
-globally unique record/action identities, redacted bounded text, and explicit
-route focus semantics. Foundation help for `doctor` and `config` is also
-scriptable and covered by CLI tests. These hardening changes improve the
-presentation and contract boundary; they do not authorize blocked production
-module execution, network access, or unproven platform mutation lanes.
+The current Rust-first presentation checkpoint is `1049103`. Its typed UI
+model is validation-bound to the complete five-route set, one model generation,
+globally unique record/action identities, redacted bounded text, explicit route
+focus semantics, and explicit refresh/failure/recovery transitions. The
+scriptable text projection consumes that same model, and foundation help for
+`doctor` and `config` is covered by CLI tests. These hardening changes improve
+the presentation and contract boundary; they do not authorize blocked
+production module execution, network access, or unproven platform mutation
+lanes.
 
 For the current source baseline and validation totals, see
 [`project-status-and-resumption.md`](project-status-and-resumption.md). For all

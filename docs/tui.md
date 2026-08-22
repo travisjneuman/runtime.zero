@@ -161,7 +161,7 @@ without exposing host paths or loading user configuration.
 
 Automated coverage includes reducer focus/navigation behavior, loading,
 unavailable, empty, and blocked failed-closed states, plain/color text parity,
-JSON ANSI exclusion, Ratatui buffer bounds, all five workspaces,
+JSON ANSI exclusion, Ratatui buffer bounds, all five destinations,
 help/search/confirmation overlays, PTY restoration, and the shared update
 plan/action IDs. The typed model also rejects incomplete route sets, generation
 drift, duplicate record/action ownership, and common unredacted host-path

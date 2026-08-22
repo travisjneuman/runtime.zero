@@ -1,14 +1,15 @@
 # runtime.zero Rust-first TUI Front-End Reset RFC
 
-Status: proposed product and architecture contract; phase-1 kickoff
+Status: implemented product and architecture contract; source cutover complete,
+owner/platform acceptance remains open
 Date: 2026-08-21
-Repository baseline: `28d0a6b91e27915ef96f8a316806395c1ed40c40` on `main`
+Repository baseline: `1049103f1ff4b3f290f9b6f84fd0fdeb04561594` on `main`
 Scope: the Rust terminal UI and its durable product/architecture boundary
 
 This RFC is the reviewable contract for rebuilding the runtime.zero terminal
-front end. It does not delete, replace, or broadly refactor the current TUI.
-It settles the product model and the first vertical-slice boundary so source
-work can begin without moving safety authority into presentation code.
+front end. It settled the product model and first vertical-slice boundary
+before source replacement; the implementation and source-cutover record below
+now describe the resulting Rust-first presentation.
 
 ## 1. Decision summary
 
@@ -42,14 +43,15 @@ The rebuild has these non-negotiable decisions:
 5. The first implementation is a narrow read-only vertical slice. It may show
    a real action-plan boundary and confirmation requirements, but it does not
    create a second apply or recovery authority.
-6. The current TUI remains the launch target until the new slice passes source,
-   buffer, PTY, terminal, accessibility, and owner acceptance gates.
+6. The new Dossier Queue TUI is the sole interactive launch target after source,
+   buffer, and PTY parity. Human terminal, accessibility, platform, and owner
+   acceptance remain separate gates and are not inferred from source tests.
 7. The visual direction is `Dossier Queue`: quiet dossier typography, one
    focused attention list, one evidence pane, restrained borders, and
    Burnished Brass used as a semantic accent rather than dashboard decoration.
 
-This RFC deliberately does not claim that the new UI is implemented,
-production-ready, or accepted on any terminal or platform.
+This RFC does not claim production readiness or human acceptance on terminals
+or platforms whose evidence is still outstanding.
 
 ## 2. Scope, preservation, and non-goals
 
@@ -86,11 +88,10 @@ reinterpret them:
 
 ### Explicit non-goals
 
-This phase does not create a web GUI, a non-Rust frontend, a new provider,
+This work does not create a web GUI, a non-Rust frontend, a new provider,
 module resource, deployment, release automation, recurring job, or provider
-account change. It does not install dependencies, change the launch route,
-delete the old TUI, rewrite the CLI, broaden module execution, or make a
-production-readiness claim.
+account change. It does not install dependencies, rewrite the CLI, broaden
+module execution, or make a production-readiness claim.
 
 ## 3. Baseline and design problem
 
@@ -388,7 +389,7 @@ ATTENTION  2 items need review                              [local evidence]
 │ Rust toolchain update review                  │ │ Review provider evidence │
 │ provider   native / observed                  │ │ target   rust toolchain   │
 │ state      planned · not confirmed            │ │ action   inspect plan    │
-│ evidence   fresh local catalog                │ │ [U] review   [Enter] open│
+│ evidence   fresh local catalog                │ │ [c] review   [Enter] open│
 └───────────────────────────────────────────────┘ └──────────────────────────┘
 status: read-only review · no action has run          Tab focus · ? help · q quit
 ```
@@ -417,7 +418,7 @@ source  native provider observation
 state   planned; confirmation has not been requested
 next    open the foundation-owned action plan
 
-↑↓ select · Enter details · / search · U review action · Esc back · q quit
+↑↓ select · Enter details · / search · c confirm · Esc back · q quit
 ```
 
 Implementation: a dense but calm single-column `Table`/`Paragraph` ledger,
@@ -478,7 +479,7 @@ record supports an action; it may not add or shadow a key.
 | `r` | request an explicit refresh | no automatic retry; stale generations cannot win |
 | `?` / `h` | open help overlay | help is a modal, not permanent chrome |
 | `u` | request provider availability review where the foundation exposes it | read-only network metadata review; never apply |
-| `U` | compatibility entry point for the selected foundation-owned planned update | opens review; never bypasses plan, identity, confirmation, or receipt gates |
+| `c` | request the foundation confirmation challenge for the selected reviewable action | never bypasses plan, identity, confirmation, or receipt gates |
 | `Ctrl+C` | send typed cancellation to the active coordinator and show its outcome | cancellation is not rollback and never authorizes a rerun |
 
 The footer shows only keys valid for the current state. A key is not shown as
@@ -597,12 +598,14 @@ the label; it never replaces it. JSON and redirected text remain ANSI-free.
 
 ## 12. Migration boundary and rebuild order
 
-### Phase 1 — this RFC and kickoff (current)
+### Phase 1 — this RFC and kickoff (historical; complete)
 
-- preserve the canonical source and current TUI behavior;
+- preserve the canonical source and current TUI behavior while the contract is
+  reviewed;
 - record the baseline, product decision, typed contract, visual direction,
   state model, acceptance matrix, and gates;
-- do not create `src/ui/`, alter launch routing, or delete current files;
+- do not create `src/ui/`, alter launch routing, or delete current files during
+  the kickoff phase;
 - validate this document and the unchanged repository without claiming visual
   or production acceptance.
 

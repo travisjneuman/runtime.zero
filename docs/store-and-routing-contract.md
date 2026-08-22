@@ -359,12 +359,12 @@ The terminal guard must restore raw mode, cursor visibility, and the normal
 screen on exit or panic unwinding.
 
 The TUI may show built-in bounded software evidence plus foundation store/module
-state. Its five workspaces are Home, Toolchain, Software, System, and
-Diagnostics. Installed software is one canonical object list:
+state. Its five stable destinations are Overview, Explore, Review, Activity,
+and Modules. Installed software remains one canonical evidence source:
 each row shows details and only an applicable protected, manager-review,
-quarantine-review, or unsupported uninstall posture. `u` scans providers and
-`U` enters the same confirmation-bound updater lane as the CLI, including exact
-manager identity and post-update verification. The TUI must not imply optional
+quarantine-review, or unsupported uninstall posture. `u` requests provider
+review and `c` enters the same confirmation-bound foundation lane as the CLI,
+including exact manager identity and post-action verification. The TUI must not imply optional
 modules are installed or active when the installed registry is empty.
 
 ## Brand and output constraints

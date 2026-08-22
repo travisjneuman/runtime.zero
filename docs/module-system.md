@@ -100,13 +100,13 @@ rz0 store init --dry-run
 rz0 store init --yes
 ```
 
-Bare `rz0` opens a live installed-software TUI in interactive terminals. It
-shows bounded local applications, universal provider candidates, and uninstall
-reviews alongside module posture; `U` can execute a selected updater action
-through the shared exact-confirmation lane. It must not claim planned module
-families are installed or executable. Explicit subcommands remain the
-scriptable CLI surface. See [`tui.md`](tui.md) for the raw-key TUI contract,
-layout boundaries, and maintenance boundaries.
+Bare `rz0` opens the Dossier Queue TUI in interactive terminals. It shows
+bounded foundation evidence, provider review boundaries, activity, and module
+posture; `c` can request the shared exact-confirmation challenge for a selected
+reviewable action. It must not claim planned module families are installed or
+executable. Explicit subcommands remain the scriptable CLI surface. See
+[`tui.md`](tui.md) for the raw-key TUI contract, layout boundaries, and
+maintenance boundaries.
 
 The JSON output uses schema version `1` and separates:
 

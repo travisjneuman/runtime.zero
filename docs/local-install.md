@@ -69,10 +69,10 @@ rz0 --json
 rz0 doctor
 ```
 
-Bare `rz0` opens the local-software TUI in an interactive terminal. Inventory,
-details, and monitoring are read-only; `u` scans provider availability and `U`
-updates the highlighted candidate after showing the exact command and accepting
-the plan-bound phrase. Subcommands, JSON output, pipes, redirection, and
+Bare `rz0` opens the Dossier Queue TUI in an interactive terminal. Inventory,
+details, and monitoring are read-only; `u` requests provider availability
+review and `c` requests the foundation confirmation challenge for a selected
+reviewable action. Subcommands, JSON output, pipes, redirection, and
 automation contexts remain on the scriptable CLI path. The CLI
 `updates --apply` lane uses the same executor for automation and less frequent
 operator use.

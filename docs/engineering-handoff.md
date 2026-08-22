@@ -21,8 +21,8 @@ in [`project-status-and-resumption.md`](project-status-and-resumption.md).
 
 The current product already has a real primary TUI, a scriptable CLI, bounded
 inventory and monitoring, module manifests and registry inspection, and a
-provider-driven macOS/Linux updater lane. The TUI `U` action and CLI updater
-apply path share one confirmation, identity, transaction, receipt, and
+provider-driven macOS/Linux updater lane. The TUI `c` confirmation path and CLI
+updater apply path share one confirmation, identity, transaction, receipt, and
 verification path. That is useful pre-alpha behavior, not proof that every
 software source on every operating system is covered.
 
@@ -391,8 +391,8 @@ platform/provider cell:
 The current implementation is valuable but intentionally narrower than this
 end state:
 
-- the TUI is the primary interactive surface and `U` now enters the shared
-  updater execution lane;
+- the Dossier Queue TUI is the primary interactive surface and `c` requests the
+  shared foundation confirmation path for a reviewable action;
 - provider discovery covers a broad set of installed managers, language tools,
   known self-updaters, npm prefixes, AI tools, Warp, and declared app metadata,
   but it reports missing, delegated, observed-only, and unsupported sources;
