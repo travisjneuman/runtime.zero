@@ -7,7 +7,7 @@
   a supported release.
 - **Canonical branch:** `main`.
 - **Reviewed source baseline:**
-  `a9045b2` (`Harden typed TUI and foundation help contracts`).
+  `02ae7a0` (`Expose TUI refresh state in final artifacts`).
 - **Current behavior implementation:**
   `887dbcc` on `main`, including the quiet task-first TUI, Rust toolchain contract,
   provider updater adapters, bounded cache/leftovers evidence review,
@@ -134,7 +134,9 @@
   second authority path. The current typed UI contract additionally rejects
   incomplete route sets, generation drift, duplicate record/action/module
   ownership, common host-path forms, and ambiguous route focus; `doctor --help`
-  and `config --help` now expose consistent scriptable guidance.
+  and `config --help` now expose consistent scriptable guidance. Refresh now
+  publishes an explicit `refreshing local snapshot` model before the new
+  evidence worker runs, preserving the final-artifact performance contract.
 - **CLI version:** `0.1.0`.
 - **Release posture:** blocked; schema-1 release evidence cannot authorize a
   release.
