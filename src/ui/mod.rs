@@ -8,12 +8,11 @@ pub mod foundation_adapter;
 pub mod layout;
 pub mod messages;
 pub mod model;
-pub mod screens;
 pub mod state;
-pub mod terminal;
+pub mod task_terminal;
 pub mod testkit;
 pub mod text;
 pub mod theme;
 pub mod widgets;
 
-pub use terminal::run_interactive_tui;
+pub use task_terminal::run_interactive_tui;

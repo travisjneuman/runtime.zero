@@ -1,10 +1,13 @@
-use super::model::{BoundedId, BoundedText, Route, UiActionRef, UiModel};
+use super::model::{BoundedId, BoundedText, UiActionRef, UiModel};
 
+/// Intents are presentation requests. They never carry authority to invent an
+/// action, confirmation, receipt, or recovery decision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiIntent {
     Quit,
-    Navigate(Route),
-    FocusRoute(Route),
+    OpenHome,
+    OpenInventory,
+    OpenActivity,
     FocusNext,
     FocusPrevious,
     SelectNext,
@@ -12,8 +15,8 @@ pub enum UiIntent {
     SelectFirst,
     SelectLast,
     SelectIndex(usize),
-    OpenDetail,
-    ReviewSelected,
+    OpenSelected,
+    OpenReview,
     LoadProviderReview,
     ToggleHelp,
     Back,
@@ -22,7 +25,6 @@ pub enum UiIntent {
     SearchCharacter(char),
     SearchBackspace,
     AcceptSearch,
-    ReviewAction(BoundedId),
     BeginConfirmation,
     PrepareAction(BoundedId),
     ConfirmationCharacter(char),

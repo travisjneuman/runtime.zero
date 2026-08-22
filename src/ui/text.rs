@@ -1,8 +1,9 @@
 //! Deterministic scriptable text projection of the typed UI model.
 //!
-//! This is the `--no-tui`/non-interactive projection, not an interactive
-//! renderer. It consumes the same bounded model as Ratatui so the CLI and TUI
-//! cannot grow separate evidence or action authorities.
+//! This is the `--no-tui` projection, not an interactive renderer. It shares
+//! the same foundation evidence and action references as the terminal flow.
+
+use std::collections::BTreeSet;
 
 use super::model::{RecordStatus, Route, UiModel};
 use crate::tui_theme;
@@ -11,47 +12,101 @@ const WIDTH: usize = 86;
 
 pub fn render_dashboard(model: &UiModel, color: bool) -> String {
     let overview = model.route(Route::Overview);
+    let review = model.route(Route::Review);
+    let mut attention_keys = BTreeSet::new();
+    let attention = overview
+        .records
+        .iter()
+        .chain(review.records.iter())
+        .filter(|record| {
+            let attention = matches!(
+                record.status,
+                RecordStatus::Plan
+                    | RecordStatus::Warn
+                    | RecordStatus::Blocked
+                    | RecordStatus::Error
+            ) || record.action_refs.iter().any(|action| {
+                matches!(
+                    action.disposition,
+                    super::model::ActionDisposition::Reviewable
+                        | super::model::ActionDisposition::Blocked
+                )
+            });
+            attention && attention_keys.insert(format!("{}\n{}", record.title, record.summary))
+        })
+        .collect::<Vec<_>>();
+    let next = attention
+        .first()
+        .copied()
+        .or_else(|| overview.records.first());
     let mut lines = vec![
         border_top(WIDTH),
-        line("runtime.zero · local snapshot", WIDTH, color, Tone::Accent),
+        line(
+            "runtime.zero · Home · local snapshot",
+            WIDTH,
+            color,
+            Tone::Accent,
+        ),
         line(
             &format!(
-                "{} · {} records · review first",
-                model.state.label(),
-                overview.records.len()
+                "state: {} · local foundation evidence · read-only",
+                model.state.label()
             ),
             WIDTH,
             color,
             Tone::Info,
         ),
         separator(WIDTH),
+        line("Home / next safe action", WIDTH, color, Tone::Accent),
         line(
-            "• Home / next step  ·  Explore  ·  Review  ·  Activity  ·  Modules",
+            &format!(
+                "{} · {} attention item{}",
+                if attention.is_empty() {
+                    "nothing needs attention"
+                } else {
+                    "review required"
+                },
+                attention.len(),
+                if attention.len() == 1 { "" } else { "s" }
+            ),
             WIDTH,
             color,
-            Tone::Accent,
-        ),
-        separator(WIDTH),
-        line("Home / next step", WIDTH, color, Tone::Accent),
-        line(
-            &format!("{} · {}", overview.summary, overview.records.len()),
-            WIDTH,
-            color,
-            Tone::Muted,
+            if attention.is_empty() {
+                Tone::Safe
+            } else {
+                Tone::Warn
+            },
         ),
     ];
-
-    if overview.records.is_empty() {
+    if let Some(record) = next {
+        lines.push(line(
+            &format!("next: {} {}", record.status.label(), record.title),
+            WIDTH,
+            color,
+            tone_for_status(record.status),
+        ));
+        lines.push(line_plain(record.summary.as_str(), WIDTH));
+    } else {
         lines.push(line_plain(
-            "No records are available in this workspace.",
+            "No evidence is available in this workspace.",
+            WIDTH,
+        ));
+    }
+    lines.extend([
+        separator(WIDTH),
+        line("Attention", WIDTH, color, Tone::Accent),
+    ]);
+    if attention.is_empty() {
+        lines.push(line_plain(
+            "No blocked or reviewable item was reported.",
             WIDTH,
         ));
     } else {
-        for (index, record) in overview.records.iter().enumerate() {
+        for (index, record) in attention.iter().take(8).enumerate() {
             lines.push(line(
                 &format!(
-                    "{} {:<9} {}",
-                    if index == 0 { "·" } else { " " },
+                    "{} {} {}",
+                    if index == 0 { ">" } else { " " },
                     record.status.label(),
                     record.title
                 ),
@@ -61,33 +116,18 @@ pub fn render_dashboard(model: &UiModel, color: bool) -> String {
             ));
         }
     }
-
     lines.extend([
         separator(WIDTH),
-        line("Selected", WIDTH, color, Tone::Accent),
-    ]);
-    if let Some(record) = overview.records.first() {
-        lines.push(line(
-            &format!("{}  {}", record.status.label(), record.title),
+        line("CLI escape hatch", WIDTH, color, Tone::Accent),
+        line_plain(
+            "rz0 --no-tui · rz0 doctor · rz0 scan --dry-run · rz0 --json",
             WIDTH,
-            color,
-            tone_for_status(record.status),
-        ));
-        lines.push(line_plain(record.summary.as_str(), WIDTH));
-    } else {
-        lines.push(line_plain("No evidence is selected.", WIDTH));
-    }
-    lines.extend([
-        separator(WIDTH),
+        ),
         line(
-            &format!("status  {} · read-only typed evidence", model.status),
+            &format!("status  {}", model.status),
             WIDTH,
             color,
             Tone::Info,
-        ),
-        line_plain(
-            "commands: rz0 doctor · rz0 apps · rz0 store status · rz0 --json",
-            WIDTH,
         ),
         border_bottom(WIDTH),
     ]);
@@ -110,8 +150,7 @@ fn tone_for_status(status: RecordStatus) -> Tone {
         RecordStatus::Info | RecordStatus::Observed => Tone::Info,
         RecordStatus::Plan => Tone::Accent,
         RecordStatus::DryRun => Tone::DryRun,
-        RecordStatus::Warn => Tone::Warn,
-        RecordStatus::Blocked | RecordStatus::Error => Tone::Warn,
+        RecordStatus::Warn | RecordStatus::Blocked | RecordStatus::Error => Tone::Warn,
         RecordStatus::Muted => Tone::Muted,
     }
 }
@@ -176,8 +215,8 @@ mod tests {
         let model = fixture_model();
         let first = render_dashboard(&model, false);
         assert_eq!(first, render_dashboard(&model, false));
-        assert!(first.contains("Home / next step"));
-        assert!(first.contains("status"));
+        assert!(first.contains("Home / next safe action"));
+        assert!(first.contains("CLI escape hatch"));
         assert!(!first.contains("\u{1b}["));
         assert!(render_dashboard(&model, true).contains("\u{1b}["));
     }

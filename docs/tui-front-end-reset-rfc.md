@@ -1,7 +1,7 @@
 # runtime.zero Rust-first TUI Front-End Reset RFC
 
-Status: implemented product and architecture contract; source cutover complete,
-owner/platform acceptance remains open
+Status: implemented product and architecture contract; task-first UI rebuild
+complete in source, owner/platform acceptance remains open
 Date: 2026-08-22
 Repository baseline: `eb7178a724063130b02d886879293009fc81dd47` on `main`
 Scope: the Rust terminal UI and its durable product/architecture boundary
@@ -19,7 +19,7 @@ model is a calm, task-oriented control surface for answering:
 > What is the current evidence, what needs attention, and what is the next
 > safe step?
 
-The first screen is `Overview`. It is an attention queue, not a dashboard of
+The first screen is `Home`. It is an attention queue, not a dashboard of
 all available metrics. Within one frame, a first-time operator must be able
 to tell whether the local snapshot is ready, whether anything is blocked or
 requires review, and how to open the next evidence-backed detail. The screen
@@ -37,14 +37,14 @@ The rebuild has these non-negotiable decisions:
    foundation-owned actions. They do not contribute widgets, global chrome,
    key bindings, overlays, lifecycle state machines, confirmation logic, or
    execution paths.
-4. `Overview`, `Explore`, `Review`, `Activity`, and `Modules` are stable
-   destinations. A module is content within this information architecture,
-   not a new top-level tab.
+4. Home, Inventory, Evidence, Plan Review, Confirmation, and Activity are
+   task states, not a navigation forest. Module records remain content inside
+   Inventory and the Home attention queue.
 5. The first implementation is a narrow read-only vertical slice. It may show
    a real action-plan boundary and confirmation requirements, but it does not
    create a second apply or recovery authority.
-6. The new Dossier Queue TUI is the sole interactive launch target after source,
-   buffer, and PTY parity. Human terminal, accessibility, platform, and owner
+6. The new task-first TUI is the sole active interactive launch target after
+   source, buffer, and PTY parity. Human terminal, accessibility, platform, and owner
    acceptance remain separate gates and are not inferred from source tests.
 7. The visual direction is `Dossier Queue`: quiet dossier typography, one
    focused attention list, one evidence pane, restrained borders, and
@@ -154,7 +154,7 @@ selected record and the scriptable CLI/JSON surfaces.
 
 ### Coherent first-frame invariant
 
-`Overview` receives one immutable `OverviewProjection` per render generation.
+`Home` receives one immutable typed projection per render generation.
 The projection has one load state and one evidence timestamp/generation. A
 row cannot say `ready` while its owning snapshot is still `loading`. If a
 worker result is stale, cancelled, disconnected, or invalid, it cannot patch
@@ -163,15 +163,17 @@ load is `empty`; neither is rendered as `ready`.
 
 ## 5. Stable information architecture
 
-The top-level route set is deliberately small and domain-neutral:
+The typed foundation model retains stable evidence categories, but the
+interactive shell presents them through one bounded task flow:
 
-| Route | Product question | Typical contents |
+| Task state | Product question | Typical contents |
 | --- | --- | --- |
-| `Overview` | What needs attention and what is the next safe step? | readiness, attention queue, active/recovery notice, concise counts, selected explanation |
-| `Explore` | What evidence exists? | searchable inventory and module-owned records, facets, source/provider identity, detail |
-| `Review` | What is proposed, blocked, or awaiting an explicit decision? | findings, action plans, exact targets, risk/capability posture, confirmation boundary |
-| `Activity` | What is running or already evidenced? | bounded jobs, progress, cancellation, receipts, journal/recovery review, fresh verification |
-| `Modules` | What module posture is known? | installed-inactive, enabled where foundation says so, staged, degraded, unavailable, lifecycle evidence |
+| `Home` | What needs attention and what is the safest next action? | readiness, attention queue, selected explanation |
+| `Inventory` | What evidence exists? | searchable foundation records, source/provider identity, module content |
+| `Evidence` | What facts support this item? | bounded details, freshness, redaction, disposition |
+| `Plan Review` | What exactly is proposed or blocked? | action plan, digests, risk/capabilities, authority boundary |
+| `Confirmation` | What explicit decision is required? | short-lived foundation challenge, exact phrase, rollback/recovery posture |
+| `Activity` | What is running or already evidenced? | progress, cancellation, receipt, verification, failure, recovery-required |
 
 Navigation remains stable as the module catalog grows. A module can add a
 record kind, evidence fields, or a foundation-registered detail section, but it
@@ -179,9 +181,9 @@ cannot add a sixth global destination. A future module that needs a new
 workflow must first fit its data into one of these questions or propose a
 foundation-level architecture change.
 
-The shell has one route bar, one primary content surface, one selected-detail
-surface, and one status/key footer. It does not contain a permanent command
-rail, a card grid of every subsystem, or repeated copies of the same status.
+The shell has one task surface, one selected-detail or authority surface, and
+one status/key footer. It does not contain a route bar, numeric shortcuts,
+permanent command rail, metric card grid, or repeated copies of the same status.
 
 ## 6. Typed module-to-UI contribution contract
 
@@ -331,13 +333,13 @@ UI may repair, rerun, roll back, or complete a journal.
   discarded, not merged.
 - The UI may request `Refresh`, but it cannot schedule or automatically retry
   collection or actions.
-- A view can move `loading -> ready|unavailable|empty|blocked` only through a
+- A view can move `loading|refreshing -> ready|unavailable|empty|blocked` only through a
   validated foundation result.
-- A job can move `idle -> running -> succeeded|cancelled|recovery` only through
+- A job can move `idle -> running -> verified|cancelled|recovery-required|failed` only through
   the foundation coordinator. A UI close, resize, or redraw cannot manufacture
   a terminal job state.
-- A `recovery` state is sticky until a fresh foundation assessment changes it;
-  closing the overlay does not clear evidence.
+- A `recovery-required` state is sticky until a fresh foundation assessment
+  changes it; leaving Activity does not clear evidence.
 - Confirmation input is transient UI text. The foundation owns challenge
   issuance, expiry, exact matching, single-use consumption, and binding to the
   action/plan/write-set digests.
@@ -349,14 +351,14 @@ files are the planned ownership seams; they are not created in phase 1.
 
 | Boundary | Owns | Must not own |
 | --- | --- | --- |
-| `src/ui/model.rs` | immutable `OverviewProjection`, route projections, typed records, evidence refs, bounded display values, semantic status | filesystem/network/process access, action execution, arbitrary strings as authority |
+| `src/ui/model.rs` | immutable typed model, route projections, records, evidence refs, bounded display values, semantic status | filesystem/network/process access, action execution, arbitrary strings as authority |
 | `src/ui/messages.rs` | `UiEvent`, `UiIntent`, worker result envelopes, request/generation IDs | module-specific keymaps, direct callbacks, untyped event buses |
-| `src/ui/state.rs` | route, focus, selection, scroll, search text, overlay stack, view/job display state | lifecycle transition authority, plan construction, confirmation validation, worker spawning |
+| `src/ui/state.rs` | task page, focus, selection, search text, confirmation input, view/job display state | lifecycle transition authority, plan construction, confirmation validation, worker spawning |
 | `src/ui/layout.rs` | size-aware named regions and responsive layout plans | content-specific coordinate guesses, module-provided geometry |
 | `src/ui/widgets.rs` | bounded reusable Ratatui widgets from explicit inputs; labels, lists, detail rows, status banners | foundation reads/writes, module callbacks, raw terminal control |
-| `src/ui/screens/` | `Overview`, `Explore`, `Review`, `Activity`, and `Modules` compositions | new global routes, provider execution, private module chrome |
+| `src/ui/widgets.rs` | Home, Inventory, Evidence, Review, Confirmation, and Activity compositions | new global routes, provider execution, private module chrome |
 | `src/ui/theme.rs` | semantic roles, Dossier Navy/Burnished Brass palette, no-color fallback, focus/status styles | raw hex values in domain modules, color-only meaning |
-| `src/ui/terminal.rs` | raw mode, alternate screen, cursor/mouse capture, resize, event polling, panic restoration, PTY lifecycle | data collection, action plans, confirmation, recovery, process-host execution |
+| `src/ui/task_terminal.rs` | raw mode, alternate screen, cursor/mouse capture, resize, event polling, panic restoration, PTY lifecycle | data collection, action plans, confirmation, recovery, process-host execution |
 | `src/ui/testkit.rs` | deterministic model fixtures, event traces, buffer snapshots, text semantics, terminal-size and color matrix helpers | real provider invocation, real mutation, credential/session access |
 | `src/ui/foundation_adapter.rs` | map validated CLI/foundation reports into UI model and map typed intents back to one coordinator | a second provider/action/transaction/recovery implementation |
 | `src/ui/mod.rs` | narrow composition and public integration boundary | broad re-export of module internals or authority contracts |
@@ -469,15 +471,15 @@ record supports an action; it may not add or shadow a key.
 | Key | Behavior | Safety boundary |
 | --- | --- | --- |
 | `q` | quit after requesting cancellation of UI-owned work | does not cancel an external effect by pretending it rolled back; terminal is restored regardless |
-| `Esc` | close top overlay, confirmation, search, or detail; otherwise move to the parent route | never confirms, retries, or clears recovery evidence |
-| `Tab` / `Shift+Tab` | move through route bar, primary list, selected detail, and footer actions | focus only |
+| `Esc` | close help/search, cancel confirmation, or move to the parent task state | never confirms, retries, or clears recovery evidence |
+| `Tab` / `Shift+Tab` | move through task queue, selected detail, and controls | focus only |
 | arrows / `j` / `k` | move within the focused list or scroll detail | bounded selection; no action execution |
 | `Home` / `End` | move to the first/last visible item | bounded selection |
 | `Enter` / `Space` | open detail or foundation-owned review surface | read-only until a valid foundation action flow says otherwise |
-| `1`–`5` | select the five stable routes in documented order | no module remapping |
+| `i` / `h` / `a` | open Inventory, Home, or Activity | task navigation only; modules cannot add destinations |
 | `/` | open search for the current searchable record set | local filtering only unless a foundation review explicitly says otherwise |
 | `r` | request an explicit refresh | no automatic retry; stale generations cannot win |
-| `?` / `h` | open help overlay | help is a modal, not permanent chrome |
+| `?` | open help overlay | help is a modal, not permanent chrome |
 | `u` | request provider availability review where the foundation exposes it | read-only network metadata review; never apply |
 | `c` | request the foundation confirmation challenge for the selected reviewable action | never bypasses plan, identity, confirmation, or receipt gates |
 | `Ctrl+C` | send typed cancellation to the active coordinator and show its outcome | cancellation is not rollback and never authorizes a rerun |
@@ -487,12 +489,12 @@ available unless the current model advertises the corresponding typed intent.
 
 ### Mouse and focus
 
-- A click on a route selects it; a click on a record selects it; a click on a
-  visible `Review` affordance opens the foundation-owned review surface.
+- A click on a record selects it; a click on the selected detail opens the
+  next task state when one is available.
 - Mouse wheel scrolls the list or detail under the pointer by a bounded amount.
 - The focused region is visible without color using a `>` marker, a text label,
   or a reversed/bold fallback. Focus order is deterministic and matches the
-  reading order: route, primary content, selected detail, footer/overlay.
+  reading order: task queue, selected detail, controls.
 - Pointer coordinates are interpreted from the current `LayoutPlan`; widgets
   do not guess global coordinates. Unsupported mouse reporting is harmless.
 - Mouse cannot submit an exact confirmation phrase accidentally: confirmation
@@ -501,15 +503,12 @@ available unless the current model advertises the corresponding typed intent.
 
 ### Overlays
 
-There is one modal overlay stack owned by the UI shell. Only the top overlay
-receives input. The first implementation needs these overlay kinds:
+There is one small modal overlay stack owned by the UI shell. Only the top
+overlay receives input. The first implementation needs only these overlays:
 
 1. help;
 2. search input/results;
-3. selected evidence detail when compact layout replaces the list;
-4. action review;
-5. exact confirmation input;
-6. cancellation or recovery evidence notice.
+3. no action or recovery overlays; those are dedicated task states.
 
 An overlay declares its focus trap, dismissal key, semantic title, and bounded
 content. Modules supply data sections to an overlay; they cannot create a new
@@ -526,7 +525,7 @@ sent to modules as an execution command.
 
 ### Confirmation
 
-The action review overlay must display the foundation-provided operation,
+The Plan Review task state must display the foundation-provided operation,
 target identity, provider, action/plan ID, plan and write-set digests where
 safe, capabilities, network/elevation posture, rollback/recovery posture,
 expiry, and the exact phrase requirement. It must visibly say that the action
@@ -537,7 +536,7 @@ The flow is:
 ```text
 record selected
   -> foundation validates current action reference
-  -> review overlay
+  -> Plan Review task state
   -> foundation issues/returns exact challenge
   -> transient confirmation input
   -> foundation validates exact phrase and single-use consumption
@@ -622,13 +621,13 @@ the label; it never replaces it. JSON and redirected text remain ANSI-free.
 The explicit slice is:
 
 ```text
-Overview loading
-  -> coherent Overview ready projection
-  -> select one evidence-backed record
-  -> open selected detail
-  -> open a read-only foundation action boundary
-  -> inspect exact plan/identity/authority requirements
-  -> return with Esc
+Home loading
+  -> coherent Home ready projection
+  -> select one concrete evidence-backed item
+  -> inspect evidence
+  -> inspect exact plan and authority
+  -> enter dedicated foundation confirmation
+  -> observe activity, verified, cancelled, failed, or recovery-required
 ```
 
 The slice must exercise at least one module/provider-backed record and one
@@ -638,14 +637,14 @@ The slice is complete only when the same UI model renders deterministic
 loading, ready, unavailable, empty, and blocked fixtures and the coordinator
 boundary is covered by tests.
 
-### Phase 4 — widen by stable destination
+### Phase 4 — widen by task state
 
-Add `Explore`, `Review`, `Activity`, and `Modules` one at a time. Each slice
-must add typed foundation data and tests before adding visual surface. Activity
-must consume existing job, cancellation, receipt, and recovery evidence; it
-must not create private lifecycle or recovery state machines. Modules must
-consume registry/lifecycle evidence and must not expose activation/invocation
-authority that the foundation does not provide.
+Add Inventory, Evidence, Plan Review, Confirmation, and Activity one at a time.
+Each slice must add typed foundation data and tests before adding visual
+surface. Activity must consume existing job, cancellation, receipt, and
+recovery evidence; it must not create private lifecycle or recovery state
+machines. Modules remain content inside Inventory and must not expose
+activation/invocation authority that the foundation does not provide.
 
 ### Phase 5 — cut over and retire disposable presentation
 
@@ -749,13 +748,14 @@ is a transition mechanism, not a permanent dual-UI architecture.
 
 ## 15. Implementation status after Gate B–E source cutover
 
-The typed model/testkit foundation, Dossier Queue vertical slice, explicit
+The typed model/testkit foundation, task-first Home-to-Activity flow, explicit
 provider-review worker, foundation-owned confirmation/execute delegation, and
-all five destination projections are implemented in `src/ui/`. The new route
-is the sole interactive launch path. The obsolete interactive lifecycle,
-state, Ratatui renderer, and legacy text renderer were removed;
-`tui_dashboard.rs` remains only as a bounded foundation snapshot source, while
-`src/ui/text.rs` is the typed scriptable text projection used by the CLI.
+semantic outcome states are implemented in `src/ui/`. `task_terminal.rs` is
+the sole active interactive controller. The old route shell and screen
+composition files were retired; `tui_dashboard.rs` remains only as a bounded
+foundation snapshot source, while `src/ui/text.rs` is the typed scriptable
+projection used by the CLI. The concurrent dirty `src/ui/terminal.rs` is kept
+outside the active module boundary pending owner reconciliation.
 
 Source and deterministic test evidence cover the required local sizes,
 color/no-color semantics, reducer states, stale generations, mouse/keyboard

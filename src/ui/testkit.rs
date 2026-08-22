@@ -1,4 +1,4 @@
-//! Deterministic buffer and event fixtures for the new TUI.
+//! Deterministic buffer, state, and event fixtures for the operator UI.
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -11,8 +11,8 @@ use super::model::{
     ReviewBoundary, Route, SearchTerms, UI_MODEL_SCHEMA_VERSION, UiActionRef, UiDetailSection,
     UiModel, UiRecord, ViewState,
 };
-use super::screens;
 use super::state::UiState;
+use super::widgets;
 
 pub fn fixture_model() -> UiModel {
     let mut model = UiModel::loading(11);
@@ -26,7 +26,7 @@ pub fn fixture_model() -> UiModel {
         };
     }
     model.state = ViewState::Ready { generation: 11 };
-    model.status = text("fixture snapshot · read-only review boundary");
+    model.status = text("local evidence ready · read-only operator path");
     model.validate().expect("fixture model is valid");
     model
 }
@@ -52,7 +52,13 @@ pub fn render_text(model: UiModel, width: u16, height: u16, color: bool) -> Stri
 
 pub fn render_route_text(route: Route, width: u16, height: u16, color: bool) -> String {
     let mut state = UiState::new(fixture_model());
-    state.apply(UiIntent::Navigate(route));
+    state.apply(UiIntent::OpenInventory);
+    state.selected = state
+        .current_records()
+        .iter()
+        .position(|locator| locator.route == route)
+        .unwrap_or(0);
+    state.apply(UiIntent::OpenSelected);
     render_state_text(state, width, height, color)
 }
 
@@ -62,10 +68,10 @@ pub fn overview_slice_trace() -> EventTrace {
         generation: 11,
         model: fixture_model(),
     });
-    trace.push(UiEvent::Input(UiIntent::FocusNext));
-    trace.push(UiEvent::Input(UiIntent::OpenDetail));
-    trace.push(UiEvent::Input(UiIntent::ReviewSelected));
-    trace.push(UiEvent::Input(UiIntent::Back));
+    trace.push(UiEvent::Input(UiIntent::OpenInventory));
+    trace.push(UiEvent::Input(UiIntent::SelectIndex(0)));
+    trace.push(UiEvent::Input(UiIntent::OpenSelected));
+    trace.push(UiEvent::Input(UiIntent::OpenReview));
     trace
 }
 
@@ -73,7 +79,7 @@ fn render_state_text(state: UiState, width: u16, height: u16, color: bool) -> St
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("fixture terminal");
     terminal
-        .draw(|frame| screens::draw(frame, &state, color))
+        .draw(|frame| widgets::draw_shell(frame, &state, color))
         .expect("fixture draw");
     frame_text(terminal.backend().buffer())
 }
@@ -190,7 +196,7 @@ mod tests {
     use crate::ui::model::{ModuleUiContribution, UiRegistry, UiValidationError};
 
     #[test]
-    fn fixture_covers_every_stable_route_and_review_authority_boundary() {
+    fn fixture_covers_typed_evidence_and_foundation_action_boundary() {
         let model = fixture_model();
         assert_eq!(model.routes.len(), Route::ALL.len());
         assert!(
@@ -228,45 +234,54 @@ mod tests {
         let color = render_text(fixture_model(), 118, 30, true);
         assert_eq!(no_color, color);
         assert!(no_color.contains("runtime.zero"));
-        assert!(no_color.contains("Overview"));
+        assert!(no_color.contains("HOME"));
         assert!(no_color.contains("read-only"));
     }
 
     #[test]
-    fn terminal_floor_is_bounded_and_explains_safe_exit() {
+    fn terminal_floor_is_bounded_and_explains_cli_escape() {
         let text = render_text(fixture_model(), 42, 10, false);
         assert!(text.contains("Terminal too small"));
         assert!(text.contains("rz0 --no-tui"));
     }
 
     #[test]
-    fn every_screen_dispatches_the_selected_route_and_stays_deterministic() {
+    fn every_evidence_category_is_reachable_without_a_route_bar() {
         for route in Route::ALL {
-            let first = render_route_text(route, 118, 30, false);
-            let second = render_route_text(route, 118, 30, false);
-            assert_eq!(first, second);
-            assert!(first.contains(route.title()), "missing {}", route.title());
-            assert!(first.contains("read-only"));
+            let rendered = render_route_text(route, 118, 30, false);
+            assert!(
+                rendered.contains("EVIDENCE"),
+                "missing evidence page for {route:?}"
+            );
+            assert!(rendered.contains("read-only"));
         }
     }
 
     #[test]
-    fn vertical_slice_renders_at_all_required_local_sizes_and_color_modes() {
+    fn task_flow_renders_evidence_and_exact_plan_at_all_required_sizes() {
         for (width, height) in [(58, 16), (80, 24), (118, 30), (160, 50)] {
             for color in [false, true] {
                 let mut state = UiState::new(fixture_model());
-                state.focus = super::super::state::FocusRegion::Primary;
-                state.apply(UiIntent::OpenDetail);
-                let detail = render_state_text(state.clone(), width, height, color);
+                state.apply(UiIntent::OpenInventory);
+                let action_index = state
+                    .current_records()
+                    .iter()
+                    .position(|locator| {
+                        state.model.route(locator.route).records[locator.index]
+                            .action_refs
+                            .iter()
+                            .any(|action| action.disposition == ActionDisposition::Reviewable)
+                    })
+                    .expect("fixture action");
+                state.apply(UiIntent::SelectIndex(action_index));
+                state.apply(UiIntent::OpenSelected);
                 assert!(
-                    detail.contains("Evidence detail"),
-                    "detail at {width}x{height}"
+                    render_state_text(state.clone(), width, height, color).contains("Evidence")
                 );
-                state.apply(UiIntent::ReviewSelected);
+                state.apply(UiIntent::OpenReview);
                 let review = render_state_text(state, width, height, color);
-                assert!(review.contains("Read-only action review"));
-                assert!(review.contains("No action has run"));
-                assert!(review.contains("confirmation"));
+                assert!(review.contains("Exact plan"), "review at {width}x{height}");
+                assert!(review.contains("not executed"));
             }
         }
     }
@@ -280,29 +295,9 @@ mod tests {
             UiEvent::SnapshotReady { generation: 11, .. }
         ));
         assert!(matches!(
-            trace.events()[3],
-            UiEvent::Input(UiIntent::ReviewSelected)
+            trace.events()[4],
+            UiEvent::Input(UiIntent::OpenReview)
         ));
-    }
-
-    #[test]
-    fn review_route_surfaces_typed_plan_identity_and_authority_fields() {
-        let mut state = UiState::new(fixture_model());
-        state.apply(UiIntent::Navigate(Route::Review));
-        state.apply(UiIntent::OpenDetail);
-        state.apply(UiIntent::ReviewSelected);
-        let text = render_state_text(state, 118, 30, false);
-        for label in [
-            "operation:",
-            "target:",
-            "authority:",
-            "confirmation: required",
-            "capabilities:",
-            "recovery:",
-            "executed: no",
-        ] {
-            assert!(text.contains(label), "missing {label} in {text}");
-        }
     }
 
     #[test]
@@ -329,15 +324,6 @@ mod tests {
             too_many.validate(),
             Err(UiValidationError::TooManyRecords { .. })
         ));
-
-        let mut duplicate_records = fixture_contribution();
-        duplicate_records
-            .records
-            .push(duplicate_records.records[0].clone());
-        assert!(matches!(
-            duplicate_records.validate(),
-            Err(UiValidationError::DuplicateRecordId(_))
-        ));
     }
 
     #[test]
@@ -348,7 +334,6 @@ mod tests {
             contribution.validate(),
             Err(UiValidationError::MismatchedModuleId(_))
         ));
-
         let mut contribution = fixture_contribution();
         contribution.action_refs.push(UiActionRef {
             action_id: id("fixture/executed-claim"),

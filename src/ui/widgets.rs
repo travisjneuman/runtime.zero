@@ -1,148 +1,113 @@
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::Style;
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
-use super::layout::LayoutPlan;
-use super::model::JobState;
-use super::model::{ActionDisposition, DetailValue, RecordStatus, Route, UiRecord, ViewState};
-use super::state::{FocusRegion, Overlay, UiState};
+use super::layout::{LayoutPlan, LayoutTier};
+use super::model::{ActionDisposition, DetailValue, JobState, UiRecord, ViewState};
+use super::state::{FocusRegion, Overlay, UiPage, UiState};
 use super::theme::{Theme, Tone};
 
 pub fn draw_shell(frame: &mut Frame<'_>, state: &UiState, color: bool) {
     let area = frame.area();
     let plan = LayoutPlan::for_area(area);
     let theme = Theme::new(color);
-    if plan.tier == super::layout::LayoutTier::VerySmall {
+    if plan.tier == LayoutTier::VerySmall {
         render_small_notice(frame, area, theme);
         return;
     }
+
     render_header(frame, plan.header, state, theme);
-    render_routes(frame, plan.routes, state, theme);
-    render_primary(frame, plan.primary, state, theme);
-    render_detail(frame, plan.detail, state, theme);
+    render_context(frame, plan.context, state, theme);
+    match state.page {
+        UiPage::Home | UiPage::Inventory => {
+            render_queue(frame, plan.primary, state, theme);
+            render_selected_detail(frame, plan.detail, state, theme);
+        }
+        UiPage::Evidence => {
+            render_evidence(frame, plan.primary, state, theme);
+            render_next_step(frame, plan.detail, state, theme);
+        }
+        UiPage::Review => {
+            render_plan(frame, plan.primary, state, theme);
+            render_review_authority(frame, plan.detail, state, theme);
+        }
+        UiPage::Confirmation => {
+            render_confirmation(frame, plan.primary, state, theme);
+            render_confirmation_boundary(frame, plan.detail, state, theme);
+        }
+        UiPage::Activity => {
+            render_activity(frame, plan.primary, state, theme);
+            render_selected_detail(frame, plan.detail, state, theme);
+        }
+    }
     render_status(frame, plan.status, state, theme);
     render_keys(frame, plan.keys, state, theme);
     render_overlay(frame, plan.overlay, state, theme);
 }
 
-pub fn draw_overview(frame: &mut Frame<'_>, state: &UiState, color: bool) {
-    draw_destination(frame, state, color, Route::Overview);
-}
-
-pub fn draw_explore(frame: &mut Frame<'_>, state: &UiState, color: bool) {
-    draw_destination(frame, state, color, Route::Explore);
-}
-
-pub fn draw_review(frame: &mut Frame<'_>, state: &UiState, color: bool) {
-    draw_destination(frame, state, color, Route::Review);
-}
-
-pub fn draw_activity(frame: &mut Frame<'_>, state: &UiState, color: bool) {
-    draw_destination(frame, state, color, Route::Activity);
-}
-
-pub fn draw_modules(frame: &mut Frame<'_>, state: &UiState, color: bool) {
-    draw_destination(frame, state, color, Route::Modules);
-}
-
-fn draw_destination(frame: &mut Frame<'_>, state: &UiState, color: bool, route: Route) {
-    debug_assert_eq!(state.route, route);
-    draw_shell(frame, state, color);
-}
-
-pub fn render_route_screen(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    state: &UiState,
-    theme: Theme,
-    route: Route,
-) {
-    let projection = state.model.route(route);
-    let title = format!("{} · {}", route.title(), projection.state.label());
-    let block = panel(&title, theme.heading());
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-    render_record_lines(frame, inner, state, theme, &projection.records, route);
-}
-
 fn render_header(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
-    let readiness = match &state.model.state {
-        ViewState::Loading { .. } => ("loading", Tone::Accent),
-        ViewState::Ready { .. } => ("ready", Tone::Safe),
-        ViewState::Unavailable { .. } => ("unavailable", Tone::Warn),
-        ViewState::Empty { .. } => ("empty", Tone::Info),
-        ViewState::Blocked { .. } => ("blocked", Tone::Danger),
-        ViewState::Stale { .. } => ("stale", Tone::Warn),
-        ViewState::Failed { .. } => ("failed", Tone::Danger),
+    let (label, tone) = view_state_label(&state.model.state);
+    let title = match state.page {
+        UiPage::Home => "HOME",
+        UiPage::Inventory => "INVENTORY",
+        UiPage::Evidence => "EVIDENCE",
+        UiPage::Review => "PLAN REVIEW",
+        UiPage::Confirmation => "CONFIRMATION",
+        UiPage::Activity => "ACTIVITY",
     };
     let line = Line::from(vec![
         Span::styled("runtime.zero", theme.heading()),
         Span::styled("  /  ", theme.tone(Tone::Muted)),
-        Span::styled(state.route.title().to_ascii_uppercase(), theme.heading()),
-        Span::styled(
-            "                                      ",
-            theme.tone(Tone::Muted),
-        ),
-        Span::styled(readiness.0, theme.tone(readiness.1)),
+        Span::styled(title, theme.heading()),
+        Span::styled("  ", theme.tone(Tone::Muted)),
+        Span::styled(label, theme.tone(tone)),
     ]);
-    let subtitle = format!(
-        "{}  ·  generation {}  ·  {}",
-        route_goal(state.route),
-        state.model.generation,
-        state.model.status,
-    );
+    let subtitle = match state.page {
+        UiPage::Home => "what needs attention · the safest next action",
+        UiPage::Inventory => "inspect current foundation evidence",
+        UiPage::Evidence => "verify source, scope, freshness, and disposition",
+        UiPage::Review => "read the exact foundation plan before deciding",
+        UiPage::Confirmation => "a dedicated foundation challenge is required",
+        UiPage::Activity => "progress, cancellation, receipt, and recovery evidence",
+    };
     frame.render_widget(
-        Paragraph::new(vec![line, Line::from(truncate(&subtitle, area.width))]),
+        Paragraph::new(vec![line, Line::from(truncate(subtitle, area.width))]),
         area,
     );
 }
 
-fn route_goal(route: Route) -> &'static str {
-    match route {
-        Route::Overview => "attention first · choose the next safe step",
-        Route::Explore => "evidence index · inspect facts before action",
-        Route::Review => "action dossier · verify exact foundation authority",
-        Route::Activity => "activity ledger · receipts and recovery stay visible",
-        Route::Modules => "module registry · posture without lifecycle control",
-    }
-}
-
-fn render_routes(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
-    let spans = Route::ALL.into_iter().flat_map(|route| {
-        let selected = state.route == route;
-        let style = if selected && state.focus == FocusRegion::Routes {
-            theme.selected()
-        } else if selected {
-            theme.heading()
-        } else {
-            theme.tone(Tone::Muted)
-        };
-        [Span::styled(
-            format!("[{} {}] ", route.number(), route.title()),
-            style,
-        )]
-    });
+fn render_context(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    let context = match state.page {
+        UiPage::Home => "next safe action  ·  attention is explicit".to_string(),
+        UiPage::Inventory => "inventory  ·  foundation evidence and module content".to_string(),
+        UiPage::Evidence => "selected evidence  ·  read-only".to_string(),
+        UiPage::Review => "exact plan  ·  foundation authority".to_string(),
+        UiPage::Confirmation => "confirmation  ·  no shortcut".to_string(),
+        UiPage::Activity => "activity  ·  current outcome is explicit".to_string(),
+    };
     frame.render_widget(
-        Paragraph::new(Line::from(spans.collect::<Vec<_>>()))
-            .block(Block::default().borders(Borders::BOTTOM)),
+        Paragraph::new(Line::from(vec![
+            Span::styled("  ", theme.tone(Tone::Muted)),
+            Span::styled(
+                truncate(&context, area.width.saturating_sub(2)),
+                theme.tone(Tone::Info),
+            ),
+        ])),
         area,
     );
 }
 
-fn render_primary(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
-    if area.height == 0 {
-        return;
-    }
-    let projection = state.model.route(state.route);
+fn render_queue(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    let title = if state.page == UiPage::Home {
+        "Next safe actions"
+    } else {
+        "Current evidence"
+    };
     let block = panel(
-        &format!(
-            "{}  ·  {} records",
-            state.route.title(),
-            projection.records.len()
-        ),
-        if state.focus == FocusRegion::Primary {
+        title,
+        if state.focus == FocusRegion::Queue {
             theme.selected()
         } else {
             theme.heading()
@@ -150,104 +115,78 @@ fn render_primary(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: The
     );
     let inner = block.inner(area);
     frame.render_widget(block, area);
-    render_record_lines(frame, inner, state, theme, &projection.records, state.route);
-}
-
-fn render_record_lines(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    state: &UiState,
-    theme: Theme,
-    records: &[UiRecord],
-    route: Route,
-) {
-    let query = state.search_query.to_ascii_lowercase();
-    let visible = records
-        .iter()
-        .enumerate()
-        .filter(|(_, record)| {
-            query.is_empty()
-                || record.title.as_str().to_ascii_lowercase().contains(&query)
-                || record
-                    .summary
-                    .as_str()
-                    .to_ascii_lowercase()
-                    .contains(&query)
-                || record
-                    .search_terms
-                    .0
-                    .iter()
-                    .any(|term| term.as_str().to_ascii_lowercase().contains(&query))
-        })
-        .collect::<Vec<_>>();
-    let lines = if visible.is_empty() {
-        vec![Line::from(Span::styled(
-            match &state.model.route(route).state {
-                ViewState::Loading { .. } => "[PLAN] loading local evidence",
-                ViewState::Unavailable { .. } => "[WARN] evidence unavailable · r refresh",
-                ViewState::Empty { .. } => "[INFO] no records are available in this workspace",
-                ViewState::Blocked { .. } => "[BLOCKED] evidence is blocked by foundation policy",
-                ViewState::Stale { .. } => "[WARN] evidence is stale · r refresh",
-                ViewState::Failed { .. } => "[ERROR] evidence failed · r retry explicitly",
-                ViewState::Ready { .. } => "[INFO] no records match this view",
-            },
-            theme.tone(Tone::Muted),
-        ))]
-    } else {
-        visible
-            .iter()
-            .enumerate()
-            .map(|(visible_index, (record_index, record))| {
-                let selected = visible_index == state.selected;
-                let marker = if selected { "> " } else { "  " };
-                let line = format!(
-                    "{marker}{:<9} {}",
-                    record.status.label(),
-                    truncate(record.title.as_str(), area.width.saturating_sub(13)),
-                );
-                let style = if selected && state.focus == FocusRegion::Primary {
-                    theme.selected()
-                } else if selected {
-                    Style::default().add_modifier(ratatui::style::Modifier::BOLD)
-                } else {
-                    theme.status(record.status)
-                };
-                let _ = record_index;
-                Line::from(Span::styled(line, style))
-            })
-            .collect::<Vec<_>>()
-    };
-    frame.render_widget(
-        Paragraph::new(Text::from(lines)).wrap(Wrap { trim: true }),
-        area,
-    );
-}
-
-fn render_detail(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
-    if area.height == 0 || area.width == 0 {
+    let locators = state.current_records();
+    if locators.is_empty() {
+        render_state_message(frame, inner, state, state.page == UiPage::Home, theme);
         return;
     }
-    let title = if state.focus == FocusRegion::Detail {
-        "Selected detail · focused"
-    } else {
-        "Selected detail"
-    };
-    let block = panel(title, theme.heading());
+    let row_height = 2usize;
+    let max_rows = usize::from(inner.height).div_ceil(row_height);
+    let lines = locators
+        .iter()
+        .enumerate()
+        .take(max_rows)
+        .flat_map(|(visible_index, locator)| {
+            let selected = visible_index == state.selected;
+            let record = state
+                .model
+                .route(locator.route)
+                .records
+                .get(locator.index)
+                .expect("state locator is valid");
+            let marker = if selected { ">" } else { " " };
+            let status = if record
+                .action_refs
+                .iter()
+                .any(|action| action.disposition == ActionDisposition::Reviewable)
+            {
+                "REVIEW"
+            } else {
+                record.status.label().trim_matches(&['[', ']'][..])
+            };
+            let title = format!("{marker} {status}  {}", record.title);
+            let summary = format!("  {}", record.summary);
+            let style = if selected && state.focus == FocusRegion::Queue {
+                theme.selected()
+            } else if selected {
+                theme.heading().add_modifier(Modifier::BOLD)
+            } else {
+                theme.status(record.status)
+            };
+            [
+                Line::from(Span::styled(truncate(&title, inner.width), style)),
+                Line::from(Span::styled(
+                    truncate(&summary, inner.width),
+                    theme.tone(Tone::Muted),
+                )),
+            ]
+        })
+        .collect::<Vec<_>>();
+    frame.render_widget(Paragraph::new(Text::from(lines)), inner);
+}
+
+fn render_selected_detail(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+    let block = panel(
+        "Selected evidence",
+        if state.focus == FocusRegion::Detail {
+            theme.selected()
+        } else {
+            theme.heading()
+        },
+    );
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let Some(record) = state.selected_record() else {
-        frame.render_widget(
-            Paragraph::new("Select an evidence record to inspect it."),
-            inner,
-        );
+        frame.render_widget(Paragraph::new("Nothing is selected."), inner);
         return;
     };
     let mut lines = vec![
         Line::from(Span::styled(
             format!("{}  {}", record.status.label(), record.title),
-            theme
-                .status(record.status)
-                .add_modifier(ratatui::style::Modifier::BOLD),
+            theme.status(record.status).add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
             truncate(record.summary.as_str(), inner.width),
@@ -255,10 +194,51 @@ fn render_detail(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Them
         )),
         Line::raw(""),
     ];
+    push_evidence_fields(&mut lines, record, theme);
+    if has_action_plan(record) {
+        lines.push(Line::raw(""));
+        lines.push(Line::from(Span::styled(
+            "next: Enter inspect the exact plan",
+            theme.tone(Tone::Accent),
+        )));
+    } else if has_review(record) {
+        lines.push(Line::raw(""));
+        lines.push(Line::from(Span::styled(
+            "next: u request explicit provider review",
+            theme.tone(Tone::Accent),
+        )));
+    } else {
+        lines.push(Line::from(Span::styled(
+            "next: i inspect the full inventory",
+            theme.tone(Tone::Muted),
+        )));
+    }
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
+}
+
+fn render_evidence(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    let block = panel("Evidence dossier", theme.heading());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let Some(record) = state.selected_record() else {
+        frame.render_widget(
+            Paragraph::new("The selected evidence is unavailable."),
+            inner,
+        );
+        return;
+    };
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("{}  {}", record.status.label(), record.title),
+            theme.status(record.status).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(record.summary.as_str().to_string()),
+        Line::raw(""),
+    ];
     for section in &record.details {
         lines.push(Line::from(Span::styled(
             section.title.as_str(),
-            theme.tone(Tone::Muted),
+            theme.tone(Tone::Accent),
         )));
         for field in &section.fields {
             lines.push(Line::from(format!(
@@ -268,45 +248,263 @@ fn render_detail(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Them
             )));
         }
     }
-    if let Some(action) = record.action_refs.first() {
-        lines.push(Line::raw(""));
-        lines.push(Line::from(Span::styled(
-            format!("Review action: {}", action.disposition.label()),
-            theme.status(if action.disposition == ActionDisposition::Blocked {
-                RecordStatus::Blocked
-            } else {
-                RecordStatus::Plan
-            }),
-        )));
-        lines.push(Line::raw("Enter opens the read-only authority boundary."));
-    } else if let Some(boundary) = &record.review_boundary {
-        lines.push(Line::raw(""));
-        lines.push(Line::from(Span::styled(
-            format!("Review boundary: {}", boundary.disposition.label()),
-            theme.tone(Tone::Info),
-        )));
-        lines.push(Line::raw(boundary.message.as_str()));
-        lines.push(Line::raw("U opens review; no action is executed."));
+    lines.push(Line::raw(""));
+    lines.push(Line::from(Span::styled(
+        if has_action_plan(record) {
+            "Enter opens the exact plan review. No action has run."
+        } else if has_review(record) {
+            "Enter opens the read-only boundary. Use u for provider review."
+        } else {
+            "This evidence is read-only. No action is available."
+        },
+        theme.tone(Tone::Info),
+    )));
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
+}
+
+fn render_next_step(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    let block = panel("Safest next step", theme.heading());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let Some(record) = state.selected_record() else {
+        frame.render_widget(Paragraph::new("Return to Home and select an item."), inner);
+        return;
+    };
+    let lines = if has_action_plan(record) {
+        vec![
+            Line::from(Span::styled("1  inspect evidence", theme.tone(Tone::Safe))),
+            Line::from(Span::styled("2  read exact plan", theme.tone(Tone::Accent))),
+            Line::from("3  confirm only after review"),
+        ]
+    } else if has_review(record) {
+        vec![
+            Line::from(Span::styled("1  inspect boundary", theme.tone(Tone::Safe))),
+            Line::from(Span::styled(
+                "2  u request provider review",
+                theme.tone(Tone::Accent),
+            )),
+            Line::from("3  return here when an exact plan exists"),
+        ]
     } else {
-        lines.push(Line::raw(""));
-        lines.push(Line::from(Span::styled(
-            "No action has run. Evidence remains read-only.",
-            theme.tone(Tone::Muted),
-        )));
+        vec![
+            Line::from(Span::styled("observe only", theme.tone(Tone::Info))),
+            Line::from("no foundation action is available for this item"),
+        ]
+    };
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
+}
+
+fn render_plan(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    let block = panel("Exact plan · not executed", theme.heading());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let Some(record) = state.selected_record() else {
+        frame.render_widget(Paragraph::new("No plan is selected."), inner);
+        return;
+    };
+    let lines = review_lines(record, theme);
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
+}
+
+fn render_review_authority(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    let block = panel("Authority boundary", theme.heading());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let Some(record) = state.selected_record() else {
+        frame.render_widget(Paragraph::new("No foundation authority is present."), inner);
+        return;
+    };
+    let mut lines = vec![
+        Line::from(Span::styled("foundation owns", theme.tone(Tone::Accent))),
+        Line::from("confirmation, execution, transaction, receipt, verification"),
+        Line::raw(""),
+    ];
+    if let Some(action) = record.action_refs.first() {
+        lines.extend([
+            Line::from(format!("action: {}", action.action_id)),
+            Line::from(format!("disposition: {}", action.disposition.label())),
+            Line::from(format!(
+                "confirmation: {}",
+                if action.review.requires_confirmation {
+                    "required"
+                } else {
+                    "not required"
+                }
+            )),
+            Line::from("execution: not run"),
+            Line::raw(""),
+            Line::from(Span::styled(
+                if action.disposition == ActionDisposition::Reviewable {
+                    "c prepare the foundation challenge"
+                } else {
+                    "blocked: no confirmation path is available"
+                },
+                theme.tone(if action.disposition == ActionDisposition::Reviewable {
+                    Tone::Accent
+                } else {
+                    Tone::Warn
+                }),
+            )),
+        ]);
+    } else if let Some(boundary) = &record.review_boundary {
+        lines.extend([
+            Line::from(format!("disposition: {}", boundary.disposition.label())),
+            Line::from(boundary.message.as_str().to_string()),
+            Line::from("provider review may be required before a plan exists"),
+        ]);
+    } else {
+        lines.push(Line::from("no action boundary exists for this evidence"));
     }
     frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
+}
+
+fn render_confirmation(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    let block = panel("Dedicated confirmation state", theme.tone(Tone::Warn));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let Some(prompt) = state.confirmation.as_ref() else {
+        frame.render_widget(
+            Paragraph::new("The foundation challenge is unavailable."),
+            inner,
+        );
+        return;
+    };
+    let lines = vec![
+        Line::from(Span::styled(
+            "Nothing will run until the foundation accepts this exact phrase.",
+            theme.tone(Tone::Warn),
+        )),
+        Line::raw(""),
+        Line::from(format!("target: {}", prompt.target)),
+        Line::from(format!("plan: {}", prompt.plan_id)),
+        Line::from(format!("plan sha256: {}", prompt.plan_sha256)),
+        Line::from(format!("risk: {}", prompt.risk)),
+        Line::from(format!(
+            "rollback: {}",
+            if prompt.rollback_available {
+                "available"
+            } else {
+                "not established"
+            }
+        )),
+        Line::raw(""),
+        Line::from(Span::styled(
+            format!("type exactly: {}", prompt.expected_phrase),
+            theme.tone(Tone::Accent),
+        )),
+        Line::from(format!("input: {}", state.confirmation_input)),
+        Line::raw(""),
+        Line::from("Enter submits to foundation validation · Esc cancels"),
+    ];
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
+}
+
+fn render_confirmation_boundary(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    let block = panel("Before submit", theme.heading());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let Some(prompt) = state.confirmation.as_ref() else {
+        frame.render_widget(Paragraph::new("Esc returns without execution."), inner);
+        return;
+    };
+    let lines = vec![
+        Line::from("Review the target and digest above."),
+        Line::from(format!(
+            "manual recovery acknowledgement: {}",
+            if prompt.manual_recovery_acknowledged {
+                "recorded"
+            } else {
+                "required by foundation"
+            }
+        )),
+        Line::raw(""),
+        Line::from(Span::styled("Esc cancels safely.", theme.tone(Tone::Info))),
+    ];
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
+}
+
+fn render_activity(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
+    let block = panel("Activity · outcome", theme.heading());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let (headline, lines, tone) = match &state.job {
+        JobState::Idle => (
+            "idle · no action is running",
+            vec!["Provider review and foundation actions are explicit.".to_string()],
+            Tone::Info,
+        ),
+        JobState::Running { job_id, phase } => (
+            "running · progress is visible",
+            vec![
+                format!("job: {job_id}"),
+                format!("phase: {phase}"),
+                "Esc cancels.".to_string(),
+            ],
+            Tone::Accent,
+        ),
+        JobState::Succeeded {
+            receipt,
+            verification,
+        } => (
+            "verified · fresh evidence recorded",
+            vec![
+                format!("receipt: {receipt}"),
+                format!("verification: {verification}"),
+                "Refresh before another decision.".to_string(),
+            ],
+            Tone::Safe,
+        ),
+        JobState::Cancelled { job_id, reason } => (
+            "cancelled · no rollback was implied",
+            vec![
+                format!("job: {job_id}"),
+                format!("reason: {reason}"),
+                "Return to Home or refresh explicitly.".to_string(),
+            ],
+            Tone::Warn,
+        ),
+        JobState::Recovery {
+            transaction,
+            decision,
+        } => (
+            "recovery-required · read-only review",
+            vec![
+                format!("transaction: {transaction}"),
+                format!("decision: {decision}"),
+                "Do not rerun, repair, or rollback here.".to_string(),
+            ],
+            Tone::Warn,
+        ),
+        JobState::Failed { job_id, reason } => (
+            "failed · foundation outcome is visible",
+            vec![
+                format!("job: {job_id}"),
+                format!("reason: {reason}"),
+                "Review evidence before any new request.".to_string(),
+            ],
+            Tone::Danger,
+        ),
+    };
+    let mut content = vec![Line::from(Span::styled(headline, theme.tone(tone)))];
+    content.extend(lines.into_iter().map(Line::from));
+    content.push(Line::raw(""));
+    content.push(Line::from(Span::styled(
+        format!("state: {}", state.view_state().label()),
+        theme.tone(tone),
+    )));
+    frame.render_widget(Paragraph::new(content).wrap(Wrap { trim: true }), inner);
 }
 
 fn render_status(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
     let job = match &state.job {
         JobState::Idle => "idle",
         JobState::Running { phase, .. } => phase.as_str(),
-        JobState::Succeeded { .. } => "succeeded · receipt verified",
-        JobState::Cancelled { .. } => "cancelled · not rollback",
-        JobState::Recovery { .. } => "recovery review required",
-        JobState::Failed { .. } => "failed · foundation rejected or could not complete",
+        JobState::Succeeded { .. } => "verified",
+        JobState::Cancelled { .. } => "cancelled",
+        JobState::Recovery { .. } => "recovery-required",
+        JobState::Failed { .. } => "failed",
     };
-    let status = format!("{} · job {job}", state.model.status);
+    let status = format!("{}  ·  job {job}", state.model.status);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled("status  ", theme.tone(Tone::Muted)),
@@ -322,10 +520,19 @@ fn render_status(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Them
 fn render_keys(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
     let text = if state.search_active {
         "search  type to filter · Enter accept · Esc cancel"
-    } else if state.confirmation.is_some() {
-        "confirmation  type exact foundation phrase · Enter submit · Esc cancel"
     } else {
-        "↑↓/jk move · Tab focus · Enter detail/review · c confirm · / search · r refresh · ? help · q quit"
+        match state.page {
+            UiPage::Home => {
+                "↑↓ select · Enter inspect · i inventory · a activity · u review providers · r refresh · ? help · q quit"
+            }
+            UiPage::Inventory => {
+                "↑↓ select · Enter inspect · / search · h home · a activity · Esc back"
+            }
+            UiPage::Evidence => "Enter plan review · Tab detail/controls · Esc back · ? help",
+            UiPage::Review => "c prepare exact foundation confirmation · Esc back · ? help",
+            UiPage::Confirmation => "type exact phrase · Enter submit · Esc cancel",
+            UiPage::Activity => "Esc back · r refresh evidence · ? help · q quit",
+        }
     };
     frame.render_widget(
         Paragraph::new(Line::styled(text, theme.tone(Tone::Muted))),
@@ -334,193 +541,121 @@ fn render_keys(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme)
 }
 
 fn render_overlay(frame: &mut Frame<'_>, area: Rect, state: &UiState, theme: Theme) {
-    let overlay = match &state.overlay {
+    let overlay = match state.overlay {
         Overlay::None => return,
-        overlay => overlay,
+        ref overlay => overlay,
     };
     frame.render_widget(Clear, area);
-    let (title, lines): (&str, Vec<String>) = match overlay {
+    let (title, lines) = match overlay {
         Overlay::Help => (
-            "Help",
+            "Controls",
             vec![
-                "Tab / Shift+Tab  focus routes, records, detail, footer".to_string(),
-                "↑↓ or j/k       move; Home/End jump to boundaries".to_string(),
-                "Enter            open detail or read-only action review".to_string(),
-                "/                search current typed records".to_string(),
-                "u                explicit provider review; no automatic retry".to_string(),
-                "r                refresh local evidence; no automatic retry".to_string(),
-                "Esc              close overlay; q quits safely".to_string(),
+                "Home is the attention queue; modules appear as evidence content.".to_string(),
+                "Enter: inspect evidence, then open the exact plan.".to_string(),
+                "c: only inside Plan Review; prepare the foundation challenge.".to_string(),
+                "u: explicit provider review; no automatic retry or writes.".to_string(),
+                "i: inventory · a: activity · h: home · /: local search.".to_string(),
+                "Tab: queue, detail, controls · Esc: back/cancel · q: CLI escape.".to_string(),
             ],
         ),
         Overlay::Search => (
-            "Search",
+            "Search current evidence",
             vec![
-                "Local, read-only filter over the current typed record set.".to_string(),
+                "Local filtering only; no provider request is made.".to_string(),
                 format!("query: {}", state.search_query),
-                "type · Backspace edit · Enter accepts · Esc cancels".to_string(),
-            ],
-        ),
-        Overlay::Detail => (
-            "Evidence detail",
-            vec![
-                "This view is read-only.".to_string(),
-                "Esc returns to the selected record.".to_string(),
-            ],
-        ),
-        Overlay::ActionReview(action_id) => (
-            "Read-only action review",
-            action_review_lines(state, action_id),
-        ),
-        Overlay::Confirmation(action_id) => (
-            "Foundation confirmation",
-            confirmation_lines(state, action_id),
-        ),
-        Overlay::Recovery(transaction) => (
-            "Recovery evidence",
-            vec![
-                "Recovery review is read-only.".to_string(),
-                format!("transaction: {transaction}"),
-                "Do not rerun, repair, rollback, or complete from the UI.".to_string(),
+                "type · Backspace edit · Enter accept · Esc cancel".to_string(),
             ],
         ),
         Overlay::None => unreachable!(),
     };
-    let content = lines.into_iter().map(Line::from).collect::<Vec<_>>();
     frame.render_widget(
-        Paragraph::new(content)
+        Paragraph::new(lines.into_iter().map(Line::from).collect::<Vec<_>>())
             .block(panel(title, theme.heading()))
             .wrap(Wrap { trim: true }),
         area,
     );
 }
 
-fn confirmation_lines(state: &UiState, action_id: &super::model::BoundedId) -> Vec<String> {
-    let Some(prompt) = state.confirmation.as_ref() else {
-        return vec![
-            format!("reference: {action_id}"),
-            "confirmation challenge is unavailable".to_string(),
-            "Esc cancels without execution.".to_string(),
-        ];
+fn render_state_message(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    state: &UiState,
+    home: bool,
+    theme: Theme,
+) {
+    let message = match state.view_state() {
+        ViewState::Loading { .. } => "loading local evidence · the first frame is safe to inspect",
+        ViewState::Refreshing { .. } => {
+            "refreshing local evidence · the previous decision is not reused"
+        }
+        ViewState::Ready { .. } if home => "ready · no attention item was reported",
+        ViewState::Ready { .. } => "ready · no evidence matches this search",
+        ViewState::Unavailable { reason, .. } => {
+            return render_message(
+                frame,
+                area,
+                &format!("unavailable · {reason}"),
+                theme,
+                Tone::Warn,
+            );
+        }
+        ViewState::Empty { .. } => "empty · collection succeeded and found nothing",
+        ViewState::Blocked { reason, .. } => {
+            return render_message(
+                frame,
+                area,
+                &format!("blocked · {reason}"),
+                theme,
+                Tone::Warn,
+            );
+        }
+        ViewState::Stale { reason, .. } => {
+            return render_message(
+                frame,
+                area,
+                &format!("stale · {reason} · r refresh explicitly"),
+                theme,
+                Tone::Warn,
+            );
+        }
+        ViewState::Cancelled { reason, .. } => {
+            return render_message(
+                frame,
+                area,
+                &format!("cancelled · {reason}"),
+                theme,
+                Tone::Warn,
+            );
+        }
+        ViewState::Verified { .. } => "verified · fresh post-action evidence is recorded",
+        ViewState::RecoveryRequired { reason, .. } => {
+            return render_message(
+                frame,
+                area,
+                &format!("recovery-required · {reason}"),
+                theme,
+                Tone::Warn,
+            );
+        }
+        ViewState::Failed { reason, .. } => {
+            return render_message(
+                frame,
+                area,
+                &format!("failed · {reason}"),
+                theme,
+                Tone::Danger,
+            );
+        }
     };
-    vec![
-        "The foundation owns confirmation validation and execution.".to_string(),
-        format!("action: {}", prompt.action_id),
-        format!("plan: {}", prompt.plan_id),
-        format!("target: {}", prompt.target),
-        format!("risk: {}", prompt.risk),
-        format!("plan sha256: {}", prompt.plan_sha256),
-        format!(
-            "rollback: {}",
-            if prompt.rollback_available {
-                "available"
-            } else {
-                "not established"
-            }
-        ),
-        format!(
-            "manual recovery acknowledgement: {}",
-            if prompt.manual_recovery_acknowledged {
-                "recorded"
-            } else {
-                "required by foundation"
-            }
-        ),
-        format!("type exactly: {}", prompt.expected_phrase),
-        format!("input: {}", state.confirmation_input),
-        format!("expires: unix {}", prompt.expires_unix_seconds),
-        "Enter submits to foundation validation · Esc cancels".to_string(),
-    ]
+    render_message(frame, area, message, theme, Tone::Info);
 }
 
-fn action_review_lines(state: &UiState, action_id: &super::model::BoundedId) -> Vec<String> {
-    let Some(record) = state.selected_record() else {
-        return vec![
-            "No action has run.".to_string(),
-            format!("reference: {action_id}"),
-            "foundation review evidence is unavailable".to_string(),
-            "Esc closes this review.".to_string(),
-        ];
-    };
-    if let Some(action) = record
-        .action_refs
-        .iter()
-        .find(|action| action.action_id == *action_id)
-    {
-        return vec![
-            "No action has run.".to_string(),
-            format!("reference: {}", action.action_id),
-            format!("operation: {}", action.review.operation),
-            format!("target: {}", action.review.target),
-            format!("authority: {}", action.review.authority),
-            format!("plan: {}", action.review.plan_id),
-            format!("plan sha256: {}", action.review.plan_sha256),
-            format!("write set sha256: {}", action.review.write_set_sha256),
-            format!("risk: {}", action.review.risk),
-            format!(
-                "confirmation: {}",
-                if action.review.requires_confirmation {
-                    "required"
-                } else {
-                    "not required"
-                }
-            ),
-            format!(
-                "elevation: {} · network: {}",
-                if action.review.requires_elevation {
-                    "required"
-                } else {
-                    "not required"
-                },
-                if action.review.network_required {
-                    "required"
-                } else {
-                    "not required"
-                },
-            ),
-            format!(
-                "capabilities: {}",
-                if action.review.capabilities.is_empty() {
-                    "none".to_string()
-                } else {
-                    action
-                        .review
-                        .capabilities
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                }
-            ),
-            format!("rollback: {}", action.review.rollback),
-            "recovery: foundation transaction and recovery evidence".to_string(),
-            format!(
-                "executed: {}",
-                if action.review.executed { "yes" } else { "no" }
-            ),
-            "Esc closes this review.".to_string(),
-        ];
-    }
-    if let Some(boundary) = record
-        .review_boundary
-        .as_ref()
-        .filter(|boundary| boundary.reference_id == *action_id)
-    {
-        return vec![
-            "No action has run.".to_string(),
-            format!("reference: {}", boundary.reference_id),
-            format!("disposition: {}", boundary.disposition.label()),
-            "confirmation: foundation-owned after plan validation".to_string(),
-            "recovery: foundation transaction and recovery evidence".to_string(),
-            boundary.message.as_str().to_string(),
-            "Esc closes this review.".to_string(),
-        ];
-    }
-    vec![
-        "No action has run.".to_string(),
-        format!("reference: {action_id}"),
-        "foundation review evidence is unavailable".to_string(),
-        "Esc closes this review.".to_string(),
-    ]
+fn render_message(frame: &mut Frame<'_>, area: Rect, message: &str, theme: Theme, tone: Tone) {
+    frame.render_widget(
+        Paragraph::new(Line::from(Span::styled(message, theme.tone(tone))))
+            .wrap(Wrap { trim: true }),
+        area,
+    );
 }
 
 fn render_small_notice(frame: &mut Frame<'_>, area: Rect, theme: Theme) {
@@ -538,6 +673,107 @@ fn render_small_notice(frame: &mut Frame<'_>, area: Rect, theme: Theme) {
             .wrap(Wrap { trim: true }),
         area,
     );
+}
+
+fn push_evidence_fields(lines: &mut Vec<Line<'static>>, record: &UiRecord, theme: Theme) {
+    for evidence in &record.evidence {
+        lines.push(Line::from(format!(
+            "source: {:?} · freshness: {:?}",
+            evidence.source, evidence.freshness
+        )));
+    }
+    if let Some(boundary) = &record.review_boundary {
+        lines.push(Line::from(Span::styled(
+            format!("disposition: {}", boundary.disposition.label()),
+            theme.tone(Tone::Accent),
+        )));
+    }
+}
+
+fn review_lines(record: &UiRecord, theme: Theme) -> Vec<Line<'static>> {
+    let Some(action) = record.action_refs.first() else {
+        return vec![
+            Line::from(Span::styled(
+                "No exact action plan is available.",
+                theme.tone(Tone::Warn),
+            )),
+            Line::from("This is an evidence boundary, not permission to act."),
+        ];
+    };
+    let review = &action.review;
+    vec![
+        Line::from(Span::styled(
+            "not executed · review only",
+            theme.tone(Tone::Warn),
+        )),
+        Line::from(format!("operation: {}", review.operation)),
+        Line::from(format!("target: {}", review.target)),
+        Line::from(format!("authority: {}", review.authority)),
+        Line::from(format!("plan: {}", review.plan_id)),
+        Line::from(format!("plan sha256: {}", review.plan_sha256)),
+        Line::from(format!("write set sha256: {}", review.write_set_sha256)),
+        Line::from(format!("risk: {}", review.risk)),
+        Line::from(format!(
+            "network: {} · elevation: {}",
+            required(review.network_required),
+            required(review.requires_elevation)
+        )),
+        Line::from(format!(
+            "capabilities: {}",
+            if review.capabilities.is_empty() {
+                "none".to_string()
+            } else {
+                review
+                    .capabilities
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }
+        )),
+        Line::from(format!("rollback: {}", review.rollback)),
+    ]
+}
+
+fn required(value: bool) -> &'static str {
+    if value { "required" } else { "not required" }
+}
+
+fn has_review(record: &UiRecord) -> bool {
+    record.action_refs.iter().any(|action| {
+        matches!(
+            action.disposition,
+            ActionDisposition::Reviewable | ActionDisposition::Blocked
+        )
+    }) || record
+        .review_boundary
+        .as_ref()
+        .is_some_and(|boundary| boundary.disposition != ActionDisposition::Unavailable)
+}
+
+fn has_action_plan(record: &UiRecord) -> bool {
+    record.action_refs.iter().any(|action| {
+        matches!(
+            action.disposition,
+            ActionDisposition::Reviewable | ActionDisposition::Blocked
+        )
+    })
+}
+
+fn view_state_label(state: &ViewState) -> (&'static str, Tone) {
+    match state {
+        ViewState::Loading { .. } => ("loading", Tone::Accent),
+        ViewState::Refreshing { .. } => ("refreshing", Tone::Accent),
+        ViewState::Ready { .. } => ("ready", Tone::Safe),
+        ViewState::Unavailable { .. } => ("unavailable", Tone::Warn),
+        ViewState::Empty { .. } => ("empty", Tone::Info),
+        ViewState::Blocked { .. } => ("blocked", Tone::Danger),
+        ViewState::Stale { .. } => ("stale", Tone::Warn),
+        ViewState::Cancelled { .. } => ("cancelled", Tone::Warn),
+        ViewState::Verified { .. } => ("verified", Tone::Safe),
+        ViewState::RecoveryRequired { .. } => ("recovery-required", Tone::Warn),
+        ViewState::Failed { .. } => ("failed", Tone::Danger),
+    }
 }
 
 fn panel(title: &str, style: Style) -> Block<'static> {
@@ -580,9 +816,8 @@ mod tests {
     use ratatui::backend::TestBackend;
 
     #[test]
-    fn dossier_shell_has_required_first_screen_labels_without_color() {
-        let model = fixture_model();
-        let state = UiState::new(model);
+    fn home_shell_is_calm_and_has_no_route_bar_or_numeric_shortcuts() {
+        let state = UiState::new(fixture_model());
         let mut terminal = Terminal::new(TestBackend::new(118, 30)).expect("test terminal");
         terminal
             .draw(|frame| draw_shell(frame, &state, false))
@@ -590,18 +825,30 @@ mod tests {
         let text = frame_text(terminal.backend().buffer());
         for label in [
             "runtime.zero",
-            "Overview",
-            "Explore",
-            "Review",
-            "Activity",
-            "Modules",
+            "HOME",
+            "Next safe actions",
+            "Selected evidence",
         ] {
             assert!(text.contains(label), "missing {label} in {text}");
         }
-        assert!(
-            text.contains("No action has run")
-                || text.contains("Review action")
-                || text.contains("Review boundary")
-        );
+        assert!(!text.contains("[1 Overview]"));
+        assert!(!text.contains("Modules"));
+        assert!(text.contains("Enter inspect"));
+    }
+
+    #[test]
+    fn semantic_states_render_without_color() {
+        let mut state = UiState::new(fixture_model());
+        state.apply_event(super::super::messages::UiEvent::JobSucceeded {
+            receipt: super::super::model::BoundedId::try_new("receipt/1").expect("id"),
+            verification: super::super::model::BoundedId::try_new("verify/1").expect("id"),
+        });
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("test terminal");
+        terminal
+            .draw(|frame| draw_shell(frame, &state, false))
+            .expect("draw");
+        let text = frame_text(terminal.backend().buffer());
+        assert!(text.contains("verified"));
+        assert!(text.contains("receipt/1"));
     }
 }

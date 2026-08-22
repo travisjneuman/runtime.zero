@@ -12,7 +12,7 @@ impl LayoutTier {
     pub const fn from_size(width: u16, height: u16) -> Self {
         if width < 50 || height < 12 {
             Self::VerySmall
-        } else if width < 72 || height < 20 {
+        } else if width < 74 || height < 20 {
             Self::Compact
         } else if width >= 110 && height >= 24 {
             Self::Wide
@@ -25,7 +25,7 @@ impl LayoutTier {
         match self {
             Self::VerySmall => "<50x12",
             Self::Compact => "50x12",
-            Self::Standard => "72x20",
+            Self::Standard => "74x20",
             Self::Wide => "110x24",
         }
     }
@@ -35,7 +35,7 @@ impl LayoutTier {
 pub struct LayoutPlan {
     pub tier: LayoutTier,
     pub header: Rect,
-    pub routes: Rect,
+    pub context: Rect,
     pub primary: Rect,
     pub detail: Rect,
     pub status: Rect,
@@ -47,9 +47,8 @@ impl LayoutPlan {
     pub fn for_area(area: Rect) -> Self {
         let tier = LayoutTier::from_size(area.width, area.height);
         let header = take_top(area, 2);
-        let after_header = below(area, 2);
-        let routes = take_top(after_header, 2);
-        let body = below(after_header, 2);
+        let context = take_top(below(area, 2), 1);
+        let body = below(area, 3);
         let footer = take_bottom(body, 2);
         let status = take_top(footer, 1);
         let keys = take_bottom(footer, 1);
@@ -60,7 +59,7 @@ impl LayoutPlan {
                 let detail_height =
                     content
                         .height
-                        .min(if tier == LayoutTier::Compact { 7 } else { 9 });
+                        .min(if tier == LayoutTier::Compact { 8 } else { 10 });
                 (
                     Rect::new(
                         content.x,
@@ -77,7 +76,7 @@ impl LayoutPlan {
                 )
             }
             LayoutTier::Wide => {
-                let detail_width = content.width.min(44);
+                let detail_width = content.width.min(48);
                 (
                     Rect::new(
                         content.x,
@@ -96,13 +95,13 @@ impl LayoutPlan {
         };
         let overlay = centered(
             area,
-            area.width.saturating_sub(6),
-            area.height.saturating_sub(4),
+            area.width.saturating_sub(8),
+            area.height.saturating_sub(5),
         );
         Self {
             tier,
             header,
-            routes,
+            context,
             primary,
             detail,
             status,
@@ -159,7 +158,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn layout_tiers_match_the_rfc_floor_and_review_sizes() {
+    fn layout_tiers_match_the_operator_floor() {
         assert_eq!(LayoutTier::from_size(42, 10), LayoutTier::VerySmall);
         assert_eq!(LayoutTier::from_size(58, 16), LayoutTier::Compact);
         assert_eq!(LayoutTier::from_size(80, 24), LayoutTier::Standard);
@@ -167,13 +166,13 @@ mod tests {
     }
 
     #[test]
-    fn named_regions_stay_inside_the_terminal() {
+    fn named_regions_stay_inside_the_terminal_after_resize() {
         for (width, height) in [(42, 10), (58, 16), (80, 24), (118, 30), (160, 50)] {
             let area = Rect::new(0, 0, width, height);
             let plan = LayoutPlan::for_area(area);
             for region in [
                 plan.header,
-                plan.routes,
+                plan.context,
                 plan.primary,
                 plan.detail,
                 plan.status,

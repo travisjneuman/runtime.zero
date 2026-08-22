@@ -201,6 +201,9 @@ pub enum ViewState {
     Loading {
         generation: u64,
     },
+    Refreshing {
+        generation: u64,
+    },
     Ready {
         generation: u64,
     },
@@ -219,6 +222,17 @@ pub enum ViewState {
         generation: u64,
         reason: BoundedText,
     },
+    Cancelled {
+        generation: u64,
+        reason: BoundedText,
+    },
+    Verified {
+        generation: u64,
+    },
+    RecoveryRequired {
+        generation: u64,
+        reason: BoundedText,
+    },
     Failed {
         generation: u64,
         reason: BoundedText,
@@ -229,11 +243,15 @@ impl ViewState {
     pub const fn generation(&self) -> u64 {
         match self {
             Self::Loading { generation }
+            | Self::Refreshing { generation }
             | Self::Ready { generation }
             | Self::Unavailable { generation, .. }
             | Self::Empty { generation }
             | Self::Blocked { generation, .. }
             | Self::Stale { generation, .. }
+            | Self::Cancelled { generation, .. }
+            | Self::Verified { generation }
+            | Self::RecoveryRequired { generation, .. }
             | Self::Failed { generation, .. } => *generation,
         }
     }
@@ -241,11 +259,15 @@ impl ViewState {
     pub const fn label(&self) -> &'static str {
         match self {
             Self::Loading { .. } => "loading",
+            Self::Refreshing { .. } => "refreshing",
             Self::Ready { .. } => "ready",
             Self::Unavailable { .. } => "unavailable",
             Self::Empty { .. } => "empty",
             Self::Blocked { .. } => "blocked",
             Self::Stale { .. } => "stale",
+            Self::Cancelled { .. } => "cancelled",
+            Self::Verified { .. } => "verified",
+            Self::RecoveryRequired { .. } => "recovery-required",
             Self::Failed { .. } => "failed",
         }
     }
@@ -693,10 +715,13 @@ impl UiModel {
     }
 
     pub fn refreshing(generation: u64) -> Self {
+        let state = ViewState::Refreshing { generation };
         let mut model = Self::loading(generation);
+        model.state = state.clone();
         model.status = BoundedText::try_new("refreshing local snapshot · no action is running")
             .expect("static UI status is valid");
         for route in &mut model.routes {
+            route.state = state.clone();
             route.summary =
                 BoundedText::try_new("refreshing evidence").expect("static UI summary is valid");
         }
@@ -835,7 +860,7 @@ mod tests {
     #[test]
     fn refreshing_model_exposes_an_explicit_refresh_state() {
         let model = UiModel::refreshing(7);
-        assert_eq!(model.state.label(), "loading");
+        assert_eq!(model.state.label(), "refreshing");
         assert!(
             model
                 .status
@@ -855,6 +880,7 @@ mod tests {
         let generation = 9;
         let states = [
             ViewState::Loading { generation },
+            ViewState::Refreshing { generation },
             ViewState::Ready { generation },
             ViewState::Unavailable {
                 generation,
@@ -869,6 +895,15 @@ mod tests {
                 generation,
                 reason: BoundedText::redacted(),
             },
+            ViewState::Cancelled {
+                generation,
+                reason: BoundedText::redacted(),
+            },
+            ViewState::Verified { generation },
+            ViewState::RecoveryRequired {
+                generation,
+                reason: BoundedText::redacted(),
+            },
             ViewState::Failed {
                 generation,
                 reason: BoundedText::redacted(),
@@ -878,11 +913,15 @@ mod tests {
             states.iter().map(ViewState::label).collect::<Vec<_>>(),
             [
                 "loading",
+                "refreshing",
                 "ready",
                 "unavailable",
                 "empty",
                 "blocked",
                 "stale",
+                "cancelled",
+                "verified",
+                "recovery-required",
                 "failed"
             ]
         );

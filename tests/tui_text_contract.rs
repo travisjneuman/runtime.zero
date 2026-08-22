@@ -7,7 +7,8 @@ fn scriptable_dashboard_text_keeps_the_public_safety_copy() {
     let rendered = render_dashboard(&fixture_model(), false);
     assert!(rendered.contains("runtime.zero"));
     assert!(rendered.contains("local snapshot"));
-    assert!(rendered.contains("Home / next step"));
+    assert!(rendered.contains("Home / next safe action"));
+    assert!(rendered.contains("CLI escape hatch"));
     assert!(rendered.contains("status"));
     assert!(!rendered.contains("\x1b["));
 }

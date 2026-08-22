@@ -384,7 +384,11 @@ fn record_from_row(
         RecordStatus::Blocked | RecordStatus::Warn => UiActionDisposition::Blocked,
         _ => UiActionDisposition::Unavailable,
     };
-    let review_boundary = ReviewBoundary {
+    let review_boundary = matches!(
+        status,
+        RecordStatus::Plan | RecordStatus::Warn | RecordStatus::Blocked
+    )
+    .then(|| ReviewBoundary {
         reference_id: bounded_id(format!(
             "review-boundary/{}/{index}",
             route.title().to_ascii_lowercase()
@@ -393,7 +397,7 @@ fn record_from_row(
         message: bounded(
             "Read-only review boundary. The foundation must provide an exact action plan before any confirmation or execution path exists.",
         ),
-    };
+    });
     let mut details = Vec::new();
     if let Ok(field) = DetailField::text("source", section.title) {
         details.push(field);
@@ -428,7 +432,7 @@ fn record_from_row(
             redaction: RedactionState::PathRedacted,
         }],
         action_refs: Vec::new(),
-        review_boundary: Some(review_boundary),
+        review_boundary,
         search_terms: SearchTerms(vec![
             bounded(section.title),
             bounded(row.label),

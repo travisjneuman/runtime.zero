@@ -6,167 +6,133 @@ explicitly, `rz0 --no-tui` for deterministic text, and `rz0 --json` for the
 read-only machine-readable dashboard. Explicit subcommands never launch the
 TUI.
 
-The TUI is the Rust-first Dossier Queue presentation of the same evidence,
-provider, action-plan, confirmation, transaction, cancellation, receipt, and
-verification contracts used by the CLI. It is not a second authority path.
-The repository remains pre-alpha; this guide records source and test evidence,
-not owner, platform, or public-release acceptance.
+The interactive path is a task-first operator console over the same typed
+foundation evidence, provider review, action-plan, confirmation, cancellation,
+transaction, receipt, verification, and recovery contracts used by the CLI.
+The UI owns presentation and terminal lifecycle only; it cannot invent an
+action or bypass a foundation gate.
 
-## First frame and loading
+## The operator path
 
-The program renders a small local-control shell before collecting the full
-software inventory and system snapshot. The initial frame says `loading local
-snapshot`; the background read then replaces it with the completed local
-dashboard. A disconnected worker fails closed and is shown as unavailable. No
-automatic retry occurs: `r` is an explicit refresh request. `q` cancels and
-drops an in-flight startup or refresh worker before leaving the TUI. Pressing
-`r` cancels the previous load, increments a generation, and starts one new
-worker; a late result from an older generation cannot replace the newer
-snapshot. The refresh frame explicitly says `refreshing local snapshot` so the
-request is visible even when the previous load has not completed yet.
+Home answers three questions in one quiet frame: is the local evidence ready,
+what needs attention, and what is the single safest next action. The normal
+path is deliberately linear:
 
-The shell is local and read-only until an exact provider action is reviewed,
-confirmed, executed, and freshly verified. Loading, ready, unavailable, empty,
-blocked, stale, and failed are separate states; an empty result is not treated
-as “not loaded.” Provider review is explicit (`u`) and cancellable, so a slow
-provider cannot block the ready local first screen.
-Provider probes run through the Rust process host in a detached Unix session so
-provider output cannot reopen `/dev/tty` and overwrite the runtime.zero frame.
+```text
+Home
+  -> select a concrete attention or evidence item
+  -> Enter: inspect the evidence dossier
+  -> Enter: read the exact foundation plan and authority boundary
+  -> c: request the short-lived foundation confirmation challenge
+  -> type the exact phrase in the dedicated confirmation state
+  -> Enter: submit to foundation validation
+  -> Activity: see progress, cancellation, verified receipt, or recovery-required
+```
 
-## Workspaces
+`c` is only recognized inside Plan Review. There is no global confirmation
+shortcut. Confirmation input is never interpreted as navigation, and Esc
+cancels the challenge without implying rollback.
 
-The UI has five stable destinations:
+Inventory (`i`) is the searchable evidence index. It contains the current
+foundation records, including module-contributed content; modules do not add
+tabs, widgets, global key bindings, lifecycle state, or execution authority.
+Activity (`a`) is the visible place for provider review, action preparation,
+progress, cancellation, receipts, verification, failed outcomes, and
+recovery-required evidence. Provider review is explicit (`u`) and has no
+automatic retry.
 
-- `OVERVIEW`: local readiness, attention, and the next safe step;
-- `EXPLORE`: searchable local evidence and provider observations;
-- `REVIEW`: exact action plans, findings, blocked boundaries, and confirmation
-  requirements;
-- `ACTIVITY`: running, cancellation, receipt, stale, and recovery evidence;
-- `MODULES`: registry-backed module posture without lifecycle authority.
+## States
 
-The Diagnostics workspace derives module lifecycle counts from the same
-registry/receipt status contract as `rz0 modules status`: valid evidence is
-shown as installed-inactive, receipt or registry problems are shown as
-degraded, valid developer-stage evidence is shown as staged, and the workspace
-  explicitly says lifecycle execution is unavailable. Staged evidence that fails
-the receipt, immutable transaction-journal, commit-receipt, or byte checks is
-counted separately as requiring review rather than being shown as valid staged
-material.
-It never renders an active-module claim or adds activation/invocation controls.
-The selected Diagnostics evidence also exposes the effective built-in policy
-digest and the compact statement that network, production modules, shell
-execution, telemetry, and automatic lifecycle work remain disabled. The same
-digest is available from `rz0 config --format json`.
+The first frame and every task surface carry a semantic state label. The UI
+keeps these distinct:
 
-The same bounded Dossier Queue shell is reused in every destination. Modules
-contribute typed records and references only; they cannot add global chrome,
-keymaps, focus regions, lifecycle state, confirmation, or execution authority.
+- `loading`: the first local snapshot has not published;
+- `refreshing`: an explicit refresh is collecting a new generation;
+- `ready`: validated evidence exists;
+- `empty`: collection succeeded and found nothing;
+- `unavailable`: collection could not provide evidence;
+- `blocked`: foundation policy prevents the next step;
+- `failed`: the foundation or provider returned a failed outcome;
+- `cancelled`: the operator stopped a job; this is not rollback;
+- `verified`: a receipt and fresh verification reference were returned;
+- `recovery-required`: read-only recovery evidence needs operator review.
 
-The primary list is intentionally concise: Home shows the next provider-review
-decision and small toolchain/software counts, while selected details carry
-dense evidence such as identity groups, load averages, journal counts,
-active-use uncertainty, and integrity posture. This keeps the interface calm
-without hiding information from the keyboard-accessible selected pane or the
-scriptable CLI/JSON surfaces.
-
-Home and Toolchain expose bounded provider classification from the same local
-catalog. Toolchain rows include the same bounded named executable evidence as
-`rz0 scan`; unknown or wrapper-like PATH names remain observations and do not
-become provider actions. Provider review remains an explicit read-only updater
-workflow and does not create a second action path.
+An empty result is never rendered as loading or unavailable. A late worker
+result from an older generation cannot replace the current snapshot.
 
 ## Layout and terminal behavior
 
-The TUI uses `crossterm` for raw terminal control and Ratatui for the
-interactive layout. The scriptable text renderer uses the same dashboard model
-without raw mode. There are never more than two bordered content panels:
+The shell has one header, one task/evidence surface, one selected detail or
+authority surface, and one status/control footer. It has no persistent command
+rail, numeric route bar, implementation-metric cards, duplicate status cards,
+or packed one-line row grid.
 
 ```text
-runtime.zero / OVERVIEW                         ready
-attention first · choose the next safe step
-[1 Overview] [2 Explore] [3 Review] [4 Activity] [5 Modules]
-┌ Overview · evidence queue ─────────────┐ ┌ Selected detail ─────────┐
-│ > [OK] local snapshot ready             │ │ source: overview         │
-│   [PLAN] provider review not requested   │ │ state: read-only         │
-└─────────────────────────────────────────┘ └───────────────────────────┘
-status · job idle
-↑↓/jk move · Tab focus · Enter detail/review · c confirm · q quit
+runtime.zero / HOME  ready
+what needs attention · the safest next action
+┌ Next safe actions ──────────────────────┐ ┌ Selected evidence ─────────┐
+│ > REVIEW  Rust toolchain plan           │ │ [PLAN] Rust toolchain plan │
+│   provider evidence is ready             │ │ source: foundation         │
+│   PLAN    local evidence needs review    │ │ next: Enter inspect plan   │
+└─────────────────────────────────────────┘ └─────────────────────────────┘
+status  local evidence ready · job idle
+↑↓ select · Enter inspect · i inventory · a activity · ? help · q quit
 ```
 
-Named layout tiers keep content bounded:
+The layout adapts without changing the workflow:
 
-- below `50x12`: a safe notice and the `rz0 --no-tui` escape hatch;
-- compact: the primary list and selected context stack without clipped
-  controls;
-- standard and wide: the same two surfaces with more room for explanations.
+- below `50x12`: a semantic safe notice plus `rz0 --no-tui` escape hatch;
+- compact terminals: queue and detail stack vertically;
+- standard and wide terminals: queue and detail sit side by side where space
+  permits;
+- resize redraws from the same typed state, with no route or selection reset.
 
 The terminal guard enters raw mode and the alternate screen, hides the cursor,
-handles resize and key-repeat events, ignores key-release navigation, and
-restores raw mode, cursor visibility, mouse capture, and the normal screen on
-exit or panic unwinding. `q` cancels an active provider review or fresh action
-preparation before leaving. `NO_COLOR` and `--color=never` preserve all semantic
-labels without ANSI; JSON is always ANSI-free.
+captures mouse input, ignores key-release navigation, and restores terminal
+state on normal exit, cancellation, error, and panic unwinding. `NO_COLOR` and
+`--color=never` preserve all labels, status words, and focus instructions
+without relying on color.
 
 ## Controls
 
-- `q`: quit safely;
-- `r`: explicitly refresh the local snapshot;
-- `u`: perform a read-only provider-availability review;
-- `c`: request the foundation-owned confirmation challenge for the selected
-  reviewable action;
-- `/`: search cached software records; Enter accepts and Esc cancels;
-- `Tab` / `Shift+Tab`: cycle navigation, selected details, and context pane;
-- arrows or `j`/`k`: move within the focused region;
-- `Home` / `End`: jump to the relevant boundary;
-- `Enter`: open detail or the read-only action review;
-- mouse click: select a route/record or open detail; wheel moves the bounded list;
-- `h` / `?`: open help; `Esc`: close details/help/search/confirmation before
-  backing out or quitting.
+- `q`: quit and cancel UI-owned workers;
+- `Esc`: close help/search, cancel confirmation, or step back; when a job is
+  running it requests cancellation;
+- `↑`/`↓` or `j`/`k`: select an item in the focused queue;
+- `Tab` / `Shift+Tab`: cycle task queue, detail, and controls focus;
+- `Enter`: inspect the selected item or open its exact plan from Evidence;
+- `c`: prepare foundation confirmation, only from Plan Review;
+- `i`: open Inventory; `h`: return Home; `a`: open Activity;
+- `u`: explicitly review provider evidence; `r`: explicitly refresh local
+  evidence; `/`: locally search Inventory; `?`: show controls;
+- mouse click: select a queue item or open the selected detail; wheel moves the
+  bounded queue.
 
-Review is an entry point, not permission to write. The TUI shows the exact
-foundation action reference, plan and write-set digests, target, risk,
-capabilities, network/elevation requirements, rollback/recovery posture, and
-action ID before it requests the short-lived exact confirmation phrase.
-Cancellation and failed or stale evidence remain visible and read-only.
+The CLI remains available at every terminal size. `rz0 --no-tui` is the
+deterministic text projection of the same typed model, and `rz0 --json` remains
+the ANSI-free `foundation_dashboard` contract.
 
-## Evidence and provider posture
+## Foundation boundary
 
-Explore and Review consume evidence-backed provider records rather than
-assuming that a display name owns an update channel. Each action record is
-derived from the foundation `ActionPlan` and carries sealed plan/write-set
-digests, risk, capabilities, confirmation, identity, rollback, and recovery
-posture. A planned update is re-prepared against fresh evidence by the
-existing foundation function before any challenge or execution; the UI never
-constructs or validates a plan itself.
+The UI consumes bounded, path-redacted records from `src/ui/foundation_adapter.rs`.
+It does not collect providers directly, construct plans, validate confirmation
+phrases, execute processes, write transactions, interpret receipts, or decide
+recovery. A planned action is re-prepared through the existing foundation
+function against fresh evidence before the challenge is displayed.
 
-The `u` review may request bounded network metadata according to the existing
-CLI policy, but it never writes. A planned update still requires the shared
-exact executable binding, plan-bound confirmation, transaction evidence, fresh
-post-action verification, and receipt/recovery state. The TUI cannot bypass
-those gates.
-
-## Read-only JSON parity
-
-`rz0 --json` remains a versioned `foundation_dashboard` snapshot. It includes
-the same five sections, rows, visible labels, store/registry/receipt/module
-posture, provider-review status, and update counters used by the TUI. Terminal
-dimensions, color, raw mode, and Ratatui state must not affect the JSON shape.
-The dashboard JSON also exposes `inactive_module_count`,
-`degraded_module_count`, and `module_lifecycle_execution_available`; these are
-status fields only and do not authorize lifecycle actions. It also exposes
-`configuration_sha256`, which identifies the immutable built-in policy in force
-without exposing host paths or loading user configuration.
+The active presentation implementation is split into pure model/state/layout/
+widget projections and `src/ui/task_terminal.rs`, which owns raw-mode lifecycle,
+event translation, cancellation, and delegation to the foundation workers.
+The scriptable projection is `src/ui/text.rs`; the old direct terminal module is
+not an interactive launch target.
 
 ## Validation contract
 
-Automated coverage includes reducer focus/navigation behavior, loading,
-unavailable, empty, and blocked failed-closed states, plain/color text parity,
-JSON ANSI exclusion, Ratatui buffer bounds, all five destinations,
-help/search/confirmation overlays, PTY restoration, and the shared update
-plan/action IDs. The typed model also rejects incomplete route sets, generation
-drift, duplicate record/action ownership, and common unredacted host-path
-forms; mouse route clicks focus the destination before keyboard movement. The
-required local checks are:
+TUI coverage includes reducer task-flow tests, deterministic Ratatui buffers,
+all required sizes (`58x16`, `80x24`, `118x30`, `160x50`), no-color semantic
+assertions, loading/refreshing/empty/unavailable/blocked/failed/cancelled/
+verified/recovery-required outcomes, mouse bounds, and a PTY smoke. Run the
+smallest relevant checks first:
 
 ```bash
 cargo fmt --all -- --check
@@ -175,29 +141,7 @@ cargo run --locked -- doctor
 cargo run --locked -- scan --dry-run
 ```
 
-Automated buffer tests do not replace review in real terminals, SSH/tmux,
-Windows Terminal/Console, macOS terminals, Linux terminals, screen readers,
-and at the supported compact sizes. The release gate also requires a final
-artifact PTY smoke and explicit owner acceptance; neither is implied by a
-passing Rust test.
-
-## Implementation boundaries
-
-- `src/tui_dashboard.rs` remains a foundation-owned bounded snapshot builder
-  used by CLI/JSON and the typed adapter; it is not an interactive renderer;
-- `src/ui/text.rs` is the deterministic scriptable text projection for
-  `--no-tui`, consuming the same typed model as the interactive path;
-- `src/ui/model.rs` and `src/ui/foundation_adapter.rs` define bounded typed
-  records and projections from foundation evidence/action plans;
-- `src/ui/messages.rs` and `src/ui/state.rs` define the reducer, focus,
-  overlays, search, confirmation input, stale generations, and job states;
-- `src/ui/layout.rs`, `src/ui/widgets.rs`, `src/ui/screens/`, and
-  `src/ui/theme.rs` own pure Ratatui composition;
-- `src/ui/terminal.rs` owns raw-mode lifecycle and one-at-a-time cancellable
-  workers that delegate review/prepare/execute to foundation contracts;
-- `src/ui/testkit.rs` owns deterministic TestBackend fixtures and buffer
-  assertions.
-
-The old command-rail component/module is retired. Future UI work should extend
-typed workspace/provider/action states and shared CLI contracts rather than
-reintroducing parallel command catalogs or permanent chrome.
+Automated buffers and PTY evidence do not replace human review in real macOS,
+Linux, Windows, SSH/tmux, and screen-reader sessions. This project remains
+pre-alpha; source/test evidence is reported separately from platform,
+accessibility, and owner acceptance.
